@@ -107,6 +107,7 @@ cdef class Loop:
         self._close()
 
 
+@cython.freelist(100)
 cdef class Handle:
     cdef:
         object callback
@@ -118,8 +119,11 @@ cdef class Handle:
         self.args = args
         self.cancelled = 0
 
-    def cancel(self):
-        pass
+    cpdef cancel(self):
+        self.cancelled = 1
 
     cdef _run(self):
-        self.callback(*self.args)
+        if self.args is None:
+            self.callback()
+        else:
+            self.callback(*self.args)
