@@ -48,9 +48,21 @@ setup(
     cmdclass = {'build_ext': libuv_build_ext},
     ext_modules=[
         Extension(
-            "uvloop.uvloop",
+            "uvloop.loop",
             sources = [
-                "uvloop/uvloop.c",
+                "uvloop/loop.c",
+            ]
+        ),
+        Extension(
+            "uvloop.idle",
+            sources = [
+                "uvloop/idle.c",
+            ]
+        ),
+        Extension(
+            "uvloop.signal",
+            sources = [
+                "uvloop/signal.c",
             ]
         )
     ],
