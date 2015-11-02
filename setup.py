@@ -64,6 +64,12 @@ setup(
             sources = [
                 "uvloop/signal.c",
             ]
+        ),
+        Extension(
+            "uvloop.async_",
+            sources = [
+                "uvloop/async_.c",
+            ]
         )
     ],
     provides=['uvloop'],

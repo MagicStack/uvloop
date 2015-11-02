@@ -5,12 +5,19 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef struct uv_loop_t:
         void* data
+        # ,,,
 
     ctypedef struct uv_idle_t:
         void* data
+        # ,,,
 
     ctypedef struct uv_signal_t:
         void* data
+        # ,,,
+
+    ctypedef struct uv_async_t:
+        void* data
+        # ,,,
 
     ctypedef enum uv_run_mode:
         UV_RUN_DEFAULT = 0,
@@ -19,6 +26,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef void (*uv_idle_cb)(uv_idle_t* handle)
     ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum)
+    ctypedef void (*uv_async_cb)(uv_async_t* handle)
 
     int uv_loop_init(uv_loop_t* loop)
     int uv_loop_close(uv_loop_t* loop)
@@ -37,3 +45,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
                         uv_signal_cb signal_cb,
                         int signum)
     int uv_signal_stop(uv_signal_t* handle)
+
+    int uv_async_init(uv_loop_t*,
+                      uv_async_t* async,
+                      uv_async_cb async_cb)
+
+    int uv_async_send(uv_async_t* async)

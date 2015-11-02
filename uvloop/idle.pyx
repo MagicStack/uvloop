@@ -31,8 +31,9 @@ cdef class Idle:
             self.running = 0
 
     cdef start(self):
-        uv.uv_idle_start(self.handle, cb_idle_callback)
-        self.running = 1
+        if self.running == 0:
+            uv.uv_idle_start(self.handle, cb_idle_callback)
+            self.running = 1
 
 
 cdef void cb_idle_callback(uv.uv_idle_t* handle):

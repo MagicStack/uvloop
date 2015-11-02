@@ -32,8 +32,9 @@ cdef class Signal:
             self.running = 0
 
     cdef start(self):
-        uv.uv_signal_start(self.handle, cb_signal_callback, self.signum)
-        self.running = 1
+        if self.running == 0:
+            uv.uv_signal_start(self.handle, cb_signal_callback, self.signum)
+            self.running = 1
 
 
 cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum):

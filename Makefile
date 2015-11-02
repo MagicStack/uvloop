@@ -7,7 +7,9 @@ clean:
 
 
 compile:
-	cython -a uvloop/loop.pyx uvloop/idle.pyx uvloop/signal.pyx
+	cython -a uvloop/loop.pyx uvloop/idle.pyx uvloop/signal.pyx \
+			uvloop/async_.pyx
+
 	python3 setup.py build_ext --inplace
 
 
