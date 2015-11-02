@@ -1,6 +1,6 @@
 # cython: language_level=3
 
-import asyncio
+
 import collections
 import functools
 import signal
@@ -22,7 +22,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.exc cimport PyErr_CheckSignals, PyErr_Occurred
 
 
-
+@cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
         self.loop = <uv.uv_loop_t*> \
@@ -32,6 +32,15 @@ cdef class Loop:
         self._debug = 0
 
         uv.uv_loop_init(self.loop)
+
+        # Seems that Cython still can't cleanup module state
+        # on its finalization (in Python 3 at least).
+        # If a ref from *this* module to asyncio isn't cleared,
+        # the policy won't be properly destroyed, hence the
+        # loop won't be properly destroyed, hence some warnings
+        # might not be shown at all.
+        asyncio = __import__('asyncio')
+        self._default_task_constructor = asyncio.Task
 
     def __dealloc__(self):
         try:
@@ -124,7 +133,7 @@ cdef class Loop:
         return self._call_later(when, callback)
 
     def time(self):
-        return self._time()
+        return self._time() / 1000
 
     def stop(self):
         self._call_soon(lambda: self._stop())
@@ -148,7 +157,10 @@ cdef class Loop:
             self._debug = 0
 
     def create_task(self, coro):
-        return asyncio.Task(coro, loop=self)
+        return self._default_task_constructor(coro, loop=self)
+
+    def call_exception_handler(self, context):
+        print("!!! EXCEPTION HANDLER !!!", context)
 
 
 @cython.internal
@@ -157,6 +169,7 @@ cdef class Handle:
     cdef:
         object callback
         int cancelled
+        object __weakref__
 
     def __cinit__(self, Loop loop, object callback):
         self.callback = callback
@@ -176,6 +189,7 @@ cdef class TimerHandle:
         object callback
         int cancelled
         Timer timer
+        object __weakref__
 
     def __cinit__(self, Loop loop, object callback, uint64_t delay):
         self.callback = callback
@@ -185,8 +199,8 @@ cdef class TimerHandle:
 
     cpdef cancel(self):
         if self.cancelled == 0:
-            self.timer.stop()
             self.cancelled = 1
+            self.timer.stop()
 
     def _run(self):
         if self.cancelled == 0:

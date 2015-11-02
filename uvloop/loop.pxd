@@ -23,6 +23,9 @@ cdef class Loop:
         object last_error
         object callbacks
         object partial
+        object _default_task_constructor
+
+        cdef object __weakref__
 
     cdef _run(self, uv.uv_run_mode)
     cdef _close(self)
