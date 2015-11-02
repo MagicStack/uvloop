@@ -39,4 +39,5 @@ cdef class Signal:
 
 cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum):
     cdef Signal sig = <Signal> handle.data
+    sig.running = 0
     sig.callback()

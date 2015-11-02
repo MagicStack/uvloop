@@ -70,6 +70,12 @@ setup(
             sources = [
                 "uvloop/async_.c",
             ]
+        ),
+        Extension(
+            "uvloop.timer",
+            sources = [
+                "uvloop/timer.c",
+            ]
         )
     ],
     provides=['uvloop'],
