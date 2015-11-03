@@ -216,13 +216,13 @@ cdef class Loop:
     def call_soon(self, callback, *args):
         if self._debug == 1:
             self._check_thread()
-        if len(args):
+        if args:
             _cb = callback
             callback = lambda: _cb(*args)
         return self._call_soon(callback)
 
     def call_soon_threadsafe(self, callback, *args):
-        if len(args):
+        if args:
             _cb = callback
             callback = lambda: _cb(*args)
         handle = self._call_soon(callback)
@@ -234,7 +234,7 @@ cdef class Loop:
         if self._debug == 1:
             self._check_thread()
         cdef uint64_t when = <uint64_t>(delay * 1000)
-        if len(args):
+        if args:
             _cb = callback
             callback = lambda: _cb(*args)
         return self._call_later(when, callback)
