@@ -1,40 +1,48 @@
-# cython: language_level=3
-
-
 from . cimport uv
 from .loop cimport Loop
+from .handle cimport Handle
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 
-cdef class Signal:
+cdef class Signal(Handle):
     def __cinit__(self, Loop loop, object callback, int signum):
-        self.handle = <uv.uv_signal_t*> \
+        cdef int err
+
+        self.handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_signal_t))
+        if self.handle is NULL:
+            raise MemoryError()
 
         self.handle.data = <void*> self
+
+        err = uv.uv_signal_init(loop.loop, <uv.uv_signal_t *>self.handle)
+        if err < 0:
+            loop._handle_uv_error(err)
+
         self.callback = callback
-
-        uv.uv_signal_init(loop.loop, self.handle)
-
         self.running = 0
         self.signum = signum
         self.loop = loop
 
-    def __dealloc__(self):
-        try:
-            self.stop()
-        finally:
-            PyMem_Free(self.handle)
+    cdef stop(self):
+        cdef int err
 
-    cdef void stop(self):
         if self.running == 1:
-            uv.uv_signal_stop(self.handle)
+            err = uv.uv_signal_stop(<uv.uv_signal_t *>self.handle)
+            if err < 0:
+                self.loop._handle_uv_error(err)
             self.running = 0
 
-    cdef void start(self):
+    cdef start(self):
+        cdef int err
+
         if self.running == 0:
-            uv.uv_signal_start(self.handle, cb_signal_callback, self.signum)
+            err = uv.uv_signal_start(<uv.uv_signal_t *>self.handle,
+                                     cb_signal_callback,
+                                     self.signum)
+            if err < 0:
+                self.loop._handle_uv_error(err)
             self.running = 1
 
 

@@ -5,15 +5,15 @@ from libc.stdint cimport uint64_t
 
 from . cimport uv
 from .loop cimport Loop
+from .handle cimport Handle
 
 
-cdef class Timer:
+cdef class Timer(Handle):
     cdef:
-        uv.uv_timer_t *handle
         object callback
         int running
         uint64_t timeout
         Loop loop
 
-    cdef void stop(self)
-    cdef void start(self)
+    cdef stop(self)
+    cdef start(self)

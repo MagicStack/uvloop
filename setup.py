@@ -54,6 +54,12 @@ setup(
             ]
         ),
         Extension(
+            "uvloop.handle",
+            sources = [
+                "uvloop/handle.c",
+            ]
+        ),
+        Extension(
             "uvloop.idle",
             sources = [
                 "uvloop/idle.c",
@@ -76,7 +82,7 @@ setup(
             sources = [
                 "uvloop/timer.c",
             ]
-        )
+        ),
     ],
     provides=['uvloop'],
     include_package_data=True

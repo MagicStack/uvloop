@@ -2,11 +2,13 @@
 
 
 from . cimport uv
+from .loop cimport Loop
+from .handle cimport Handle
 
 
-cdef class Async:
+cdef class Async(Handle):
     cdef:
-        uv.uv_async_t *handle
         object callback
+        Loop loop
 
-    cdef void send(self)
+    cdef send(self)

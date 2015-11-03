@@ -20,6 +20,7 @@ cdef class Loop:
 
         object _ready
         int _ready_len
+        object _timers
 
         Async handler_async
         Idle handler_idle
@@ -27,7 +28,6 @@ cdef class Loop:
 
         object _last_error
 
-        object _make_partial
         object _asyncio
         object _asyncio_Task
 
@@ -41,7 +41,8 @@ cdef class Loop:
     cdef _call_soon(self, object callback)
     cdef _call_later(self, uint64_t delay, object callback)
 
-    cdef _handle_uvcb_exception(self, object ex)
+    cdef void _handle_uvcb_exception(self, object ex)
+    cdef _handle_uv_error(self, int err)
 
     cdef _check_closed(self)
     cdef _check_thread(self)

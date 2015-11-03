@@ -1,17 +1,14 @@
-# cython: language_level=3
-
-
 from . cimport uv
 from .loop cimport Loop
+from .handle cimport Handle
 
 
-cdef class Signal:
+cdef class Signal(Handle):
     cdef:
-        uv.uv_signal_t *handle
         object callback
         int running
         int signum
         Loop loop
 
-    cdef void stop(self)
-    cdef void start(self)
+    cdef stop(self)
+    cdef start(self)

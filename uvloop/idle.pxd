@@ -3,14 +3,14 @@
 
 from . cimport uv
 from .loop cimport Loop
+from .handle cimport Handle
 
 
-cdef class Idle:
+cdef class Idle(Handle):
     cdef:
-        uv.uv_idle_t *handle
         object callback
         int running
         Loop loop
 
-    cdef void stop(self)
-    cdef void start(self)
+    cdef stop(self)
+    cdef start(self)
