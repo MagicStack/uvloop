@@ -108,6 +108,9 @@ cdef class Loop:
         if self._running == 1:
             raise RuntimeError('Event loop is running.')
 
+        # reset _last_error
+        self._last_error = None
+
         self._thread_id = PyThread_get_thread_ident()
         self._running = 1
 
