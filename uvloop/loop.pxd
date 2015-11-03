@@ -13,17 +13,23 @@ from libc.stdint cimport uint64_t
 cdef class Loop:
     cdef:
         uv.uv_loop_t *loop
-        int closed
+        int _closed
         int _debug
+        long _thread_id
+        int _running
+
+        object _ready
+        int _ready_len
 
         Async handler_async
         Idle handler_idle
         Signal handler_sigint
 
-        object last_error
-        object callbacks
-        object partial
-        object _default_task_constructor
+        object _last_error
+
+        object _make_partial
+        object _asyncio
+        object _asyncio_Task
 
         cdef object __weakref__
 
@@ -34,3 +40,8 @@ cdef class Loop:
 
     cdef _call_soon(self, object callback)
     cdef _call_later(self, uint64_t delay, object callback)
+
+    cdef _handle_uvcb_exception(self, object ex)
+
+    cdef _check_closed(self)
+    cdef _check_thread(self)

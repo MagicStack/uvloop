@@ -2,6 +2,7 @@
 
 
 from . cimport uv
+from .loop cimport Loop
 
 
 cdef class Signal:
@@ -10,6 +11,7 @@ cdef class Signal:
         object callback
         int running
         int signum
+        Loop loop
 
-    cdef stop(self)
-    cdef start(self)
+    cdef void stop(self)
+    cdef void start(self)

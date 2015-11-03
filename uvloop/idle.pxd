@@ -2,6 +2,7 @@
 
 
 from . cimport uv
+from .loop cimport Loop
 
 
 cdef class Idle:
@@ -9,6 +10,7 @@ cdef class Idle:
         uv.uv_idle_t *handle
         object callback
         int running
+        Loop loop
 
-    cdef stop(self)
-    cdef start(self)
+    cdef void stop(self)
+    cdef void start(self)

@@ -19,6 +19,7 @@ cdef class Signal:
 
         self.running = 0
         self.signum = signum
+        self.loop = loop
 
     def __dealloc__(self):
         try:
@@ -26,12 +27,12 @@ cdef class Signal:
         finally:
             PyMem_Free(self.handle)
 
-    cdef stop(self):
+    cdef void stop(self):
         if self.running == 1:
             uv.uv_signal_stop(self.handle)
             self.running = 0
 
-    cdef start(self):
+    cdef void start(self):
         if self.running == 0:
             uv.uv_signal_start(self.handle, cb_signal_callback, self.signum)
             self.running = 1
@@ -40,4 +41,7 @@ cdef class Signal:
 cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum):
     cdef Signal sig = <Signal> handle.data
     sig.running = 0
-    sig.callback()
+    try:
+        sig.callback()
+    except BaseException as ex:
+        sig.loop._handle_uvcb_exception(ex)

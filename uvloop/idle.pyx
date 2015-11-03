@@ -18,6 +18,7 @@ cdef class Idle:
         uv.uv_idle_init(loop.loop, self.handle)
 
         self.running = 0
+        self.loop = loop
 
     def __dealloc__(self):
         try:
@@ -25,12 +26,12 @@ cdef class Idle:
         finally:
             PyMem_Free(self.handle)
 
-    cdef stop(self):
+    cdef void stop(self):
         if self.running == 1:
             uv.uv_idle_stop(self.handle)
             self.running = 0
 
-    cdef start(self):
+    cdef void start(self):
         if self.running == 0:
             uv.uv_idle_start(self.handle, cb_idle_callback)
             self.running = 1
@@ -38,4 +39,7 @@ cdef class Idle:
 
 cdef void cb_idle_callback(uv.uv_idle_t* handle):
     cdef Idle idle = <Idle> handle.data
-    idle.callback()
+    try:
+        idle.callback()
+    except BaseException as ex:
+        idle.loop._handle_uvcb_exception(ex)

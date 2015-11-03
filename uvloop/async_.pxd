@@ -9,4 +9,4 @@ cdef class Async:
         uv.uv_async_t *handle
         object callback
 
-    cdef send(self)
+    cdef void send(self)

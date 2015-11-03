@@ -4,6 +4,7 @@
 from libc.stdint cimport uint64_t
 
 from . cimport uv
+from .loop cimport Loop
 
 
 cdef class Timer:
@@ -12,6 +13,7 @@ cdef class Timer:
         object callback
         int running
         uint64_t timeout
+        Loop loop
 
-    cdef stop(self)
-    cdef start(self)
+    cdef void stop(self)
+    cdef void start(self)

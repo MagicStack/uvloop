@@ -21,6 +21,7 @@ cdef class Timer:
 
         self.running = 0
         self.timeout = timeout
+        self.loop = loop
 
     def __dealloc__(self):
         try:
@@ -28,12 +29,12 @@ cdef class Timer:
         finally:
             PyMem_Free(self.handle)
 
-    cdef stop(self):
+    cdef void stop(self):
         if self.running == 1:
             uv.uv_timer_stop(self.handle)
             self.running = 0
 
-    cdef start(self):
+    cdef void start(self):
         if self.running == 0:
             uv.uv_timer_start(self.handle, cb_timer_callback, self.timeout, 0)
             self.running = 1
@@ -42,4 +43,7 @@ cdef class Timer:
 cdef void cb_timer_callback(uv.uv_timer_t* handle):
     cdef Timer timer = <Timer> handle.data
     timer.running = 0
-    timer.callback()
+    try:
+        timer.callback()
+    except BaseException as ex:
+        timer.loop._handle_uvcb_exception(ex)

@@ -20,7 +20,7 @@ cdef class Async:
     def __dealloc__(self):
         PyMem_Free(self.handle)
 
-    cdef send(self):
+    cdef void send(self):
         uv.uv_async_send(self.handle)
 
 
