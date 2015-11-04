@@ -1,4 +1,4 @@
-cdef class Signal(BaseHandle):
+cdef class UVSignal(UVHandle):
     cdef:
         object callback
         int running

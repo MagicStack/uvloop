@@ -6,11 +6,11 @@ from . cimport uv
 from libc.stdint cimport uint64_t
 
 
-cdef class BaseHandle
-cdef class Async(BaseHandle)
-cdef class Timer(BaseHandle)
-cdef class Signal(BaseHandle)
-cdef class Idle(BaseHandle)
+cdef class UVHandle
+cdef class UVAsync(UVHandle)
+cdef class UVTimer(UVHandle)
+cdef class UVSignal(UVHandle)
+cdef class UVIdle(UVHandle)
 
 
 cdef class Loop:
@@ -25,9 +25,9 @@ cdef class Loop:
         int _ready_len
         object _timers
 
-        Async handler_async
-        Idle handler_idle
-        Signal handler_sigint
+        UVAsync handler_async
+        UVIdle handler_idle
+        UVSignal handler_sigint
 
         object _last_error
 

@@ -1,4 +1,4 @@
-cdef class Timer(BaseHandle):
+cdef class UVTimer(UVHandle):
     def __cinit__(self, Loop loop, object callback, uint64_t timeout,
                   object on_close_callback):
         cdef int err
@@ -40,12 +40,12 @@ cdef class Timer(BaseHandle):
             self.running = 1
 
     cdef on_close(self):
-        BaseHandle.on_close(self)
+        UVHandle.on_close(self)
         self.on_close_callback()
 
 
 cdef void cb_timer_callback(uv.uv_timer_t* handle):
-    cdef Timer timer = <Timer> handle.data
+    cdef UVTimer timer = <UVTimer> handle.data
     timer.running = 0
     try:
         timer.callback()

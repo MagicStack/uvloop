@@ -1,4 +1,4 @@
-cdef class Idle(BaseHandle):
+cdef class UVIdle(UVHandle):
     cdef:
         object callback
         int running

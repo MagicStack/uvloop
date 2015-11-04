@@ -57,13 +57,13 @@ cdef class Loop:
         if err < 0:
             self._handle_uv_error(err)
 
-        self.handler_async = Async(self, self._on_wake)
-        self.handler_idle = Idle(self, self._on_idle)
-        self.handler_sigint = Signal(self, self._on_sigint, uv.SIGINT)
+        self.handler_async = UVAsync(self, self._on_wake)
+        self.handler_idle = UVIdle(self, self._on_idle)
+        self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
 
         self._last_error = None
 
-        self._ready = deque()
+        self._ready = std_deque()
         self._ready_len = 0
 
         self._timers = set()
@@ -345,7 +345,7 @@ cdef class TimerHandle:
         object callback
         int cancelled
         int closed
-        Timer timer
+        UVTimer timer
         Loop loop
         object __weakref__
 
@@ -355,7 +355,7 @@ cdef class TimerHandle:
         self.cancelled = 0
         self.closed = 0
 
-        self.timer = Timer(loop, self._run, delay, self._remove_self)
+        self.timer = UVTimer(loop, self._run, delay, self._remove_self)
         self.timer.start()
 
         loop._timers.add(self)

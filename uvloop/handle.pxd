@@ -1,4 +1,4 @@
-cdef class BaseHandle:
+cdef class UVHandle:
     cdef:
         uv.uv_handle_t *handle
         int closed

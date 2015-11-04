@@ -1,4 +1,4 @@
-cdef class Async(BaseHandle):
+cdef class UVAsync(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
 
@@ -25,5 +25,8 @@ cdef class Async(BaseHandle):
 
 
 cdef void cb_async_callback(uv.uv_async_t* handle):
-    cdef Async async_ = <Async> handle.data
-    async_.callback()
+    cdef UVAsync async_ = <UVAsync> handle.data
+    try:
+        async_.callback()
+    except BaseException as ex:
+        async_.loop._handle_uvcb_exception(ex)

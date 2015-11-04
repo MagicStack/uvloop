@@ -1,4 +1,4 @@
-cdef class BaseHandle:
+cdef class UVHandle:
     def __cinit__(self, Loop loop, *_):
         self.closed = 0
         self.handle = NULL
@@ -31,7 +31,7 @@ cdef class BaseHandle:
 
 
 cdef void cb_handle_close_cb(uv.uv_handle_t* handle):
-    cdef BaseHandle h = <BaseHandle>handle.data
+    cdef UVHandle h = <UVHandle>handle.data
     h.closed = 1
     try:
         h.on_close()

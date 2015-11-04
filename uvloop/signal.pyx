@@ -1,4 +1,4 @@
-cdef class Signal(BaseHandle):
+cdef class UVSignal(UVHandle):
     def __cinit__(self, Loop loop, object callback, int signum):
         cdef int err
 
@@ -39,7 +39,7 @@ cdef class Signal(BaseHandle):
 
 
 cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum):
-    cdef Signal sig = <Signal> handle.data
+    cdef UVSignal sig = <UVSignal> handle.data
     sig.running = 0
     try:
         sig.callback()

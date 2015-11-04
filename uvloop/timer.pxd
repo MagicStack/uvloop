@@ -1,4 +1,4 @@
-cdef class Timer(BaseHandle):
+cdef class UVTimer(UVHandle):
     cdef:
         object callback
         object on_close_callback

@@ -1,4 +1,4 @@
-cdef class Idle(BaseHandle):
+cdef class UVIdle(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
 
@@ -37,7 +37,7 @@ cdef class Idle(BaseHandle):
 
 
 cdef void cb_idle_callback(uv.uv_idle_t* handle):
-    cdef Idle idle = <Idle> handle.data
+    cdef UVIdle idle = <UVIdle> handle.data
     try:
         idle.callback()
     except BaseException as ex:

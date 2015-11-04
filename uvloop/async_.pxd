@@ -1,4 +1,4 @@
-cdef class Async(BaseHandle):
+cdef class UVAsync(UVHandle):
     cdef:
         object callback
 

@@ -7,6 +7,6 @@ cdef aio_Future = asyncio.Future
 cdef aio_Task = asyncio.Task
 cdef aio_ensure_future = asyncio.ensure_future
 
-cdef deque = collections.deque
+cdef std_deque = collections.deque
 
 del asyncio, collections
