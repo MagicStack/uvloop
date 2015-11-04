@@ -10,4 +10,6 @@ cdef class Handle:
         int closed
 
     cdef close(self)
+
+    # Handle exceptions in subclasses
     cdef void on_close(self)

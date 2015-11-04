@@ -24,12 +24,12 @@ cdef class Handle:
             self.handle = NULL
 
     cdef close(self):
-        if self.closed == 1:
+        if (self.closed == 1 or
+            self.handle is NULL or
+            self.handle.data is NULL or
+            uv.uv_is_closing(self.handle)):
             return
-        if self.handle is NULL or self.handle.data is NULL:
-            return
-        if uv.uv_is_closing(self.handle):
-            return
+
         uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
 
     cdef void on_close(self):
