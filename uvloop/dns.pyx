@@ -38,7 +38,11 @@ cdef void on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
 
     cdef fut = <object> resolver.data
     try:
-        fut.set_result(unpack_addrinfo(res))
+        if status != uv.UV_ECANCELED:
+            if status < 0:
+                fut.set_exception(get_uverror(status))
+            else:
+                fut.set_result(unpack_addrinfo(res))
     except BaseException as ex:
         fut.set_exception(ex)
     finally:

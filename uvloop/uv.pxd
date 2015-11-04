@@ -2,6 +2,8 @@ from libc.stdint cimport uint16_t, uint32_t, uint64_t
 
 
 cdef extern from "../vendor/libuv/include/uv.h":
+    cdef int UV_ECANCELED
+
     cdef int AF_INET
     cdef int AF_INET6
     cdef int INET6_ADDRSTRLEN
