@@ -53,6 +53,7 @@ cdef unpack_addrinfo(uv.addrinfo *res):
         uv.sockaddr_in *addr4
         uv.sockaddr_in6 *addr6
         char buf[92] # INET6_ADDRSTRLEN is usually 46
+        int err
 
     result = []
 
@@ -60,7 +61,9 @@ cdef unpack_addrinfo(uv.addrinfo *res):
     while ptr != NULL:
         if ptr.ai_addr.sa_family == uv.AF_INET:
             addr4 = <uv.sockaddr_in*> ptr.ai_addr
-            uv.uv_ip4_name(addr4, buf, sizeof(buf))
+            err = uv.uv_ip4_name(addr4, buf, sizeof(buf))
+            if err < 0:
+                raise get_uverror(err)
 
             result.append((
                 ptr.ai_family,
@@ -76,7 +79,9 @@ cdef unpack_addrinfo(uv.addrinfo *res):
 
         elif ptr.ai_addr.sa_family == uv.AF_INET6:
             addr6 = <uv.sockaddr_in6*> ptr.ai_addr
-            uv.uv_ip6_name(addr6, buf, sizeof(buf))
+            err = uv.uv_ip6_name(addr6, buf, sizeof(buf))
+            if err < 0:
+                raise get_uverror(err)
 
             result.append((
                 ptr.ai_family,

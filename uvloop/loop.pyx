@@ -24,6 +24,15 @@ class LibUVError(Exception):
     pass
 
 
+cdef get_uverror(int err):
+    cdef:
+        bytes msg = uv.uv_strerror(err)
+        bytes name = uv.uv_err_name(err)
+
+    raise LibUVError('({}) {}'.format(name.decode('latin-1'),
+                                      msg.decode('latin-1')))
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -186,12 +195,7 @@ cdef class Loop:
             self._stop()
 
     cdef _handle_uv_error(self, int err):
-        cdef:
-            bytes msg = uv.uv_strerror(err)
-            bytes name = uv.uv_err_name(err)
-
-        raise LibUVError('({}) {}'.format(name.decode('latin-1'),
-                                          msg.decode('latin-1')))
+        raise get_uverror(err)
 
     cdef _check_closed(self):
         if self._closed == 1:

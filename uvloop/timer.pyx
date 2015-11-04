@@ -1,4 +1,3 @@
-@cython.freelist(100)
 cdef class Timer(BaseHandle):
     def __cinit__(self, Loop loop, object callback, uint64_t timeout,
                   object on_close_callback):
