@@ -1,14 +1,4 @@
-# cython: language_level=3
-
-
-from . cimport uv
-from .loop cimport Loop
-from .handle cimport Handle
-
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-
-
-cdef class Async(Handle):
+cdef class Async(BaseHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
 

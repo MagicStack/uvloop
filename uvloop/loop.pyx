@@ -11,16 +11,13 @@ cimport cython
 
 from . cimport uv
 
-from .async_ cimport Async
-from .idle cimport Idle
-from .signal cimport Signal
-from .timer cimport Timer
-
 from libc.stdint cimport uint64_t
+from libc.string cimport memset
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.exc cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython.pythread cimport PyThread_get_thread_ident
+from cpython.ref cimport Py_INCREF, Py_DECREF
 
 
 class LibUVError(Exception):
@@ -312,6 +309,13 @@ cdef class Loop:
 
         return future.result()
 
+    def getaddrinfo(self, str host, int port, *,
+                    int family=0, int type=0, int proto=0, int flags=0):
+
+        fut = self._asyncio.Future(loop=self)
+        getaddrinfo(self, host, port, family, type, proto, flags, fut)
+        return fut
+
     def call_exception_handler(self, context):
         print("!!! EXCEPTION HANDLER !!!", context, flush=True)
 
@@ -388,3 +392,13 @@ cdef class TimerHandle:
         if self.cancelled == 0:
             self.cancelled = 1
             self.close()
+
+
+include "handle.pyx"
+include "async_.pyx"
+include "idle.pyx"
+include "timer.pyx"
+include "signal.pyx"
+
+include "dns.pyx"
+

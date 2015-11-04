@@ -13,9 +13,6 @@ deepclean: clean
 	git -C vendor/libuv clean -dfX
 
 
-compile:
-	cython -a uvloop/loop.pyx uvloop/handle.pyx \
-              uvloop/idle.pyx uvloop/signal.pyx \
-			  uvloop/async_.pyx uvloop/timer.pyx
-
+compile: clean
+	cython -a uvloop/loop.pyx
 	python3 setup.py build_ext --inplace

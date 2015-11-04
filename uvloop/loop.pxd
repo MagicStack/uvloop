@@ -3,11 +3,14 @@
 
 from . cimport uv
 
-from .async_ cimport Async
-from .idle cimport Idle
-from .signal cimport Signal
-
 from libc.stdint cimport uint64_t
+
+
+cdef class BaseHandle
+cdef class Async(BaseHandle)
+cdef class Timer(BaseHandle)
+cdef class Signal(BaseHandle)
+cdef class Idle(BaseHandle)
 
 
 cdef class Loop:
@@ -46,3 +49,12 @@ cdef class Loop:
 
     cdef _check_closed(self)
     cdef _check_thread(self)
+
+
+include "handle.pxd"
+include "async_.pxd"
+include "idle.pxd"
+include "timer.pxd"
+include "signal.pxd"
+
+include "dns.pxd"

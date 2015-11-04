@@ -1,12 +1,4 @@
-# cython: language_level=3
-
-
-from . cimport uv
-from .loop cimport Loop
-from .handle cimport Handle
-
-
-cdef class Idle(Handle):
+cdef class Idle(BaseHandle):
     cdef:
         object callback
         int running

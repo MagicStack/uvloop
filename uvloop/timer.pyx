@@ -1,19 +1,5 @@
-# cython: language_level=3
-
-
-cimport cython
-
-from libc.stdint cimport uint64_t
-
-from . cimport uv
-from .loop cimport Loop
-from .handle cimport Handle
-
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-
-
 @cython.freelist(100)
-cdef class Timer(Handle):
+cdef class Timer(BaseHandle):
     def __cinit__(self, Loop loop, object callback, uint64_t timeout,
                   object on_close_callback):
         cdef int err
@@ -56,7 +42,7 @@ cdef class Timer(Handle):
             self.running = 1
 
     cdef void on_close(self):
-        Handle.on_close(self)
+        BaseHandle.on_close(self)
         try:
             self.on_close_callback()
         except BaseException as ex:

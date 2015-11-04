@@ -1,16 +1,10 @@
 from libc.stdint cimport uint16_t, uint32_t, uint64_t
 
 
-cdef extern from "sys/socket.h":
-    struct addrinfo:
-        int ai_flags
-        int ai_family
-        int ai_socktype
-        int ai_protocol
-        # ...
-
-
 cdef extern from "../vendor/libuv/include/uv.h":
+    cdef int AF_INET
+    cdef int AF_INET6
+    cdef int INET6_ADDRSTRLEN
 
     ctypedef struct uv_loop_t:
         void* data
@@ -58,6 +52,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_async_cb)(uv_async_t* handle)
     ctypedef void (*uv_timer_cb)(uv_timer_t* handle)
 
+    ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
+                                       int status,
+                                       addrinfo* res)
+
     # Generic handler functions
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
     int uv_is_closing(const uv_handle_t* handle)
@@ -96,3 +94,45 @@ cdef extern from "../vendor/libuv/include/uv.h":
                        uint64_t timeout,
                        uint64_t repeat)
     int uv_timer_stop(uv_timer_t* handle)
+
+    # DNS
+    struct sockaddr:
+        unsigned short sa_family
+        char           sa_data[14]
+
+    struct addrinfo:
+        int            ai_flags
+        int            ai_family
+        int            ai_socktype
+        int            ai_protocol
+        size_t         ai_addrlen
+        sockaddr*      ai_addr
+        char*          ai_canonname
+        addrinfo*      ai_next
+
+    struct sockaddr_in:
+        short          sin_family
+        unsigned short sin_port
+        # ...
+
+    struct sockaddr_in6:
+        short          sin6_family
+        unsigned short sin6_port;
+        unsigned long  sin6_flowinfo
+        # ...
+        unsigned long  sin6_scope_id
+
+    int uv_getaddrinfo(uv_loop_t* loop,
+                       uv_getaddrinfo_t* req,
+                       uv_getaddrinfo_cb getaddrinfo_cb,
+                       const char* node,
+                       const char* service,
+                       const addrinfo* hints)
+
+    void uv_freeaddrinfo(addrinfo* ai)
+
+    int ntohl(int)
+    int ntohs(int)
+
+    int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size)
+    int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size)

@@ -53,36 +53,6 @@ setup(
                 "uvloop/loop.c",
             ]
         ),
-        Extension(
-            "uvloop.handle",
-            sources = [
-                "uvloop/handle.c",
-            ]
-        ),
-        Extension(
-            "uvloop.idle",
-            sources = [
-                "uvloop/idle.c",
-            ]
-        ),
-        Extension(
-            "uvloop.signal",
-            sources = [
-                "uvloop/signal.c",
-            ]
-        ),
-        Extension(
-            "uvloop.async_",
-            sources = [
-                "uvloop/async_.c",
-            ]
-        ),
-        Extension(
-            "uvloop.timer",
-            sources = [
-                "uvloop/timer.c",
-            ]
-        ),
     ],
     provides=['uvloop'],
     include_package_data=True

@@ -1,9 +1,4 @@
-from . cimport uv
-from .loop cimport Loop
-from .handle cimport Handle
-
-
-cdef class Signal(Handle):
+cdef class Signal(BaseHandle):
     cdef:
         object callback
         int running

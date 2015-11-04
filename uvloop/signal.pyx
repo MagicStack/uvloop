@@ -1,11 +1,4 @@
-from . cimport uv
-from .loop cimport Loop
-from .handle cimport Handle
-
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-
-
-cdef class Signal(Handle):
+cdef class Signal(BaseHandle):
     def __cinit__(self, Loop loop, object callback, int signum):
         cdef int err
 
