@@ -1,6 +1,8 @@
 # cython: language_level=3
 
 
+cimport cython
+
 from libc.stdint cimport uint64_t
 
 from . cimport uv
@@ -10,8 +12,10 @@ from .handle cimport Handle
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 
+@cython.freelist(100)
 cdef class Timer(Handle):
-    def __cinit__(self, Loop loop, object callback, uint64_t timeout):
+    def __cinit__(self, Loop loop, object callback, uint64_t timeout,
+                  object on_close_callback):
         cdef int err
 
         self.handle = <uv.uv_handle_t*> \
@@ -26,6 +30,7 @@ cdef class Timer(Handle):
             loop._handle_uv_error(err)
 
         self.callback = callback
+        self.on_close_callback = on_close_callback
         self.running = 0
         self.timeout = timeout
         self.loop = loop
@@ -49,6 +54,13 @@ cdef class Timer(Handle):
             if err < 0:
                 self.loop._handle_uv_error(err)
             self.running = 1
+
+    cdef void on_close(self):
+        Handle.on_close(self)
+        try:
+            self.on_close_callback()
+        except BaseException as ex:
+            self.loop._handle_uvcb_exception(ex)
 
 
 cdef void cb_timer_callback(uv.uv_timer_t* handle):

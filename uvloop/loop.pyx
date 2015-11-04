@@ -149,7 +149,7 @@ cdef class Loop:
         if self._timers:
             lst = tuple(self._timers)
             for timer in lst:
-                (<TimerHandle>timer).close_handle()
+                (<TimerHandle>timer).close()
 
         # Allow loop to fire "close" callbacks
         err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
@@ -354,7 +354,7 @@ cdef class TimerHandle:
         self.cancelled = 0
         self.closed = 0
 
-        self.timer = Timer(loop, self._run, delay)
+        self.timer = Timer(loop, self._run, delay, self._remove_self)
         self.timer.start()
 
         loop._timers.add(self)
@@ -367,24 +367,15 @@ cdef class TimerHandle:
             self.loop._timers.remove(self)
         except KeyError:
             pass
-
-    cdef close_handle(self):
-        if self.closed == 1:
-            return
-
-        self.timer.close()
-        self.closed = 1
+        finally:
+            self.timer = None
+            self.loop = None
+            self.callback = None
 
     cdef close(self):
-        if self.closed == 1:
-            return
-
-        self.close_handle()
-
-        if self.loop._closed == 0:
-            # If loop._closed == 1 the loop is already closing, and
-            # will handle loop._timers itself.
-            self.loop._call_soon(self._remove_self)
+        if self.closed == 0:
+            self.closed = 1
+            self.timer.close()
 
     def _run(self):
         if self.cancelled == 0:

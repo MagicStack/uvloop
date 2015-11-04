@@ -10,3 +10,4 @@ cdef class Handle:
         int closed
 
     cdef close(self)
+    cdef void on_close(self)

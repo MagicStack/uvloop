@@ -11,6 +11,9 @@ cdef class Handle:
         self.closed = 0
         self.handle = NULL
 
+    def __del__(self):
+        self.close()
+
     def __dealloc__(self):
         if self.handle is not NULL:
             if self.closed == 0:
@@ -29,7 +32,11 @@ cdef class Handle:
             return
         uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
 
+    cdef void on_close(self):
+        pass
+
 
 cdef void cb_handle_close_cb(uv.uv_handle_t* handle):
     cdef Handle h = <Handle>handle.data
     h.closed = 1
+    h.on_close()

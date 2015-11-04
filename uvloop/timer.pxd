@@ -11,6 +11,7 @@ from .handle cimport Handle
 cdef class Timer(Handle):
     cdef:
         object callback
+        object on_close_callback
         int running
         uint64_t timeout
         Loop loop
