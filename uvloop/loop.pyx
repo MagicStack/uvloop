@@ -318,19 +318,24 @@ cdef class Handle:
     cdef:
         object callback
         int cancelled
+        int done
         object __weakref__
 
     def __cinit__(self, Loop loop, object callback):
         self.callback = callback
         self.cancelled = 0
+        self.done = 0
 
     cdef _run(self):
-        self.callback()
+        if self.cancelled == 0 and self.done == 0:
+            self.done = 1
+            self.callback()
 
     # Public API
 
     cpdef cancel(self):
         self.cancelled = 1
+        self.callback = None
 
 
 @cython.internal
@@ -374,7 +379,7 @@ cdef class TimerHandle:
             self.timer.close()
 
     def _run(self):
-        if self.cancelled == 0:
+        if self.cancelled == 0 and self.closed == 0:
             self.close()
             self.callback()
 
@@ -383,6 +388,7 @@ cdef class TimerHandle:
     cpdef cancel(self):
         if self.cancelled == 0:
             self.cancelled = 1
+            self.callback = None
             self.close()
 
 
