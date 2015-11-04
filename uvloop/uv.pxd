@@ -8,6 +8,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int AF_INET6
     cdef int INET6_ADDRSTRLEN
 
+    cdef int SIGINT
+
     ctypedef struct uv_loop_t:
         void* data
         # ,,,

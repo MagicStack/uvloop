@@ -1,12 +1,6 @@
 # cython: language_level=3
 
 
-import collections
-import functools
-import signal
-import time
-import types
-
 cimport cython
 
 from . cimport uv
@@ -20,7 +14,10 @@ from cpython.pythread cimport PyThread_get_thread_ident
 from cpython.ref cimport Py_INCREF, Py_DECREF
 
 
-class LibUVError(Exception):
+include "stdlib.pxi"
+
+
+class LoopError(Exception):
     pass
 
 
@@ -29,7 +26,7 @@ cdef get_uverror(int err):
         bytes msg = uv.uv_strerror(err)
         bytes name = uv.uv_err_name(err)
 
-    raise LibUVError('({}) {}'.format(name.decode('latin-1'),
+    raise LoopError('({}) {}'.format(name.decode('latin-1'),
                                       msg.decode('latin-1')))
 
 
@@ -47,15 +44,6 @@ cdef class Loop:
         self._thread_id = 0
         self._running = 0
 
-        # Seems that Cython still can't cleanup module state
-        # on its finalization (in Python 3 at least).
-        # If a ref from *this* module to asyncio isn't cleared,
-        # the policy won't be properly destroyed, hence the
-        # loop won't be properly destroyed, hence some warnings
-        # might not be shown at all.
-        self._asyncio = __import__('asyncio')
-        self._asyncio_Task = self._asyncio.Task
-
     def __del__(self):
         self._close()
 
@@ -71,11 +59,11 @@ cdef class Loop:
 
         self.handler_async = Async(self, self._on_wake)
         self.handler_idle = Idle(self, self._on_idle)
-        self.handler_sigint = Signal(self, self._on_sigint, signal.SIGINT)
+        self.handler_sigint = Signal(self, self._on_sigint, uv.SIGINT)
 
         self._last_error = None
 
-        self._ready = collections.deque()
+        self._ready = deque()
         self._ready_len = 0
 
         self._timers = set()
@@ -283,13 +271,13 @@ cdef class Loop:
     def create_task(self, coro):
         self._check_closed()
 
-        return self._asyncio_Task(coro, loop=self)
+        return Task(coro, loop=self)
 
     def run_until_complete(self, future):
         self._check_closed()
 
-        new_task = not isinstance(future, self._asyncio.Future)
-        future = self._asyncio.ensure_future(future, loop=self)
+        new_task = not isinstance(future, Future)
+        future = ensure_future(future, loop=self)
         if new_task:
             # An exception is raised if the future didn't complete, so there
             # is no need to log the "destroy pending task" message
@@ -316,7 +304,7 @@ cdef class Loop:
     def getaddrinfo(self, str host, int port, *,
                     int family=0, int type=0, int proto=0, int flags=0):
 
-        fut = self._asyncio.Future(loop=self)
+        fut = Future(loop=self)
         getaddrinfo(self, host, port, family, type, proto, flags, fut)
         return fut
 

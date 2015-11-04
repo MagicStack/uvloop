@@ -31,9 +31,6 @@ cdef class Loop:
 
         object _last_error
 
-        object _asyncio
-        object _asyncio_Task
-
         cdef object __weakref__
 
     cdef _run(self, uv.uv_run_mode)

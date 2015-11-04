@@ -38,7 +38,9 @@ cdef void on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
 
     cdef fut = <object> resolver.data
     try:
-        if status != uv.UV_ECANCELED:
+        if status == uv.UV_ECANCELED:
+            fut.set_exception(CancelledError())
+        else:
             if status < 0:
                 fut.set_exception(get_uverror(status))
             else:
