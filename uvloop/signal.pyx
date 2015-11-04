@@ -16,7 +16,6 @@ cdef class Signal(BaseHandle):
         self.callback = callback
         self.running = 0
         self.signum = signum
-        self.loop = loop
 
     cdef stop(self):
         cdef int err

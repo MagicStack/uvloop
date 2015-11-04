@@ -1,7 +1,8 @@
 cdef class BaseHandle:
-    def __cinit__(self):
+    def __cinit__(self, Loop loop, *_):
         self.closed = 0
         self.handle = NULL
+        self.loop = loop
 
     def __del__(self):
         self.close()
@@ -25,12 +26,16 @@ cdef class BaseHandle:
         Py_INCREF(self) # Make sure the handle won't die *during* closing
         uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
 
-    cdef void on_close(self):
+    cdef on_close(self):
         pass
 
 
 cdef void cb_handle_close_cb(uv.uv_handle_t* handle):
     cdef BaseHandle h = <BaseHandle>handle.data
     h.closed = 1
-    h.on_close()
-    Py_DECREF(h)
+    try:
+        h.on_close()
+    except BaseException as ex:
+        h.loop._handle_uvcb_exception(ex)
+    finally:
+        Py_DECREF(h)

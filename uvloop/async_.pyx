@@ -16,7 +16,6 @@ cdef class Async(BaseHandle):
             loop._handle_uv_error(err)
 
         self.callback = callback
-        self.loop = loop
 
     cdef send(self):
         cdef int err

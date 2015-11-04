@@ -18,7 +18,6 @@ cdef class Timer(BaseHandle):
         self.on_close_callback = on_close_callback
         self.running = 0
         self.timeout = timeout
-        self.loop = loop
 
     cdef stop(self):
         cdef int err
@@ -40,12 +39,9 @@ cdef class Timer(BaseHandle):
                 self.loop._handle_uv_error(err)
             self.running = 1
 
-    cdef void on_close(self):
+    cdef on_close(self):
         BaseHandle.on_close(self)
-        try:
-            self.on_close_callback()
-        except BaseException as ex:
-            self.loop._handle_uvcb_exception(ex)
+        self.on_close_callback()
 
 
 cdef void cb_timer_callback(uv.uv_timer_t* handle):

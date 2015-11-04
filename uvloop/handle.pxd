@@ -2,8 +2,7 @@ cdef class BaseHandle:
     cdef:
         uv.uv_handle_t *handle
         int closed
+        Loop loop
 
     cdef close(self)
-
-    # Handle exceptions in subclasses
-    cdef void on_close(self)
+    cdef on_close(self)

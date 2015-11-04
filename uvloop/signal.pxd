@@ -3,7 +3,6 @@ cdef class Signal(BaseHandle):
         object callback
         int running
         int signum
-        Loop loop
 
     cdef stop(self)
     cdef start(self)

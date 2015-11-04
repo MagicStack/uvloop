@@ -15,7 +15,6 @@ cdef class Idle(BaseHandle):
 
         self.callback = callback
         self.running = 0
-        self.loop = loop
 
     cdef stop(self):
         cdef int err
