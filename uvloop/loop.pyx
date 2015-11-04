@@ -271,13 +271,13 @@ cdef class Loop:
     def create_task(self, coro):
         self._check_closed()
 
-        return Task(coro, loop=self)
+        return aio_Task(coro, loop=self)
 
     def run_until_complete(self, future):
         self._check_closed()
 
-        new_task = not isinstance(future, Future)
-        future = ensure_future(future, loop=self)
+        new_task = not isinstance(future, aio_Future)
+        future = aio_ensure_future(future, loop=self)
         if new_task:
             # An exception is raised if the future didn't complete, so there
             # is no need to log the "destroy pending task" message
@@ -304,7 +304,7 @@ cdef class Loop:
     def getaddrinfo(self, str host, int port, *,
                     int family=0, int type=0, int proto=0, int flags=0):
 
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
         getaddrinfo(self, host, port, family, type, proto, flags, fut)
         return fut
 
