@@ -53,5 +53,3 @@ include "async_.pxd"
 include "idle.pxd"
 include "timer.pxd"
 include "signal.pxd"
-
-include "dns.pxd"
