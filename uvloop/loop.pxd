@@ -23,7 +23,8 @@ cdef class Loop:
 
         object _ready
         int _ready_len
-        object _timers
+        set _timers
+        set _handles
 
         UVAsync handler_async
         UVIdle handler_idle
@@ -33,6 +34,9 @@ cdef class Loop:
 
         cdef object __weakref__
 
+        char _recv_buffer[65536]
+        int _recv_buffer_in_use
+
     cdef _run(self, uv.uv_run_mode)
     cdef _close(self)
     cdef _stop(self)
@@ -41,10 +45,18 @@ cdef class Loop:
     cdef _call_soon(self, object callback)
     cdef _call_later(self, uint64_t delay, object callback)
 
+    cdef _track_handle(self, UVHandle handle)
+    cdef _untrack_handle(self, UVHandle handle)
+
     cdef void _handle_uvcb_exception(self, object ex)
 
     cdef _check_closed(self)
     cdef _check_thread(self)
+
+    cdef _getaddrinfo(self, str host, int port,
+                      int family=*, int type=*,
+                      int proto=*, int flags=*,
+                      int unpack=*)
 
 
 include "handle.pxd"

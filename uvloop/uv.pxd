@@ -3,6 +3,7 @@ from libc.stdint cimport uint16_t, uint32_t, uint64_t
 
 cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_ECANCELED
+    cdef int UV_EOF
 
 
     cdef int SOL_SOCKET
@@ -17,6 +18,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int IPPROTO_IPV6
 
     cdef int SIGINT
+
+    ctypedef struct uv_buf_t:
+      char* base
+      size_t len
 
     ctypedef struct uv_loop_t:
         void* data
@@ -58,6 +63,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
         void* data
         # ,,,
 
+    ctypedef struct uv_write_t:
+        void* data
+        # ...
+
     ctypedef enum uv_run_mode:
         UV_RUN_DEFAULT = 0,
         UV_RUN_ONCE,
@@ -71,10 +80,21 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum)
     ctypedef void (*uv_async_cb)(uv_async_t* handle)
     ctypedef void (*uv_timer_cb)(uv_timer_t* handle)
-
+    ctypedef void (*uv_connection_cb)(uv_stream_t* server, int status)
+    ctypedef void (*uv_alloc_cb)(uv_handle_t* handle,
+                                 size_t suggested_size,
+                                 uv_buf_t* buf)
+    ctypedef void (*uv_read_cb)(uv_stream_t* stream,
+                                ssize_t nread,
+                                const uv_buf_t* buf)
+    ctypedef void (*uv_write_cb)(uv_write_t* req, int status)
     ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                        int status,
                                        addrinfo* res)
+
+    # Buffers
+
+    uv_buf_t uv_buf_init(char* base, unsigned int len)
 
     # Generic handler functions
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
@@ -157,6 +177,17 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size)
     int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size)
 
+    # Streams
+
+    int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb)
+    int uv_accept(uv_stream_t* server, uv_stream_t* client)
+    int uv_read_start(uv_stream_t* stream,
+                      uv_alloc_cb alloc_cb,
+                      uv_read_cb read_cb)
+    int uv_read_stop(uv_stream_t*)
+    int uv_write(uv_write_t* req, uv_stream_t* handle,
+                 uv_buf_t bufs[], unsigned int nbufs, uv_write_cb cb)
+
     # TCP
 
     ctypedef uv_os_sock_t
@@ -164,3 +195,4 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)
+    int uv_tcp_bind(uv_tcp_t* handle, sockaddr* addr, unsigned int flags)

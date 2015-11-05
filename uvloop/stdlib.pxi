@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, asyncio.log
 import collections
 import os
 import socket
@@ -11,6 +11,7 @@ cdef aio_Future = asyncio.Future
 cdef aio_Task = asyncio.Task
 cdef aio_ensure_future = asyncio.ensure_future
 cdef aio_gather = asyncio.gather
+cdef aio_logger = asyncio.log.logger
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
@@ -23,5 +24,5 @@ cdef str os_name = os.name
 cdef str sys_platform = sys.platform
 
 
-# Cython doesn't cliean-up imported objects properly in Py3 mode.
+# Cython doesn't clean-up imported objects properly in Py3 mode.
 del asyncio, collections, socket, os, sys

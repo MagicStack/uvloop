@@ -8,10 +8,13 @@ from . cimport uv
 from libc.stdint cimport uint64_t
 from libc.string cimport memset
 
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-from cpython.exc cimport PyErr_CheckSignals, PyErr_Occurred
-from cpython.pythread cimport PyThread_get_thread_ident
-from cpython.ref cimport Py_INCREF, Py_DECREF
+from cpython cimport PyObject
+from cpython cimport PyMem_Malloc, PyMem_Free
+from cpython cimport PyErr_CheckSignals, PyErr_Occurred
+from cpython cimport PyThread_get_thread_ident
+from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
+from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
+                     Py_buffer
 
 
 include "stdlib.pxi"
@@ -24,7 +27,7 @@ class LoopError(Exception):
 class UVError(LoopError):
 
     @staticmethod
-    def from_uverror(int err):
+    def from_error(int err):
         cdef:
             bytes msg = uv.uv_strerror(err)
             bytes name = uv.uv_err_name(err)
@@ -47,6 +50,8 @@ cdef class Loop:
         self._debug = 0
         self._thread_id = 0
         self._running = 0
+
+        self._recv_buffer_in_use = 0
 
     def __del__(self):
         self._close()
@@ -71,6 +76,7 @@ cdef class Loop:
         self._ready_len = 0
 
         self._timers = set()
+        self._handles = set() # TODO?
 
     def _on_wake(self):
         if self._ready_len > 0 and not self.handler_idle.running:
@@ -99,6 +105,15 @@ cdef class Loop:
 
     cdef _stop(self):
         uv.uv_stop(self.loop)
+
+    cdef _track_handle(self, UVHandle handle):
+        self._handles.add(handle)
+
+    cdef _untrack_handle(self, UVHandle handle):
+        try:
+            self._handles.remove(handle)
+        except KeyError:
+            pass
 
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
@@ -151,6 +166,10 @@ cdef class Loop:
             lst = tuple(self._timers)
             for timer in lst:
                 (<TimerHandle>timer).close()
+
+        if self._handles:
+            for handle in self._handles:
+                (<UVHandle>handle).close()
 
         # Allow loop to fire "close" callbacks
         err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
@@ -308,12 +327,22 @@ cdef class Loop:
     def getaddrinfo(self, str host, int port, *,
                     int family=0, int type=0, int proto=0, int flags=0):
 
+        return self._getaddrinfo(host, port, family, type, proto, flags, 1)
+
+    cdef _getaddrinfo(self, str host, int port,
+                      int family=0, int type=0,
+                      int proto=0, int flags=0,
+                      int unpack=1):
+
         fut = aio_Future(loop=self)
 
         def callback(result):
             if AddrInfo.isinstance(result):
                 try:
-                    data = (<AddrInfo>result).unpack()
+                    if unpack == 0:
+                        data = result
+                    else:
+                        data = (<AddrInfo>result).unpack()
                 except Exception as ex:
                     fut.set_exception(ex)
                 else:
@@ -324,8 +353,36 @@ cdef class Loop:
         getaddrinfo(self, host, port, family, type, proto, flags, callback)
         return fut
 
+    async def create_server(self, protocol_factory, str host, int port):
+        addrinfo = await self._getaddrinfo(host, port, 0, 0, 0, 0, 0)
+        if not AddrInfo.isinstance(addrinfo):
+            raise RuntimeError('unvalid loop._getaddeinfo() result')
+
+        cdef uv.addrinfo *ai = (<AddrInfo>addrinfo).data
+        if ai is NULL:
+            raise RuntimeError('loop._getaddeinfo() result is NULL')
+
+        cdef UVTCPServer srv = UVTCPServer(self)
+        srv.set_protocol_factory(protocol_factory)
+
+        srv.bind(ai.ai_addr)
+        srv.listen()
+
+        self._track_handle(srv)
+        return srv
+
     def call_exception_handler(self, context):
-        print("!!! EXCEPTION HANDLER !!!", context, flush=True)
+        message = context.get('message')
+        if not message:
+            message = 'Unhandled exception in event loop'
+
+        exception = context.get('exception')
+        if exception is not None:
+            exc_info = (type(exception), exception, exception.__traceback__)
+        else:
+            exc_info = False
+
+        aio_logger.error(message, exc_info=exc_info)
 
 
 @cython.internal
