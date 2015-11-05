@@ -159,5 +159,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     # TCP
 
+    ctypedef uv_os_sock_t
+
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
+    int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)

@@ -13,10 +13,33 @@ cdef class UVTCP(UVStream):
         if err < 0:
             loop._handle_uv_error(err)
 
-    cdef enable_nodelay(self):
+        self.opened = 0
+
+    cdef inline ensure_open(self):
         self.ensure_alive()
-        uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 1)
+        if self.opened == 0:
+            raise RuntimeError(
+                'unable to perform operation on {!r}; '
+                'the TCP handler is not open'.format(self))
+
+    cdef enable_nodelay(self):
+        cdef int err
+        self.ensure_open()
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 1)
+        if err < 0:
+            self.loop._handle_uv_error(err)
 
     cdef disable_nodelay(self):
+        cdef int err
+        self.ensure_open()
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 0)
+        if err < 0:
+            self.loop._handle_uv_error(err)
+
+    cdef open(self, int sockfd):
+        cdef int err
         self.ensure_alive()
-        uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 0)
+        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self.handle, sockfd)
+        if err < 0:
+            self.loop._handle_uv_error(err)
+        self.opened = 1

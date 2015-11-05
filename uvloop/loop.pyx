@@ -30,6 +30,7 @@ cdef get_uverror(int err):
                                       msg.decode('latin-1')))
 
 
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -55,7 +56,7 @@ cdef class Loop:
 
         err = uv.uv_loop_init(self.loop)
         if err < 0:
-            self._handle_uv_error(err)
+            raise get_uverror(err)
 
         self.handler_async = UVAsync(self, self._on_wake)
         self.handler_idle = UVIdle(self, self._on_idle)
@@ -84,7 +85,10 @@ cdef class Loop:
         for i from 0 <= i < ntodo:
             handler = <Handle> popleft()
             if handler.cancelled == 0:
-                handler._run()
+                try:
+                    handler._run()
+                except BaseException as ex:
+                    self._handle_uvcb_exception(ex)
 
         self._ready_len = len(self._ready)
         if self._ready_len == 0 and self.handler_idle.running:
@@ -305,7 +309,19 @@ cdef class Loop:
                     int family=0, int type=0, int proto=0, int flags=0):
 
         fut = aio_Future(loop=self)
-        getaddrinfo(self, host, port, family, type, proto, flags, fut)
+
+        def callback(result):
+            if AddrInfo.isinstance(result):
+                try:
+                    data = (<AddrInfo>result).unpack()
+                except Exception as ex:
+                    fut.set_exception(ex)
+                else:
+                    fut.set_result(data)
+            else:
+                fut.set_exception(result)
+
+        getaddrinfo(self, host, port, family, type, proto, flags, callback)
         return fut
 
     def call_exception_handler(self, context):
