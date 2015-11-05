@@ -4,9 +4,17 @@ from libc.stdint cimport uint16_t, uint32_t, uint64_t
 cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_ECANCELED
 
+
+    cdef int SOL_SOCKET
+    cdef int SO_REUSEADDR
+    cdef int SO_REUSEPORT
     cdef int AF_INET
     cdef int AF_INET6
+    cdef int AF_UNSPEC
+    cdef int AI_PASSIVE
     cdef int INET6_ADDRSTRLEN
+    cdef int IPV6_V6ONLY
+    cdef int IPPROTO_IPV6
 
     cdef int SIGINT
 
@@ -31,6 +39,14 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # ,,,
 
     ctypedef struct uv_timer_t:
+        void* data
+        # ,,,
+
+    ctypedef struct uv_stream_t:
+        void* data
+        # ,,,
+
+    ctypedef struct uv_tcp_t:
         void* data
         # ,,,
 
@@ -140,3 +156,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size)
     int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size)
+
+    # TCP
+
+    int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
+    int uv_tcp_nodelay(uv_tcp_t* handle, int enable)

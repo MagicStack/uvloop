@@ -63,7 +63,7 @@ cdef class Loop:
 
         self._last_error = None
 
-        self._ready = std_deque()
+        self._ready = col_deque()
         self._ready_len = 0
 
         self._timers = set()
@@ -398,5 +398,8 @@ include "idle.pyx"
 include "timer.pyx"
 include "signal.pyx"
 
-include "dns.pyx"
+include "stream.pyx"
+include "tcp.pyx"
 
+include "dns.pyx"
+include "server.pyx"

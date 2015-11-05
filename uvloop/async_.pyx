@@ -19,6 +19,9 @@ cdef class UVAsync(UVHandle):
 
     cdef send(self):
         cdef int err
+
+        self.ensure_alive()
+
         err = uv.uv_async_send(<uv.uv_async_t*>self.handle)
         if err < 0:
             self.loop._handle_uv_error(err)

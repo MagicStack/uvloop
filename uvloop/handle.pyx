@@ -16,6 +16,12 @@ cdef class UVHandle:
             PyMem_Free(self.handle)
             self.handle = NULL
 
+    cdef inline ensure_alive(self):
+        if self.closed == 1:
+            raise RuntimeError(
+                'unable to perform operation on {!r}; '
+                'the handler is closed'.format(self))
+
     cdef close(self):
         if (self.closed == 1 or
             self.handle is NULL or

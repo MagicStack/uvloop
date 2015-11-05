@@ -19,6 +19,8 @@ cdef class UVIdle(UVHandle):
     cdef stop(self):
         cdef int err
 
+        self.ensure_alive()
+
         if self.running == 1:
             err = uv.uv_idle_stop(<uv.uv_idle_t*>self.handle)
             if err < 0:
@@ -27,6 +29,8 @@ cdef class UVIdle(UVHandle):
 
     cdef start(self):
         cdef int err
+
+        self.ensure_alive()
 
         if self.running == 0:
             err = uv.uv_idle_start(<uv.uv_idle_t*>self.handle,

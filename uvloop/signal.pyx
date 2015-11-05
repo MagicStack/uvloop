@@ -20,6 +20,8 @@ cdef class UVSignal(UVHandle):
     cdef stop(self):
         cdef int err
 
+        self.ensure_alive()
+
         if self.running == 1:
             err = uv.uv_signal_stop(<uv.uv_signal_t *>self.handle)
             if err < 0:
@@ -28,6 +30,8 @@ cdef class UVSignal(UVHandle):
 
     cdef start(self):
         cdef int err
+
+        self.ensure_alive()
 
         if self.running == 0:
             err = uv.uv_signal_start(<uv.uv_signal_t *>self.handle,
