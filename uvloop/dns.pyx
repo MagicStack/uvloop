@@ -11,7 +11,7 @@ cdef class AddrInfo:
             uv.uv_freeaddrinfo(self.data) # returns void
             self.data = NULL
 
-    cdef set_data(self, uv.addrinfo *data):
+    cdef void set_data(self, uv.addrinfo *data):
         self.data = data
 
     cdef unpack(self):
