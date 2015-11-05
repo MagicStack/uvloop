@@ -42,7 +42,7 @@ cdef class Loop:
     cdef _call_later(self, uint64_t delay, object callback)
 
     cdef void _handle_uvcb_exception(self, object ex)
-    cdef _handle_uv_error(self, int err)
+    cdef _raise_uv_error(self, int err)
 
     cdef _check_closed(self)
     cdef _check_thread(self)

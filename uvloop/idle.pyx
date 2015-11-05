@@ -11,7 +11,7 @@ cdef class UVIdle(UVHandle):
 
         err = uv.uv_idle_init(loop.loop, <uv.uv_idle_t*>self.handle)
         if err < 0:
-            loop._handle_uv_error(err)
+            loop._raise_uv_error(err)
 
         self.callback = callback
         self.running = 0
@@ -24,7 +24,7 @@ cdef class UVIdle(UVHandle):
         if self.running == 1:
             err = uv.uv_idle_stop(<uv.uv_idle_t*>self.handle)
             if err < 0:
-                self.loop._handle_uv_error(err)
+                self.loop._raise_uv_error(err)
             self.running = 0
 
     cdef start(self):
@@ -36,7 +36,7 @@ cdef class UVIdle(UVHandle):
             err = uv.uv_idle_start(<uv.uv_idle_t*>self.handle,
                                    cb_idle_callback)
             if err < 0:
-                self.loop._handle_uv_error(err)
+                self.loop._raise_uv_error(err)
             self.running = 1
 
 

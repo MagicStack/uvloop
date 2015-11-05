@@ -106,7 +106,7 @@ cdef getaddrinfo(Loop loop,
 
     if err < 0:
         PyMem_Free(resolver)
-        loop._handle_uv_error(err)
+        loop._raise_uv_error(err)
     else:
         # 'callback' must stay alive until on_getaddr_resolved
         Py_INCREF(callback)

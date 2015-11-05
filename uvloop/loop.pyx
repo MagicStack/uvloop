@@ -117,7 +117,7 @@ cdef class Loop:
 
         err = uv.uv_run(self.loop, mode)
         if err < 0:
-            self._handle_uv_error(err)
+            self._raise_uv_error(err)
 
         self.handler_idle.stop()
         self.handler_sigint.stop()
@@ -152,11 +152,11 @@ cdef class Loop:
         # Allow loop to fire "close" callbacks
         err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
         if err < 0:
-            self._handle_uv_error(err)
+            self._raise_uv_error(err)
 
         err = uv.uv_loop_close(self.loop)
         if err < 0:
-            self._handle_uv_error(err)
+            self._raise_uv_error(err)
 
         self._ready.clear()
         self._ready_len = 0
@@ -186,7 +186,7 @@ cdef class Loop:
             # Exit ASAP
             self._stop()
 
-    cdef _handle_uv_error(self, int err):
+    cdef _raise_uv_error(self, int err):
         raise get_uverror(err)
 
     cdef _check_closed(self):
