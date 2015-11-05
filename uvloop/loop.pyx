@@ -21,13 +21,16 @@ class LoopError(Exception):
     pass
 
 
-cdef get_uverror(int err):
-    cdef:
-        bytes msg = uv.uv_strerror(err)
-        bytes name = uv.uv_err_name(err)
+class UVError(LoopError):
 
-    raise LoopError('({}) {}'.format(name.decode('latin-1'),
-                                      msg.decode('latin-1')))
+    @staticmethod
+    def from_uverror(int err):
+        cdef:
+            bytes msg = uv.uv_strerror(err)
+            bytes name = uv.uv_err_name(err)
+
+        return LoopError('({}) {}'.format(name.decode('latin-1'),
+                                          msg.decode('latin-1')))
 
 
 
@@ -56,7 +59,7 @@ cdef class Loop:
 
         err = uv.uv_loop_init(self.loop)
         if err < 0:
-            raise get_uverror(err)
+            raise UVError.from_error(err)
 
         self.handler_async = UVAsync(self, self._on_wake)
         self.handler_idle = UVIdle(self, self._on_idle)
@@ -117,7 +120,7 @@ cdef class Loop:
 
         err = uv.uv_run(self.loop, mode)
         if err < 0:
-            self._raise_uv_error(err)
+            raise UVError.from_error(err)
 
         self.handler_idle.stop()
         self.handler_sigint.stop()
@@ -152,11 +155,11 @@ cdef class Loop:
         # Allow loop to fire "close" callbacks
         err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
         if err < 0:
-            self._raise_uv_error(err)
+            raise UVError.from_error(err)
 
         err = uv.uv_loop_close(self.loop)
         if err < 0:
-            self._raise_uv_error(err)
+            raise UVError.from_error(err)
 
         self._ready.clear()
         self._ready_len = 0
@@ -185,9 +188,6 @@ cdef class Loop:
             self._last_error = ex
             # Exit ASAP
             self._stop()
-
-    cdef _raise_uv_error(self, int err):
-        raise get_uverror(err)
 
     cdef _check_closed(self):
         if self._closed == 1:

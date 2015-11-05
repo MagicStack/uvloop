@@ -32,7 +32,7 @@ cdef class AddrInfo:
                 addr4 = <uv.sockaddr_in*> ptr.ai_addr
                 err = uv.uv_ip4_name(addr4, buf, sizeof(buf))
                 if err < 0:
-                    raise get_uverror(err)
+                    raise UVError.from_error(err)
 
                 result.append((
                     ptr.ai_family,
@@ -50,7 +50,7 @@ cdef class AddrInfo:
                 addr6 = <uv.sockaddr_in6*> ptr.ai_addr
                 err = uv.uv_ip6_name(addr6, buf, sizeof(buf))
                 if err < 0:
-                    raise get_uverror(err)
+                    raise UVError.from_error(err)
 
                 result.append((
                     ptr.ai_family,
@@ -106,7 +106,7 @@ cdef getaddrinfo(Loop loop,
 
     if err < 0:
         PyMem_Free(resolver)
-        loop._raise_uv_error(err)
+        raise UVError.from_error(err)
     else:
         # 'callback' must stay alive until on_getaddr_resolved
         Py_INCREF(callback)
@@ -124,7 +124,7 @@ cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
             callback(aio_CancelledError())
         else:
             if status < 0:
-                callback(get_uverror(status))
+                callback(UVError.from_error(status))
             else:
                 ai = AddrInfo()
                 ai.set_data(res)

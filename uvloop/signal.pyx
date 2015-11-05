@@ -11,7 +11,7 @@ cdef class UVSignal(UVHandle):
 
         err = uv.uv_signal_init(loop.loop, <uv.uv_signal_t *>self.handle)
         if err < 0:
-            loop._raise_uv_error(err)
+            raise UVError.from_error(err)
 
         self.callback = callback
         self.running = 0
@@ -24,9 +24,9 @@ cdef class UVSignal(UVHandle):
 
         if self.running == 1:
             err = uv.uv_signal_stop(<uv.uv_signal_t *>self.handle)
-            if err < 0:
-                self.loop._raise_uv_error(err)
             self.running = 0
+            if err < 0:
+                raise UVError.from_error(err)
 
     cdef start(self):
         cdef int err
@@ -38,7 +38,7 @@ cdef class UVSignal(UVHandle):
                                      cb_signal_callback,
                                      self.signum)
             if err < 0:
-                self.loop._raise_uv_error(err)
+                raise UVError.from_error(err)
             self.running = 1
 
 
