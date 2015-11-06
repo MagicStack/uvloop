@@ -182,7 +182,9 @@ cdef class Loop:
                 (<UVHandle>handle).close()
 
         # Allow loop to fire "close" callbacks
-        err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
+        with nogil:
+            err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
+
         if err < 0:
             raise UVError.from_error(err)
 
