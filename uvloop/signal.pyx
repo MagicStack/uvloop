@@ -42,7 +42,7 @@ cdef class UVSignal(UVHandle):
             self.running = 1
 
 
-cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum):
+cdef void cb_signal_callback(uv.uv_signal_t* handle, int signum) with gil:
     cdef UVSignal sig = <UVSignal> handle.data
     sig.running = 0
     try:

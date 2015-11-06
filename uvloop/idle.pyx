@@ -40,7 +40,7 @@ cdef class UVIdle(UVHandle):
             self.running = 1
 
 
-cdef void cb_idle_callback(uv.uv_idle_t* handle):
+cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
     cdef UVIdle idle = <UVIdle> handle.data
     try:
         idle.callback()

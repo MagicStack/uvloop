@@ -113,7 +113,7 @@ cdef getaddrinfo(Loop loop,
 
 
 cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
-                                int status, uv.addrinfo *res):
+                                int status, uv.addrinfo *res) with gil:
 
     cdef:
         callback = <object> resolver.data

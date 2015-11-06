@@ -75,22 +75,22 @@ cdef extern from "../vendor/libuv/include/uv.h":
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
 
-    ctypedef void (*uv_close_cb)(uv_handle_t* handle)
-    ctypedef void (*uv_idle_cb)(uv_idle_t* handle)
-    ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum)
-    ctypedef void (*uv_async_cb)(uv_async_t* handle)
-    ctypedef void (*uv_timer_cb)(uv_timer_t* handle)
-    ctypedef void (*uv_connection_cb)(uv_stream_t* server, int status)
+    ctypedef void (*uv_close_cb)(uv_handle_t* handle) with gil
+    ctypedef void (*uv_idle_cb)(uv_idle_t* handle) with gil
+    ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum) with gil
+    ctypedef void (*uv_async_cb)(uv_async_t* handle) with gil
+    ctypedef void (*uv_timer_cb)(uv_timer_t* handle) with gil
+    ctypedef void (*uv_connection_cb)(uv_stream_t* server, int status) with gil
     ctypedef void (*uv_alloc_cb)(uv_handle_t* handle,
                                  size_t suggested_size,
-                                 uv_buf_t* buf)
+                                 uv_buf_t* buf) with gil
     ctypedef void (*uv_read_cb)(uv_stream_t* stream,
                                 ssize_t nread,
-                                const uv_buf_t* buf)
-    ctypedef void (*uv_write_cb)(uv_write_t* req, int status)
+                                const uv_buf_t* buf) with gil
+    ctypedef void (*uv_write_cb)(uv_write_t* req, int status) with gil
     ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                        int status,
-                                       addrinfo* res)
+                                       addrinfo* res) with gil
 
     # Buffers
 
@@ -106,7 +106,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     uint64_t uv_now(const uv_loop_t*)
 
-    int uv_run(uv_loop_t*, uv_run_mode mode)
+    int uv_run(uv_loop_t*, uv_run_mode mode) nogil
     void uv_stop(uv_loop_t*)
 
     # Idle handler

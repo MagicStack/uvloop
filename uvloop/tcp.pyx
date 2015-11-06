@@ -190,7 +190,8 @@ cdef class UVServerTransport(UVTCPBase):
         self._start_reading()
 
 
-cdef void __server_listen_cb(uv.uv_stream_t* server_handle, int status):
+cdef void __server_listen_cb(uv.uv_stream_t* server_handle,
+                             int status) with gil:
     cdef:
         UVTCPServer server = <UVTCPServer> server_handle.data
         UVServerTransport client
@@ -208,7 +209,7 @@ cdef void __server_listen_cb(uv.uv_stream_t* server_handle, int status):
 
 cdef void __alloc_cb(uv.uv_handle_t* uvhandle,
                      size_t suggested_size,
-                     uv.uv_buf_t* buf):
+                     uv.uv_buf_t* buf) with gil:
     cdef:
         Loop loop = (<UVHandle>uvhandle.data).loop
 
@@ -225,7 +226,7 @@ cdef void __alloc_cb(uv.uv_handle_t* uvhandle,
 
 cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
                                        ssize_t nread,
-                                       uv.uv_buf_t* buf):
+                                       uv.uv_buf_t* buf) with gil:
     cdef:
         UVServerTransport sc = <UVServerTransport>stream.data
         Loop loop = sc.loop
@@ -250,7 +251,7 @@ cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
 
 
 cdef void __server_transport_onwrite_cb(uv.uv_write_t* req,
-                                        int status):
+                                        int status) with gil:
     cdef:
         WriteContext* ctx = <WriteContext*> req.data
         UVServerTransport transport = <UVServerTransport>ctx.transport

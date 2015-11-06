@@ -36,7 +36,7 @@ cdef class UVHandle:
         pass
 
 
-cdef void cb_handle_close_cb(uv.uv_handle_t* handle):
+cdef void cb_handle_close_cb(uv.uv_handle_t* handle) with gil:
     cdef UVHandle h = <UVHandle>handle.data
     h.closed = 1
     try:

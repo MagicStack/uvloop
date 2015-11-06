@@ -133,7 +133,9 @@ cdef class Loop:
         self.handler_idle.start()
         self.handler_sigint.start()
 
-        err = uv.uv_run(self.loop, mode)
+        with nogil:
+            err = uv.uv_run(self.loop, mode)
+
         if err < 0:
             raise UVError.from_error(err)
 

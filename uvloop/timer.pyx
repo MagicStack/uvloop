@@ -48,7 +48,7 @@ cdef class UVTimer(UVHandle):
         self.on_close_callback()
 
 
-cdef void cb_timer_callback(uv.uv_timer_t* handle):
+cdef void cb_timer_callback(uv.uv_timer_t* handle) with gil:
     cdef UVTimer timer = <UVTimer> handle.data
     timer.running = 0
     try:
