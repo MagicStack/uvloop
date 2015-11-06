@@ -15,7 +15,7 @@ class libuv_build_ext(build_ext):
         env = os.environ.copy()
 
         env['CFLAGS'] = ('-fPIC ' +
-                         env.get('CFLAGS', '') +
+                         env.get('CFLAGS', '-O2') +
                          ' ' +
                          env.get('ARCHFLAGS', ''))
 
