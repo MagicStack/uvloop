@@ -57,6 +57,9 @@ cdef class Loop:
         self._close()
 
     def __dealloc__(self):
+        if uv.uv_loop_alive(self.loop):
+            aio_logger.error(
+                "!!! deallocating event loop with active handles !!!")
         PyMem_Free(self.loop)
 
     def __init__(self):

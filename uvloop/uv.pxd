@@ -104,6 +104,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     # Loop functions
     int uv_loop_init(uv_loop_t* loop)
     int uv_loop_close(uv_loop_t* loop)
+    int uv_loop_alive(uv_loop_t* loop)
 
     uint64_t uv_now(const uv_loop_t*)
 
