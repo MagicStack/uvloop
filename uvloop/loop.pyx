@@ -250,7 +250,7 @@ cdef class Loop:
             self._check_thread()
         if args:
             _cb = callback
-            callback = lambda: _cb(*args)
+            callback = lambda: _cb(*args) # faster than functools.partial
         return self._call_soon(callback)
 
     def call_soon_threadsafe(self, callback, *args):
@@ -269,7 +269,10 @@ cdef class Loop:
         if args:
             _cb = callback
             callback = lambda: _cb(*args)
-        return self._call_later(when, callback)
+        if when == 0:
+            return self._call_soon(callback)
+        else:
+            return self._call_later(when, callback)
 
     def time(self):
         return self._time() / 1000
