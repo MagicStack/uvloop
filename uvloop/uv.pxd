@@ -50,6 +50,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef struct uv_stream_t:
         void* data
+        size_t write_queue_size
         # ,,,
 
     ctypedef struct uv_tcp_t:
@@ -65,6 +66,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # ,,,
 
     ctypedef struct uv_write_t:
+        void* data
+        # ...
+
+    ctypedef struct uv_shutdown_t:
         void* data
         # ...
 
@@ -92,6 +97,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                        int status,
                                        addrinfo* res) with gil
+    ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status) with gil
 
     # Buffers
 
@@ -189,6 +195,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_read_stop(uv_stream_t*)
     int uv_write(uv_write_t* req, uv_stream_t* handle,
                  uv_buf_t bufs[], unsigned int nbufs, uv_write_cb cb)
+
+    int uv_shutdown(uv_shutdown_t* req, uv_stream_t* handle, uv_shutdown_cb cb)
 
     # TCP
 

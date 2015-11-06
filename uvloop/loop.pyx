@@ -370,6 +370,7 @@ cdef class Loop:
         getaddrinfo(self, host, port, family, type, proto, flags, callback)
         return fut
 
+    @aio_coroutine # XXX
     async def create_server(self, protocol_factory, str host, int port):
         addrinfo = await self._getaddrinfo(host, port, 0, 0, 0, 0, 0)
         if not AddrInfo.isinstance(addrinfo):

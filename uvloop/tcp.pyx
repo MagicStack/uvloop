@@ -84,14 +84,28 @@ cdef class UVTCPServer(UVTCPBase):
     cdef _new_client(self):
         protocol = self.protocol_factory()
 
-        client = UVServerTransport(self.loop, self)
+        client = UVServerTransport(self.loop, self, protocol)
         client._accept()
         self.loop._track_handle(client) # XXX
 
 
 cdef class UVServerTransport(UVTCPBase):
-    def __cinit__(self, Loop loop, UVTCPServer server):
+    def __cinit__(self, Loop loop, UVTCPServer server,
+                  object protocol not None):
+
         self.server = server
+
+        self.protocol = protocol
+        self.protocol_data_received = protocol.data_received
+
+        self.eof = 0
+        self.reading = 0
+
+        # Flow control
+        self.flow_control_enabled = 1
+        self.protocol_paused = 0
+        self.high_water = 64 * 1024 # TODO: constants
+        self.low_water = (64 * 1024) // 4
 
     cdef _accept(self):
         cdef int err
@@ -105,9 +119,15 @@ cdef class UVServerTransport(UVTCPBase):
         self.opened = 1
         self._start_reading()
 
+        self.loop.call_soon(self.protocol.connection_made, self)
+
     cdef _start_reading(self):
         cdef int err
         self.ensure_alive()
+
+        if self.reading == 1:
+            raise RuntimeError('Not paused')
+        self.reading = 1
 
         if self.opened != 1:
             raise RuntimeError(
@@ -123,6 +143,10 @@ cdef class UVServerTransport(UVTCPBase):
         cdef int err
         self.ensure_alive()
 
+        if self.reading == 0:
+            raise RuntimeError('Already paused')
+        self.reading = 0
+
         if self.opened != 1:
             raise RuntimeError(
                 'cannot UVServerTransport.stop_reading; opened=0')
@@ -132,17 +156,23 @@ cdef class UVServerTransport(UVTCPBase):
             raise UVError.from_error(err)
 
     cdef _on_data_recv(self, bytes buf):
-        # print('>>>>>>>', buf)
-        self._write(buf, None)
+        self.protocol_data_received(buf)
 
     cdef _on_eof(self):
-        # print("EOF")
-        self.close()
+        keep_open = self.protocol.eof_received()
+        if not keep_open:
+            self.close()
+
+    cdef _on_shutdown(self):
+        pass
 
     cdef _write(self, object data, object callback):
         cdef:
             int err
             WriteContext* ctx
+
+        if self.eof:
+            raise RuntimeError('Cannot call write() after write_eof()')
 
         self.ensure_alive()
 
@@ -175,9 +205,83 @@ cdef class UVServerTransport(UVTCPBase):
             Py_INCREF(self)
             Py_INCREF(callback)
 
+        self._maybe_pause_protocol()
+
     cdef _on_data_written(self, object callback):
+        self._maybe_resume_protocol()
+
         if callback is not None:
             callback()
+
+    cdef inline size_t _get_write_buffer_size(self):
+        if self.handle is NULL:
+            return 0
+        return (<uv.uv_stream_t*>self.handle).write_queue_size
+
+    cdef _set_write_buffer_limits(self, int high=-1, int low=-1):
+        if high == -1:
+            if low == -1:
+                high = 64 * 1024 # TODO: constants
+            else:
+                high = 4 * low
+
+        if low == -1:
+            low = high // 4
+
+        if not high >= low >= 0:
+            raise ValueError('high (%r) must be >= low (%r) must be >= 0' %
+                             (high, low))
+
+        self.high_water = high
+        self.low_water = low
+
+        self._maybe_pause_protocol()
+        self._maybe_resume_protocol()
+
+    cdef _maybe_pause_protocol(self):
+        if self.flow_control_enabled == 0:
+            return
+
+        self.ensure_alive()
+
+        cdef:
+            size_t size = self._get_write_buffer_size()
+
+        if size <= self.high_water:
+            return
+
+        if self.protocol_paused == 0:
+            self.protocol_paused = 1
+            try:
+                self.protocol.pause_writing()
+            except Exception as exc:
+                self.loop.call_exception_handler({
+                    'message': 'protocol.pause_writing() failed',
+                    'exception': exc,
+                    'transport': self,
+                    'protocol': self.protocol,
+                })
+
+    cdef _maybe_resume_protocol(self):
+        if self.flow_control_enabled == 0:
+            return
+
+        self.ensure_alive()
+
+        cdef:
+            size_t size = self._get_write_buffer_size()
+
+        if self.protocol_paused == 1 and size <= self.low_water:
+            self.protocol_paused = 0
+            try:
+                self.protocol.resume_writing()
+            except Exception as exc:
+                self.loop.call_exception_handler({
+                    'message': 'protocol.resume_writing() failed',
+                    'exception': exc,
+                    'transport': self,
+                    'protocol': self.protocol,
+                })
 
     cdef on_close(self):
         UVHandle.on_close(self)
@@ -185,11 +289,81 @@ cdef class UVServerTransport(UVTCPBase):
 
     # Public API
 
+    property _closing:
+        def __get__(self):
+            return False
+
+    def write(self, object buf):
+        self._write(buf, None)
+
+    def writelines(self, bufs):
+        for buf in bufs:
+            self._write(buf, None)
+
+    def write_eof(self):
+        if self.eof == 1:
+            return
+        self.eof = 1
+
+        cdef int err
+
+        self.shutdown_req.data = <void*> self
+
+        err = uv.uv_shutdown(&self.shutdown_req,
+                             <uv.uv_stream_t*> self.handle,
+                             __server_transport_shutdown)
+        if err < 0:
+            raise UVError.from_error(err)
+
+    def can_write_eof(self):
+        return True
+
+    def is_flow_control_enabled(self):
+        if self.flow_control_enabled == 1:
+            return True
+        else:
+            return False
+
+    def enable_flow_control(self):
+        self.flow_control_enabled = 1
+        self._maybe_pause_protocol()
+
+    def disable_flow_control(self):
+        if self.flow_control_enabled == 0:
+            return
+
+        try:
+            if self.protocol_paused == 1:
+                self.protocol_paused = 0
+                self.prototol.resume_writing()
+        finally:
+            self.flow_control_enabled = 0
+
     def pause_reading(self):
         self._pause_reading()
 
     def resume_reading(self):
         self._start_reading()
+
+    def get_write_buffer_size(self):
+        return self._get_write_buffer_size()
+
+    def set_write_buffer_limits(self, high=None, low=None):
+        if high is None:
+            high = -1
+        if low is None:
+            low = -1
+
+        self._set_write_buffer_limits(high, low)
+
+    def get_write_buffer_limits(self):
+        return (self._low_water, self._high_water)
+
+    def get_extra_info(self, name, default=None):
+        return default
+
+    def abort(self):
+        self.close() # TODO?
 
 
 cdef void __server_listen_cb(uv.uv_stream_t* server_handle,
@@ -268,3 +442,15 @@ cdef void __server_transport_onwrite_cb(uv.uv_write_t* req,
         Py_XDECREF(ctx.transport)
         Py_XDECREF(ctx.callback)
         PyMem_Free(ctx)
+
+
+cdef void __server_transport_shutdown(uv.uv_shutdown_t* req,
+                                      int status) with gil:
+
+    cdef UVServerTransport transport = <UVServerTransport> req.data
+
+    if status < 0:
+        transport.loop._handle_uvcb_exception(status)
+        return
+
+    transport._on_shutdown()

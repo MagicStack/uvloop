@@ -24,12 +24,31 @@ cdef class UVServerTransport(UVTCPBase):
     cdef:
         UVTCPServer server
 
+        int eof
+        int reading
+
+        object protocol
+        object protocol_data_received
+
+        int flow_control_enabled
+        size_t high_water
+        size_t low_water
+        int protocol_paused
+
+        uv.uv_shutdown_t shutdown_req
+
     cdef _start_reading(self)
     cdef _stop_reading(self)
 
     cdef _accept(self)
     cdef _on_data_recv(self, bytes buf)
     cdef _on_eof(self)
+    cdef _on_shutdown(self)
 
     cdef _write(self, object data, object callback)
     cdef _on_data_written(self, object callback)
+
+    cdef inline size_t _get_write_buffer_size(self)
+    cdef _set_write_buffer_limits(self, int high=*, int low=*)
+    cdef _maybe_pause_protocol(self)
+    cdef _maybe_resume_protocol(self)
