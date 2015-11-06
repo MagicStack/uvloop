@@ -50,6 +50,7 @@ cdef class Loop:
         self._debug = 0
         self._thread_id = 0
         self._running = 0
+        self._stopping = 0
 
         self._recv_buffer_in_use = 0
 
@@ -83,6 +84,7 @@ cdef class Loop:
 
         self._timers = set()
         self._handles = set() # TODO?
+        self._polls = dict()
 
     def _on_wake(self):
         if self._ready_len > 0 and not self.handler_idle.running:
@@ -97,8 +99,10 @@ cdef class Loop:
         self._stop()
 
     def _on_idle(self):
-        cdef int i, ntodo
-        cdef object popleft = self._ready.popleft
+        cdef:
+            int i, ntodo
+            object popleft = self._ready.popleft
+            Handle handler
 
         ntodo = len(self._ready)
         for i from 0 <= i < ntodo:
@@ -108,12 +112,19 @@ cdef class Loop:
                     handler._run()
                 except BaseException as ex:
                     self._handle_uvcb_exception(ex)
+                    if self._stopping:
+                        # loop is shutting down
+                        self._ready_len = len(self._ready)
+                        return
 
         self._ready_len = len(self._ready)
         if self._ready_len == 0 and self.handler_idle.running:
             self.handler_idle.stop()
 
     cdef _stop(self):
+        if self._stopping == 1:
+            return
+        self._stopping = 1
         uv.uv_stop(self.loop)
 
     cdef _track_handle(self, UVHandle handle):
@@ -139,6 +150,7 @@ cdef class Loop:
 
         self._thread_id = PyThread_get_thread_ident()
         self._running = 1
+        self._stopping = 0
 
         self.handler_idle.start()
         self.handler_sigint.start()
@@ -156,6 +168,7 @@ cdef class Loop:
 
         self._thread_id = 0
         self._running = 0
+        self._stopping = 0
 
         if self._last_error is not None:
             self.close()
@@ -180,11 +193,17 @@ cdef class Loop:
         if self._timers:
             lst = tuple(self._timers)
             for timer in lst:
-                (<TimerHandle>timer).close()
+                (<TimerHandle>timer)._cancel()
 
         if self._handles:
             for handle in self._handles:
                 (<UVHandle>handle).close()
+
+        if self._polls:
+            polls = tuple(self._polls.values())
+            self._polls.clear()
+            for poll in polls:
+                (<UVPoll>poll).close()
 
         # Allow loop to fire "close" callbacks
         with nogil:
@@ -350,9 +369,9 @@ cdef class Loop:
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
     cdef _getaddrinfo(self, str host, int port,
-                      int family=0, int type=0,
-                      int proto=0, int flags=0,
-                      int unpack=1):
+                      int family, int type,
+                      int proto, int flags,
+                      int unpack):
 
         fut = aio_Future(loop=self)
 
@@ -405,48 +424,178 @@ cdef class Loop:
 
         aio_logger.error(message, exc_info=exc_info)
 
+    def add_reader(self, fd, callback, *args):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            poll = UVPoll(self, fd)
+            self._polls[fd] = poll
+
+        cb = callback
+        if len(args):
+            cb = lambda: callback(*args)
+
+        poll.start_reading(cb)
+
+    def remove_reader(self, fd):
+        cdef:
+            UVPoll poll
+
+        if self._closed == 1:
+            return False
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        return poll.stop_reading()
+
+    def add_writer(self, fd, callback, *args):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            poll = UVPoll(self, fd)
+            self._polls[fd] = poll
+
+        cb = callback
+        if len(args):
+            cb = lambda: callback(*args)
+
+        poll.start_writing(cb)
+
+    def remove_writer(self, fd):
+        cdef:
+            UVPoll poll
+
+        if self._closed == 1:
+            return False
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        return poll.stop_writing()
+
+    def sock_recv(self, sock, n):
+        fut = aio_Future(loop=self)
+        self._sock_recv(fut, False, sock, n)
+        return fut
+
+    def _sock_recv(self, fut, registered, sock, n):
+        # _sock_recv() can add itself as an I/O callback if the operation can't
+        # be done immediately. Don't use it directly, call sock_recv().
+        fd = sock.fileno()
+        if registered:
+            # Remove the callback early.  It should be rare that the
+            # selector says the fd is ready but the call still returns
+            # EAGAIN, and I am willing to take a hit in that case in
+            # order to simplify the common case.
+            self.remove_reader(fd)
+        if fut.cancelled():
+            return
+        try:
+            data = sock.recv(n)
+        except (BlockingIOError, InterruptedError):
+            self.add_reader(fd, self._sock_recv, fut, True, sock, n)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(data)
+
+    def sock_sendall(self, sock, data):
+        fut = aio_Future(loop=self)
+        if data:
+            self._sock_sendall(fut, False, sock, data)
+        else:
+            fut.set_result(None)
+        return fut
+
+    def _sock_sendall(self, fut, registered, sock, data):
+        fd = sock.fileno()
+
+        if registered:
+            self.remove_writer(fd)
+        if fut.cancelled():
+            return
+
+        try:
+            n = sock.send(data)
+        except (BlockingIOError, InterruptedError):
+            n = 0
+        except Exception as exc:
+            fut.set_exception(exc)
+            return
+
+        if n == len(data):
+            fut.set_result(None)
+        else:
+            if n:
+                data = data[n:]
+            self.add_writer(fd, self._sock_sendall, fut, True, sock, data)
+
+    def sock_accept(self, sock):
+        fut = aio_Future(loop=self)
+        self._sock_accept(fut, False, sock)
+        return fut
+
+    def _sock_accept(self, fut, registered, sock):
+        fd = sock.fileno()
+        if registered:
+            self.remove_reader(fd)
+        if fut.cancelled():
+            return
+        try:
+            conn, address = sock.accept()
+            conn.setblocking(False)
+        except (BlockingIOError, InterruptedError):
+            self.add_reader(fd, self._sock_accept, fut, True, sock)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result((conn, address))
+
 
 @cython.internal
 @cython.freelist(100)
 cdef class Handle:
-    cdef:
-        object callback
-        int cancelled
-        int done
-        object __weakref__
-
     def __cinit__(self, Loop loop, object callback):
         self.callback = callback
         self.cancelled = 0
         self.done = 0
 
-    cdef _run(self):
+    cdef inline _run(self):
         if self.cancelled == 0 and self.done == 0:
             self.done = 1
             self.callback()
 
-    # Public API
-
-    cpdef cancel(self):
+    cdef _cancel(self):
         self.cancelled = 1
         self.callback = None
+
+    # Public API
+
+    def cancel(self):
+        self._cancel()
 
 
 @cython.internal
 @cython.freelist(100)
 cdef class TimerHandle:
-    cdef:
-        object callback
-        int cancelled
-        int closed
-        UVTimer timer
-        Loop loop
-        object __weakref__
-
     def __cinit__(self, Loop loop, object callback, uint64_t delay):
         self.loop = loop
         self.callback = callback
-        self.cancelled = 0
         self.closed = 0
 
         self.timer = UVTimer(loop, self._run, delay, self._remove_self)
@@ -455,7 +604,7 @@ cdef class TimerHandle:
         loop._timers.add(self)
 
     def __del__(self):
-        self.close()
+        self._cancel()
 
     def _remove_self(self):
         try:
@@ -465,25 +614,24 @@ cdef class TimerHandle:
         finally:
             self.timer = None
             self.loop = None
-            self.callback = None
 
-    cdef close(self):
-        if self.closed == 0:
-            self.closed = 1
-            self.timer.close()
+    cdef _cancel(self):
+        if self.closed == 1:
+            return
+        self.closed = 1
+        self.callback = None
+        self.timer.close()
 
     def _run(self):
-        if self.cancelled == 0 and self.closed == 0:
-            self.close()
-            self.callback()
+        if self.closed == 0:
+            callback = self.callback
+            self._cancel()
+            callback()
 
     # Public API
 
-    cpdef cancel(self):
-        if self.cancelled == 0:
-            self.cancelled = 1
-            self.callback = None
-            self.close()
+    def cancel(self):
+        self._cancel()
 
 
 include "handle.pyx"
@@ -491,6 +639,7 @@ include "async_.pyx"
 include "idle.pyx"
 include "timer.pyx"
 include "signal.pyx"
+include "poll.pyx"
 
 include "stream.pyx"
 include "tcp.pyx"

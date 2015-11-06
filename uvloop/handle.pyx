@@ -33,6 +33,8 @@ cdef class UVHandle:
         uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
 
     cdef on_close(self):
+        # NotImplemented
+        # Don't super() this.
         pass
 
 

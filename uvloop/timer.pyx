@@ -44,7 +44,6 @@ cdef class UVTimer(UVHandle):
             self.running = 1
 
     cdef on_close(self):
-        UVHandle.on_close(self)
         self.on_close_callback()
 
 

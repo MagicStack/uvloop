@@ -20,6 +20,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int SIGINT
     cdef int SIGHUP
 
+    ctypedef uv_os_sock_t
+
     ctypedef struct uv_buf_t:
       char* base
       size_t len
@@ -57,6 +59,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
         void* data
         # ,,,
 
+    ctypedef struct uv_poll_t:
+        void* data
+        # ,,,
+
     ctypedef struct uv_getaddrinfo_t:
         void* data
         # ,,,
@@ -78,6 +84,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
         UV_RUN_ONCE,
         UV_RUN_NOWAIT
 
+    ctypedef enum uv_poll_event:
+        UV_READABLE = 1,
+        UV_WRITABLE = 2
+
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
 
@@ -98,6 +108,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
                                        int status,
                                        addrinfo* res) with gil
     ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status) with gil
+    ctypedef void (*uv_poll_cb)(uv_poll_t* handle,
+                                int status, int events) with gil
 
     # Buffers
 
@@ -200,9 +212,15 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     # TCP
 
-    ctypedef uv_os_sock_t
-
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)
     int uv_tcp_bind(uv_tcp_t* handle, sockaddr* addr, unsigned int flags)
+
+    # Polling
+
+    int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle, int fd)
+    int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle,
+                            uv_os_sock_t socket)
+    int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
+    int uv_poll_stop(uv_poll_t* poll)

@@ -284,7 +284,6 @@ cdef class UVServerTransport(UVTCPBase):
                 })
 
     cdef on_close(self):
-        UVHandle.on_close(self)
         self.loop._untrack_handle(self) # XXX?
 
     # Public API
