@@ -18,6 +18,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int IPPROTO_IPV6
 
     cdef int SIGINT
+    cdef int SIGHUP
 
     ctypedef struct uv_buf_t:
       char* base

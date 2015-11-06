@@ -69,6 +69,7 @@ cdef class Loop:
         self.handler_async = UVAsync(self, self._on_wake)
         self.handler_idle = UVIdle(self, self._on_idle)
         self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
+        self.handler_sighup = UVSignal(self, self._on_sighup, uv.SIGHUP)
 
         self._last_error = None
 
@@ -84,6 +85,10 @@ cdef class Loop:
 
     def _on_sigint(self):
         self._last_error = KeyboardInterrupt()
+        self._stop()
+
+    def _on_sighup(self):
+        self._last_error = SystemExit()
         self._stop()
 
     def _on_idle(self):
@@ -132,6 +137,7 @@ cdef class Loop:
 
         self.handler_idle.start()
         self.handler_sigint.start()
+        self.handler_sighup.start()
 
         with nogil:
             err = uv.uv_run(self.loop, mode)
@@ -141,6 +147,7 @@ cdef class Loop:
 
         self.handler_idle.stop()
         self.handler_sigint.stop()
+        self.handler_sighup.stop()
 
         self._thread_id = 0
         self._running = 0
@@ -162,6 +169,7 @@ cdef class Loop:
 
         self.handler_idle.close()
         self.handler_sigint.close()
+        self.handler_sighup.close()
         self.handler_async.close()
 
         if self._timers:

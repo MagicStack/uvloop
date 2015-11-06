@@ -29,6 +29,7 @@ cdef class Loop:
         UVAsync handler_async
         UVIdle handler_idle
         UVSignal handler_sigint
+        UVSignal handler_sighup
 
         object _last_error
 
