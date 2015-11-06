@@ -144,6 +144,8 @@ cdef class UVServerTransport(UVTCPBase):
             int err
             WriteContext* ctx
 
+        self.ensure_alive()
+
         ctx = <WriteContext*> PyMem_Malloc(sizeof(WriteContext))
         if ctx is NULL:
             raise MemoryError()
