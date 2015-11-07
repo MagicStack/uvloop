@@ -57,10 +57,7 @@ cdef class UVPoll(UVHandle):
 
             self._poll_start(mask)
 
-        else:
-            self.reading_handle._cancel()
-
-        self.reading_handle = Handle(self.loop, callback)
+        self.reading_handle = callback
 
     cdef start_writing(self, object callback):
         cdef:
@@ -76,16 +73,12 @@ cdef class UVPoll(UVHandle):
 
             self._poll_start(mask)
 
-        else:
-            self.writing_handle._cancel()
-
-        self.writing_handle = Handle(self.loop, callback)
+        self.writing_handle = callback
 
     cdef stop_reading(self):
         if self.reading_handle is None:
             return False
 
-        self.reading_handle._cancel()
         self.reading_handle = None
 
         if self.writing_handle is None:
@@ -99,7 +92,6 @@ cdef class UVPoll(UVHandle):
         if self.writing_handle is None:
             return False
 
-        self.writing_handle._cancel()
         self.writing_handle = None
 
         if self.reading_handle is None:
@@ -110,14 +102,8 @@ cdef class UVPoll(UVHandle):
         return True
 
     cdef stop(self):
-        if self.reading_handle is not None:
-            self.reading_handle._cancel()
-            self.reading_handle = None
-
-        if self.writing_handle is not None:
-            self.writing_handle._cancel()
-            self.writing_handle = None
-
+        self.reading_handle = None
+        self.writing_handle = None
         self._poll_stop()
 
 
@@ -134,12 +120,12 @@ cdef void __on_poll_event(uv.uv_poll_t* handle,
 
     if events | uv.UV_READABLE and poll.reading_handle is not None:
         try:
-            poll.reading_handle._run()
+            poll.reading_handle()
         except BaseException as ex:
             poll.loop._handle_uvcb_exception(ex)
 
     if events | uv.UV_WRITABLE and poll.writing_handle is not None:
         try:
-            poll.writing_handle._run()
+            poll.writing_handle()
         except BaseException as ex:
             poll.loop._handle_uvcb_exception(ex)
