@@ -7,6 +7,8 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_start(self, int flags)
     cdef inline _poll_stop(self)
 
+    cdef int is_active(self)
+
     cdef start_reading(self, object callback)
     cdef start_writing(self, object callback)
     cdef stop_reading(self)

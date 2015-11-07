@@ -6,4 +6,3 @@ cdef class UVHandle:
 
     cdef inline ensure_alive(self)
     cdef void close(self)
-    cdef on_close(self)

@@ -1,6 +1,5 @@
 cdef class UVTimer(UVHandle):
-    def __cinit__(self, Loop loop, object callback, uint64_t timeout,
-                  object on_close_callback):
+    def __cinit__(self, Loop loop, object callback, uint64_t timeout):
         cdef int err
 
         self.handle = <uv.uv_handle_t*> \
@@ -15,7 +14,6 @@ cdef class UVTimer(UVHandle):
             raise UVError.from_error(err)
 
         self.callback = callback
-        self.on_close_callback = on_close_callback
         self.running = 0
         self.timeout = timeout
 
@@ -42,9 +40,6 @@ cdef class UVTimer(UVHandle):
             if err < 0:
                 raise UVError.from_error(err)
             self.running = 1
-
-    cdef on_close(self):
-        self.on_close_callback()
 
 
 cdef void cb_timer_callback(uv.uv_timer_t* handle) with gil:

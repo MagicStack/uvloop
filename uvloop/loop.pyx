@@ -52,6 +52,10 @@ cdef class Loop:
         self._running = 0
         self._stopping = 0
 
+        self._handles = set()
+        self._polls = dict()
+        self._polls_gc = dict()
+
         self._recv_buffer_in_use = 0
 
     def __del__(self):
@@ -81,10 +85,6 @@ cdef class Loop:
 
         self._ready = col_deque()
         self._ready_len = 0
-
-        self._timers = set()
-        self._handles = set() # TODO?
-        self._polls = dict()
 
     def _on_wake(self):
         if self._ready_len > 0 and not self.handler_idle.running:
@@ -117,6 +117,14 @@ cdef class Loop:
                         self._ready_len = len(self._ready)
                         return
 
+        if len(self._polls_gc):
+            for fd in tuple(self._polls_gc):
+                poll = <UVPoll> self._polls_gc[fd]
+                if not poll.is_active():
+                    poll.close()
+                    self._polls.pop(fd)
+                self._polls_gc.pop(fd)
+
         self._ready_len = len(self._ready)
         if self._ready_len == 0 and self.handler_idle.running:
             self.handler_idle.stop()
@@ -127,10 +135,10 @@ cdef class Loop:
         self._stopping = 1
         uv.uv_stop(self.loop)
 
-    cdef _track_handle(self, UVHandle handle):
+    cdef inline void __track_handle__(self, UVHandle handle):
         self._handles.add(handle)
 
-    cdef _untrack_handle(self, UVHandle handle):
+    cdef inline void __untrack_handle__(self, UVHandle handle):
         try:
             self._handles.remove(handle)
         except KeyError:
@@ -185,25 +193,14 @@ cdef class Loop:
 
         self._closed = 1
 
-        self.handler_idle.close()
-        self.handler_sigint.close()
-        self.handler_sighup.close()
-        self.handler_async.close()
-
-        if self._timers:
-            lst = tuple(self._timers)
-            for timer in lst:
-                (<TimerHandle>timer)._cancel()
-
         if self._handles:
-            for handle in self._handles:
-                (<UVHandle>handle).close()
-
-        if self._polls:
-            polls = tuple(self._polls.values())
             self._polls.clear()
-            for poll in polls:
-                (<UVPoll>poll).close()
+            self._polls_gc.clear()
+
+            handles = tuple(self._handles)
+            self._handles.clear()
+            for handle in handles:
+                (<UVHandle>handle).close()
 
         # Allow loop to fire "close" callbacks
         with nogil:
@@ -218,7 +215,6 @@ cdef class Loop:
 
         self._ready.clear()
         self._ready_len = 0
-        self._timers = None
 
     cdef uint64_t _time(self):
         return uv.uv_now(self.loop)
@@ -408,7 +404,7 @@ cdef class Loop:
         srv.bind(ai.ai_addr)
         srv.listen()
 
-        self._track_handle(srv)
+        self.__track_handle__(srv)
         return srv
 
     def call_exception_handler(self, context):
@@ -454,7 +450,10 @@ cdef class Loop:
         except KeyError:
             return False
 
-        return poll.stop_reading()
+        result = poll.stop_reading()
+        if not poll.is_active():
+            self._polls_gc[fd] = poll
+        return result
 
     def add_writer(self, fd, callback, *args):
         cdef:
@@ -486,7 +485,10 @@ cdef class Loop:
         except KeyError:
             return False
 
-        return poll.stop_writing()
+        result = poll.stop_writing()
+        if not poll.is_active():
+            self._polls_gc[fd] = poll
+        return result
 
     def sock_recv(self, sock, n):
         fut = aio_Future(loop=self)
@@ -598,22 +600,11 @@ cdef class TimerHandle:
         self.callback = callback
         self.closed = 0
 
-        self.timer = UVTimer(loop, self._run, delay, self._remove_self)
+        self.timer = UVTimer(loop, self._run, delay)
         self.timer.start()
-
-        loop._timers.add(self)
 
     def __del__(self):
         self._cancel()
-
-    def _remove_self(self):
-        try:
-            self.loop._timers.remove(self)
-        except KeyError:
-            pass
-        finally:
-            self.timer = None
-            self.loop = None
 
     cdef _cancel(self):
         if self.closed == 1:

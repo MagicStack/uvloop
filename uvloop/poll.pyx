@@ -17,8 +17,14 @@ cdef class UVPoll(UVHandle):
         self.reading_handle = None
         self.writing_handle = None
 
+    cdef int is_active(self):
+        return (self.reading_handle is not None or
+                self.writing_handle is not None)
+
     cdef inline _poll_start(self, int flags):
         cdef int err
+
+        self.ensure_alive()
 
         err = uv.uv_poll_start(
             <uv.uv_poll_t*>self.handle,
@@ -38,6 +44,8 @@ cdef class UVPoll(UVHandle):
     cdef start_reading(self, object callback):
         cdef:
             int mask = 0
+
+        self.ensure_alive()
 
         if self.reading_handle is None:
             # not reading right now, setup the handle
@@ -102,8 +110,6 @@ cdef class UVPoll(UVHandle):
         return True
 
     cdef stop(self):
-        self.loop._untrack_handle(<UVHandle>self)
-
         if self.reading_handle is not None:
             self.reading_handle._cancel()
             self.reading_handle = None

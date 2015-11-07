@@ -24,9 +24,10 @@ cdef class Loop:
 
         object _ready
         int _ready_len
-        set _timers
+
         set _handles
         dict _polls
+        dict _polls_gc
 
         UVAsync handler_async
         UVIdle handler_idle
@@ -40,6 +41,7 @@ cdef class Loop:
         char _recv_buffer[65536]
         int _recv_buffer_in_use
 
+
     cdef _run(self, uv.uv_run_mode)
     cdef _close(self)
     cdef _stop(self)
@@ -48,8 +50,8 @@ cdef class Loop:
     cdef _call_soon(self, object callback)
     cdef _call_later(self, uint64_t delay, object callback)
 
-    cdef _track_handle(self, UVHandle handle)
-    cdef _untrack_handle(self, UVHandle handle)
+    cdef inline void __track_handle__(self, UVHandle handle)
+    cdef inline void __untrack_handle__(self, UVHandle handle)
 
     cdef void _handle_uvcb_exception(self, object ex)
 

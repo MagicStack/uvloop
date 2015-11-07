@@ -86,7 +86,6 @@ cdef class UVTCPServer(UVTCPBase):
 
         client = UVServerTransport(self.loop, self, protocol)
         client._accept()
-        self.loop._track_handle(client) # XXX
 
 
 cdef class UVServerTransport(UVTCPBase):
@@ -282,9 +281,6 @@ cdef class UVServerTransport(UVTCPBase):
                     'transport': self,
                     'protocol': self.protocol,
                 })
-
-    cdef on_close(self):
-        self.loop._untrack_handle(self) # XXX?
 
     # Public API
 
