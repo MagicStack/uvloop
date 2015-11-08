@@ -5,9 +5,6 @@ cdef class UVHandle:
         self.loop = loop
         loop.__track_handle__(self)
 
-    def __del__(self):
-        self.close()
-
     def __dealloc__(self):
         if self.handle is not NULL:
             if self.closed == 0:
@@ -30,7 +27,6 @@ cdef class UVHandle:
             uv.uv_is_closing(self.handle)):
             return
 
-        Py_INCREF(self) # Make sure the handle won't die *during* closing
         uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
 
 
@@ -38,4 +34,3 @@ cdef void cb_handle_close_cb(uv.uv_handle_t* handle) with gil:
     cdef UVHandle h = <UVHandle>handle.data
     h.closed = 1
     h.loop.__untrack_handle__(h) # void; no exceptions
-    Py_DECREF(h)

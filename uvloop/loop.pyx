@@ -388,7 +388,7 @@ cdef class Loop:
         getaddrinfo(self, host, port, family, type, proto, flags, callback)
         return fut
 
-    @aio_coroutine # XXX
+    @aio_coroutine
     async def create_server(self, protocol_factory, str host, int port):
         addrinfo = await self._getaddrinfo(host, port, 0, 0, 0, 0, 0)
         if not AddrInfo.isinstance(addrinfo):
@@ -403,8 +403,6 @@ cdef class Loop:
 
         srv.bind(ai.ai_addr)
         srv.listen()
-
-        self.__track_handle__(srv)
         return srv
 
     def call_exception_handler(self, context):
