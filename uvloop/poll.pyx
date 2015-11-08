@@ -37,6 +37,8 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_stop(self):
         cdef int err
 
+        self.ensure_alive()
+
         err = uv.uv_poll_stop(<uv.uv_poll_t*>self.handle)
         if err < 0:
             raise UVError.from_error(err)
@@ -44,8 +46,6 @@ cdef class UVPoll(UVHandle):
     cdef start_reading(self, object callback):
         cdef:
             int mask = 0
-
-        self.ensure_alive()
 
         if self.reading_handle is None:
             # not reading right now, setup the handle

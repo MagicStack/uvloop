@@ -136,9 +136,11 @@ cdef class Loop:
         uv.uv_stop(self.loop)
 
     cdef inline void __track_handle__(self, UVHandle handle):
+        """Internal helper for tracking UVHandles. Do not use."""
         self._handles.add(handle)
 
     cdef inline void __untrack_handle__(self, UVHandle handle):
+        """Internal helper for tracking UVHandles. Do not use."""
         try:
             self._handles.remove(handle)
         except KeyError:
