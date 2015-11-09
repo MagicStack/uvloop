@@ -6,6 +6,9 @@ from . cimport uv
 from libc.stdint cimport uint64_t
 
 
+include "consts.pxi"
+
+
 cdef class UVHandle
 cdef class UVAsync(UVHandle)
 cdef class UVTimer(UVHandle)
@@ -16,14 +19,16 @@ cdef class UVIdle(UVHandle)
 cdef class Loop:
     cdef:
         uv.uv_loop_t *loop
-        int _closed
-        int _debug
+
+        bint _closed
+        bint _debug
+        bint _running
+        bint _stopping
+
         long _thread_id
-        int _running
-        int _stopping
 
         object _ready
-        int _ready_len
+        Py_ssize_t _ready_len
 
         set _handles
         dict _polls
@@ -38,8 +43,8 @@ cdef class Loop:
 
         cdef object __weakref__
 
-        char _recv_buffer[65536]
-        int _recv_buffer_in_use
+        char _recv_buffer[UV_STREAM_RECV_BUF_SIZE]
+        bint _recv_buffer_in_use
 
 
     cdef _run(self, uv.uv_run_mode)
@@ -55,13 +60,16 @@ cdef class Loop:
 
     cdef void _handle_uvcb_exception(self, object ex)
 
-    cdef _check_closed(self)
-    cdef _check_thread(self)
+    cdef inline _check_closed(self)
+    cdef inline _check_thread(self)
 
     cdef _getaddrinfo(self, str host, int port,
                       int family, int type,
                       int proto, int flags,
                       int unpack)
+
+    # cdef _sock_recv(self, fut, registered, sock, n)
+    # cdef _sock_sendall(self, fut, registered, sock, data)
 
 
 cdef class Handle:

@@ -1,7 +1,7 @@
 cdef class UVSignal(UVHandle):
     cdef:
         object callback
-        int running
+        bint running
         int signum
 
     cdef stop(self)

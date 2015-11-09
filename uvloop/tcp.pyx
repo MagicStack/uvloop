@@ -103,8 +103,8 @@ cdef class UVServerTransport(UVTCPBase):
         # Flow control
         self.flow_control_enabled = 1
         self.protocol_paused = 0
-        self.high_water = 64 * 1024 # TODO: constants
-        self.low_water = (64 * 1024) // 4
+        self.high_water = FLOW_CONTROL_HIGH_WATER
+        self.low_water = FLOW_CONTROL_LOW_WATER
 
     cdef _accept(self):
         cdef int err
@@ -220,9 +220,9 @@ cdef class UVServerTransport(UVTCPBase):
     cdef _set_write_buffer_limits(self, int high=-1, int low=-1):
         if high == -1:
             if low == -1:
-                high = 64 * 1024 # TODO: constants
+                high = FLOW_CONTROL_HIGH_WATER
             else:
-                high = 4 * low
+                high = FLOW_CONTROL_LOW_WATER
 
         if low == -1:
             low = high // 4

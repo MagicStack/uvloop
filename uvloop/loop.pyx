@@ -17,6 +17,7 @@ from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
                      Py_buffer
 
 
+include "consts.pxi"
 include "stdlib.pxi"
 
 
@@ -218,6 +219,11 @@ cdef class Loop:
         self._ready.clear()
         self._ready_len = 0
 
+        if self._handles:
+            raise RuntimeError(
+                "new handles were queued during loop closing: {}"
+                    .format(self._handles))
+
     cdef uint64_t _time(self):
         return uv.uv_now(self.loop)
 
@@ -242,11 +248,11 @@ cdef class Loop:
             # Exit ASAP
             self._stop()
 
-    cdef _check_closed(self):
+    cdef inline _check_closed(self):
         if self._closed == 1:
             raise RuntimeError('Event loop is closed')
 
-    cdef _check_thread(self):
+    cdef inline _check_thread(self):
         if self._thread_id == 0:
             return
         cdef long thread_id = PyThread_get_thread_ident()
@@ -254,6 +260,126 @@ cdef class Loop:
             raise RuntimeError(
                 "Non-thread-safe operation invoked on an event loop other "
                 "than the current one")
+
+    cdef _getaddrinfo(self, str host, int port,
+                      int family, int type,
+                      int proto, int flags,
+                      int unpack):
+
+        fut = aio_Future(loop=self)
+
+        def callback(result):
+            if AddrInfo.isinstance(result):
+                try:
+                    if unpack == 0:
+                        data = result
+                    else:
+                        data = (<AddrInfo>result).unpack()
+                except Exception as ex:
+                    fut.set_exception(ex)
+                else:
+                    fut.set_result(data)
+            else:
+                fut.set_exception(result)
+
+        getaddrinfo(self, host, port, family, type, proto, flags, callback)
+        return fut
+
+    def _sock_recv(self, fut, registered, sock, n):
+        # _sock_recv() can add itself as an I/O callback if the operation can't
+        # be done immediately. Don't use it directly, call sock_recv().
+        fd = sock.fileno()
+        if registered:
+            # Remove the callback early.  It should be rare that the
+            # selector says the fd is ready but the call still returns
+            # EAGAIN, and I am willing to take a hit in that case in
+            # order to simplify the common case.
+            self.remove_reader(fd)
+        if fut.cancelled():
+            return
+        try:
+            data = sock.recv(n)
+        except (BlockingIOError, InterruptedError):
+            self.add_reader(fd, self._sock_recv, fut, True, sock, n)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(data)
+
+    def _sock_sendall(self, fut, registered, sock, data):
+        fd = sock.fileno()
+
+        if registered:
+            self.remove_writer(fd)
+        if fut.cancelled():
+            return
+
+        try:
+            n = sock.send(data)
+        except (BlockingIOError, InterruptedError):
+            n = 0
+        except Exception as exc:
+            fut.set_exception(exc)
+            return
+
+        if n == len(data):
+            fut.set_result(None)
+        else:
+            if n:
+                data = data[n:]
+            self.add_writer(fd, self._sock_sendall, fut, True, sock, data)
+
+    def _sock_accept(self, fut, registered, sock):
+        fd = sock.fileno()
+        if registered:
+            self.remove_reader(fd)
+        if fut.cancelled():
+            return
+        try:
+            conn, address = sock.accept()
+            conn.setblocking(False)
+        except (BlockingIOError, InterruptedError):
+            self.add_reader(fd, self._sock_accept, fut, True, sock)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result((conn, address))
+
+    def _sock_connect(self, fut, sock, address):
+        fd = sock.fileno()
+        try:
+            sock.connect(address)
+        except (BlockingIOError, InterruptedError):
+            # Issue #23618: When the C function connect() fails with EINTR, the
+            # connection runs in background. We have to wait until the socket
+            # becomes writable to be notified when the connection succeed or
+            # fails.
+            fut.add_done_callback(ft_partial(self._sock_connect_done, fd))
+            self.add_writer(fd, self._sock_connect_cb, fut, sock, address)
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(None)
+
+    def _sock_connect_done(self, fd, fut):
+        self.remove_writer(fd)
+
+    def _sock_connect_cb(self, fut, sock, address):
+        if fut.cancelled():
+            return
+
+        try:
+            err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            if err != 0:
+                # Jump to any except clause below.
+                raise OSError(err, 'Connect call failed %s' % (address,))
+        except (BlockingIOError, InterruptedError):
+            # socket is still registered, the callback will be retried later
+            pass
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(None)
 
     # Public API
 
@@ -290,6 +416,9 @@ cdef class Loop:
             return self._call_soon(callback)
         else:
             return self._call_later(when, callback)
+
+    def call_at(self, when, callback, *args):
+        return self.call_later(when - self.time())
 
     def time(self):
         return self._time() / 1000
@@ -366,30 +495,6 @@ cdef class Loop:
 
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
-    cdef _getaddrinfo(self, str host, int port,
-                      int family, int type,
-                      int proto, int flags,
-                      int unpack):
-
-        fut = aio_Future(loop=self)
-
-        def callback(result):
-            if AddrInfo.isinstance(result):
-                try:
-                    if unpack == 0:
-                        data = result
-                    else:
-                        data = (<AddrInfo>result).unpack()
-                except Exception as ex:
-                    fut.set_exception(ex)
-                else:
-                    fut.set_result(data)
-            else:
-                fut.set_exception(result)
-
-        getaddrinfo(self, host, port, family, type, proto, flags, callback)
-        return fut
-
     @aio_coroutine
     async def create_server(self, protocol_factory, str host, int port):
         addrinfo = await self._getaddrinfo(host, port, 0, 0, 0, 0, 0)
@@ -433,7 +538,7 @@ cdef class Loop:
             self._polls[fd] = poll
 
         cb = callback
-        if len(args):
+        if args:
             cb = lambda: callback(*args)
 
         poll.start_reading(cb)
@@ -468,7 +573,7 @@ cdef class Loop:
             self._polls[fd] = poll
 
         cb = callback
-        if len(args):
+        if args:
             cb = lambda: callback(*args)
 
         poll.start_writing(cb)
@@ -495,27 +600,6 @@ cdef class Loop:
         self._sock_recv(fut, False, sock, n)
         return fut
 
-    def _sock_recv(self, fut, registered, sock, n):
-        # _sock_recv() can add itself as an I/O callback if the operation can't
-        # be done immediately. Don't use it directly, call sock_recv().
-        fd = sock.fileno()
-        if registered:
-            # Remove the callback early.  It should be rare that the
-            # selector says the fd is ready but the call still returns
-            # EAGAIN, and I am willing to take a hit in that case in
-            # order to simplify the common case.
-            self.remove_reader(fd)
-        if fut.cancelled():
-            return
-        try:
-            data = sock.recv(n)
-        except (BlockingIOError, InterruptedError):
-            self.add_reader(fd, self._sock_recv, fut, True, sock, n)
-        except Exception as exc:
-            fut.set_exception(exc)
-        else:
-            fut.set_result(data)
-
     def sock_sendall(self, sock, data):
         fut = aio_Future(loop=self)
         if data:
@@ -524,49 +608,23 @@ cdef class Loop:
             fut.set_result(None)
         return fut
 
-    def _sock_sendall(self, fut, registered, sock, data):
-        fd = sock.fileno()
-
-        if registered:
-            self.remove_writer(fd)
-        if fut.cancelled():
-            return
-
-        try:
-            n = sock.send(data)
-        except (BlockingIOError, InterruptedError):
-            n = 0
-        except Exception as exc:
-            fut.set_exception(exc)
-            return
-
-        if n == len(data):
-            fut.set_result(None)
-        else:
-            if n:
-                data = data[n:]
-            self.add_writer(fd, self._sock_sendall, fut, True, sock, data)
-
     def sock_accept(self, sock):
         fut = aio_Future(loop=self)
         self._sock_accept(fut, False, sock)
         return fut
 
-    def _sock_accept(self, fut, registered, sock):
-        fd = sock.fileno()
-        if registered:
-            self.remove_reader(fd)
-        if fut.cancelled():
-            return
+    def sock_connect(self, sock, address):
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
+        fut = aio_Future(loop=self)
         try:
-            conn, address = sock.accept()
-            conn.setblocking(False)
-        except (BlockingIOError, InterruptedError):
-            self.add_reader(fd, self._sock_accept, fut, True, sock)
-        except Exception as exc:
-            fut.set_exception(exc)
+            if self._debug:
+                aio__check_resolved_address(sock, address)
+        except ValueError as err:
+            fut.set_exception(err)
         else:
-            fut.set_result((conn, address))
+            self._sock_connect(fut, sock, address)
+        return fut
 
 
 @cython.internal

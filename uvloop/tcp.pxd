@@ -1,6 +1,6 @@
 cdef class UVTCPBase(UVStream):
     cdef:
-        int opened
+        bint opened
         int flags
 
     cdef enable_nodelay(self)
@@ -24,16 +24,17 @@ cdef class UVServerTransport(UVTCPBase):
     cdef:
         UVTCPServer server
 
-        int eof
-        int reading
+        bint eof
+        bint reading
 
         object protocol
         object protocol_data_received
 
-        int flow_control_enabled
+        bint flow_control_enabled
+        bint protocol_paused
+
         size_t high_water
         size_t low_water
-        int protocol_paused
 
         uv.uv_shutdown_t shutdown_req
 

@@ -1,7 +1,7 @@
 cdef class UVTimer(UVHandle):
     cdef:
         object callback
-        int running
+        bint running
         uint64_t timeout
 
     cdef stop(self)

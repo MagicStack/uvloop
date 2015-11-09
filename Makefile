@@ -1,4 +1,4 @@
-.PHONY: compile clean all deepclean
+.PHONY: compile clean all distclean
 
 
 all: clean compile
@@ -9,7 +9,7 @@ clean:
 	find . -name '__pycache__' | xargs rm -rf
 
 
-deepclean: clean
+distclean: clean
 	git -C vendor/libuv clean -dfX
 
 

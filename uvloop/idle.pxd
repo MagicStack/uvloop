@@ -1,7 +1,7 @@
 cdef class UVIdle(UVHandle):
     cdef:
         object callback
-        int running
+        bint running
 
     cdef stop(self)
     cdef start(self)
