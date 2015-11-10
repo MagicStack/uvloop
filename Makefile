@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean
+.PHONY: compile clean all distclean test
 
 
 all: clean compile
@@ -16,3 +16,7 @@ distclean: clean
 compile: clean
 	cython -a uvloop/loop.pyx
 	python3 setup.py build_ext --inplace
+
+
+test:
+	python3 -m unittest discover -s tests -v

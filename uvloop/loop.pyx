@@ -41,6 +41,8 @@ class UVError(LoopError):
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
+        cdef int err
+
         self.loop = <uv.uv_loop_t*> \
                             PyMem_Malloc(sizeof(uv.uv_loop_t))
         if self.loop is NULL:
@@ -59,33 +61,32 @@ cdef class Loop:
 
         self._recv_buffer_in_use = 0
 
-    def __del__(self):
-        self._close()
-
-    def __dealloc__(self):
-        try:
-            if uv.uv_loop_alive(self.loop):
-                aio_logger.error(
-                    "!!! deallocating event loop with active handles !!!")
-        finally:
-            PyMem_Free(self.loop)
-
-    def __init__(self):
-        cdef int err
-
         err = uv.uv_loop_init(self.loop)
         if err < 0:
             raise UVError.from_error(err)
+
+        self._last_error = None
+
+        self._ready = col_deque()
+        self._ready_len = 0
 
         self.handler_async = UVAsync(self, self._on_wake)
         self.handler_idle = UVIdle(self, self._on_idle)
         self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
         self.handler_sighup = UVSignal(self, self._on_sighup, uv.SIGHUP)
 
-        self._last_error = None
+        print(self.handler_idle)
 
-        self._ready = col_deque()
-        self._ready_len = 0
+    def __del__(self):
+        self._close()
+
+    def __dealloc__(self):
+        try:
+            if self._closed == 0:
+                aio_logger.error("deallocating an active libuv loop")
+        finally:
+            PyMem_Free(self.loop)
+            self.loop = NULL
 
     def _on_wake(self):
         if self._ready_len > 0 and not self.handler_idle.running:
@@ -196,13 +197,14 @@ cdef class Loop:
 
         self._closed = 1
 
+        self._ready.clear()
+        self._ready_len = 0
+
         if self._handles:
             self._polls.clear()
             self._polls_gc.clear()
 
-            handles = tuple(self._handles)
-            self._handles.clear()
-            for handle in handles:
+            for handle in tuple(self._handles):
                 (<UVHandle>handle).close()
 
         # Allow loop to fire "close" callbacks
@@ -216,13 +218,15 @@ cdef class Loop:
         if err < 0:
             raise UVError.from_error(err)
 
-        self._ready.clear()
-        self._ready_len = 0
-
         if self._handles:
             raise RuntimeError(
                 "new handles were queued during loop closing: {}"
                     .format(self._handles))
+
+        if self._ready:
+            raise RuntimeError(
+                "new callbacks were queued during loop closing: {}"
+                    .format(self._ready))
 
     cdef uint64_t _time(self):
         return uv.uv_now(self.loop)
