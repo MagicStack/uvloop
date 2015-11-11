@@ -1,3 +1,5 @@
+@cython.final
+@cython.internal
 cdef class UVSignal(UVHandle):
     def __cinit__(self, Loop loop, object callback, int signum):
         cdef int err

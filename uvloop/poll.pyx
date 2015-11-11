@@ -1,3 +1,5 @@
+@cython.final
+@cython.internal
 cdef class UVPoll(UVHandle):
     def __cinit__(self, Loop loop, int fd):
         cdef int err

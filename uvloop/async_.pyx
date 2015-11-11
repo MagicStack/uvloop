@@ -1,3 +1,5 @@
+@cython.final
+@cython.internal
 cdef class UVAsync(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err

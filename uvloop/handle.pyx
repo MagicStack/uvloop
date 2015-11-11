@@ -1,3 +1,4 @@
+@cython.internal
 cdef class UVHandle:
     def __cinit__(self, Loop loop, *_):
         self.closed = 0

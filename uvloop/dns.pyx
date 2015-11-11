@@ -1,3 +1,5 @@
+@cython.final
+@cython.internal
 @cython.freelist(50)
 cdef class AddrInfo:
     cdef:

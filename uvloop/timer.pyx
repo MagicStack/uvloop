@@ -1,3 +1,5 @@
+@cython.final
+@cython.internal
 cdef class UVTimer(UVHandle):
     def __cinit__(self, Loop loop, object callback, uint64_t timeout):
         cdef int err
