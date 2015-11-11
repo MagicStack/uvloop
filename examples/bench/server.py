@@ -29,9 +29,22 @@ async def echo_client(loop, client):
     print('Connection closed')
 
 
+async def echo_client_streams(reader, writer):
+    addr = writer.get_extra_info('peername')
+    print('Connection from', addr)
+    while True:
+         data = await reader.read(10000)
+         if not data:
+             break
+         writer.write(data)
+         await writer.drain()
+    print('Connection closed')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--uvloop', default=False, action='store_true')
+    parser.add_argument('--streams', default=False, action='store_true')
     args = parser.parse_args()
 
     if args.uvloop:
@@ -44,7 +57,14 @@ if __name__ == '__main__':
     asyncio.set_event_loop(loop)
     loop.set_debug(False)
 
-    loop.create_task(echo_server(loop, ('', 25000)))
+    if args.streams:
+        print('using asyncio/streams')
+        coro = asyncio.start_server(echo_client_streams,
+                                    '127.0.0.1', 25000, loop=loop)
+        loop.create_task(coro)
+    else:
+        print('using sock_recv/sock_sendall')
+        loop.create_task(echo_server(loop, ('', 25000)))
     try:
         loop.run_forever()
     finally:
