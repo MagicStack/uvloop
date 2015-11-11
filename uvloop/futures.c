@@ -1,5 +1,3 @@
-/* Helpers for types module. */
-
 #include "Python.h"
 #include "structmember.h"
 
