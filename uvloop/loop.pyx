@@ -67,6 +67,7 @@ cdef class Loop:
 
         self._last_error = None
 
+        self._task_factory = None
         self._exception_handler = None
         self._default_executor = None
 
@@ -467,8 +468,21 @@ cdef class Loop:
 
     def create_task(self, coro):
         self._check_closed()
+        if self._task_factory is None:
+            task = aio_Task(coro, loop=self)
+            if task._source_traceback:
+                del task._source_traceback[-1]
+        else:
+            task = self._task_factory(self, coro)
+        return task
 
-        return aio_Task(coro, loop=self)
+    def set_task_factory(self, factory):
+        if factory is not None and not callable(factory):
+            raise TypeError('task factory must be a callable or None')
+        self._task_factory = factory
+
+    def get_task_factory(self):
+        return self._task_factory
 
     def run_until_complete(self, future):
         self._check_closed()

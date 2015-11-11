@@ -27,6 +27,7 @@ cdef class Loop:
 
         long _thread_id
 
+        object _task_factory
         object _exception_handler
         object _default_executor
         object _ready
