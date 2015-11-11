@@ -37,14 +37,14 @@ cdef class UVTimer(UVHandle):
 
         if self.running == 0:
             err = uv.uv_timer_start(<uv.uv_timer_t*>self.handle,
-                                    cb_timer_callback,
+                                    __uvtimer_callback,
                                     self.timeout, 0)
             if err < 0:
                 raise UVError.from_error(err)
             self.running = 1
 
 
-cdef void cb_timer_callback(uv.uv_timer_t* handle) with gil:
+cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
     cdef UVTimer timer = <UVTimer> handle.data
     timer.running = 0
     try:

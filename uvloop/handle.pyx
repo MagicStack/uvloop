@@ -48,7 +48,7 @@ cdef class UVHandle:
                         self.__class__.__name__))
 
         self.closing = 1
-        uv.uv_close(self.handle, cb_handle_close_cb) # void; no exceptions
+        uv.uv_close(self.handle, __uvhandle_close_cb) # void; no exceptions
 
     def __repr__(self):
         return '<{} closed={} closing={} {:#x}>'.format(
@@ -58,7 +58,7 @@ cdef class UVHandle:
             id(self))
 
 
-cdef void cb_handle_close_cb(uv.uv_handle_t* handle) with gil:
+cdef void __uvhandle_close_cb(uv.uv_handle_t* handle) with gil:
     cdef UVHandle h = <UVHandle>handle.data
     h.closed = 1
     h.closing = 0

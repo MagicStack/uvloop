@@ -31,7 +31,7 @@ cdef class UVPoll(UVHandle):
         err = uv.uv_poll_start(
             <uv.uv_poll_t*>self.handle,
             flags,
-            __on_poll_event)
+            __on_uvpoll_event)
 
         if err < 0:
             raise UVError.from_error(err)
@@ -109,8 +109,8 @@ cdef class UVPoll(UVHandle):
         self._poll_stop()
 
 
-cdef void __on_poll_event(uv.uv_poll_t* handle,
-                          int status, int events) with gil:
+cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
+                            int status, int events) with gil:
 
     cdef:
         UVPoll poll = <UVPoll> handle.data
