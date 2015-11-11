@@ -30,7 +30,7 @@ class libuv_build_ext(build_ext):
         if not os.path.exists(libuv_lib):
             raise RuntimeError('failed to build libuv')
 
-        self.extensions[0].extra_objects.extend([libuv_lib])
+        self.extensions[-1].extra_objects.extend([libuv_lib])
         self.compiler.add_include_dir(os.path.join(LIBUV_DIR, 'include'))
 
         if sys.platform.startswith('linux'):
@@ -47,6 +47,13 @@ setup(
     packages=['uvloop'],
     cmdclass = {'build_ext': libuv_build_ext},
     ext_modules=[
+        Extension(
+            "uvloop.futures",
+            sources = [
+                "uvloop/futures.c",
+            ]
+        ),
+
         Extension(
             "uvloop.loop",
             sources = [

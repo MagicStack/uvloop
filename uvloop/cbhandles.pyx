@@ -40,13 +40,6 @@ cdef class Handle:
 @cython.internal
 @cython.freelist(250)
 cdef class TimerHandle:
-    cdef:
-        object callback, args
-        bint closed
-        UVTimer timer
-        Loop loop
-        object __weakref__
-
     def __cinit__(self, Loop loop, object callback, object args,
                   uint64_t delay):
 
@@ -74,11 +67,12 @@ cdef class TimerHandle:
             return
 
         callback = self.callback
+        args = self.args
         self._cancel()
 
         try:
-            if self.args is not None:
-                callback(*self.args)
+            if args is not None:
+                callback(*args)
             else:
                 callback()
         except Exception as ex:

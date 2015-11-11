@@ -5,7 +5,9 @@ all: clean compile
 
 
 clean:
+	mv uvloop/futures.c uvloop/futures.c~
 	rm -fdr uvloop/*.c uvloop/*.html uvloop/*.so build *.egg-info
+	mv uvloop/futures.c~ uvloop/futures.c
 	find . -name '__pycache__' | xargs rm -rf
 
 

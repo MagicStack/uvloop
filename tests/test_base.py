@@ -90,7 +90,7 @@ class TestBase:
         finished = time.monotonic()
 
         self.assertLess(finished - started, 0.07)
-        self.assertGreater(finished - started, 0.05)
+        self.assertGreater(finished - started, 0.045)
 
         self.assertEqual(i, 11)
 

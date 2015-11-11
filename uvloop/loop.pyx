@@ -5,6 +5,9 @@ cimport cython
 
 from . cimport uv
 
+from .futures import Future as _CFuture
+cdef CFuture = _CFuture
+
 from libc.stdint cimport uint64_t
 from libc.string cimport memset
 
@@ -652,12 +655,12 @@ cdef class Loop:
         return result
 
     def sock_recv(self, sock, n):
-        fut = aio_Future(loop=self)
+        fut = CFuture(self)
         self._sock_recv(fut, False, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
-        fut = aio_Future(loop=self)
+        fut = CFuture(self)
         if data:
             self._sock_sendall(fut, False, sock, data)
         else:
