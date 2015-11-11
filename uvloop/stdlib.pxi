@@ -1,5 +1,6 @@
 import asyncio, asyncio.log, asyncio.base_events
 import collections
+import concurrent.futures
 import functools
 import os
 import socket
@@ -15,9 +16,14 @@ cdef aio_gather = asyncio.gather
 cdef aio_logger = asyncio.log.logger
 cdef aio_coroutine = asyncio.coroutine
 cdef aio__check_resolved_address = asyncio.base_events._check_resolved_address
+cdef aio_iscoroutine = asyncio.iscoroutine
+cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
+cdef aio_wrap_future = asyncio.wrap_future
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
+
+cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 
 cdef ft_partial = functools.partial
 
@@ -30,4 +36,4 @@ cdef str sys_platform = sys.platform
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
-del asyncio, collections, functools, socket, os, sys
+del asyncio, concurrent, collections, functools, socket, os, sys

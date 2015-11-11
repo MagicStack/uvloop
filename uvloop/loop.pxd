@@ -27,6 +27,8 @@ cdef class Loop:
 
         long _thread_id
 
+        object _exception_handler
+        object _default_executor
         object _ready
         Py_ssize_t _ready_len
 
@@ -49,11 +51,11 @@ cdef class Loop:
 
     cdef _run(self, uv.uv_run_mode)
     cdef _close(self)
-    cdef _stop(self)
+    cdef _stop(self, exc=*)
     cdef uint64_t _time(self)
 
-    cdef _call_soon(self, object callback)
-    cdef _call_later(self, uint64_t delay, object callback)
+    cdef _call_soon(self, object callback, object args)
+    cdef _call_later(self, uint64_t delay, object callback, object args)
 
     cdef inline void __track_handle__(self, UVHandle handle)
     cdef inline void __untrack_handle__(self, UVHandle handle)
@@ -68,30 +70,6 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack)
 
-    # cdef _sock_recv(self, fut, registered, sock, n)
-    # cdef _sock_sendall(self, fut, registered, sock, data)
-
-
-cdef class Handle:
-    cdef:
-        object callback
-        int cancelled
-        int done
-        object __weakref__
-
-    cdef inline _run(self)
-    cdef _cancel(self)
-
-
-cdef class TimerHandle:
-    cdef:
-        object callback
-        int closed
-        UVTimer timer
-        Loop loop
-        object __weakref__
-
-    cdef _cancel(self)
 
 
 include "handle.pxd"

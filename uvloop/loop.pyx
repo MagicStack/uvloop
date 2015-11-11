@@ -67,6 +67,9 @@ cdef class Loop:
 
         self._last_error = None
 
+        self._exception_handler = None
+        self._default_executor = None
+
         self._ready = col_deque()
         self._ready_len = 0
 
@@ -74,8 +77,6 @@ cdef class Loop:
         self.handler_idle = UVIdle(self, self._on_idle)
         self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
         self.handler_sighup = UVSignal(self, self._on_sighup, uv.SIGHUP)
-
-        print(self.handler_idle)
 
     def __del__(self):
         self._close()
@@ -113,11 +114,8 @@ cdef class Loop:
                 try:
                     handler._run()
                 except BaseException as ex:
-                    self._handle_uvcb_exception(ex)
-                    if self._stopping:
-                        # loop is shutting down
-                        self._ready_len = len(self._ready)
-                        return
+                    self._stop(ex)
+                    return
 
         if len(self._polls_gc):
             for fd in tuple(self._polls_gc):
@@ -131,7 +129,9 @@ cdef class Loop:
         if self._ready_len == 0 and self.handler_idle.running:
             self.handler_idle.stop()
 
-    cdef _stop(self):
+    cdef _stop(self, exc=None):
+        if exc is not None:
+            self._last_error = exc
         if self._stopping == 1:
             return
         self._stopping = 1
@@ -228,20 +228,25 @@ cdef class Loop:
                 "new callbacks were queued during loop closing: {}"
                     .format(self._ready))
 
+        executor = self._default_executor
+        if executor is not None:
+            self._default_executor = None
+            executor.shutdown(wait=False)
+
     cdef uint64_t _time(self):
         return uv.uv_now(self.loop)
 
-    cdef _call_soon(self, object callback):
+    cdef _call_soon(self, object callback, object args):
         self._check_closed()
-        handle = Handle(self, callback)
+        handle = Handle(self, callback, args)
         self._ready.append(handle)
         self._ready_len += 1;
         if not self.handler_idle.running:
             self.handler_idle.start()
         return handle
 
-    cdef _call_later(self, uint64_t delay, object callback):
-        return TimerHandle(self, callback, delay)
+    cdef _call_later(self, uint64_t delay, object callback, object args):
+        return TimerHandle(self, callback, args, delay)
 
     cdef void _handle_uvcb_exception(self, object ex):
         if isinstance(ex, Exception):
@@ -395,16 +400,14 @@ cdef class Loop:
     def call_soon(self, callback, *args):
         if self._debug == 1:
             self._check_thread()
-        if args:
-            _cb = callback
-            callback = lambda: _cb(*args) # faster than functools.partial
-        return self._call_soon(callback)
+        if not args:
+            args = None
+        return self._call_soon(callback, args)
 
     def call_soon_threadsafe(self, callback, *args):
-        if args:
-            _cb = callback
-            callback = lambda: _cb(*args)
-        handle = self._call_soon(callback)
+        if not args:
+            args = None
+        handle = self._call_soon(callback, args)
         self.handler_async.send()
         return handle
 
@@ -412,23 +415,24 @@ cdef class Loop:
         self._check_closed()
         if self._debug == 1:
             self._check_thread()
+        if delay < 0:
+            delay = 0
         cdef uint64_t when = <uint64_t>(delay * 1000)
-        if args:
-            _cb = callback
-            callback = lambda: _cb(*args)
+        if not args:
+            args = None
         if when == 0:
-            return self._call_soon(callback)
+            return self._call_soon(callback, args)
         else:
-            return self._call_later(when, callback)
+            return self._call_later(when, callback, args)
 
     def call_at(self, when, callback, *args):
-        return self.call_later(when - self.time())
+        return self.call_later(when - self.time(), callback, *args)
 
     def time(self):
         return self._time() / 1000
 
     def stop(self):
-        self._call_soon(lambda: self._stop())
+        self._call_soon(lambda: self._stop(), None)
 
     def run_forever(self):
         self._check_closed()
@@ -516,7 +520,7 @@ cdef class Loop:
         srv.listen()
         return srv
 
-    def call_exception_handler(self, context):
+    def default_exception_handler(self, context):
         message = context.get('message')
         if not message:
             message = 'Unhandled exception in event loop'
@@ -528,6 +532,42 @@ cdef class Loop:
             exc_info = False
 
         aio_logger.error(message, exc_info=exc_info)
+
+    def set_exception_handler(self, handler):
+        if handler is not None and not callable(handler):
+            raise TypeError('A callable object or None is expected, '
+                            'got {!r}'.format(handler))
+        self._exception_handler = handler
+
+    def call_exception_handler(self, context):
+        if self._exception_handler is None:
+            try:
+                self.default_exception_handler(context)
+            except Exception:
+                # Second protection layer for unexpected errors
+                # in the default implementation, as well as for subclassed
+                # event loops with overloaded "default_exception_handler".
+                aio_logger.error('Exception in default exception handler',
+                                 exc_info=True)
+        else:
+            try:
+                self._exception_handler(self, context)
+            except Exception as exc:
+                # Exception in the user set custom exception handler.
+                try:
+                    # Let's try default handler.
+                    self.default_exception_handler({
+                        'message': 'Unhandled error in exception handler',
+                        'exception': exc,
+                        'context': context,
+                    })
+                except Exception:
+                    # Guard 'default_exception_handler' in case it is
+                    # overloaded.
+                    aio_logger.error('Exception in default exception handler '
+                                     'while handling an unexpected error '
+                                     'in custom exception handler',
+                                     exc_info=True)
 
     def add_reader(self, fd, callback, *args):
         cdef:
@@ -630,62 +670,25 @@ cdef class Loop:
             self._sock_connect(fut, sock, address)
         return fut
 
+    def run_in_executor(self, executor, func, *args):
+        if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
+            raise TypeError("coroutines cannot be used with run_in_executor()")
 
-@cython.internal
-@cython.freelist(100)
-cdef class Handle:
-    def __cinit__(self, Loop loop, object callback):
-        self.callback = callback
-        self.cancelled = 0
-        self.done = 0
+        self._check_closed()
 
-    cdef inline _run(self):
-        if self.cancelled == 0 and self.done == 0:
-            self.done = 1
-            self.callback()
+        if executor is None:
+            executor = self._default_executor
+            if executor is None:
+                executor = cc_ThreadPoolExecutor(MAX_THREADPOOL_WORKERS)
+                self._default_executor = executor
 
-    cdef _cancel(self):
-        self.cancelled = 1
-        self.callback = None
+        return aio_wrap_future(executor.submit(func, *args), loop=self)
 
-    # Public API
-
-    def cancel(self):
-        self._cancel()
+    def set_default_executor(self, executor):
+        self._default_executor = executor
 
 
-@cython.internal
-@cython.freelist(100)
-cdef class TimerHandle:
-    def __cinit__(self, Loop loop, object callback, uint64_t delay):
-        self.loop = loop
-        self.callback = callback
-        self.closed = 0
-
-        self.timer = UVTimer(loop, self._run, delay)
-        self.timer.start()
-
-    def __del__(self):
-        self._cancel()
-
-    cdef _cancel(self):
-        if self.closed == 1:
-            return
-        self.closed = 1
-        self.callback = None
-        self.timer.close()
-
-    def _run(self):
-        if self.closed == 0:
-            callback = self.callback
-            self._cancel()
-            callback()
-
-    # Public API
-
-    def cancel(self):
-        self._cancel()
-
+include "cbhandles.pyx"
 
 include "handle.pyx"
 include "async_.pyx"
