@@ -595,11 +595,10 @@ cdef class Loop:
             poll = UVPoll(self, fd)
             self._polls[fd] = poll
 
-        cb = callback
-        if args:
-            cb = lambda: callback(*args)
+        if not args:
+            args = None
 
-        poll.start_reading(cb)
+        poll.start_reading(Handle(self, callback, args))
 
     def remove_reader(self, fd):
         cdef:
@@ -630,11 +629,10 @@ cdef class Loop:
             poll = UVPoll(self, fd)
             self._polls[fd] = poll
 
-        cb = callback
-        if args:
-            cb = lambda: callback(*args)
+        if not args:
+            args = None
 
-        poll.start_writing(cb)
+        poll.start_writing(Handle(self, callback, args))
 
     def remove_writer(self, fd):
         cdef:

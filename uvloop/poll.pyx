@@ -45,7 +45,7 @@ cdef class UVPoll(UVHandle):
         if err < 0:
             raise UVError.from_error(err)
 
-    cdef start_reading(self, object callback):
+    cdef start_reading(self, Handle callback):
         cdef:
             int mask = 0
 
@@ -61,7 +61,7 @@ cdef class UVPoll(UVHandle):
 
         self.reading_handle = callback
 
-    cdef start_writing(self, object callback):
+    cdef start_writing(self, Handle callback):
         cdef:
             int mask = 0
 
@@ -122,12 +122,12 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
 
     if events | uv.UV_READABLE and poll.reading_handle is not None:
         try:
-            poll.reading_handle()
+            poll.reading_handle._run()
         except BaseException as ex:
             poll.loop._handle_uvcb_exception(ex)
 
     if events | uv.UV_WRITABLE and poll.writing_handle is not None:
         try:
-            poll.writing_handle()
+            poll.writing_handle._run()
         except BaseException as ex:
             poll.loop._handle_uvcb_exception(ex)

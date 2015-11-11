@@ -72,6 +72,17 @@ cdef class Loop:
                       int unpack)
 
 
+cdef class Handle:
+    cdef:
+        object callback, args
+        bint cancelled
+        bint done
+        Loop loop
+        object __weakref__
+
+    cdef inline _run(self)
+    cdef _cancel(self)
+
 
 include "handle.pxd"
 include "async_.pxd"

@@ -1,14 +1,7 @@
 @cython.final
 @cython.internal
-@cython.freelist(100)
+@cython.freelist(250)
 cdef class Handle:
-    cdef:
-        object callback, args
-        bint cancelled
-        bint done
-        Loop loop
-        object __weakref__
-
     def __cinit__(self, Loop loop, object callback, object args):
         self.callback = callback
         self.args = args
@@ -35,6 +28,7 @@ cdef class Handle:
     cdef _cancel(self):
         self.cancelled = 1
         self.callback = None
+        self.args = None
 
     # Public API
 
@@ -44,7 +38,7 @@ cdef class Handle:
 
 @cython.final
 @cython.internal
-@cython.freelist(100)
+@cython.freelist(250)
 cdef class TimerHandle:
     cdef:
         object callback, args
@@ -72,6 +66,7 @@ cdef class TimerHandle:
             return
         self.closed = 1
         self.callback = None
+        self.args = None
         self.timer.close()
 
     def _run(self):
