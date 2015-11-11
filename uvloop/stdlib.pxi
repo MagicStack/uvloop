@@ -7,6 +7,11 @@ import socket
 import sys
 
 
+from . import futures
+# asyncio.Future.register(futures.Future)
+cdef c_Future = futures.Future
+
+
 cdef aio_CancelledError = asyncio.CancelledError
 cdef aio_TimeoutError = asyncio.TimeoutError
 cdef aio_Future = asyncio.Future
@@ -36,4 +41,4 @@ cdef str sys_platform = sys.platform
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
-del asyncio, concurrent, collections, functools, socket, os, sys
+del asyncio, concurrent, collections, futures, functools, socket, os, sys

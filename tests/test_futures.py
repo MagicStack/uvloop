@@ -24,7 +24,7 @@ class TestFutures(UVTestCase):
         self.assertFalse(f.cancel())
 
     def test_initial_state(self):
-        f = CFuture(self.loop)
+        f = CFuture(loop=self.loop)
         self.assertFalse(f.cancelled())
         self.assertFalse(f.done())
         f.cancel()

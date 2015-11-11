@@ -51,7 +51,8 @@ setup(
             "uvloop.futures",
             sources = [
                 "uvloop/futures.c",
-            ]
+            ],
+            extra_compile_args=['-O2']
         ),
 
         Extension(

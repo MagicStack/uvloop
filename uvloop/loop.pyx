@@ -24,6 +24,13 @@ include "consts.pxi"
 include "stdlib.pxi"
 
 
+cdef Future
+IF USE_C_FUTURE:
+    Future = c_Future
+ELSE:
+    Future = aio_Future
+
+
 class LoopError(Exception):
     pass
 
@@ -279,7 +286,7 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
-        fut = aio_Future(loop=self)
+        fut = Future(loop=self)
 
         def callback(result):
             if AddrInfo.isinstance(result):
@@ -655,12 +662,12 @@ cdef class Loop:
         return result
 
     def sock_recv(self, sock, n):
-        fut = CFuture(self)
+        fut = Future(loop=self)
         self._sock_recv(fut, False, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
-        fut = CFuture(self)
+        fut = Future(loop=self)
         if data:
             self._sock_sendall(fut, False, sock, data)
         else:
@@ -668,14 +675,14 @@ cdef class Loop:
         return fut
 
     def sock_accept(self, sock):
-        fut = aio_Future(loop=self)
+        fut = Future(loop=self)
         self._sock_accept(fut, False, sock)
         return fut
 
     def sock_connect(self, sock, address):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = aio_Future(loop=self)
+        fut = Future(loop=self)
         try:
             if self._debug:
                 aio__check_resolved_address(sock, address)

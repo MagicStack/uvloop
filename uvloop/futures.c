@@ -3,7 +3,7 @@
 #include "Python.h"
 #include "structmember.h"
 
-static struct Locals { // XXX
+static struct Locals { // XXX!!!
     PyObject* is_error;
     PyObject* ce_error;
 } locals;
@@ -67,10 +67,12 @@ _schedule_callbacks(FutureObj *fut) {
 static PyObject *
 FutureObj_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+    static char *kwlist[] = {"loop", NULL};
+
     PyObject *loop;
     FutureObj *fut;
 
-    if (!PyArg_UnpackTuple(args, "Future", 1, 1, &loop))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &loop))
         return NULL;
 
     fut = PyObject_GC_New(FutureObj, type);
@@ -256,6 +258,13 @@ FutureObj_iternext(FutureObj *fut)
 }
 
 static PyObject *
+FutureObj_send(FutureObj *fut, PyObject *res) {
+    PyErr_Format(PyExc_RuntimeError,
+                 "future.send() was called; unpatched asyncio");
+    return NULL;
+}
+
+static PyObject *
 FutureObj_add_done_callback(FutureObj *fut, PyObject *arg)
 {
     if (fut->fut_state != STATE_PENDING) {
@@ -345,6 +354,8 @@ static PyMethodDef FutureType_methods[] = {
     {"done", (PyCFunction)FutureObj_done, METH_NOARGS, NULL},
     {"result", (PyCFunction)FutureObj_result, METH_NOARGS, NULL},
     {"exception", (PyCFunction)FutureObj_exception, METH_NOARGS, NULL},
+
+    {"send", (PyCFunction)FutureObj_send, METH_O, NULL}, // XXX
     {NULL, NULL}        /* Sentinel */
 };
 
@@ -425,6 +436,7 @@ futures_exec(PyObject *module) {
         return -1;
     }
 
+    // XXX!!!
     PyObject *asyncio = PyImport_ImportModule("asyncio");
     if (asyncio == NULL) {
         return -1;
