@@ -26,6 +26,7 @@ include "stdlib.pxi"
 
 cdef Future
 IF USE_C_FUTURE:
+    aio_Future.register(c_Future)
     Future = c_Future
 ELSE:
     Future = aio_Future

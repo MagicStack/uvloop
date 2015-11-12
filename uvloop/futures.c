@@ -1,6 +1,7 @@
 #include "Python.h"
 #include "structmember.h"
 
+
 static struct Locals { // XXX!!!
     PyObject* is_error;
     PyObject* ce_error;
@@ -24,42 +25,49 @@ typedef struct {
     PyObject *fut_weakreflist;
 } FutureObj;
 
-static PyObject *
+PyObject *__call_soon;
+
+static int
 _schedule_callbacks(FutureObj *fut) {
     if (fut->fut_callbacks == NULL) {
         PyErr_SetString(PyExc_RuntimeError, "NULL callbacks");
-        return NULL;
+        return -1;
     }
 
     Py_ssize_t len = PyList_GET_SIZE(fut->fut_callbacks);
 
     if (len == 0) {
-        Py_RETURN_NONE;
+        return 0;
     }
 
     PyObject* iters = PyList_GetSlice(fut->fut_callbacks, 0, len);
     if (iters == NULL) {
-        return NULL;
+        return -1;
     }
 
     if (PyList_SetSlice(fut->fut_callbacks, 0, len, NULL) < 0) {
         Py_DECREF(iters);
-        return NULL;
+        return -1;
     }
 
     for (int i = 0; i < len; i++) {
+        PyObject *handle;
         PyObject *cb = PyList_GET_ITEM(iters, i);
 
-        if (PyObject_CallMethod(
-            fut->fut_loop, "call_soon", "OO", cb, fut, NULL) == NULL)
+        handle = PyObject_CallMethodObjArgs(
+            fut->fut_loop, __call_soon, cb, fut, NULL);
+
+        if (handle == NULL)
         {
-            Py_DECREF(fut->fut_callbacks);
-            return NULL;
+            Py_DECREF(iters);
+            return -1;
+        } else {
+            Py_DECREF(handle);
         }
     }
 
     Py_DECREF(iters);
-    Py_RETURN_NONE;
+    return 0;
 }
 
 static PyObject *
@@ -91,6 +99,7 @@ FutureObj_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     Py_INCREF(loop);
     fut->fut_loop = loop;
+
     _PyObject_GC_TRACK(fut);
     return (PyObject *)fut;
 }
@@ -115,10 +124,10 @@ FutureObj_dealloc(FutureObj *fut)
 static int
 FutureObj_traverse(FutureObj *fut, visitproc visit, void *arg)
 {
-    Py_VISIT((PyObject *)fut->fut_loop);
-    Py_VISIT((PyObject *)fut->fut_callbacks);
-    Py_VISIT((PyObject *)fut->fut_result);
-    Py_VISIT((PyObject *)fut->fut_exception);
+    Py_VISIT(fut->fut_loop);
+    Py_VISIT(fut->fut_callbacks);
+    Py_VISIT(fut->fut_result);
+    Py_VISIT(fut->fut_exception);
     return 0;
 }
 
@@ -177,7 +186,7 @@ FutureObj_set_result(FutureObj *fut, PyObject *res) {
     fut->fut_result = res;
     fut->fut_state = STATE_FINISHED;
 
-    if (_schedule_callbacks(fut) == NULL) {
+    if (_schedule_callbacks(fut) == -1) {
         return NULL;
     }
 
@@ -200,7 +209,7 @@ FutureObj_set_exception(FutureObj *fut, PyObject *exc) {
     }
     if (exc_val == NULL) {
         exc_val = exc;
-        Py_INCREF(exc);
+        Py_INCREF(exc_val);
     }
     if (!PyExceptionInstance_Check(exc_val)) {
         Py_DECREF(exc_val);
@@ -211,7 +220,7 @@ FutureObj_set_exception(FutureObj *fut, PyObject *exc) {
     fut->fut_exception = exc_val;
     fut->fut_state = STATE_FINISHED;
 
-    if (_schedule_callbacks(fut) == NULL) {
+    if (_schedule_callbacks(fut) == -1) {
         return NULL;
     }
 
@@ -252,6 +261,8 @@ FutureObj_iternext(FutureObj *fut)
 
     // normal result
     PyErr_SetObject(PyExc_StopIteration, res);
+    Py_DECREF(res);
+
     return NULL;
 }
 
@@ -265,12 +276,15 @@ FutureObj_send(FutureObj *fut, PyObject *res) {
 static PyObject *
 FutureObj_add_done_callback(FutureObj *fut, PyObject *arg)
 {
+    PyObject *handle;
     if (fut->fut_state != STATE_PENDING) {
-        if (PyObject_CallMethod(
-            fut->fut_loop, "call_soon", "OO", arg, fut->fut_loop) == NULL)
-        {
+        handle = PyObject_CallMethodObjArgs(
+            fut->fut_loop, __call_soon, arg, fut, NULL);
+
+        if (handle == NULL)
             return NULL;
-        }
+        else
+            Py_DECREF(handle);
     } else {
         int err = PyList_Append(fut->fut_callbacks, arg);
         if (err != 0) {
@@ -288,7 +302,7 @@ FutureObj_cancel(FutureObj *fut, PyObject *arg)
     }
     fut->fut_state = STATE_CANCELLED;
 
-    if (_schedule_callbacks(fut) == NULL) {
+    if (_schedule_callbacks(fut) == -1) {
         return NULL;
     }
 
@@ -431,6 +445,11 @@ futures_exec(PyObject *module) {
     Py_INCREF(&FutureType);
     if (PyModule_AddObject(module, "Future", (PyObject *)&FutureType) < 0) {
         Py_DECREF(&FutureType);
+        return -1;
+    }
+
+    __call_soon = PyUnicode_FromString("call_soon");
+    if (__call_soon == NULL) {
         return -1;
     }
 

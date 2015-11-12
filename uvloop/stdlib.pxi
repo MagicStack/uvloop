@@ -6,11 +6,8 @@ import os
 import socket
 import sys
 
-
 from . import futures
-# asyncio.Future.register(futures.Future)
 cdef c_Future = futures.Future
-
 
 cdef aio_CancelledError = asyncio.CancelledError
 cdef aio_TimeoutError = asyncio.TimeoutError
