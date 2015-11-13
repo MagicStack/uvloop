@@ -139,3 +139,14 @@ class FutureDoneCallbackTests(UVTestCase):
 
         self.assertEqual(bag, [100])
         self.assertEqual(f.exception(), exc)
+
+
+class FutureIntegrationTests(UVTestCase):
+
+    def test_ensure_future(self):
+        f = CFuture(self.loop)
+        self.assertIs(f, asyncio.ensure_future(f))
+
+    def test_wrap_future(self):
+        f = CFuture(self.loop)
+        self.assertIs(f, asyncio.wrap_future(f))

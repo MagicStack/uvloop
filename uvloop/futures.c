@@ -268,9 +268,8 @@ FutureObj_iternext(FutureObj *fut)
 
 static PyObject *
 FutureObj_send(FutureObj *fut, PyObject *res) {
-    PyErr_Format(PyExc_RuntimeError,
-                 "future.send() was called; unpatched asyncio");
-    return NULL;
+    // This is a slow-path.
+    return FutureObj_iternext(fut);
 }
 
 static PyObject *
