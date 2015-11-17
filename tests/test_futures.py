@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 import time
+import unittest
 
 import uvloop
 from uvloop.futures import Future as CFuture
@@ -11,6 +12,12 @@ from uvloop._testbase import UVTestCase
 
 
 class TestFutures(UVTestCase):
+
+    def test_set_result(self):
+        f = CFuture(self.loop)
+        f.set_result(1)
+        with self.assertRaises(asyncio.InvalidStateError):
+            f.set_result(1)
 
     def test_cancel(self):
         f = CFuture(self.loop)
@@ -141,6 +148,8 @@ class FutureDoneCallbackTests(UVTestCase):
         self.assertEqual(f.exception(), exc)
 
 
+@unittest.skipIf(not uvloop._CFUTURE,
+                 'uvloop was not compiled with USE_C_FUTURE')
 class FutureIntegrationTests(UVTestCase):
 
     def test_ensure_future(self):
