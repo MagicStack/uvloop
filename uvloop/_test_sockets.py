@@ -1,62 +1,14 @@
-"""Test utilities. Don't use outside of the uvloop project."""
-
-
-import asyncio
 import inspect
-import re
 import socket
 import ssl
 import threading
-import unittest
-import uvloop
 
 
-class MockPattern(str):
-    def __eq__(self, other):
-        return bool(re.search(str(self), other, re.S))
-
-
-class BaseTestCase(unittest.TestCase):
-
-    def new_loop(self):
-        raise NotImplementedError
-
-    def mock_pattern(self, str):
-        return MockPattern(str)
-
-    def setUp(self):
-        self.loop = self.new_loop()
-        asyncio.set_event_loop(self.loop)
-
-    def tearDown(self):
-        self.loop.close()
-        asyncio.set_event_loop(None)
-        self.loop = None
-
-
-class UVTestCase(BaseTestCase):
-
-    def new_loop(self):
-        return uvloop.Loop()
-
-
-class AIOTestCase(BaseTestCase):
-
-    def new_loop(self):
-        return asyncio.new_event_loop()
-
-
-###############################################################################
-## Socket Testing Utilities
-###############################################################################
-
-
-def tcp_server(server_prog, *,
-               family=socket.AF_INET,
-               addr=('127.0.0.1', 0),
-               timeout=1,
-               backlog=1,
-               max_clients=1):
+def start_tcp_server(server_prog, *,
+                     family=socket.AF_INET,
+                     addr=('127.0.0.1', 0),
+                     timeout=60,
+                     backlog=1):
 
     if not inspect.isgeneratorfunction(server_prog):
         raise TypeError('server_prog: a generator function was expected')
@@ -76,45 +28,34 @@ def tcp_server(server_prog, *,
         sock.close()
         raise ex
 
-    srv = Server(sock, server_prog, timeout, max_clients)
+    srv = Server(sock, server_prog)
+    srv.start()
     return srv
 
 
 class Server(threading.Thread):
-
-    def __init__(self, sock, prog, timeout, max_clients):
+    def __init__(self, sock, prog):
         threading.Thread.__init__(self, None, None, 'test-server')
         self.daemon = True
 
-        self._clients = 0
-        self._finished_clients = 0
-        self._max_clients = max_clients
-        self._timeout = timeout
         self._sock = sock
         self._active = True
 
         self._prog = prog
 
     def run(self):
-        with self._sock:
+        try:
             while self._active:
-                if self._clients >= self._max_clients:
-                    return
+                conn, addr = self._sock.accept()
                 try:
-                    conn, addr = self._sock.accept()
-                except socket.timeout:
-                    if not self._active:
-                        return
-                    else:
-                        raise
-                self._clients += 1
-                conn.settimeout(self._timeout)
-                try:
-                    with conn:
-                        self._handle_client(conn)
+                    self._handle_client(conn)
                 except Exception:
                     self._active = False
                     raise
+                finally:
+                    conn.close()
+        finally:
+            self._sock.close()
 
     def _handle_client(self, sock):
         prog = self._prog()
@@ -124,7 +65,6 @@ class Server(threading.Thread):
             try:
                 command = prog.send(last_val)
             except StopIteration:
-                self._finished_clients += 1
                 return
 
             if not isinstance(command, Command):
@@ -137,35 +77,21 @@ class Server(threading.Thread):
             last_val = command_res[1]
             sock = command_res[0]
 
+
     @property
     def addr(self):
         return self._sock.getsockname()
 
     def stop(self):
         self._active = False
-        self.join()
-
-        if self._finished_clients != self._clients:
-            raise AssertionError(
-                'not all clients are finished: {!r}'.format(
-                    self._clients - self._finished_clients))
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *exc):
-        self.stop()
 
 
 class Command:
-
     def _run(self, sock):
         raise NotImplementedError
 
 
 class write(Command):
-
     def __init__(self, data:bytes):
         self._data = data
 
@@ -175,7 +101,6 @@ class write(Command):
 
 
 class read(Command):
-
     def __init__(self, nbytes):
         self._nbytes = nbytes
         self._nbytes_recv = 0
@@ -200,7 +125,6 @@ class read(Command):
 
 
 class starttls(Command):
-
     def __init__(self, ssl_context, *,
                  server_side=False,
                  server_hostname=None):

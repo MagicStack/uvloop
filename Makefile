@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test
+.PHONY: compile clean all distclean test test1
 
 
 all: clean compile
@@ -22,3 +22,7 @@ compile: clean
 
 test:
 	python3 -m unittest discover -s tests -v
+
+
+test1:
+	python3 -m py.test -s --assert=plain -k $(filter-out $@,$(MAKECMDGOALS))

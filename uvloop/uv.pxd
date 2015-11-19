@@ -7,6 +7,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
 
     cdef int SOL_SOCKET
+    cdef int SO_ERROR
     cdef int SO_REUSEADDR
     cdef int SO_REUSEPORT
     cdef int AF_INET

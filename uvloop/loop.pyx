@@ -389,7 +389,7 @@ cdef class Loop:
             return
 
         try:
-            err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            err = sock.getsockopt(uv.SOL_SOCKET, uv.SO_ERROR)
             if err != 0:
                 # Jump to any except clause below.
                 raise OSError(err, 'Connect call failed %s' % (address,))
@@ -662,11 +662,15 @@ cdef class Loop:
         return result
 
     def sock_recv(self, sock, n):
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
         fut = Future(loop=self)
         self._sock_recv(fut, False, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
         fut = Future(loop=self)
         if data:
             self._sock_sendall(fut, False, sock, data)
@@ -675,6 +679,8 @@ cdef class Loop:
         return fut
 
     def sock_accept(self, sock):
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
         fut = Future(loop=self)
         self._sock_accept(fut, False, sock)
         return fut

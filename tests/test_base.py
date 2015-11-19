@@ -9,7 +9,7 @@ from unittest import mock
 from uvloop._testbase import UVTestCase, AIOTestCase
 
 
-class TestBase:
+class _TestBase:
 
     def test_close(self):
         self.assertFalse(self.loop.is_closed())
@@ -356,9 +356,9 @@ class TestBase:
         self.loop.run_until_complete(task)
 
 
-class TestBaseUV(TestBase, UVTestCase):
+class TestBaseUV(_TestBase, UVTestCase):
     pass
 
 
-class TestBaseAIO(TestBase, AIOTestCase):
+class TestBaseAIO(_TestBase, AIOTestCase):
     pass
