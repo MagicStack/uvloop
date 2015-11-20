@@ -105,7 +105,8 @@ cdef class Loop:
             self.loop = NULL
 
     def _on_wake(self):
-        if self._ready_len > 0 and not self.handler_idle.running:
+        if (self._ready_len > 0 or self._stopping) \
+                            and not self.handler_idle.running:
             self.handler_idle.start()
 
     def _on_sigint(self):
@@ -144,13 +145,17 @@ cdef class Loop:
         if self._ready_len == 0 and self.handler_idle.running:
             self.handler_idle.stop()
 
+        if self._stopping:
+            uv.uv_stop(self.loop)
+
     cdef _stop(self, exc=None):
         if exc is not None:
             self._last_error = exc
         if self._stopping == 1:
             return
         self._stopping = 1
-        uv.uv_stop(self.loop)
+        if not self.handler_idle.running:
+            self.handler_idle.start()
 
     cdef inline void __track_handle__(self, UVHandle handle):
         """Internal helper for tracking UVHandles. Do not use."""
@@ -177,7 +182,6 @@ cdef class Loop:
 
         self._thread_id = PyThread_get_thread_ident()
         self._running = 1
-        self._stopping = 0
 
         self.handler_idle.start()
         self.handler_sigint.start()
@@ -451,7 +455,12 @@ cdef class Loop:
 
     def run_forever(self):
         self._check_closed()
-        self._run(uv.UV_RUN_DEFAULT)
+        mode = uv.UV_RUN_DEFAULT
+        if self._stopping:
+            # loop.stop() was called right before loop.run_forever().
+            # This is how asyncio loop behaves.
+            mode = uv.UV_RUN_NOWAIT
+        self._run(mode)
 
     def close(self):
         self._close()

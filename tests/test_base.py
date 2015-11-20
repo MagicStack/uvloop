@@ -44,7 +44,7 @@ class _TestBase:
 
         def cb(inc):
             calls.append(inc)
-            self.loop.stop()
+            self.loop.call_soon(self.loop.stop)
 
         self.loop.call_later(0.05, cb, 10)
         self.loop.call_later(0.05, cb, 100).cancel() # canceled right away

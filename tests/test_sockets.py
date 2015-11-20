@@ -5,19 +5,22 @@ import uvloop
 from uvloop import _testbase as tb
 
 
-class _TestSockets(tb.UVTestCase):
+_SIZE = 1024 * 1024
+
+
+class _TestSockets:
 
     async def recv_all(self, sock, nbytes):
-        buf = []
+        buf = b''
         while len(buf) < nbytes:
-            buf.append(await self.loop.sock_recv(sock, 1))
-        return b''.join(buf)
+            buf += await self.loop.sock_recv(sock, nbytes - len(buf))
+        return buf
 
     def test_socket_connect_recv_send(self):
         def srv_gen():
             yield tb.write(b'helo')
-            data = yield tb.read(4)
-            self.assertEqual(data, b'ehlo')
+            data = yield tb.read(4 * _SIZE)
+            self.assertEqual(data, b'ehlo' * _SIZE)
             yield tb.write(b'O')
             yield tb.write(b'K')
 
@@ -25,7 +28,7 @@ class _TestSockets(tb.UVTestCase):
             await self.loop.sock_connect(sock, addr)
             data = await self.recv_all(sock, 4)
             self.assertEqual(data, b'helo')
-            await self.loop.sock_sendall(sock, b'ehlo')
+            await self.loop.sock_sendall(sock, b'ehlo' * _SIZE)
             data = await self.recv_all(sock, 2)
             self.assertEqual(data, b'OK')
 
@@ -51,8 +54,8 @@ class _TestSockets(tb.UVTestCase):
                 client_sock, _ = await self.loop.sock_accept(sock)
 
                 with client_sock:
-                    data = await self.recv_all(client_sock, 4)
-                    self.assertEqual(data, b'aaaa')
+                    data = await self.recv_all(client_sock, _SIZE)
+                    self.assertEqual(data, b'a' * _SIZE)
 
                 await fut
 
@@ -60,7 +63,7 @@ class _TestSockets(tb.UVTestCase):
             sock = socket.socket()
             with sock:
                 sock.connect(addr)
-                sock.sendall(b'aaaa')
+                sock.sendall(b'a' * _SIZE)
 
         self.loop.run_until_complete(server())
 
