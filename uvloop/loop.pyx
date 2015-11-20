@@ -89,6 +89,10 @@ cdef class Loop:
         self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
         self.handler_sighup = UVSignal(self, self._on_sighup, uv.SIGHUP)
 
+    def __init__(self):
+        self.set_debug((not sys_ignore_environment
+                        and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
+
     def __del__(self):
         self._close()
 

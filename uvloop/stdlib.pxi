@@ -34,7 +34,10 @@ cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int has_IPPROTO_IPV6 = hasattr(socket, 'IPPROTO_IPV6')
 
 cdef str os_name = os.name
+cdef os_environ = os.environ
+
 cdef str sys_platform = sys.platform
+cdef sys_ignore_environment = sys.flags.ignore_environment
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
