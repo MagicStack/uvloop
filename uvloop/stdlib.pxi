@@ -33,6 +33,26 @@ cdef int has_AF_INET6 = hasattr(socket, 'AF_INET6')
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int has_IPPROTO_IPV6 = hasattr(socket, 'IPPROTO_IPV6')
 
+cdef socket_gaierror = socket.gaierror
+cdef socket_error = socket.error
+cdef socket_timeout = socket_timeout
+
+cdef int socket_EAI_ADDRFAMILY = getattr(socket, 'EAI_ADDRFAMILY', -1)
+cdef int socket_EAI_AGAIN      = getattr(socket, 'EAI_AGAIN', -1)
+cdef int socket_EAI_BADFLAGS   = getattr(socket, 'EAI_BADFLAGS', -1)
+cdef int socket_EAI_BADHINTS   = getattr(socket, 'EAI_BADHINTS', -1)
+cdef int socket_EAI_CANCELED   = getattr(socket, 'EAI_CANCELED', -1)
+cdef int socket_EAI_FAIL       = getattr(socket, 'EAI_FAIL', -1)
+cdef int socket_EAI_FAMILY     = getattr(socket, 'EAI_FAMILY', -1)
+cdef int socket_EAI_MEMORY     = getattr(socket, 'EAI_MEMORY', -1)
+cdef int socket_EAI_NODATA     = getattr(socket, 'EAI_NODATA', -1)
+cdef int socket_EAI_NONAME     = getattr(socket, 'EAI_NONAME', -1)
+cdef int socket_EAI_OVERFLOW   = getattr(socket, 'EAI_OVERFLOW', -1)
+cdef int socket_EAI_PROTOCOL   = getattr(socket, 'EAI_PROTOCOL', -1)
+cdef int socket_EAI_SERVICE    = getattr(socket, 'EAI_SERVICE', -1)
+cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
+
+
 cdef str os_name = os.name
 cdef os_environ = os.environ
 

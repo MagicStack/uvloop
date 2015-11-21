@@ -13,7 +13,7 @@ cdef class UVTimer(UVHandle):
 
         err = uv.uv_timer_init(loop.loop, <uv.uv_timer_t*>self.handle)
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         self.callback = callback
         self.running = 0
@@ -28,7 +28,7 @@ cdef class UVTimer(UVHandle):
             err = uv.uv_timer_stop(<uv.uv_timer_t*>self.handle)
             self.running = 0
             if err < 0:
-                raise UVError.from_error(err)
+                raise convert_error(err)
 
     cdef start(self):
         cdef int err
@@ -40,7 +40,7 @@ cdef class UVTimer(UVHandle):
                                     __uvtimer_callback,
                                     self.timeout, 0)
             if err < 0:
-                raise UVError.from_error(err)
+                raise convert_error(err)
             self.running = 1
 
 

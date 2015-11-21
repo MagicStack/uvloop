@@ -14,7 +14,7 @@ cdef class UVTCPServer(UVTCPBase):
     cdef set_protocol_factory(self, object protocol_factory)
 
     cdef open(self, int sockfd)
-    cdef bind(self, uv.sockaddr* addr, unsigned int flags=*)
+    cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
     cdef listen(self, int backlog=*)
 
     cdef _new_client(self)

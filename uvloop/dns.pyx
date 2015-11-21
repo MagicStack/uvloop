@@ -3,7 +3,7 @@
 @cython.freelist(50)
 cdef class AddrInfo:
     cdef:
-        uv.addrinfo *data
+        system.addrinfo *data
 
     def __cinit__(self):
         self.data = NULL
@@ -13,14 +13,14 @@ cdef class AddrInfo:
             uv.uv_freeaddrinfo(self.data) # returns void
             self.data = NULL
 
-    cdef void set_data(self, uv.addrinfo *data):
+    cdef void set_data(self, system.addrinfo *data):
         self.data = data
 
     cdef unpack(self):
         cdef:
-            uv.addrinfo *ptr
-            uv.sockaddr_in *addr4
-            uv.sockaddr_in6 *addr6
+            system.addrinfo *ptr
+            system.sockaddr_in *addr4
+            system.sockaddr_in6 *addr6
             char buf[92] # INET6_ADDRSTRLEN is usually 46
             int err
             list result = []
@@ -31,10 +31,10 @@ cdef class AddrInfo:
         ptr = self.data
         while ptr != NULL:
             if ptr.ai_addr.sa_family == uv.AF_INET:
-                addr4 = <uv.sockaddr_in*> ptr.ai_addr
+                addr4 = <system.sockaddr_in*> ptr.ai_addr
                 err = uv.uv_ip4_name(addr4, buf, sizeof(buf))
                 if err < 0:
-                    raise UVError.from_error(err)
+                    raise convert_error(err)
 
                 result.append((
                     ptr.ai_family,
@@ -49,10 +49,10 @@ cdef class AddrInfo:
                 ))
 
             elif ptr.ai_addr.sa_family == uv.AF_INET6:
-                addr6 = <uv.sockaddr_in6*> ptr.ai_addr
+                addr6 = <system.sockaddr_in6*> ptr.ai_addr
                 err = uv.uv_ip6_name(addr6, buf, sizeof(buf))
                 if err < 0:
-                    raise UVError.from_error(err)
+                    raise convert_error(err)
 
                 result.append((
                     ptr.ai_family,
@@ -83,11 +83,11 @@ cdef getaddrinfo(Loop loop,
                  object callback):
 
     cdef:
-        uv.addrinfo hints
+        system.addrinfo hints
         uv.uv_getaddrinfo_t* resolver
         int err
 
-    memset(&hints, 0, sizeof(uv.addrinfo))
+    memset(&hints, 0, sizeof(system.addrinfo))
     hints.ai_flags = flags
     hints.ai_family = family
     hints.ai_socktype = type
@@ -108,14 +108,14 @@ cdef getaddrinfo(Loop loop,
 
     if err < 0:
         PyMem_Free(resolver)
-        raise UVError.from_error(err)
+        raise convert_error(err)
     else:
         # 'callback' must stay alive until on_getaddr_resolved
         Py_INCREF(callback)
 
 
 cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
-                                int status, uv.addrinfo *res) with gil:
+                                int status, system.addrinfo *res) with gil:
 
     cdef:
         callback = <object> resolver.data
@@ -126,7 +126,7 @@ cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
             callback(aio_CancelledError())
         else:
             if status < 0:
-                callback(UVError.from_error(status))
+                callback(convert_error(status))
             else:
                 ai = AddrInfo()
                 ai.set_data(res)

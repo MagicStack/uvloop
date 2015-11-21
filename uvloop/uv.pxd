@@ -1,5 +1,7 @@
 from libc.stdint cimport uint16_t, uint32_t, uint64_t
 
+from . cimport system
+
 
 cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_ECANCELED
@@ -20,6 +22,23 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     cdef int SIGINT
     cdef int SIGHUP
+
+
+    cdef int UV_EAI_ADDRFAMILY
+    cdef int UV_EAI_AGAIN
+    cdef int UV_EAI_BADFLAGS
+    cdef int UV_EAI_BADHINTS
+    cdef int UV_EAI_CANCELED
+    cdef int UV_EAI_FAIL
+    cdef int UV_EAI_FAMILY
+    cdef int UV_EAI_MEMORY
+    cdef int UV_EAI_NODATA
+    cdef int UV_EAI_NONAME
+    cdef int UV_EAI_OVERFLOW
+    cdef int UV_EAI_PROTOCOL
+    cdef int UV_EAI_SERVICE
+    cdef int UV_EAI_SOCKTYPE
+
 
     ctypedef uv_os_sock_t
 
@@ -61,6 +80,13 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # ,,,
 
     ctypedef struct uv_poll_t:
+        void* data
+        # ,,,
+
+    ctypedef struct uv_req_t:
+        # Only cancellation of uv_fs_t, uv_getaddrinfo_t,
+        # uv_getnameinfo_t and uv_work_t requests is
+        # currently supported.
         void* data
         # ,,,
 
@@ -107,7 +133,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_write_cb)(uv_write_t* req, int status) with gil
     ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                        int status,
-                                       addrinfo* res) with gil
+                                       system.addrinfo* res) with gil
     ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status) with gil
     ctypedef void (*uv_poll_cb)(uv_poll_t* handle,
                                 int status, int events) with gil
@@ -115,6 +141,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
     # Buffers
 
     uv_buf_t uv_buf_init(char* base, unsigned int len)
+
+    # Generic request functions
+    int uv_cancel(uv_req_t* req)
 
     # Generic handler functions
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
@@ -157,46 +186,20 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_timer_stop(uv_timer_t* handle)
 
     # DNS
-    struct sockaddr:
-        unsigned short sa_family
-        char           sa_data[14]
-
-    struct addrinfo:
-        int            ai_flags
-        int            ai_family
-        int            ai_socktype
-        int            ai_protocol
-        size_t         ai_addrlen
-        sockaddr*      ai_addr
-        char*          ai_canonname
-        addrinfo*      ai_next
-
-    struct sockaddr_in:
-        short          sin_family
-        unsigned short sin_port
-        # ...
-
-    struct sockaddr_in6:
-        short          sin6_family
-        unsigned short sin6_port;
-        unsigned long  sin6_flowinfo
-        # ...
-        unsigned long  sin6_scope_id
-
     int uv_getaddrinfo(uv_loop_t* loop,
                        uv_getaddrinfo_t* req,
                        uv_getaddrinfo_cb getaddrinfo_cb,
                        const char* node,
                        const char* service,
-                       const addrinfo* hints)
+                       const system.addrinfo* hints)
 
-    void uv_freeaddrinfo(addrinfo* ai)
+    void uv_freeaddrinfo(system.addrinfo* ai)
 
     int ntohl(int)
     int ntohs(int)
 
-    int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size)
-    int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size)
+    int uv_ip4_name(const system.sockaddr_in* src, char* dst, size_t size)
+    int uv_ip6_name(const system.sockaddr_in6* src, char* dst, size_t size)
 
     # Streams
 
@@ -216,7 +219,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)
-    int uv_tcp_bind(uv_tcp_t* handle, sockaddr* addr, unsigned int flags)
+    int uv_tcp_bind(uv_tcp_t* handle, system.sockaddr* addr, unsigned int flags)
 
     # Polling
 

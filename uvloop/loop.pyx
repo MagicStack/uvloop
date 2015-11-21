@@ -4,6 +4,7 @@
 cimport cython
 
 from . cimport uv
+from . cimport system
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset
@@ -20,6 +21,8 @@ from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
 include "consts.pxi"
 include "stdlib.pxi"
 
+include "errors.pyx"
+
 
 cdef Future
 IF USE_C_FUTURE:
@@ -29,23 +32,6 @@ ELSE:
 
 
 _CFUTURE = bool(USE_C_FUTURE)
-
-
-class LoopError(Exception):
-    pass
-
-
-class UVError(LoopError):
-
-    @staticmethod
-    def from_error(int err):
-        cdef:
-            bytes msg = uv.uv_strerror(err)
-            bytes name = uv.uv_err_name(err)
-
-        return LoopError('({}) {}'.format(name.decode('latin-1'),
-                                          msg.decode('latin-1')))
-
 
 
 @cython.no_gc_clear
@@ -73,7 +59,7 @@ cdef class Loop:
 
         err = uv.uv_loop_init(self.loop)
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         self._last_error = None
 
@@ -191,7 +177,7 @@ cdef class Loop:
             err = uv.uv_run(self.loop, mode)
 
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         self.handler_idle.stop()
         self.handler_sigint.stop()
@@ -231,11 +217,11 @@ cdef class Loop:
             err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
 
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         err = uv.uv_loop_close(self.loop)
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         if self._handles:
             raise RuntimeError(
@@ -304,9 +290,11 @@ cdef class Loop:
                     else:
                         data = (<AddrInfo>result).unpack()
                 except Exception as ex:
-                    fut.set_exception(ex)
+                    if not fut.cancelled():
+                        fut.set_exception(ex)
                 else:
-                    fut.set_result(data)
+                    if not fut.cancelled():
+                        fut.set_result(data)
             else:
                 fut.set_exception(result)
 
@@ -546,7 +534,7 @@ cdef class Loop:
         if not AddrInfo.isinstance(addrinfo):
             raise RuntimeError('unvalid loop._getaddeinfo() result')
 
-        cdef uv.addrinfo *ai = (<AddrInfo>addrinfo).data
+        cdef system.addrinfo *ai = (<AddrInfo>addrinfo).data
         if ai is NULL:
             raise RuntimeError('loop._getaddeinfo() result is NULL')
 

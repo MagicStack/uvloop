@@ -15,7 +15,7 @@ cdef class UVAsync(UVHandle):
                                <uv.uv_async_t*>self.handle,
                                __uvasync_callback)
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
         self.callback = callback
 
@@ -26,7 +26,7 @@ cdef class UVAsync(UVHandle):
 
         err = uv.uv_async_send(<uv.uv_async_t*>self.handle)
         if err < 0:
-            raise UVError.from_error(err)
+            raise convert_error(err)
 
 
 cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:

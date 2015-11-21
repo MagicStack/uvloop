@@ -2,6 +2,7 @@
 
 
 from . cimport uv
+from . cimport system
 
 from libc.stdint cimport uint64_t
 

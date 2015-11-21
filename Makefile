@@ -27,3 +27,8 @@ test:
 
 test1:
 	python3 -m py.test -s --assert=plain -k $(filter-out $@,$(MAKECMDGOALS))
+
+
+# Catch all rule (for 'make test1 smth' work without make errors)
+%:
+	@:
