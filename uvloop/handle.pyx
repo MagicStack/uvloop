@@ -1,5 +1,13 @@
 @cython.internal
 cdef class UVHandle:
+    """A base class for all libuv handles.
+
+    Automatically manages memory deallocation and closing.
+
+    Important: call "ensure_alive()" before calling any libuv
+    functions on your handles.
+    """
+
     def __cinit__(self, Loop loop, *_):
         self.closed = 0
         self.closing = 0

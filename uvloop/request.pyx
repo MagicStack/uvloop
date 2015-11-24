@@ -1,5 +1,11 @@
 @cython.internal
 cdef class UVRequest:
+    """A base class for all libuv requests (uv_getaddrinfo_t, etc).
+
+    Important: it's a responsibility of the subclass to call the
+    "on_done" method in the request's callback.
+    """
+
     def __cinit__(self, Loop loop, *_):
         self.loop = loop
         self.done = 0

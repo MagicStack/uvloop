@@ -127,16 +127,16 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
         AddrInfo ai
 
     try:
+        # We no longer need our AddrInfoRequest wrapper -- on_done()
+        # will untrack it in the loop, and it will be garbage
+        # collected soon.
         request.on_done()
 
-        if status == uv.UV_ECANCELED:
-            callback(aio_CancelledError())
+        if status < 0:
+            callback(convert_error(status))
         else:
-            if status < 0:
-                callback(convert_error(status))
-            else:
-                ai = AddrInfo()
-                ai.set_data(res)
-                callback(ai)
+            ai = AddrInfo()
+            ai.set_data(res)
+            callback(ai)
     except Exception as ex:
         loop._handle_uvcb_exception(ex)
