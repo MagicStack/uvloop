@@ -77,51 +77,58 @@ cdef class AddrInfo:
         return type(other) is AddrInfo
 
 
-cdef getaddrinfo(Loop loop,
-                 str host, int port,
-                 int family, int type, int proto, int flags,
-                 object callback):
-
+@cython.final
+@cython.internal
+cdef class AddrInfoRequest(UVRequest):
     cdef:
         system.addrinfo hints
-        uv.uv_getaddrinfo_t* resolver
-        int err
+        object callback
 
-    memset(&hints, 0, sizeof(system.addrinfo))
-    hints.ai_flags = flags
-    hints.ai_family = family
-    hints.ai_socktype = type
-    hints.ai_protocol = proto
+    def __cinit__(self, Loop loop,
+                  str host, int port,
+                  int family, int type, int proto, int flags,
+                  object callback):
 
-    resolver = <uv.uv_getaddrinfo_t*> PyMem_Malloc(sizeof(uv.uv_getaddrinfo_t))
-    if resolver is NULL:
-        raise MemoryError()
+        cdef int err
 
-    resolver.data = <void*>callback
+        memset(&self.hints, 0, sizeof(system.addrinfo))
+        self.hints.ai_flags = flags
+        self.hints.ai_family = family
+        self.hints.ai_socktype = type
+        self.hints.ai_protocol = proto
 
-    err = uv.uv_getaddrinfo(loop.loop,
-                            resolver,
-                            __on_getaddr_resolved,
-                            host.encode('utf-8'),
-                            str(port).encode('latin-1'),
-                            &hints)
+        self.request = <uv.uv_req_t*> PyMem_Malloc(
+            sizeof(uv.uv_getaddrinfo_t))
+        if self.request is NULL:
+            raise MemoryError()
 
-    if err < 0:
-        PyMem_Free(resolver)
-        raise convert_error(err)
-    else:
-        # 'callback' must stay alive until on_getaddr_resolved
-        Py_INCREF(callback)
+        self.callback = callback
+        self.request.data = <void*>self
+
+        err = uv.uv_getaddrinfo(loop.loop,
+                                <uv.uv_getaddrinfo_t*>self.request,
+                                __on_addrinfo_resolved,
+                                host.encode('utf-8'),
+                                str(port).encode('latin-1'),
+                                &self.hints)
+
+        if err < 0:
+            self.on_done()
+            callback(convert_error(err))
 
 
-cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
-                                int status, system.addrinfo *res) with gil:
+cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
+                                 int status, system.addrinfo *res) with gil:
 
     cdef:
-        callback = <object> resolver.data
+        AddrInfoRequest request = <AddrInfoRequest> resolver.data
+        Loop loop = request.loop
+        object callback = request.callback
         AddrInfo ai
 
     try:
+        request.on_done()
+
         if status == uv.UV_ECANCELED:
             callback(aio_CancelledError())
         else:
@@ -131,7 +138,5 @@ cdef void __on_getaddr_resolved(uv.uv_getaddrinfo_t *resolver,
                 ai = AddrInfo()
                 ai.set_data(res)
                 callback(ai)
-
-    finally:
-        PyMem_Free(resolver)
-        Py_DECREF(callback)
+    except Exception as ex:
+        loop._handle_uvcb_exception(ex)

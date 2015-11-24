@@ -64,6 +64,6 @@ cdef convert_error(int uverr):
 
     if value is None:
         name = uv.uv_err_name(uverr).decode('utf-8')
-        value = '({}) {}'.format(name, msg.decode('latin-1'))
+        value = '({}) {}'.format(name, msg)
 
     return LoopError(value)

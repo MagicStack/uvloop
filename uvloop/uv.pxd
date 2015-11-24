@@ -4,6 +4,8 @@ from . cimport system
 
 
 cdef extern from "../vendor/libuv/include/uv.h":
+    cdef int UV_EINVAL
+    cdef int UV_EBUSY
     cdef int UV_ECANCELED
     cdef int UV_EOF
 
@@ -88,6 +90,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # uv_getnameinfo_t and uv_work_t requests is
         # currently supported.
         void* data
+        uv_req_type type
         # ,,,
 
     ctypedef struct uv_getaddrinfo_t:
@@ -105,6 +108,20 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef struct uv_shutdown_t:
         void* data
         # ...
+
+    ctypedef enum uv_req_type:
+        UV_UNKNOWN_REQ = 0,
+        UV_REQ,
+        UV_CONNECT,
+        UV_WRITE,
+        UV_SHUTDOWN,
+        UV_UDP_SEND,
+        UV_FS,
+        UV_WORK,
+        UV_GETADDRINFO,
+        UV_GETNAMEINFO,
+        UV_REQ_TYPE_PRIVATE,
+        UV_REQ_TYPE_MAX
 
     ctypedef enum uv_run_mode:
         UV_RUN_DEFAULT = 0,

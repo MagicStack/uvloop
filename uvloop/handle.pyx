@@ -39,7 +39,7 @@ cdef class UVHandle:
 
             if <UVHandle>self.handle.data is not self:
                 raise RuntimeError(
-                    '{}.close: .handle.data is not handle'.format(
+                    '{}.close: .handle.data is not UVHandle'.format(
                         self.__class__.__name__))
 
             if uv.uv_is_closing(self.handle):

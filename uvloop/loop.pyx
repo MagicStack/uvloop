@@ -52,6 +52,7 @@ cdef class Loop:
         self._stopping = 0
 
         self._handles = set()
+        self._requests = set()
         self._polls = dict()
         self._polls_gc = dict()
 
@@ -144,15 +145,20 @@ cdef class Loop:
             self.handler_idle.start()
 
     cdef inline void __track_handle__(self, UVHandle handle):
-        """Internal helper for tracking UVHandles. Do not use."""
+        """Internal helper for tracking UVHandles."""
         self._handles.add(handle)
 
     cdef inline void __untrack_handle__(self, UVHandle handle):
-        """Internal helper for tracking UVHandles. Do not use."""
-        try:
-            self._handles.remove(handle)
-        except KeyError:
-            pass
+        """Internal helper for tracking UVHandles."""
+        self._handles.remove(handle)
+
+    cdef inline void __track_request__(self, UVRequest request):
+        """Internal helper for tracking UVRequests."""
+        self._requests.add(request)
+
+    cdef inline void __untrack_request__(self, UVRequest request):
+        """Internal helper for tracking UVRequests."""
+        self._requests.remove(request)
 
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
@@ -212,6 +218,10 @@ cdef class Loop:
             for handle in tuple(self._handles):
                 (<UVHandle>handle).close()
 
+        if self._requests:
+            for request in tuple(self._requests):
+                (<UVRequest>request).cancel()
+
         # Allow loop to fire "close" callbacks
         with nogil:
             err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
@@ -227,6 +237,11 @@ cdef class Loop:
             raise RuntimeError(
                 "new handles were queued during loop closing: {}"
                     .format(self._handles))
+
+        if self._requests:
+            raise RuntimeError(
+                "new requests were queued or old requests weren't completed "
+                "during loop closing: {}".format(self._requests))
 
         if self._ready:
             raise RuntimeError(
@@ -298,7 +313,7 @@ cdef class Loop:
             else:
                 fut.set_exception(result)
 
-        getaddrinfo(self, host, port, family, type, proto, flags, callback)
+        AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
 
     def _sock_recv(self, fut, registered, sock, n):
@@ -720,6 +735,7 @@ cdef class Loop:
 include "cbhandles.pyx"
 
 include "handle.pyx"
+include "request.pyx"
 include "async_.pyx"
 include "idle.pyx"
 include "timer.pyx"
