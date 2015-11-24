@@ -5,4 +5,4 @@ cdef class UVRequest:
         Loop loop
 
     cdef on_done(self)
-    cdef void cancel(self)
+    cdef cancel(self)

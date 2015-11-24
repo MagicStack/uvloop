@@ -6,4 +6,4 @@ cdef class UVHandle:
         Loop loop
 
     cdef inline ensure_alive(self)
-    cdef void close(self)
+    cdef close(self)
