@@ -25,6 +25,12 @@ cdef class UVRequest:
         self.loop.__untrack_request__(self)
 
     cdef void cancel(self):
+        # Most requests are implemented using a threadpool.  It's only
+        # possible to cancel a request when it's still in a threadpool's
+        # queue.  Once it's started to execute, we have to wait until
+        # it finishes and calls its callback (and callback *must* call
+        # UVRequest.on_done).
+
         cdef int err
 
         if self.done == 1:
@@ -50,7 +56,9 @@ cdef class UVRequest:
         err = uv.uv_cancel(self.request)
         if err < 0:
             if err == uv.UV_EBUSY:
-                # Can't close the request -- it's executing.
+                # Can't close the request -- it's executing (see the first
+                # comment).  Loop will have to wait until the callback
+                # fires.
                 pass
             elif err == uv.UV_EINVAL:
                 # From libuv docs:
