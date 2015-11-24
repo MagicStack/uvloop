@@ -4,7 +4,7 @@ cdef class UVHandle:
 
     Automatically manages memory deallocation and closing.
 
-    Important: call "ensure_alive()" before calling any libuv
+    Important: call "_ensure_alive()" before calling any libuv
     functions on your handles.
     """
 
@@ -24,7 +24,7 @@ cdef class UVHandle:
             PyMem_Free(self._handle)
             self._handle = NULL
 
-    cdef inline ensure_alive(self):
+    cdef inline _ensure_alive(self):
         if self._closed == 1 or self._closing == 1 or self._handle is NULL:
             raise RuntimeError(
                 'unable to perform operation on {!r}; '

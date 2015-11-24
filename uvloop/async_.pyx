@@ -22,7 +22,7 @@ cdef class UVAsync(UVHandle):
     cdef send(self):
         cdef int err
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         err = uv.uv_async_send(<uv.uv_async_t*>self._handle)
         if err < 0:

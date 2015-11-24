@@ -26,14 +26,14 @@ cdef class UVTCPBase(UVStream):
 
     cdef enable_nodelay(self):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
         err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 1)
         if err < 0:
             raise convert_error(err)
 
     cdef disable_nodelay(self):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
         err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 0)
         if err < 0:
             raise convert_error(err)
@@ -50,7 +50,7 @@ cdef class UVTCPServer(UVTCPBase):
 
     cdef open(self, int sockfd):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
         err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle, sockfd)
         if err < 0:
             raise convert_error(err)
@@ -58,7 +58,7 @@ cdef class UVTCPServer(UVTCPBase):
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
         err = uv.uv_tcp_bind(<uv.uv_tcp_t *>self._handle,
                              addr, flags)
         if err < 0:
@@ -67,7 +67,7 @@ cdef class UVTCPServer(UVTCPBase):
 
     cdef listen(self, int backlog=100):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
 
         if self.protocol_factory is None:
             raise RuntimeError('unable to listen(); no protocol_factory')
@@ -108,7 +108,7 @@ cdef class UVServerTransport(UVTCPBase):
 
     cdef _accept(self):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
 
         err = uv.uv_accept(<uv.uv_stream_t*>self.server._handle,
                            <uv.uv_stream_t*>self._handle)
@@ -122,7 +122,7 @@ cdef class UVServerTransport(UVTCPBase):
 
     cdef _start_reading(self):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
 
         if self.reading == 1:
             raise RuntimeError('Not paused')
@@ -140,7 +140,7 @@ cdef class UVServerTransport(UVTCPBase):
 
     cdef _stop_reading(self):
         cdef int err
-        self.ensure_alive()
+        self._ensure_alive()
 
         if self.reading == 0:
             raise RuntimeError('Already paused')
@@ -173,7 +173,7 @@ cdef class UVServerTransport(UVTCPBase):
         if self.eof:
             raise RuntimeError('Cannot call write() after write_eof()')
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         ctx = <WriteContext*> PyMem_Malloc(sizeof(WriteContext))
         if ctx is NULL:
@@ -241,7 +241,7 @@ cdef class UVServerTransport(UVTCPBase):
         if self.flow_control_enabled == 0:
             return
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         cdef:
             size_t size = self._get_write_buffer_size()
@@ -265,7 +265,7 @@ cdef class UVServerTransport(UVTCPBase):
         if self.flow_control_enabled == 0:
             return
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         cdef:
             size_t size = self._get_write_buffer_size()

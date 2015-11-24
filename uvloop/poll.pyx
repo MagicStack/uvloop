@@ -26,7 +26,7 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_start(self, int flags):
         cdef int err
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         err = uv.uv_poll_start(
             <uv.uv_poll_t*>self._handle,
@@ -39,7 +39,7 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_stop(self):
         cdef int err
 
-        self.ensure_alive()
+        self._ensure_alive()
 
         err = uv.uv_poll_stop(<uv.uv_poll_t*>self._handle)
         if err < 0:
