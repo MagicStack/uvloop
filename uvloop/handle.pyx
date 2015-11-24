@@ -30,7 +30,7 @@ cdef class UVHandle:
                 'unable to perform operation on {!r}; '
                 'the handler is closed'.format(self))
 
-    cdef close(self):
+    cdef _close(self):
         if self._closed == 1 or self._closing == 1:
             return
 

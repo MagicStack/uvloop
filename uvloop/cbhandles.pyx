@@ -60,7 +60,7 @@ cdef class TimerHandle:
         self.closed = 1
         self.callback = None
         self.args = None
-        self.timer.close()
+        self.timer._close()
 
     def _run(self):
         if self.closed == 1:

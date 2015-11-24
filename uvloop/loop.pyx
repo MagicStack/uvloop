@@ -124,7 +124,7 @@ cdef class Loop:
             for fd in tuple(self._polls_gc):
                 poll = <UVPoll> self._polls_gc[fd]
                 if not poll.is_active():
-                    poll.close()
+                    poll._close()
                     self._polls.pop(fd)
                 self._polls_gc.pop(fd)
 
@@ -216,7 +216,7 @@ cdef class Loop:
             self._polls_gc.clear()
 
             for handle in tuple(self._handles):
-                (<UVHandle>handle).close()
+                (<UVHandle>handle)._close()
 
         if self._requests:
             for request in tuple(self._requests):

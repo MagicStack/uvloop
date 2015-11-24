@@ -160,7 +160,7 @@ cdef class UVServerTransport(UVTCPBase):
     cdef _on_eof(self):
         keep_open = self.protocol.eof_received()
         if not keep_open:
-            self.close()
+            self._close()
 
     cdef _on_shutdown(self):
         pass
@@ -362,7 +362,7 @@ cdef class UVServerTransport(UVTCPBase):
         return default
 
     def abort(self):
-        self.close() # TODO?
+        self._close() # TODO?
 
 
 cdef void __server_listen_cb(uv.uv_stream_t* server_handle,
@@ -413,7 +413,7 @@ cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
         return
 
     if nread < 0:
-        sc.close() # XXX?
+        sc._close() # XXX?
 
         exc = convert_error(nread)
         sc._loop._handle_uvcb_exception(exc)
