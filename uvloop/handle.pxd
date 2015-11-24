@@ -1,9 +1,9 @@
 cdef class UVHandle:
     cdef:
-        uv.uv_handle_t *handle
-        bint closed
-        bint closing
-        Loop loop
+        uv.uv_handle_t *_handle
+        bint _closed
+        bint _closing
+        Loop _loop
 
     cdef inline ensure_alive(self)
     cdef close(self)

@@ -4,14 +4,14 @@ cdef class UVIdle(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
 
-        self.handle = <uv.uv_handle_t*> \
+        self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_idle_t))
-        if self.handle is NULL:
+        if self._handle is NULL:
             raise MemoryError()
 
-        self.handle.data = <void*> self
+        self._handle.data = <void*> self
 
-        err = uv.uv_idle_init(loop.loop, <uv.uv_idle_t*>self.handle)
+        err = uv.uv_idle_init(loop.loop, <uv.uv_idle_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -24,7 +24,7 @@ cdef class UVIdle(UVHandle):
         self.ensure_alive()
 
         if self.running == 1:
-            err = uv.uv_idle_stop(<uv.uv_idle_t*>self.handle)
+            err = uv.uv_idle_stop(<uv.uv_idle_t*>self._handle)
             self.running = 0
             if err < 0:
                 raise convert_error(err)
@@ -35,7 +35,7 @@ cdef class UVIdle(UVHandle):
         self.ensure_alive()
 
         if self.running == 0:
-            err = uv.uv_idle_start(<uv.uv_idle_t*>self.handle,
+            err = uv.uv_idle_start(<uv.uv_idle_t*>self._handle,
                                    cb_idle_callback)
             if err < 0:
                 raise convert_error(err)
@@ -47,4 +47,4 @@ cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
     try:
         idle.callback()
     except BaseException as ex:
-        idle.loop._handle_uvcb_exception(ex)
+        idle._loop._handle_uvcb_exception(ex)

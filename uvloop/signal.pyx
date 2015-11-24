@@ -4,14 +4,14 @@ cdef class UVSignal(UVHandle):
     def __cinit__(self, Loop loop, object callback, int signum):
         cdef int err
 
-        self.handle = <uv.uv_handle_t*> \
+        self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_signal_t))
-        if self.handle is NULL:
+        if self._handle is NULL:
             raise MemoryError()
 
-        self.handle.data = <void*> self
+        self._handle.data = <void*> self
 
-        err = uv.uv_signal_init(loop.loop, <uv.uv_signal_t *>self.handle)
+        err = uv.uv_signal_init(loop.loop, <uv.uv_signal_t *>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -25,7 +25,7 @@ cdef class UVSignal(UVHandle):
         self.ensure_alive()
 
         if self.running == 1:
-            err = uv.uv_signal_stop(<uv.uv_signal_t *>self.handle)
+            err = uv.uv_signal_stop(<uv.uv_signal_t *>self._handle)
             self.running = 0
             if err < 0:
                 raise convert_error(err)
@@ -36,7 +36,7 @@ cdef class UVSignal(UVHandle):
         self.ensure_alive()
 
         if self.running == 0:
-            err = uv.uv_signal_start(<uv.uv_signal_t *>self.handle,
+            err = uv.uv_signal_start(<uv.uv_signal_t *>self._handle,
                                      __uvsignal_callback,
                                      self.signum)
             if err < 0:
@@ -50,4 +50,4 @@ cdef void __uvsignal_callback(uv.uv_signal_t* handle, int signum) with gil:
     try:
         sig.callback()
     except BaseException as ex:
-        sig.loop._handle_uvcb_exception(ex)
+        sig._loop._handle_uvcb_exception(ex)

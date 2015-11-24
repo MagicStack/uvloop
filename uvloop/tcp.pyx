@@ -11,14 +11,14 @@ cdef class UVTCPBase(UVStream):
     def __cinit__(self, Loop loop, *_):
         cdef int err
 
-        self.handle = <uv.uv_handle_t*> \
+        self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_tcp_t))
-        if self.handle is NULL:
+        if self._handle is NULL:
             raise MemoryError()
 
-        self.handle.data = <void*> self
+        self._handle.data = <void*> self
 
-        err = uv.uv_tcp_init(loop.loop, <uv.uv_tcp_t*>self.handle)
+        err = uv.uv_tcp_init(loop.loop, <uv.uv_tcp_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -27,14 +27,14 @@ cdef class UVTCPBase(UVStream):
     cdef enable_nodelay(self):
         cdef int err
         self.ensure_alive()
-        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 1)
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 1)
         if err < 0:
             raise convert_error(err)
 
     cdef disable_nodelay(self):
         cdef int err
         self.ensure_alive()
-        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self.handle, 0)
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 0)
         if err < 0:
             raise convert_error(err)
 
@@ -51,7 +51,7 @@ cdef class UVTCPServer(UVTCPBase):
     cdef open(self, int sockfd):
         cdef int err
         self.ensure_alive()
-        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self.handle, sockfd)
+        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle, sockfd)
         if err < 0:
             raise convert_error(err)
         self.opened = 1
@@ -59,7 +59,7 @@ cdef class UVTCPServer(UVTCPBase):
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         cdef int err
         self.ensure_alive()
-        err = uv.uv_tcp_bind(<uv.uv_tcp_t *>self.handle,
+        err = uv.uv_tcp_bind(<uv.uv_tcp_t *>self._handle,
                              addr, flags)
         if err < 0:
             raise convert_error(err)
@@ -75,7 +75,7 @@ cdef class UVTCPServer(UVTCPBase):
         if self.opened != 1:
             raise RuntimeError('unopened UVTCPServer')
 
-        err = uv.uv_listen(<uv.uv_stream_t*> self.handle,
+        err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
                            backlog,
                            __server_listen_cb)
         if err < 0:
@@ -84,7 +84,7 @@ cdef class UVTCPServer(UVTCPBase):
     cdef _new_client(self):
         protocol = self.protocol_factory()
 
-        client = UVServerTransport(self.loop, self, protocol)
+        client = UVServerTransport(self._loop, self, protocol)
         client._accept()
 
 
@@ -110,15 +110,15 @@ cdef class UVServerTransport(UVTCPBase):
         cdef int err
         self.ensure_alive()
 
-        err = uv.uv_accept(<uv.uv_stream_t*>self.server.handle,
-                           <uv.uv_stream_t*>self.handle)
+        err = uv.uv_accept(<uv.uv_stream_t*>self.server._handle,
+                           <uv.uv_stream_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
         self.opened = 1
         self._start_reading()
 
-        self.loop.call_soon(self.protocol.connection_made, self)
+        self._loop.call_soon(self.protocol.connection_made, self)
 
     cdef _start_reading(self):
         cdef int err
@@ -132,7 +132,7 @@ cdef class UVServerTransport(UVTCPBase):
             raise RuntimeError(
                 'cannot UVServerTransport.start_reading; opened=0')
 
-        err = uv.uv_read_start(<uv.uv_stream_t*>self.handle,
+        err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
                                __alloc_cb,
                                __server_transport_onread_cb)
         if err < 0:
@@ -150,7 +150,7 @@ cdef class UVServerTransport(UVTCPBase):
             raise RuntimeError(
                 'cannot UVServerTransport.stop_reading; opened=0')
 
-        err = uv.uv_read_stop(<uv.uv_stream_t*>self.handle)
+        err = uv.uv_read_stop(<uv.uv_stream_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -192,7 +192,7 @@ cdef class UVServerTransport(UVTCPBase):
         ctx.req.data = <void*> ctx
 
         err = uv.uv_write(&ctx.req,
-                          <uv.uv_stream_t*>self.handle,
+                          <uv.uv_stream_t*>self._handle,
                           &ctx.uv_buf,
                           1,
                           __server_transport_onwrite_cb)
@@ -213,9 +213,9 @@ cdef class UVServerTransport(UVTCPBase):
             callback()
 
     cdef inline size_t _get_write_buffer_size(self):
-        if self.handle is NULL:
+        if self._handle is NULL:
             return 0
-        return (<uv.uv_stream_t*>self.handle).write_queue_size
+        return (<uv.uv_stream_t*>self._handle).write_queue_size
 
     cdef _set_write_buffer_limits(self, int high=-1, int low=-1):
         if high == -1:
@@ -254,7 +254,7 @@ cdef class UVServerTransport(UVTCPBase):
             try:
                 self.protocol.pause_writing()
             except Exception as exc:
-                self.loop.call_exception_handler({
+                self._loop.call_exception_handler({
                     'message': 'protocol.pause_writing() failed',
                     'exception': exc,
                     'transport': self,
@@ -275,7 +275,7 @@ cdef class UVServerTransport(UVTCPBase):
             try:
                 self.protocol.resume_writing()
             except Exception as exc:
-                self.loop.call_exception_handler({
+                self._loop.call_exception_handler({
                     'message': 'protocol.resume_writing() failed',
                     'exception': exc,
                     'transport': self,
@@ -286,7 +286,11 @@ cdef class UVServerTransport(UVTCPBase):
 
     property _closing:
         def __get__(self):
-            return False
+            # "self._closing" refers to "UVHandle._closing" cdef
+            return (<UVHandle>self)._closing or (<UVHandle>self)._closed
+
+    def is_closing(self):
+        return (<UVHandle>self)._closing or (<UVHandle>self)._closed
 
     def write(self, object buf):
         self._write(buf, None)
@@ -305,7 +309,7 @@ cdef class UVServerTransport(UVTCPBase):
         self.shutdown_req.data = <void*> self
 
         err = uv.uv_shutdown(&self.shutdown_req,
-                             <uv.uv_stream_t*> self.handle,
+                             <uv.uv_stream_t*> self._handle,
                              __server_transport_shutdown)
         if err < 0:
             raise convert_error(err)
@@ -369,20 +373,20 @@ cdef void __server_listen_cb(uv.uv_stream_t* server_handle,
 
     if status < 0:
         exc = convert_error(status)
-        server.loop._handle_uvcb_exception(exc)
+        server._loop._handle_uvcb_exception(exc)
         return
 
     try:
         server._new_client()
     except BaseException as exc:
-        server.loop._handle_uvcb_exception(exc)
+        server._loop._handle_uvcb_exception(exc)
 
 
 cdef void __alloc_cb(uv.uv_handle_t* uvhandle,
                      size_t suggested_size,
                      uv.uv_buf_t* buf) with gil:
     cdef:
-        Loop loop = (<UVHandle>uvhandle.data).loop
+        Loop loop = (<UVHandle>uvhandle.data)._loop
 
     if loop._recv_buffer_in_use == 1:
         buf.len = 0
@@ -400,7 +404,7 @@ cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
                                        uv.uv_buf_t* buf) with gil:
     cdef:
         UVServerTransport sc = <UVServerTransport>stream.data
-        Loop loop = sc.loop
+        Loop loop = sc._loop
 
     loop._recv_buffer_in_use = 0
 
@@ -412,7 +416,7 @@ cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
         sc.close() # XXX?
 
         exc = convert_error(nread)
-        sc.loop._handle_uvcb_exception(exc)
+        sc._loop._handle_uvcb_exception(exc)
         return
 
     try:
@@ -431,7 +435,7 @@ cdef void __server_transport_onwrite_cb(uv.uv_write_t* req,
     try:
         transport._on_data_written(callback)
     except BaseException as exc:
-        transport.loop._handle_uvcb_exception(exc)
+        transport._loop._handle_uvcb_exception(exc)
     finally:
         PyBuffer_Release(&ctx.py_buf)
         Py_XDECREF(ctx.transport)
@@ -445,7 +449,7 @@ cdef void __server_transport_shutdown(uv.uv_shutdown_t* req,
     cdef UVServerTransport transport = <UVServerTransport> req.data
 
     if status < 0:
-        transport.loop._handle_uvcb_exception(status)
+        transport._loop._handle_uvcb_exception(status)
         return
 
     transport._on_shutdown()

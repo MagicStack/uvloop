@@ -4,14 +4,14 @@ cdef class UVPoll(UVHandle):
     def __cinit__(self, Loop loop, int fd):
         cdef int err
 
-        self.handle = <uv.uv_handle_t*> \
+        self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_poll_t))
-        if self.handle is NULL:
+        if self._handle is NULL:
             raise MemoryError()
 
-        self.handle.data = <void*> self
+        self._handle.data = <void*> self
 
-        err = uv.uv_poll_init(loop.loop, <uv.uv_poll_t *>self.handle, fd)
+        err = uv.uv_poll_init(loop.loop, <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
             raise convert_error(err)
 
@@ -29,7 +29,7 @@ cdef class UVPoll(UVHandle):
         self.ensure_alive()
 
         err = uv.uv_poll_start(
-            <uv.uv_poll_t*>self.handle,
+            <uv.uv_poll_t*>self._handle,
             flags,
             __on_uvpoll_event)
 
@@ -41,7 +41,7 @@ cdef class UVPoll(UVHandle):
 
         self.ensure_alive()
 
-        err = uv.uv_poll_stop(<uv.uv_poll_t*>self.handle)
+        err = uv.uv_poll_stop(<uv.uv_poll_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -117,17 +117,17 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
 
     if status < 0:
         exc = convert_error(status)
-        poll.loop._handle_uvcb_exception(exc)
+        poll._loop._handle_uvcb_exception(exc)
         return
 
     if events | uv.UV_READABLE and poll.reading_handle is not None:
         try:
             poll.reading_handle._run()
         except BaseException as ex:
-            poll.loop._handle_uvcb_exception(ex)
+            poll._loop._handle_uvcb_exception(ex)
 
     if events | uv.UV_WRITABLE and poll.writing_handle is not None:
         try:
             poll.writing_handle._run()
         except BaseException as ex:
-            poll.loop._handle_uvcb_exception(ex)
+            poll._loop._handle_uvcb_exception(ex)

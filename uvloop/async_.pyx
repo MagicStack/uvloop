@@ -4,15 +4,15 @@ cdef class UVAsync(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
 
-        self.handle = <uv.uv_handle_t*> \
+        self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_async_t))
-        if self.handle is NULL:
+        if self._handle is NULL:
             raise MemoryError()
 
-        self.handle.data = <void*> self
+        self._handle.data = <void*> self
 
         err = uv.uv_async_init(loop.loop,
-                               <uv.uv_async_t*>self.handle,
+                               <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:
             raise convert_error(err)
@@ -24,7 +24,7 @@ cdef class UVAsync(UVHandle):
 
         self.ensure_alive()
 
-        err = uv.uv_async_send(<uv.uv_async_t*>self.handle)
+        err = uv.uv_async_send(<uv.uv_async_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
@@ -34,4 +34,4 @@ cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
     try:
         async_.callback()
     except BaseException as ex:
-        async_.loop._handle_uvcb_exception(ex)
+        async_._loop._handle_uvcb_exception(ex)
