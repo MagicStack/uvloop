@@ -11,7 +11,7 @@ cdef class UVAsync(UVHandle):
 
         self._handle.data = <void*> self
 
-        err = uv.uv_async_init(loop.loop,
+        err = uv.uv_async_init(loop.uvloop,
                                <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:

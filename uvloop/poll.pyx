@@ -11,7 +11,7 @@ cdef class UVPoll(UVHandle):
 
         self._handle.data = <void*> self
 
-        err = uv.uv_poll_init(loop.loop, <uv.uv_poll_t *>self._handle, fd)
+        err = uv.uv_poll_init(loop.uvloop, <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
             raise convert_error(err)
 

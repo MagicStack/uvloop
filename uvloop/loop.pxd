@@ -19,7 +19,7 @@ cdef class UVIdle(UVHandle)
 
 cdef class Loop:
     cdef:
-        uv.uv_loop_t *loop
+        uv.uv_loop_t *uvloop
 
         bint _closed
         bint _debug

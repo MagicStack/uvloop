@@ -39,12 +39,12 @@ cdef class Loop:
     def __cinit__(self):
         cdef int err
 
-        self.loop = <uv.uv_loop_t*> \
+        self.uvloop = <uv.uv_loop_t*> \
                             PyMem_Malloc(sizeof(uv.uv_loop_t))
-        if self.loop is NULL:
+        if self.uvloop is NULL:
             raise MemoryError()
 
-        self.loop.data = <void*> self
+        self.uvloop.data = <void*> self
         self._closed = 0
         self._debug = 0
         self._thread_id = 0
@@ -58,7 +58,7 @@ cdef class Loop:
 
         self._recv_buffer_in_use = 0
 
-        err = uv.uv_loop_init(self.loop)
+        err = uv.uv_loop_init(self.uvloop)
         if err < 0:
             raise convert_error(err)
 
@@ -88,8 +88,8 @@ cdef class Loop:
             if self._closed == 0:
                 aio_logger.error("deallocating an active libuv loop")
         finally:
-            PyMem_Free(self.loop)
-            self.loop = NULL
+            PyMem_Free(self.uvloop)
+            self.uvloop = NULL
 
     def _on_wake(self):
         if (self._ready_len > 0 or self._stopping) \
@@ -133,7 +133,7 @@ cdef class Loop:
             self.handler_idle.stop()
 
         if self._stopping:
-            uv.uv_stop(self.loop)
+            uv.uv_stop(self.uvloop)
 
     cdef _stop(self, exc=None):
         if exc is not None:
@@ -180,7 +180,7 @@ cdef class Loop:
         self.handler_sighup.start()
 
         with nogil:
-            err = uv.uv_run(self.loop, mode)
+            err = uv.uv_run(self.uvloop, mode)
 
         if err < 0:
             raise convert_error(err)
@@ -224,12 +224,12 @@ cdef class Loop:
 
         # Allow loop to fire "close" callbacks
         with nogil:
-            err = uv.uv_run(self.loop, uv.UV_RUN_DEFAULT)
+            err = uv.uv_run(self.uvloop, uv.UV_RUN_DEFAULT)
 
         if err < 0:
             raise convert_error(err)
 
-        err = uv.uv_loop_close(self.loop)
+        err = uv.uv_loop_close(self.uvloop)
         if err < 0:
             raise convert_error(err)
 
@@ -254,7 +254,7 @@ cdef class Loop:
             executor.shutdown(wait=False)
 
     cdef uint64_t _time(self):
-        return uv.uv_now(self.loop)
+        return uv.uv_now(self.uvloop)
 
     cdef _call_soon(self, object callback, object args):
         self._check_closed()

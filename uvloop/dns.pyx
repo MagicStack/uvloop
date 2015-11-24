@@ -105,7 +105,7 @@ cdef class AddrInfoRequest(UVRequest):
         self.callback = callback
         self.request.data = <void*>self
 
-        err = uv.uv_getaddrinfo(loop.loop,
+        err = uv.uv_getaddrinfo(loop.uvloop,
                                 <uv.uv_getaddrinfo_t*>self.request,
                                 __on_addrinfo_resolved,
                                 host.encode('utf-8'),

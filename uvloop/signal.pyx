@@ -11,7 +11,7 @@ cdef class UVSignal(UVHandle):
 
         self._handle.data = <void*> self
 
-        err = uv.uv_signal_init(loop.loop, <uv.uv_signal_t *>self._handle)
+        err = uv.uv_signal_init(loop.uvloop, <uv.uv_signal_t *>self._handle)
         if err < 0:
             raise convert_error(err)
 

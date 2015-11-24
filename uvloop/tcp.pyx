@@ -18,7 +18,7 @@ cdef class UVTCPBase(UVStream):
 
         self._handle.data = <void*> self
 
-        err = uv.uv_tcp_init(loop.loop, <uv.uv_tcp_t*>self._handle)
+        err = uv.uv_tcp_init(loop.uvloop, <uv.uv_tcp_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 

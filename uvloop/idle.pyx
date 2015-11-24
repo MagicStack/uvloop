@@ -11,7 +11,7 @@ cdef class UVIdle(UVHandle):
 
         self._handle.data = <void*> self
 
-        err = uv.uv_idle_init(loop.loop, <uv.uv_idle_t*>self._handle)
+        err = uv.uv_idle_init(loop.uvloop, <uv.uv_idle_t*>self._handle)
         if err < 0:
             raise convert_error(err)
 
