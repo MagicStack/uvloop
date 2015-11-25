@@ -1,12 +1,3 @@
-ctypedef struct WriteContext:
-    uv.uv_write_t req
-    uv.uv_buf_t uv_buf
-    Py_buffer py_buf
-    PyObject* callback
-    PyObject* transport
-    Py_ssize_t len
-
-
 cdef class UVTCPBase(UVStream):
     def __cinit__(self, Loop loop, *_):
         cdef int err
