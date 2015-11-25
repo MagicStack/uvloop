@@ -12,8 +12,8 @@ cdef class UVStream(UVHandle):
     cdef _start_reading(self)
     cdef _stop_reading(self)
 
-    cdef int _is_readable(self)
-    cdef int _is_writable(self)
+    cdef bint _is_readable(self)
+    cdef bint _is_writable(self)
 
     cdef _write(self, object data, object callback)
 

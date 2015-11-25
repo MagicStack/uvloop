@@ -103,10 +103,10 @@ cdef class UVStream(UVHandle):
             self._close()
             raise convert_error(err)
 
-    cdef int _is_readable(self):
+    cdef bint _is_readable(self):
         return uv.uv_is_readable(<uv.uv_stream_t*>self._handle)
 
-    cdef int _is_writable(self):
+    cdef bint _is_writable(self):
         return uv.uv_is_writable(<uv.uv_stream_t*>self._handle)
 
     cdef _write(self, object data, object callback):
