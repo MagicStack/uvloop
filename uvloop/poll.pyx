@@ -117,6 +117,10 @@ cdef class UVPoll(UVHandle):
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
                             int status, int events) with gil:
 
+    if handle.data is NULL:
+        aio_logger.error('UVPoll callback called with NULL handle.data')
+        return
+
     cdef:
         UVPoll poll = <UVPoll> handle.data
 

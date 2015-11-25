@@ -83,6 +83,10 @@ cdef class UVHandle:
 
 
 cdef void __uv_handle_close_cb(uv.uv_handle_t* handle) with gil:
+    if handle.data is NULL:
+        aio_logger.error('UVHandle close callback called with NULL handle.data')
+        return
+
     cdef UVHandle h = <UVHandle>handle.data
     h._closed = 1
     h._closing = 0

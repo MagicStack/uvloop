@@ -120,6 +120,11 @@ cdef class AddrInfoRequest(UVRequest):
 cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
                                  int status, system.addrinfo *res) with gil:
 
+    if resolver.data is NULL:
+        aio_logger.error(
+            'AddrInfoRequest callback called with NULL resolver.data')
+        return
+
     cdef:
         AddrInfoRequest request = <AddrInfoRequest> resolver.data
         Loop loop = request.loop

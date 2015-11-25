@@ -33,6 +33,10 @@ cdef class UVAsync(UVHandle):
 
 
 cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
+    if handle.data is NULL:
+        aio_logger.error('UVAsync callback called with NULL handle.data')
+        return
+
     cdef UVAsync async_ = <UVAsync> handle.data
     try:
         async_.callback()

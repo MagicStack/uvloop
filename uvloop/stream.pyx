@@ -170,6 +170,12 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
 
     # callback for uv_shutdown
 
+    if req.data is NULL:
+        aio_logger.error(
+            'UVStream.shutdown callback called with NULL req.data, status=%r',
+            status)
+        return
+
     cdef UVStream stream = <UVStream> req.data
 
     if status < 0:
@@ -188,6 +194,12 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
                                 int status) with gil:
 
     # callback for uv_listen
+
+    if handle.data is NULL:
+        aio_logger.error(
+            'UVStream.listen callback called with NULL handle.data, status=%r',
+            status)
+        return
 
     cdef:
         UVStream stream = <UVStream> handle.data
@@ -209,6 +221,12 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
                               const uv.uv_buf_t* buf) with gil:
 
     # callback for uv_read_start
+
+    if stream.data is NULL:
+        aio_logger.error(
+            'UVStream.read callback called with NULL handle.data, nread=%r',
+            nread)
+        return
 
     cdef:
         UVStream sc = <UVStream>stream.data
@@ -256,6 +274,12 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
     # callback for uv_write
+
+    if req.data is NULL:
+        aio_logger.error(
+            'UVStream.write callback called with NULL req.data, status=%r',
+            status)
+        return
 
     cdef:
         __StreamWriteContext ctx = <__StreamWriteContext> req.data
