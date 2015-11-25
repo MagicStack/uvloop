@@ -2,6 +2,8 @@ cdef class UVStream(UVHandle):
     cdef:
         uv.uv_shutdown_t _shutdown_req
 
+    cdef _fileno(self)
+
     cdef _shutdown(self)
 
     cdef _listen(self, int backlog)

@@ -130,6 +130,18 @@ cdef class UVStream(UVHandle):
             self._close()
             raise convert_error(err)
 
+    cdef _fileno(self):
+        cdef:
+            int fd
+            int err
+
+        err = uv.uv_fileno(<uv.uv_handle_t*>self._handle, <uv.uv_os_fd_t*>&fd)
+        if err < 0:
+            self._close()
+            raise convert_error(err)
+
+        return fd
+
     # Methods to override.
 
     cdef _on_accept(self):

@@ -30,8 +30,8 @@ async def echo_client(loop, client):
 
 
 async def echo_client_streams(reader, writer):
-    addr = writer.get_extra_info('peername')
-    print('Connection from', addr)
+    sock = writer.get_extra_info('socket')
+    print('Connection from', sock.getpeername())
     while True:
          data = await reader.read(10000)
          if not data:

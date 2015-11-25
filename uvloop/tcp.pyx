@@ -46,7 +46,8 @@ cdef class UVTCPServer(UVTCPBase):
     cdef open(self, int sockfd):
         cdef int err
         self._ensure_alive()
-        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle, sockfd)
+        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle,
+                             <uv.uv_os_sock_t>sockfd)
         if err < 0:
             self._close()
             raise convert_error(err)
@@ -140,8 +141,6 @@ cdef class UVServerTransport(UVTCPBase):
         if self.flow_control_enabled == 0:
             return
 
-        self._ensure_alive()
-
         cdef:
             size_t size = self._get_write_buffer_size()
 
@@ -163,8 +162,6 @@ cdef class UVServerTransport(UVTCPBase):
     cdef _maybe_resume_protocol(self):
         if self.flow_control_enabled == 0:
             return
-
-        self._ensure_alive()
 
         cdef:
             size_t size = self._get_write_buffer_size()
@@ -250,6 +247,23 @@ cdef class UVServerTransport(UVTCPBase):
         return (self._low_water, self._high_water)
 
     def get_extra_info(self, name, default=None):
+        cdef:
+            int buf_len = sizeof(system.sockaddr_storage)
+            int err
+            system.sockaddr_storage buf
+
+        if name == 'socket':
+            err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
+                                        <system.sockaddr*>&buf,
+                                        &buf_len)
+            if err < 0:
+                self._close()
+                raise convert_error(err)
+
+            return socket_fromfd(self._fileno(),
+                                 buf.ss_family,
+                                 uv.SOCK_STREAM)
+
         return default
 
     def abort(self):

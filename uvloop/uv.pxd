@@ -21,6 +21,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int INET6_ADDRSTRLEN
     cdef int IPV6_V6ONLY
     cdef int IPPROTO_IPV6
+    cdef int SOCK_STREAM
 
     cdef int SIGINT
     cdef int SIGHUP
@@ -42,7 +43,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_EAI_SOCKTYPE
 
 
-    ctypedef uv_os_sock_t
+    ctypedef struct uv_os_sock_t
+    ctypedef struct uv_os_fd_t    # not really a struct; tricking Cython here.
 
     ctypedef struct uv_buf_t:
       char* base
@@ -165,6 +167,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     # Generic handler functions
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
     int uv_is_closing(const uv_handle_t* handle)
+    int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd)
 
     # Loop functions
     int uv_loop_init(uv_loop_t* loop)
@@ -240,6 +243,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)
     int uv_tcp_bind(uv_tcp_t* handle, system.sockaddr* addr, unsigned int flags)
+
+    int uv_tcp_getsockname(const uv_tcp_t* handle, system.sockaddr* name,
+                           int* namelen)
 
     # Polling
 
