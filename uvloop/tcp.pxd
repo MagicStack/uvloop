@@ -15,15 +15,12 @@ cdef class UVTCPServer(UVTCPBase):
 
     cdef open(self, int sockfd)
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
+
     cdef listen(self, int backlog=*)
-
-    cdef _new_client(self)
-
+    cdef _on_listen(self)
 
 cdef class UVServerTransport(UVTCPBase):
     cdef:
-        UVTCPServer server
-
         bint eof
         bint reading
 
@@ -36,18 +33,15 @@ cdef class UVServerTransport(UVTCPBase):
         size_t high_water
         size_t low_water
 
-        uv.uv_shutdown_t shutdown_req
-
     cdef _start_reading(self)
     cdef _stop_reading(self)
 
-    cdef _accept(self)
-    cdef _on_data_recv(self, bytes buf)
+    cdef _on_read(self, bytes buf)
     cdef _on_eof(self)
-    cdef _on_shutdown(self)
+    cdef _on_accept(self)
+    cdef _on_write(self)
 
     cdef _write(self, object data, object callback)
-    cdef _on_data_written(self, object callback)
 
     cdef inline size_t _get_write_buffer_size(self)
     cdef _set_write_buffer_limits(self, int high=*, int low=*)

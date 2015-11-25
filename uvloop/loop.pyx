@@ -732,6 +732,29 @@ cdef class Loop:
         self._default_executor = executor
 
 
+cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
+                              size_t suggested_size,
+                              uv.uv_buf_t* buf) with gil:
+    cdef:
+        Loop loop = (<UVHandle>uvhandle.data)._loop
+
+    if loop._recv_buffer_in_use == 1:
+        buf.len = 0
+        exc = RuntimeError('concurrent allocations')
+        loop._handle_uvcb_exception(exc)
+        return
+
+    loop._recv_buffer_in_use = 1
+    buf.base = loop._recv_buffer
+    buf.len = sizeof(loop._recv_buffer)
+
+
+cdef void __loop_free_buffer(uv.uv_handle_t* uvhandle):
+    cdef:
+        Loop loop = (<UVHandle>uvhandle.data)._loop
+    loop._recv_buffer_in_use = 0
+
+
 include "cbhandles.pyx"
 
 include "handle.pyx"

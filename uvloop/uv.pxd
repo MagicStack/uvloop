@@ -231,6 +231,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     int uv_shutdown(uv_shutdown_t* req, uv_stream_t* handle, uv_shutdown_cb cb)
 
+    int uv_is_readable(const uv_stream_t* handle)
+    int uv_is_writable(const uv_stream_t* handle)
+
     # TCP
 
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)

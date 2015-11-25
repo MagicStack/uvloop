@@ -66,34 +66,22 @@ cdef class UVTCPServer(UVTCPBase):
         self.opened = 1
 
     cdef listen(self, int backlog=100):
-        cdef int err
-        self._ensure_alive()
-
         if self.protocol_factory is None:
             raise RuntimeError('unable to listen(); no protocol_factory')
 
         if self.opened != 1:
             raise RuntimeError('unopened UVTCPServer')
 
-        err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
-                           backlog,
-                           __server_listen_cb)
-        if err < 0:
-            raise convert_error(err)
+        self._listen(backlog)
 
-    cdef _new_client(self):
+    cdef _on_listen(self):
         protocol = self.protocol_factory()
-
-        client = UVServerTransport(self._loop, self, protocol)
-        client._accept()
+        client = UVServerTransport(self._loop, protocol)
+        client._accept(<UVStream>self)
 
 
 cdef class UVServerTransport(UVTCPBase):
-    def __cinit__(self, Loop loop, UVTCPServer server,
-                  object protocol not None):
-
-        self.server = server
-
+    def __cinit__(self, Loop loop, object protocol not None):
         self.protocol = protocol
         self.protocol_data_received = protocol.data_received
 
@@ -106,55 +94,12 @@ cdef class UVServerTransport(UVTCPBase):
         self.high_water = FLOW_CONTROL_HIGH_WATER
         self.low_water = FLOW_CONTROL_LOW_WATER
 
-    cdef _accept(self):
-        cdef int err
-        self._ensure_alive()
-
-        err = uv.uv_accept(<uv.uv_stream_t*>self.server._handle,
-                           <uv.uv_stream_t*>self._handle)
-        if err < 0:
-            raise convert_error(err)
-
+    cdef _on_accept(self):
         self.opened = 1
         self._start_reading()
-
         self._loop.call_soon(self.protocol.connection_made, self)
 
-    cdef _start_reading(self):
-        cdef int err
-        self._ensure_alive()
-
-        if self.reading == 1:
-            raise RuntimeError('Not paused')
-        self.reading = 1
-
-        if self.opened != 1:
-            raise RuntimeError(
-                'cannot UVServerTransport.start_reading; opened=0')
-
-        err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
-                               __alloc_cb,
-                               __server_transport_onread_cb)
-        if err < 0:
-            raise convert_error(err)
-
-    cdef _stop_reading(self):
-        cdef int err
-        self._ensure_alive()
-
-        if self.reading == 0:
-            raise RuntimeError('Already paused')
-        self.reading = 0
-
-        if self.opened != 1:
-            raise RuntimeError(
-                'cannot UVServerTransport.stop_reading; opened=0')
-
-        err = uv.uv_read_stop(<uv.uv_stream_t*>self._handle)
-        if err < 0:
-            raise convert_error(err)
-
-    cdef _on_data_recv(self, bytes buf):
+    cdef _on_read(self, bytes buf):
         self.protocol_data_received(buf)
 
     cdef _on_eof(self):
@@ -162,55 +107,12 @@ cdef class UVServerTransport(UVTCPBase):
         if not keep_open:
             self._close()
 
-    cdef _on_shutdown(self):
-        pass
-
     cdef _write(self, object data, object callback):
-        cdef:
-            int err
-            WriteContext* ctx
-
-        if self.eof:
-            raise RuntimeError('Cannot call write() after write_eof()')
-
-        self._ensure_alive()
-
-        ctx = <WriteContext*> PyMem_Malloc(sizeof(WriteContext))
-        if ctx is NULL:
-            raise MemoryError()
-
-        try:
-            PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
-        except:
-            PyMem_Free(ctx)
-            raise
-
-        ctx.transport = <PyObject*>self
-        ctx.callback = <PyObject*>callback
-        ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
-        ctx.len = ctx.py_buf.len
-        ctx.req.data = <void*> ctx
-
-        err = uv.uv_write(&ctx.req,
-                          <uv.uv_stream_t*>self._handle,
-                          &ctx.uv_buf,
-                          1,
-                          __server_transport_onwrite_cb)
-
-        if err < 0:
-            PyBuffer_Release(&ctx.py_buf)
-            raise convert_error(err)
-        else:
-            Py_INCREF(self)
-            Py_INCREF(callback)
-
+        UVStream._write(self, data, callback)
         self._maybe_pause_protocol()
 
-    cdef _on_data_written(self, object callback):
+    cdef _on_write(self):
         self._maybe_resume_protocol()
-
-        if callback is not None:
-            callback()
 
     cdef inline size_t _get_write_buffer_size(self):
         if self._handle is NULL:
@@ -304,15 +206,7 @@ cdef class UVServerTransport(UVTCPBase):
             return
         self.eof = 1
 
-        cdef int err
-
-        self.shutdown_req.data = <void*> self
-
-        err = uv.uv_shutdown(&self.shutdown_req,
-                             <uv.uv_stream_t*> self._handle,
-                             __server_transport_shutdown)
-        if err < 0:
-            raise convert_error(err)
+        self._shutdown()
 
     def can_write_eof(self):
         return True
@@ -363,93 +257,3 @@ cdef class UVServerTransport(UVTCPBase):
 
     def abort(self):
         self._close() # TODO?
-
-
-cdef void __server_listen_cb(uv.uv_stream_t* server_handle,
-                             int status) with gil:
-    cdef:
-        UVTCPServer server = <UVTCPServer> server_handle.data
-        UVServerTransport client
-
-    if status < 0:
-        exc = convert_error(status)
-        server._loop._handle_uvcb_exception(exc)
-        return
-
-    try:
-        server._new_client()
-    except BaseException as exc:
-        server._loop._handle_uvcb_exception(exc)
-
-
-cdef void __alloc_cb(uv.uv_handle_t* uvhandle,
-                     size_t suggested_size,
-                     uv.uv_buf_t* buf) with gil:
-    cdef:
-        Loop loop = (<UVHandle>uvhandle.data)._loop
-
-    if loop._recv_buffer_in_use == 1:
-        buf.len = 0
-        exc = RuntimeError('concurrent allocations')
-        loop._handle_uvcb_exception(exc)
-        return
-
-    loop._recv_buffer_in_use = 1
-    buf.base = loop._recv_buffer
-    buf.len = sizeof(loop._recv_buffer)
-
-
-cdef void __server_transport_onread_cb(uv.uv_stream_t* stream,
-                                       ssize_t nread,
-                                       uv.uv_buf_t* buf) with gil:
-    cdef:
-        UVServerTransport sc = <UVServerTransport>stream.data
-        Loop loop = sc._loop
-
-    loop._recv_buffer_in_use = 0
-
-    if nread == uv.UV_EOF:
-        sc._on_eof()
-        return
-
-    if nread < 0:
-        sc._close() # XXX?
-
-        exc = convert_error(nread)
-        sc._loop._handle_uvcb_exception(exc)
-        return
-
-    try:
-        sc._on_data_recv(loop._recv_buffer[:nread])
-    except BaseException as exc:
-        loop._handle_uvcb_exception(exc)
-
-
-cdef void __server_transport_onwrite_cb(uv.uv_write_t* req,
-                                        int status) with gil:
-    cdef:
-        WriteContext* ctx = <WriteContext*> req.data
-        UVServerTransport transport = <UVServerTransport>ctx.transport
-        object callback = <object>ctx.callback
-
-    try:
-        transport._on_data_written(callback)
-    except BaseException as exc:
-        transport._loop._handle_uvcb_exception(exc)
-    finally:
-        PyBuffer_Release(&ctx.py_buf)
-        Py_XDECREF(ctx.transport)
-        Py_XDECREF(ctx.callback)
-        PyMem_Free(ctx)
-
-
-cdef void __server_transport_shutdown(uv.uv_shutdown_t* req,
-                                      int status) with gil:
-
-    cdef UVServerTransport transport = <UVServerTransport> req.data
-
-    if status < 0:
-        transport._loop._handle_uvcb_exception(status)
-        return
-
-    transport._on_shutdown()
