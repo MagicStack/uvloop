@@ -5,12 +5,14 @@ cdef class UVTCPBase(UVStream):
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_tcp_t))
         if self._handle is NULL:
+            self._close()
             raise MemoryError()
 
         self._handle.data = <void*> self
 
         err = uv.uv_tcp_init(loop.uvloop, <uv.uv_tcp_t*>self._handle)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
         self.opened = 0
@@ -20,6 +22,7 @@ cdef class UVTCPBase(UVStream):
         self._ensure_alive()
         err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 1)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
     cdef disable_nodelay(self):
@@ -27,6 +30,7 @@ cdef class UVTCPBase(UVStream):
         self._ensure_alive()
         err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 0)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
 
@@ -44,6 +48,7 @@ cdef class UVTCPServer(UVTCPBase):
         self._ensure_alive()
         err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle, sockfd)
         if err < 0:
+            self._close()
             raise convert_error(err)
         self.opened = 1
 
@@ -53,6 +58,7 @@ cdef class UVTCPServer(UVTCPBase):
         err = uv.uv_tcp_bind(<uv.uv_tcp_t *>self._handle,
                              addr, flags)
         if err < 0:
+            self._close()
             raise convert_error(err)
         self.opened = 1
 

@@ -7,6 +7,7 @@ cdef class UVAsync(UVHandle):
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_async_t))
         if self._handle is NULL:
+            self._close()
             raise MemoryError()
 
         self._handle.data = <void*> self
@@ -15,6 +16,7 @@ cdef class UVAsync(UVHandle):
                                <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
         self.callback = callback
@@ -26,6 +28,7 @@ cdef class UVAsync(UVHandle):
 
         err = uv.uv_async_send(<uv.uv_async_t*>self._handle)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
 

@@ -152,6 +152,9 @@ cdef class Loop:
         """Internal helper for tracking UVHandles."""
         self._handles.remove(handle)
 
+    cdef inline bint __is_handle_tracked__(self, UVHandle handle):
+        return handle in self._handles
+
     cdef inline void __track_request__(self, UVRequest request):
         """Internal helper for tracking UVRequests."""
         self._requests.add(request)

@@ -7,12 +7,14 @@ cdef class UVPoll(UVHandle):
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_poll_t))
         if self._handle is NULL:
+            self._close()
             raise MemoryError()
 
         self._handle.data = <void*> self
 
         err = uv.uv_poll_init(loop.uvloop, <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
         self.fd = fd
@@ -34,6 +36,7 @@ cdef class UVPoll(UVHandle):
             __on_uvpoll_event)
 
         if err < 0:
+            self._close()
             raise convert_error(err)
 
     cdef inline _poll_stop(self):
@@ -43,6 +46,7 @@ cdef class UVPoll(UVHandle):
 
         err = uv.uv_poll_stop(<uv.uv_poll_t*>self._handle)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
     cdef start_reading(self, Handle callback):
@@ -118,6 +122,7 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
     if status < 0:
         exc = convert_error(status)
         poll._loop._handle_uvcb_exception(exc)
+        poll._close()
         return
 
     if events | uv.UV_READABLE and poll.reading_handle is not None:

@@ -55,8 +55,19 @@ cdef class UVHandle:
                     '{}.close: uv_is_closing() is true'.format(
                         self.__class__.__name__))
 
-        self._closing = 1
-        uv.uv_close(self._handle, __uvhandle_close_cb) # void; no exceptions
+        if self._handle is NULL:
+            # Shouldn't fail even if called from __cinit__ before the
+            # handle is initialized.
+            self._closed = 1
+            if self._loop.__is_handle_tracked__(self):
+                # This can happen if an exception has occurred during
+                # Handle.__cinit__.  Since __uv_handle_close_cb isn't
+                # going to be called, we need to untrack the handle
+                # here.
+                self._loop.__untrack_handle__(self)
+        else:
+            self._closing = 1
+            uv.uv_close(self._handle, __uv_handle_close_cb) # void; no errors
 
     def __repr__(self):
         return '<{} closed={} closing={} {:#x}>'.format(
@@ -66,8 +77,8 @@ cdef class UVHandle:
             id(self))
 
 
-cdef void __uvhandle_close_cb(uv.uv_handle_t* handle) with gil:
+cdef void __uv_handle_close_cb(uv.uv_handle_t* handle) with gil:
     cdef UVHandle h = <UVHandle>handle.data
     h._closed = 1
     h._closing = 0
-    h._loop.__untrack_handle__(h) # void; no exceptions
+    h._loop.__untrack_handle__(h) # void; no errors

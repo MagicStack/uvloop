@@ -7,12 +7,14 @@ cdef class UVSignal(UVHandle):
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_signal_t))
         if self._handle is NULL:
+            self._close()
             raise MemoryError()
 
         self._handle.data = <void*> self
 
         err = uv.uv_signal_init(loop.uvloop, <uv.uv_signal_t *>self._handle)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
         self.callback = callback
@@ -28,6 +30,7 @@ cdef class UVSignal(UVHandle):
             err = uv.uv_signal_stop(<uv.uv_signal_t *>self._handle)
             self.running = 0
             if err < 0:
+                self._close()
                 raise convert_error(err)
 
     cdef start(self):
@@ -40,6 +43,7 @@ cdef class UVSignal(UVHandle):
                                      __uvsignal_callback,
                                      self.signum)
             if err < 0:
+                self._close()
                 raise convert_error(err)
             self.running = 1
 

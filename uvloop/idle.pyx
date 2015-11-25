@@ -7,12 +7,14 @@ cdef class UVIdle(UVHandle):
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_idle_t))
         if self._handle is NULL:
+            self._close()
             raise MemoryError()
 
         self._handle.data = <void*> self
 
         err = uv.uv_idle_init(loop.uvloop, <uv.uv_idle_t*>self._handle)
         if err < 0:
+            self._close()
             raise convert_error(err)
 
         self.callback = callback
@@ -27,6 +29,7 @@ cdef class UVIdle(UVHandle):
             err = uv.uv_idle_stop(<uv.uv_idle_t*>self._handle)
             self.running = 0
             if err < 0:
+                self._close()
                 raise convert_error(err)
 
     cdef start(self):
@@ -38,6 +41,7 @@ cdef class UVIdle(UVHandle):
             err = uv.uv_idle_start(<uv.uv_idle_t*>self._handle,
                                    cb_idle_callback)
             if err < 0:
+                self._close()
                 raise convert_error(err)
             self.running = 1
 

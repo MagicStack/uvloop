@@ -62,6 +62,7 @@ cdef class Loop:
 
     cdef inline void __track_handle__(self, UVHandle handle)
     cdef inline void __untrack_handle__(self, UVHandle handle)
+    cdef inline bint __is_handle_tracked__(self, UVHandle handle)
 
     cdef inline void __track_request__(self, UVRequest request)
     cdef inline void __untrack_request__(self, UVRequest request)
