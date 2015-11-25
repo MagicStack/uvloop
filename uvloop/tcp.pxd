@@ -1,13 +1,13 @@
-cdef class UVTCPBase(UVStream):
+cdef class UVTcpStream(UVStream):
     cdef:
         bint opened
         int flags
 
-    cdef enable_nodelay(self)
-    cdef disable_nodelay(self)
+    cdef _set_nodelay(self, bint flag)
+    cdef _set_keepalive(self, bint flag, unsigned int delay)
 
 
-cdef class UVTCPServer(UVTCPBase):
+cdef class UVTCPServer(UVTcpStream):
     cdef:
         object protocol_factory
 
@@ -19,7 +19,7 @@ cdef class UVTCPServer(UVTCPBase):
     cdef listen(self, int backlog=*)
     cdef _on_listen(self)
 
-cdef class UVServerTransport(UVTCPBase):
+cdef class UVServerTransport(UVTcpStream):
     cdef:
         bint eof
         bint reading

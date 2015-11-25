@@ -1,4 +1,4 @@
-cdef class UVTCPBase(UVStream):
+cdef class UVTcpStream(UVStream):
     def __cinit__(self, Loop loop, *_):
         cdef int err
 
@@ -17,24 +17,24 @@ cdef class UVTCPBase(UVStream):
 
         self.opened = 0
 
-    cdef enable_nodelay(self):
+    cdef _set_nodelay(self, bint flag):
         cdef int err
         self._ensure_alive()
-        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 1)
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, flag)
         if err < 0:
             self._close()
             raise convert_error(err)
 
-    cdef disable_nodelay(self):
+    cdef _set_keepalive(self, bint flag, unsigned int delay):
         cdef int err
         self._ensure_alive()
-        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, 0)
+        err = uv.uv_tcp_keepalive(<uv.uv_tcp_t *>self._handle, flag, delay)
         if err < 0:
             self._close()
             raise convert_error(err)
 
 
-cdef class UVTCPServer(UVTCPBase):
+cdef class UVTCPServer(UVTcpStream):
     def __cinit__(self, *_):
         self.protocol_factory = None
 
@@ -78,7 +78,7 @@ cdef class UVTCPServer(UVTCPBase):
         client._accept(<UVStream>self)
 
 
-cdef class UVServerTransport(UVTCPBase):
+cdef class UVServerTransport(UVTcpStream):
     def __cinit__(self, Loop loop, object protocol not None):
         self.protocol = protocol
         self.protocol_data_received = protocol.data_received
