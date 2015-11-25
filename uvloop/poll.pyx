@@ -42,7 +42,8 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_stop(self):
         cdef int err
 
-        self._ensure_alive()
+        if not self._is_alive():
+            return
 
         err = uv.uv_poll_stop(<uv.uv_poll_t*>self._handle)
         if err < 0:

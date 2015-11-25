@@ -24,6 +24,11 @@ cdef class UVHandle:
             PyMem_Free(self._handle)
             self._handle = NULL
 
+    cdef inline bint _is_alive(self):
+        return (self._closed != 1 and
+                self._closing != 1 and
+                self._handle is not NULL)
+
     cdef inline _ensure_alive(self):
         if self._closed == 1 or self._closing == 1 or self._handle is NULL:
             raise RuntimeError(

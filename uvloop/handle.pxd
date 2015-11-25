@@ -5,5 +5,7 @@ cdef class UVHandle:
         bint _closing
         Loop _loop
 
+    cdef inline bint _is_alive(self)
     cdef inline _ensure_alive(self)
+
     cdef _close(self)
