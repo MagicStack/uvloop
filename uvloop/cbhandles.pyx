@@ -1,6 +1,6 @@
 @cython.final
 @cython.internal
-@cython.freelist(250)
+@cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class Handle:
     def __cinit__(self, Loop loop, object callback, object args):
         self.callback = callback
@@ -38,7 +38,7 @@ cdef class Handle:
 
 @cython.final
 @cython.internal
-@cython.freelist(250)
+@cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class TimerHandle:
     def __cinit__(self, Loop loop, object callback, object args,
                   uint64_t delay):

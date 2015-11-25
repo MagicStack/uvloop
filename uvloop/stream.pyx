@@ -1,7 +1,7 @@
 @cython.final
 @cython.internal
 @cython.no_gc_clear
-@cython.freelist(250)
+@cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class __StreamWriteContext:
     # used to hold additional write request information for uv_write
 

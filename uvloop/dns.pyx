@@ -1,6 +1,6 @@
 @cython.final
 @cython.internal
-@cython.freelist(50)
+@cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class AddrInfo:
     cdef:
         system.addrinfo *data
