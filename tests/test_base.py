@@ -49,7 +49,7 @@ class _TestBase:
         self.loop.call_later(0.05, cb, 10)
         self.loop.call_later(0.05, cb, 100).cancel() # canceled right away
         self.loop.call_later(0.05, cb, 1)
-        self.loop.call_later(0.06, cb, 1000) # shouldn't be called
+        self.loop.call_later(1000, cb, 1000) # shouldn't be called
 
         started = time.monotonic()
         self.loop.run_forever()
