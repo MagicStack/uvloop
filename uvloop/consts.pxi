@@ -1,5 +1,3 @@
-DEF DEBUG = 0
-
 # XXX: To use Future implemented in C, you need a modified
 # version of asyncio.
 DEF USE_C_FUTURE = 0

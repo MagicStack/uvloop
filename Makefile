@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test test1
+.PHONY: compile clean all distclean test test1 debug
 
 
 all: clean compile
@@ -16,7 +16,14 @@ distclean: clean
 
 
 compile: clean
-	cython -a uvloop/loop.pyx
+	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
+	cython -3 -a uvloop/loop.pyx; rm uvloop/__debug.pxi
+	python3 setup.py build_ext --inplace
+
+
+debug: clean
+	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
+	cython -3 -a uvloop/loop.pyx; rm uvloop/__debug.pxi
 	python3 setup.py build_ext --inplace
 
 
