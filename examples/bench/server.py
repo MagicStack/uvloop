@@ -32,7 +32,8 @@ async def echo_client(loop, client):
              if not data:
                   break
              await loop.sock_sendall(client, data)
-    print('Connection closed')
+    if PRINT:
+        print('Connection closed')
 
 
 async def echo_client_streams(reader, writer):
@@ -47,6 +48,7 @@ async def echo_client_streams(reader, writer):
          await writer.drain()
     if PRINT:
         print('Connection closed')
+        writer.close()
 
 
 async def print_debug(loop):

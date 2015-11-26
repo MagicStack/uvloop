@@ -38,19 +38,23 @@ cdef class __StreamWriteContext:
             return
 
         self.closed = 1
-
-        PyBuffer_Release(&self.py_buf)
-
+        self.callback = None
+        PyBuffer_Release(&self.py_buf)  # void
+        self.req.data = NULL
         Py_DECREF(self)
-
-        IF DEBUG:
-            self.stream._loop._debug_stream_write_ctx_cnt -= 1
+        IF not DEBUG:
+            self.stream = None
 
     IF DEBUG:
         def __dealloc__(self):
             if not self.closed:
                 raise RuntimeError(
                     'open __StreamWriteContext is being deallocated')
+
+            IF DEBUG:
+                self.stream._loop._debug_stream_write_ctx_cnt -= 1
+
+            self.stream = None
 
 
 @cython.internal

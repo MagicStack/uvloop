@@ -24,15 +24,21 @@ cdef class Handle:
         if self.cancelled == 1 or self.done == 1:
             return
 
+        callback = self.callback
+        args = self.args
+
+        self.callback = None
+        self.args = None
+
         self.done = 1
         try:
-            if self.args is not None:
-                self.callback(*self.args)
+            if args is not None:
+                callback(*args)
             else:
-                self.callback()
+                callback()
         except Exception as ex:
             self.loop.call_exception_handler({
-                'message': 'Exception in callback {}'.format(self.callback),
+                'message': 'Exception in callback {}'.format(callback),
                 'exception': ex
             })
 
