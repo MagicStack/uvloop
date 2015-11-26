@@ -51,10 +51,7 @@ cdef class UVSignal(UVHandle):
 
 
 cdef void __uvsignal_callback(uv.uv_signal_t* handle, int signum) with gil:
-    if handle.data is NULL:
-        aio_logger.error(
-            'UVSignal callback called with NULL handle.data, signum=%r',
-            signum)
+    if __ensure_handle_data(handle.data, "UVSignal callback") == 0:
         return
 
     cdef UVSignal sig = <UVSignal> handle.data

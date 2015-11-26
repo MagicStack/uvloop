@@ -11,6 +11,7 @@ include "consts.pxi"
 
 
 cdef class UVHandle
+
 cdef class UVAsync(UVHandle)
 cdef class UVTimer(UVHandle)
 cdef class UVSignal(UVHandle)
@@ -34,8 +35,9 @@ cdef class Loop:
         object _ready
         Py_ssize_t _ready_len
 
-        set _handles
         set _requests
+        set _timers
+        set _servers
         dict _polls
         dict _polls_gc
 
@@ -59,10 +61,6 @@ cdef class Loop:
 
     cdef _call_soon(self, object callback, object args)
     cdef _call_later(self, uint64_t delay, object callback, object args)
-
-    cdef inline void __track_handle__(self, UVHandle handle)
-    cdef inline void __untrack_handle__(self, UVHandle handle)
-    cdef inline bint __is_handle_tracked__(self, UVHandle handle)
 
     cdef inline void __track_request__(self, UVRequest request)
     cdef inline void __untrack_request__(self, UVRequest request)

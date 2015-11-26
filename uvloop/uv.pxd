@@ -52,40 +52,48 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef struct uv_loop_t:
         void* data
-        # ,,,
+        # ...
 
     ctypedef struct uv_handle_t:
         void* data
+        uv_loop_t* loop
         # ...
 
     ctypedef struct uv_idle_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_signal_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_async_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_timer_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_stream_t:
         void* data
         size_t write_queue_size
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_tcp_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_poll_t:
         void* data
-        # ,,,
+        uv_loop_t* loop
+        # ...
 
     ctypedef struct uv_req_t:
         # Only cancellation of uv_fs_t, uv_getaddrinfo_t,
@@ -93,15 +101,15 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # currently supported.
         void* data
         uv_req_type type
-        # ,,,
+        # ...
 
     ctypedef struct uv_getaddrinfo_t:
         void* data
-        # ,,,
+        # ...
 
     ctypedef struct uv_getnameinfo_t:
         void* data
-        # ,,,
+        # ...
 
     ctypedef struct uv_write_t:
         void* data
@@ -137,6 +145,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
 
+    # no "with gil" for uv_walk_cb, as uv_walk doesn't release GIL
+    ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg)
+
     ctypedef void (*uv_close_cb)(uv_handle_t* handle) with gil
     ctypedef void (*uv_idle_cb)(uv_idle_t* handle) with gil
     ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum) with gil
@@ -168,6 +179,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
     int uv_is_closing(const uv_handle_t* handle)
     int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd)
+    void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg)
 
     # Loop functions
     int uv_loop_init(uv_loop_t* loop)

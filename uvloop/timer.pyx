@@ -51,8 +51,7 @@ cdef class UVTimer(UVHandle):
 
 
 cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
-    if handle.data is NULL:
-        aio_logger.error('UVTimer callback called with NULL handle.data')
+    if __ensure_handle_data(handle.data, "UVTimer callback") == 0:
         return
 
     cdef UVTimer timer = <UVTimer> handle.data

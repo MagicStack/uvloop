@@ -170,6 +170,9 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
 
     # callback for uv_shutdown
 
+    if __ensure_handle_data(req.data, "UVStream shutdown callback") == 0:
+        return
+
     if req.data is NULL:
         aio_logger.error(
             'UVStream.shutdown callback called with NULL req.data, status=%r',
@@ -195,10 +198,7 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
 
     # callback for uv_listen
 
-    if handle.data is NULL:
-        aio_logger.error(
-            'UVStream.listen callback called with NULL handle.data, status=%r',
-            status)
+    if __ensure_handle_data(handle.data, "UVStream listen callback") == 0:
         return
 
     cdef:
@@ -222,10 +222,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
     # callback for uv_read_start
 
-    if stream.data is NULL:
-        aio_logger.error(
-            'UVStream.read callback called with NULL handle.data, nread=%r',
-            nread)
+    if __ensure_handle_data(stream.data, "UVStream read callback") == 0:
         return
 
     cdef:
@@ -275,10 +272,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
     # callback for uv_write
 
-    if req.data is NULL:
-        aio_logger.error(
-            'UVStream.write callback called with NULL req.data, status=%r',
-            status)
+    if __ensure_handle_data(req.data, "UVStream write callback") == 0:
         return
 
     cdef:

@@ -48,11 +48,10 @@ cdef class TimerHandle:
         self.args = args
         self.closed = 0
 
+        loop._timers.add(self)
+
         self.timer = UVTimer(loop, self._run, delay)
         self.timer.start()
-
-    def __del__(self):
-        self._cancel()
 
     cdef _cancel(self):
         if self.closed == 1:
@@ -61,6 +60,7 @@ cdef class TimerHandle:
         self.callback = None
         self.args = None
         self.timer._close()
+        self.loop._timers.remove(self)
 
     def _run(self):
         if self.closed == 1:

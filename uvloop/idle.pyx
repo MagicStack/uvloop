@@ -49,8 +49,7 @@ cdef class UVIdle(UVHandle):
 
 
 cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
-    if handle.data is NULL:
-        aio_logger.error('UVIdle callback called with NULL handle.data')
+    if __ensure_handle_data(handle.data, "UVIdle callback") == 0:
         return
 
     cdef UVIdle idle = <UVIdle> handle.data

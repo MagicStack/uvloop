@@ -268,3 +268,6 @@ cdef class UVServerTransport(UVTcpStream):
 
     def abort(self):
         self._close() # TODO?
+
+    def close(self):
+        self._close() # TODO
