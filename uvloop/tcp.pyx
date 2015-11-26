@@ -232,7 +232,7 @@ cdef class UVServerTransport(UVTcpStream):
             self.flow_control_enabled = 0
 
     def pause_reading(self):
-        self._pause_reading()
+        self._stop_reading()
 
     def resume_reading(self):
         self._start_reading()

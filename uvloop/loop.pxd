@@ -60,6 +60,11 @@ cdef class Loop:
             object _debug_handles_total
             object _debug_handles_count
 
+            uint64_t _debug_cb_handles_total
+            uint64_t _debug_cb_handles_count
+            uint64_t _debug_cb_timer_handles_total
+            uint64_t _debug_cb_timer_handles_count
+
             uint64_t _debug_stream_write_ctx_total
             uint64_t _debug_stream_write_ctx_cnt
 

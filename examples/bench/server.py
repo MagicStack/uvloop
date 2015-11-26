@@ -6,7 +6,7 @@ import uvloop
 from socket import *
 
 
-PRINT = 1
+PRINT = 0
 
 
 async def echo_server(loop, address):
@@ -60,6 +60,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--uvloop', default=False, action='store_true')
     parser.add_argument('--streams', default=False, action='store_true')
+    parser.add_argument('--print', default=False, action='store_true')
     args = parser.parse_args()
 
     if args.uvloop:
@@ -71,6 +72,9 @@ if __name__ == '__main__':
 
     asyncio.set_event_loop(loop)
     loop.set_debug(False)
+
+    if args.print:
+        PRINT = 1
 
     if hasattr(loop, 'print_debug_info'):
         loop.create_task(print_debug(loop))

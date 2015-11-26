@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class Handle:
     def __cinit__(self, Loop loop, object callback, object args):
@@ -8,6 +9,16 @@ cdef class Handle:
         self.cancelled = 0
         self.done = 0
         self.loop = loop
+
+        IF DEBUG:
+            self.loop._debug_cb_handles_total += 1
+            self.loop._debug_cb_handles_count += 1
+
+    IF DEBUG:
+        def __dealloc__(self):
+            self.loop._debug_cb_handles_count -= 1
+            if self.done == 0 and self.cancelled == 0:
+                raise RuntimeError('Active Handle is deallacating')
 
     cdef inline _run(self):
         if self.cancelled == 1 or self.done == 1:
@@ -38,6 +49,7 @@ cdef class Handle:
 
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class TimerHandle:
     def __cinit__(self, Loop loop, object callback, object args,
@@ -52,6 +64,16 @@ cdef class TimerHandle:
 
         self.timer = UVTimer(loop, self._run, delay)
         self.timer.start()
+
+        IF DEBUG:
+            self.loop._debug_cb_timer_handles_total += 1
+            self.loop._debug_cb_timer_handles_count += 1
+
+    IF DEBUG:
+        def __dealloc__(self):
+            self.loop._debug_cb_timer_handles_count -= 1
+            if self.closed == 0:
+                raise RuntimeError('open TimerHandle is deallacating')
 
     cdef _cancel(self):
         if self.closed == 1:

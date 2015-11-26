@@ -69,8 +69,15 @@ cdef class Loop:
         IF DEBUG:
             self._debug_handles_count = col_Counter()
             self._debug_handles_total = col_Counter()
+
             self._debug_stream_write_ctx_total = 0
             self._debug_stream_write_ctx_cnt = 0
+
+            self._debug_cb_handles_total = 0
+            self._debug_cb_handles_count = 0
+
+            self._debug_cb_timer_handles_total = 0
+            self._debug_cb_timer_handles_count = 0
 
         self._last_error = None
 
@@ -208,6 +215,8 @@ cdef class Loop:
 
         self._closed = 1
 
+        for cb_handle in self._ready:
+            cb_handle.cancel()
         self._ready.clear()
         self._ready_len = 0
 
@@ -438,17 +447,25 @@ cdef class Loop:
         def print_debug_info(self):
             print('\n--- Loop debug info: ---')
 
-            print('UVHandles (current / total):')
+            print('UVHandles (current | total):')
             for name in sorted(self._debug_handles_total):
-                print('\t{: <20}: {} / {}'.format(
+                print('    {: <18}: {: >5} | {}'.format(
                     name,
                     self._debug_handles_count[name],
                     self._debug_handles_total[name]))
             print()
 
-            print('Write contexts: {} / {}'.format(
+            print('Write contexts:   {: >5} | {}'.format(
                 self._debug_stream_write_ctx_cnt,
                 self._debug_stream_write_ctx_total))
+            print()
+
+            print('Callback handles: {: >5} | {}'.format(
+                self._debug_cb_handles_count,
+                self._debug_cb_handles_total))
+            print('Timer handles:    {: >5} | {}'.format(
+                self._debug_cb_timer_handles_count,
+                self._debug_cb_timer_handles_total))
             print()
 
             print('------------------------\n', flush=True)
