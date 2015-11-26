@@ -190,7 +190,7 @@ cdef class Loop:
         self._stopping = 0
 
         if self._last_error is not None:
-            self.close()
+            # The loop was stopped with an error with 'loop._stop(error)' call
             raise self._last_error
 
     cdef _close(self):

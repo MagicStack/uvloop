@@ -39,6 +39,17 @@ class _TestBase:
 
         self.assertEqual(calls, [10, 1])
 
+    def test_call_soon_base_exc(self):
+        def cb():
+            raise KeyboardInterrupt()
+
+        self.loop.call_soon(cb)
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.loop.run_forever()
+
+        self.assertFalse(self.loop.is_closed())
+
     def test_call_later(self):
         calls = []
 
