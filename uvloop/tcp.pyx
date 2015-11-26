@@ -1,3 +1,5 @@
+@cython.internal
+@cython.no_gc_clear
 cdef class UVTcpStream(UVStream):
     def __cinit__(self, Loop loop, *_):
         cdef int err
@@ -33,6 +35,8 @@ cdef class UVTcpStream(UVStream):
             raise convert_error(err)
 
 
+@cython.final
+@cython.no_gc_clear
 cdef class UVTCPServer(UVTcpStream):
     def __cinit__(self, *_):
         self.protocol_factory = None
@@ -77,6 +81,8 @@ cdef class UVTCPServer(UVTcpStream):
         client._accept(<UVStream>self)
 
 
+@cython.final
+@cython.no_gc_clear
 cdef class UVServerTransport(UVTcpStream):
     def __cinit__(self, Loop loop, object protocol not None):
         self.protocol = protocol

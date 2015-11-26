@@ -57,9 +57,13 @@ cdef class TimerHandle:
         if self.closed == 1:
             return
         self.closed = 1
+
+        self.timer._close()
+        self.timer = None  # let it die asap
+
         self.callback = None
         self.args = None
-        self.timer._close()
+
         self.loop._timers.remove(self)
 
     def _run(self):

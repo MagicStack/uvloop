@@ -3,38 +3,51 @@
 
 from concurrent.futures import ProcessPoolExecutor
 
+import argparse
 from socket import *
 import time
 import sys
 
-if len(sys.argv) > 1:
-    MSGSIZE = int(sys.argv[1])
-else:
-    MSGSIZE = 1000
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--msize', default=1000, type=int,
+                        help='message size in bytes')
+    parser.add_argument('--num', default=200000, type=int,
+                        help='number of messages')
+    parser.add_argument('--times', default=1, type=int,
+                        help='number of times to run the test')
+    parser.add_argument('--workers', default=3, type=int,
+                        help='number of workers')
+    args = parser.parse_args()
 
-msg = b'x'*MSGSIZE
 
-def run_test(n):
-    print('Sending', NMESSAGES, 'messages')
-    sock = socket(AF_INET, SOCK_STREAM)
-    sock.connect(('localhost', 25000))
-    while n > 0:
-        sock.sendall(msg)
-        nrecv = 0
-        while nrecv < MSGSIZE:
-            resp = sock.recv(MSGSIZE)
-            if not resp:
-                raise SystemExit()
-            nrecv += len(resp)
-        n -= 1
+    MSGSIZE = args.msize
 
-N = 3
-NMESSAGES = 200000
-start = time.time()
-with ProcessPoolExecutor(max_workers=N) as e:
-    for _ in range(N):
-        e.submit(run_test, NMESSAGES)
-end = time.time()
-duration = end-start
-print(NMESSAGES*N,'in', duration)
-print(NMESSAGES*N/duration, 'requests/sec')
+    msg = b'x'*MSGSIZE
+
+    def run_test(n):
+        print('Sending', NMESSAGES, 'messages')
+        sock = socket(AF_INET, SOCK_STREAM)
+        sock.connect(('localhost', 25000))
+        while n > 0:
+            sock.sendall(msg)
+            nrecv = 0
+            while nrecv < MSGSIZE:
+                resp = sock.recv(MSGSIZE)
+                if not resp:
+                    raise SystemExit()
+                nrecv += len(resp)
+            n -= 1
+
+    TIMES = args.times
+    N = args.workers
+    NMESSAGES = args.num
+    start = time.time()
+    for _ in range(TIMES):
+        with ProcessPoolExecutor(max_workers=N) as e:
+            for _ in range(N):
+                e.submit(run_test, NMESSAGES)
+    end = time.time()
+    duration = end-start
+    print(NMESSAGES*N*TIMES,'in', duration)
+    print(NMESSAGES*N*TIMES/duration, 'requests/sec')

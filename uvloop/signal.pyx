@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 cdef class UVSignal(UVHandle):
     def __cinit__(self, Loop loop, object callback, int signum):
         cdef int err
@@ -50,7 +51,7 @@ cdef class UVSignal(UVHandle):
 
 
 cdef void __uvsignal_callback(uv.uv_signal_t* handle, int signum) with gil:
-    if __ensure_handle_data(handle.data, "UVSignal callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVSignal callback") == 0:
         return
 
     cdef UVSignal sig = <UVSignal> handle.data

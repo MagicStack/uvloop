@@ -2,6 +2,7 @@ cdef __NOHANDLE__ = object()
 
 
 @cython.internal
+@cython.no_gc_clear
 cdef class UVHandle:
     """A base class for all libuv handles.
 
@@ -19,8 +20,44 @@ cdef class UVHandle:
         self._closed = 0
         self._handle = NULL
         self._loop = loop
+        IF DEBUG:
+            if loop is None:
+                raise RuntimeError(
+                    '{} is initialized, but the '
+                    'loop is None'.format(self))
+            cls_name = self.__class__.__name__
+            loop._debug_handles_total.update([cls_name])
+            loop._debug_handles_count.update([cls_name])
+
+    IF DEBUG:
+        def __init__(self, *_):
+            # Will be called after all __cinit__'s.
+            if self._closed == 0:
+                if self._handle is NULL:
+                    raise RuntimeError(
+                        '{} was initialized, but the '
+                        'handle is NULL'.format(self))
+
+                if self._handle.data is not <void*>self:
+                    raise RuntimeError(
+                        '{} was initialized, but the '
+                        'handle.data is wrong'.format(self))
+
+                if self._handle.loop is not <void*>self._loop.uvloop:
+                    raise RuntimeError(
+                        '{} was initialized, but the '
+                        'handle.loop is wrong'.format(self))
 
     def __dealloc__(self):
+        IF DEBUG:
+            if self._loop is not None:
+                self._loop._debug_handles_count.subtract([
+                    self.__class__.__name__])
+            else:
+                # No "@cython.no_gc_clear" decorator on this UVHandle
+                raise RuntimeError(
+                    'UVHandle without @no_gc_clear; loop was set to None by GC')
+
         if self._handle is NULL:
             return
 
@@ -86,16 +123,35 @@ cdef void __cleanup_handle_after_init(UVHandle h):
     h._closed = 1
 
 
-cdef inline bint __ensure_handle_data(void* data, const char* handle_ctx):
-    if data is NULL:
-        aio_logger.error('%s called with handle.data == NULL',
-                         handle_ctx.decode('latin-1'))
+cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
+                                      const char* handle_ctx):
+
+    cdef Loop loop
+
+    IF DEBUG:
+        if handle.loop is NULL:
+            raise RuntimeError(
+                'handle.loop is NULL in __ensure_handle_data')
+
+        if handle.loop.data is NULL:
+            raise RuntimeError(
+                'handle.loop.data is NULL in __ensure_handle_data')
+
+    if handle.data is NULL:
+        loop = <Loop>handle.loop.data
+        loop.call_exception_handler({
+            'message': '{} called with handle.data == NULL'.format(
+                handle_ctx.decode('latin-1'))
+        })
         return 0
 
-    if <object>data is __NOHANDLE__:
+    if <object>handle.data is __NOHANDLE__:
         # The underlying UVHandle object was GCed with an open uv_handle_t.
-        aio_logger.error('%s called after destroying the UVHandle',
-                         handle_ctx.decode('latin-1'))
+        loop = <Loop>handle.loop.data
+        loop.call_exception_handler({
+            'message': '{} called after destroying the UVHandle'.format(
+                handle_ctx.decode('latin-1'))
+        })
         return 0
 
     return 1
@@ -115,7 +171,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
     elif <object>handle.data is not __NOHANDLE__:
         h = <UVHandle>handle.data
         h._handle = NULL
-        Py_DECREF(h) # Was inc'ed in UVHandle._close
+        Py_DECREF(h) # Was INCREFed in UVHandle._close
 
     PyMem_Free(handle)
 

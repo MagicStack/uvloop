@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 cdef class UVAsync(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
@@ -32,7 +33,7 @@ cdef class UVAsync(UVHandle):
 
 
 cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
-    if __ensure_handle_data(handle.data, "UVAsync callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVAsync callback") == 0:
         return
 
     cdef UVAsync async_ = <UVAsync> handle.data

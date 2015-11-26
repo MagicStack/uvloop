@@ -1,6 +1,7 @@
 cdef class UVStream(UVHandle):
     cdef:
         uv.uv_shutdown_t _shutdown_req
+        bint __reading
 
     cdef _fileno(self)
 
@@ -11,11 +12,15 @@ cdef class UVStream(UVHandle):
 
     cdef _start_reading(self)
     cdef _stop_reading(self)
+    cdef __reading_started(self)
+    cdef __reading_stopped(self)
 
     cdef bint _is_readable(self)
     cdef bint _is_writable(self)
 
     cdef _write(self, object data, object callback)
+
+    cdef _close(self)
 
     # The following methods have to be overridden:
     cdef _on_accept(self)

@@ -66,6 +66,12 @@ cdef class Loop:
             raise convert_error(err)
         self.uvloop.data = <void*> self
 
+        IF DEBUG:
+            self._debug_handles_count = col_Counter()
+            self._debug_handles_total = col_Counter()
+            self._debug_stream_write_ctx_total = 0
+            self._debug_stream_write_ctx_cnt = 0
+
         self._last_error = None
 
         self._task_factory = None
@@ -88,12 +94,10 @@ cdef class Loop:
         self._close()
 
     def __dealloc__(self):
-        try:
-            if self._closed == 0:
-                aio_logger.error("deallocating an active libuv loop")
-        finally:
-            PyMem_Free(self.uvloop)
-            self.uvloop = NULL
+        if self._closed == 0:
+            aio_logger.error("deallocating an active libuv loop")
+        PyMem_Free(self.uvloop)
+        self.uvloop = NULL
 
     def _on_wake(self):
         if (self._ready_len > 0 or self._stopping) \
@@ -258,6 +262,11 @@ cdef class Loop:
         err = uv.uv_loop_close(self.uvloop)
         if err < 0:
             raise convert_error(err)
+
+        self.handler_async = None
+        self.handler_idle = None
+        self.handler_sigint = None
+        self.handler_sighup = None
 
         executor = self._default_executor
         if executor is not None:
@@ -424,6 +433,25 @@ cdef class Loop:
             fut.set_result(None)
 
     # Public API
+
+    IF DEBUG:
+        def print_debug_info(self):
+            print('\n--- Loop debug info: ---')
+
+            print('UVHandles (current / total):')
+            for name in sorted(self._debug_handles_total):
+                print('\t{: <20}: {} / {}'.format(
+                    name,
+                    self._debug_handles_count[name],
+                    self._debug_handles_total[name]))
+            print()
+
+            print('Write contexts: {} / {}'.format(
+                self._debug_stream_write_ctx_cnt,
+                self._debug_stream_write_ctx_total))
+            print()
+
+            print('------------------------\n', flush=True)
 
     def __repr__(self):
         return ('<%s running=%s closed=%s debug=%s>'
@@ -761,9 +789,7 @@ cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
     buf.len = sizeof(loop._recv_buffer)
 
 
-cdef void __loop_free_buffer(uv.uv_handle_t* uvhandle):
-    cdef:
-        Loop loop = (<UVHandle>uvhandle.data)._loop
+cdef inline void __loop_free_buffer(Loop loop):
     loop._recv_buffer_in_use = 0
 
 

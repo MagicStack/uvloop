@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 cdef class UVPoll(UVHandle):
     def __cinit__(self, Loop loop, int fd):
         cdef int err
@@ -116,7 +117,7 @@ cdef class UVPoll(UVHandle):
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
                             int status, int events) with gil:
 
-    if __ensure_handle_data(handle.data, "UVPoll callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVPoll callback") == 0:
         return
 
     cdef:

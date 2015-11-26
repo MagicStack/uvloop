@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 cdef class UVTimer(UVHandle):
     def __cinit__(self, Loop loop, object callback, uint64_t timeout):
         cdef int err
@@ -50,7 +51,7 @@ cdef class UVTimer(UVHandle):
 
 
 cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
-    if __ensure_handle_data(handle.data, "UVTimer callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVTimer callback") == 0:
         return
 
     cdef UVTimer timer = <UVTimer> handle.data

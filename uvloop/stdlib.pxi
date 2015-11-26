@@ -24,6 +24,7 @@ cdef aio_wrap_future = asyncio.wrap_future
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
+cdef col_Counter = collections.Counter
 
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 

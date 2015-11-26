@@ -18,7 +18,11 @@ cdef class __StreamWriteContext:
 
         bint            closed
 
-    cdef init(self, UVStream stream, object data, object callback):
+    def __cinit__(self, UVStream stream, object data, object callback):
+        IF DEBUG:
+            stream._loop._debug_stream_write_ctx_total += 1
+            stream._loop._debug_stream_write_ctx_cnt += 1
+
         self.req.data = <void*> self
         Py_INCREF(self)
 
@@ -39,6 +43,9 @@ cdef class __StreamWriteContext:
 
         Py_DECREF(self)
 
+        IF DEBUG:
+            self.stream._loop._debug_stream_write_ctx_cnt -= 1
+
     IF DEBUG:
         def __dealloc__(self):
             if not self.closed:
@@ -47,7 +54,11 @@ cdef class __StreamWriteContext:
 
 
 @cython.internal
+@cython.no_gc_clear
 cdef class UVStream(UVHandle):
+    def __cinit__(self):
+        self.__reading = 0
+
     cdef _shutdown(self):
         cdef int err
         self._ensure_alive()
@@ -87,15 +98,38 @@ cdef class UVStream(UVHandle):
         cdef int err
         self._ensure_alive()
 
+        if self.__reading:
+            raise RuntimeError('Already reading')
+
         err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
                                __loop_alloc_buffer,
                                __uv_stream_on_read)
         if err < 0:
             self._close()
             raise convert_error(err)
+        else:
+            # UVStream must live until the read callback is called
+            self.__reading_started()
+
+    cdef __reading_started(self):
+        if self.__reading:
+            return
+        self.__reading = 1
+        Py_INCREF(self)
+
+    cdef __reading_stopped(self):
+        if not self.__reading:
+            return
+        self.__reading = 0
+        Py_DECREF(self)
 
     cdef _stop_reading(self):
         cdef int err
+
+        if not self.__reading:
+            raise RuntimeError('Already stopped')
+        self.__reading_stopped()
+
         self._ensure_alive()
 
         err = uv.uv_read_stop(<uv.uv_stream_t*>self._handle)
@@ -116,8 +150,7 @@ cdef class UVStream(UVHandle):
 
         self._ensure_alive()
 
-        ctx = __StreamWriteContext()
-        ctx.init(self, data, callback)
+        ctx = __StreamWriteContext(self, data, callback)
 
         err = uv.uv_write(&ctx.req,
                           <uv.uv_stream_t*>self._handle,
@@ -142,6 +175,10 @@ cdef class UVStream(UVHandle):
 
         return fd
 
+    cdef _close(self):
+        self.__reading_stopped()
+        UVHandle._close(self)
+
     # Methods to override.
 
     cdef _on_accept(self):
@@ -164,14 +201,18 @@ cdef class UVStream(UVHandle):
         # This method is optional, no need to raise NotImplementedError
         pass
 
+    def __repr__(self):
+        return '<{} closed={} reading={} {:#x}>'.format(
+            self.__class__.__name__,
+            self._closed,
+            self.__reading,
+            id(self))
+
 
 cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
                                   int status) with gil:
 
     # callback for uv_shutdown
-
-    if __ensure_handle_data(req.data, "UVStream shutdown callback") == 0:
-        return
 
     if req.data is NULL:
         aio_logger.error(
@@ -198,7 +239,8 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
 
     # callback for uv_listen
 
-    if __ensure_handle_data(handle.data, "UVStream listen callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle,
+                            "UVStream listen callback") == 0:
         return
 
     cdef:
@@ -222,20 +264,23 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
     # callback for uv_read_start
 
-    if __ensure_handle_data(stream.data, "UVStream read callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>stream,
+                            "UVStream read callback") == 0:
         return
 
     cdef:
         UVStream sc = <UVStream>stream.data
         Loop loop = sc._loop
 
-    # Free the buffer -- we'll need data from it in the code below,
-    # but since we're single-threaded, the data will be available
-    # till this function finishes its execution.
-    __loop_free_buffer(<uv.uv_handle_t*>stream)
+    __loop_free_buffer(loop)
 
     if nread == uv.UV_EOF:
+        # From libuv docs:
+        #     The callee is responsible for stopping closing the stream
+        #     when an error happens by calling uv_read_stop() or uv_close().
+        #     Trying to read from the stream again is undefined.
         try:
+            sc._stop_reading()
             sc._on_eof()
         except BaseException as ex:
             sc._loop._handle_uvcb_exception(ex)
@@ -272,7 +317,13 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
     # callback for uv_write
 
-    if __ensure_handle_data(req.data, "UVStream write callback") == 0:
+    if req.data is NULL:
+        # Shouldn't happen as:
+        #    - __StreamWriteContext does an extra INCREF in its 'init()'
+        #    - __StreamWriteContext holds a ref to the relevant UVStream
+        aio_logger.error(
+            'UVStream.write callback called with NULL req.data, status=%r',
+            status)
         return
 
     cdef:

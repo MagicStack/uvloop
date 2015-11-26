@@ -1,5 +1,6 @@
 @cython.final
 @cython.internal
+@cython.no_gc_clear
 cdef class UVIdle(UVHandle):
     def __cinit__(self, Loop loop, object callback):
         cdef int err
@@ -48,7 +49,7 @@ cdef class UVIdle(UVHandle):
 
 
 cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
-    if __ensure_handle_data(handle.data, "UVIdle callback") == 0:
+    if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVIdle callback") == 0:
         return
 
     cdef UVIdle idle = <UVIdle> handle.data
