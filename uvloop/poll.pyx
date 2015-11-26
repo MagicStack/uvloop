@@ -10,13 +10,12 @@ cdef class UVPoll(UVHandle):
             self._close()
             raise MemoryError()
 
-        self._handle.data = <void*> self
-
         err = uv.uv_poll_init(loop.uvloop, <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
-            self._close()
+            __cleanup_handle_after_init(<UVHandle>self)
             raise convert_error(err)
 
+        self._handle.data = <void*> self
         self.fd = fd
         self.reading_handle = None
         self.writing_handle = None

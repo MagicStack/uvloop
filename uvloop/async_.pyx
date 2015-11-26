@@ -10,15 +10,14 @@ cdef class UVAsync(UVHandle):
             self._close()
             raise MemoryError()
 
-        self._handle.data = <void*> self
-
         err = uv.uv_async_init(loop.uvloop,
                                <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:
-            self._close()
+            __cleanup_handle_after_init(<UVHandle>self)
             raise convert_error(err)
 
+        self._handle.data = <void*> self
         self.callback = callback
 
     cdef send(self):

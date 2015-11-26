@@ -80,6 +80,12 @@ cdef class UVHandle:
             id(self))
 
 
+cdef void __cleanup_handle_after_init(UVHandle h):
+    PyMem_Free(h._handle)
+    h._handle = NULL
+    h._closed = 1
+
+
 cdef inline bint __ensure_handle_data(void* data, const char* handle_ctx):
     if data is NULL:
         aio_logger.error('%s called with handle.data == NULL',
