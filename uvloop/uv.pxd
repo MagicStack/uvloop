@@ -267,3 +267,29 @@ cdef extern from "../vendor/libuv/include/uv.h":
                             uv_os_sock_t socket)
     int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
     int uv_poll_stop(uv_poll_t* poll)
+
+    # Misc
+
+    ctypedef struct uv_timeval_t:
+        long tv_sec
+        long tv_usec
+
+    ctypedef struct uv_rusage_t:
+        uv_timeval_t ru_utime   # user CPU time used
+        uv_timeval_t ru_stime   # system CPU time used
+        uint64_t ru_maxrss      # maximum resident set size
+        uint64_t ru_ixrss       # integral shared memory size
+        uint64_t ru_idrss       # integral unshared data size
+        uint64_t ru_isrss       # integral unshared stack size
+        uint64_t ru_minflt      # page reclaims (soft page faults)
+        uint64_t ru_majflt      # page faults (hard page faults)
+        uint64_t ru_nswap       # swaps
+        uint64_t ru_inblock     # block input operations
+        uint64_t ru_oublock     # block output operations
+        uint64_t ru_msgsnd      # IPC messages sent
+        uint64_t ru_msgrcv      # IPC messages received
+        uint64_t ru_nsignals    # signals received
+        uint64_t ru_nvcsw       # voluntary context switches
+        uint64_t ru_nivcsw      # involuntary context switches
+
+    int uv_getrusage(uv_rusage_t* rusage)

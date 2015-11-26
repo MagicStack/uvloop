@@ -445,11 +445,29 @@ cdef class Loop:
 
     IF DEBUG:
         def print_debug_info(self):
-            print('\n--- Loop debug info: ---')
+            cdef:
+                int err
+                uv.uv_rusage_t rusage
+            err = uv.uv_getrusage(&rusage)
+            if err < 0:
+                raise convert_error(err)
+
+            ################### OS
+
+            print('---- Process info: -----')
+            print('Process memory:    ', rusage.ru_maxrss)
+            print('Number of signals: ', rusage.ru_nsignals)
+            print('')
+
+            ################### Loop
+
+            print('--- Loop debug info: ---')
+            print('Loop time:        {}'.format(self.time()))
+            print()
 
             print('UVHandles (current | total):')
             for name in sorted(self._debug_handles_total):
-                print('    {: <18}: {: >5} | {}'.format(
+                print('    {: <18} {: >5} | {}'.format(
                     name,
                     self._debug_handles_count[name],
                     self._debug_handles_total[name]))
@@ -468,7 +486,8 @@ cdef class Loop:
                 self._debug_cb_timer_handles_total))
             print()
 
-            print('------------------------\n', flush=True)
+            print('------------------------')
+            print(flush=True)
 
     def __repr__(self):
         return ('<%s running=%s closed=%s debug=%s>'
