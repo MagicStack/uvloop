@@ -235,6 +235,11 @@ cdef class Loop:
         if err < 0:
             raise convert_error(err)
 
+        if self._timers:
+            raise RuntimeError(
+                "new timers were queued during loop closing: {}"
+                    .format(self._timers))
+
         if self._polls:
             raise RuntimeError(
                 "new poll handles were queued during loop closing: {}"
