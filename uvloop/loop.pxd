@@ -31,6 +31,12 @@ cdef class Loop:
         bint _stopping
 
         long _thread_id
+        bint _thread_is_main
+        bint _sigint_check
+
+        SignalsStack py_signals
+        SignalsStack uv_signals
+        bint _executing_py_code
 
         object _task_factory
         object _exception_handler
@@ -68,8 +74,11 @@ cdef class Loop:
             uint64_t _debug_stream_write_ctx_total
             uint64_t _debug_stream_write_ctx_cnt
 
+    cdef _check_sigint(self)
 
+    cdef __run(self, uv.uv_run_mode)
     cdef _run(self, uv.uv_run_mode)
+
     cdef _close(self)
     cdef _stop(self, exc=*)
     cdef uint64_t _time(self)
@@ -103,3 +112,5 @@ include "poll.pxd"
 
 include "stream.pxd"
 include "tcp.pxd"
+
+include "os_signal.pxd"

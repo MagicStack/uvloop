@@ -32,10 +32,14 @@ cdef class Handle:
 
         self.done = 1
         try:
-            if args is not None:
-                callback(*args)
-            else:
-                callback()
+            self.loop._executing_py_code = 1
+            try:
+                if args is not None:
+                    callback(*args)
+                else:
+                    callback()
+            finally:
+                self.loop._executing_py_code = 0
         except Exception as ex:
             self.loop.call_exception_handler({
                 'message': 'Exception in callback {}'.format(callback),
@@ -103,10 +107,14 @@ cdef class TimerHandle:
         self._cancel()
 
         try:
-            if args is not None:
-                callback(*args)
-            else:
-                callback()
+            self.loop._executing_py_code = 1
+            try:
+                if args is not None:
+                    callback(*args)
+                else:
+                    callback()
+            finally:
+                self.loop._executing_py_code = 0
         except Exception as ex:
             self.loop.call_exception_handler({
                 'message': 'Exception in callback {}'.format(callback),

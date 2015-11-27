@@ -56,7 +56,8 @@ cdef class UVHandle:
             else:
                 # No "@cython.no_gc_clear" decorator on this UVHandle
                 raise RuntimeError(
-                    'UVHandle without @no_gc_clear; loop was set to None by GC')
+                    '{} without @no_gc_clear; loop was set to None by GC'
+                    .format(self.__class__.__name__))
 
         if self._handle is NULL:
             return
@@ -64,7 +65,8 @@ cdef class UVHandle:
         if self._closed == 1:
             # So _handle is not NULL and self._closed == 1?
             raise RuntimeError(
-                'UVHandle.__dealloc__: _handle is NULL, _closed == 1')
+                '{}.__dealloc__: _handle is NULL, _closed == 1'.format(
+                    self.__class__.__name__))
 
         # Let's close the handle.
         self._handle.data = <void*> __NOHANDLE__

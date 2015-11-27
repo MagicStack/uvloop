@@ -5,6 +5,7 @@ import functools
 import os
 import socket
 import sys
+import threading
 
 from . import futures
 cdef c_Future = futures.Future
@@ -61,7 +62,11 @@ cdef os_environ = os.environ
 
 cdef str sys_platform = sys.platform
 cdef sys_ignore_environment = sys.flags.ignore_environment
+cdef sys_exc_info = sys.exc_info
+
+cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
-del asyncio, concurrent, collections, futures, functools, socket, os, sys
+del asyncio, concurrent, collections, futures, \
+    functools, socket, os, sys, threading

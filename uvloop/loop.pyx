@@ -19,6 +19,7 @@ from cpython cimport PyThread_get_thread_ident
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
                      Py_buffer
+from cpython cimport PyErr_CheckSignals
 
 
 include "consts.pxi"
@@ -37,6 +38,9 @@ ELSE:
 _CFUTURE = bool(USE_C_FUTURE)
 
 
+cdef Loop __main_loop__ = None
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -49,15 +53,29 @@ cdef class Loop:
 
         self._closed = 0
         self._debug = 0
+        self._thread_is_main = 0
         self._thread_id = 0
         self._running = 0
         self._stopping = 0
+
+        self._sigint_check = 0
 
         self._requests = set()
         self._timers = set()
         self._servers = set()
         self._polls = dict()
         self._polls_gc = dict()
+
+        if MAIN_THREAD_ID == PyThread_get_thread_ident():  # XXX
+            self.py_signals = SignalsStack()
+            self.uv_signals = SignalsStack()
+
+            self.py_signals.save()
+        else:
+            self.py_signals = None
+            self.uv_signals = None
+
+        self._executing_py_code = 0
 
         self._recv_buffer_in_use = 0
 
@@ -97,10 +115,9 @@ cdef class Loop:
         self.set_debug((not sys_ignore_environment
                         and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
 
-    def __del__(self):
-        self._close()
-
     def __dealloc__(self):
+        if self._running == 1:
+            raise SystemExit('deallocating a running event loop!')
         if self._closed == 0:
             aio_logger.error("deallocating an active libuv loop")
         PyMem_Free(self.uvloop)
@@ -112,18 +129,29 @@ cdef class Loop:
             self.handler_idle.start()
 
     def _on_sigint(self):
-        self._last_error = KeyboardInterrupt()
-        self._stop()
+        try:
+            PyErr_CheckSignals()
+        except KeyboardInterrupt as ex:
+            self._stop(ex)
+        else:
+            self._stop(KeyboardInterrupt())
 
     def _on_sighup(self):
-        self._last_error = SystemExit()
-        self._stop()
+        self._stop(SystemExit())
+
+    cdef _check_sigint(self):
+        self.uv_signals.save()
+        __signal_set_sigint()
 
     def _on_idle(self):
         cdef:
             int i, ntodo
             object popleft = self._ready.popleft
             Handle handler
+
+        if self._sigint_check == 0 and self._thread_is_main == 1:
+            self._sigint_check = 1
+            self._check_sigint()
 
         ntodo = len(self._ready)
         for i from 0 <= i < ntodo:
@@ -148,7 +176,7 @@ cdef class Loop:
             self.handler_idle.stop()
 
         if self._stopping:
-            uv.uv_stop(self.uvloop)
+            uv.uv_stop(self.uvloop)  # void
 
     cdef _stop(self, exc=None):
         if exc is not None:
@@ -167,6 +195,22 @@ cdef class Loop:
         """Internal helper for tracking UVRequests."""
         self._requests.remove(request)
 
+    cdef __run(self, uv.uv_run_mode mode):
+        global __main_loop__
+
+        if self.py_signals is not None:
+            __main_loop__ = self
+
+        with nogil:
+            err = uv.uv_run(self.uvloop, mode)
+
+        if self.py_signals is not None:
+            self.py_signals.restore()
+            __main_loop__ = None
+
+        if err < 0:
+            raise convert_error(err)
+
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
 
@@ -180,22 +224,23 @@ cdef class Loop:
         self._last_error = None
 
         self._thread_id = PyThread_get_thread_ident()
+        self._thread_is_main = MAIN_THREAD_ID == self._thread_id
+        self._sigint_check = 0
         self._running = 1
+        self._executing_py_code = 0
 
         self.handler_idle.start()
         self.handler_sigint.start()
         self.handler_sighup.start()
 
-        with nogil:
-            err = uv.uv_run(self.uvloop, mode)
-
-        if err < 0:
-            raise convert_error(err)
+        self.__run(mode)
 
         self.handler_idle.stop()
         self.handler_sigint.stop()
         self.handler_sighup.stop()
 
+        self._sigint_check = 0
+        self._thread_is_main = 0
         self._thread_id = 0
         self._running = 0
         self._stopping = 0
@@ -243,10 +288,7 @@ cdef class Loop:
         __close_all_handles(self)
 
         # Allow loop to fire "close" callbacks
-        with nogil:
-            err = uv.uv_run(self.uvloop, uv.UV_RUN_DEFAULT)
-        if err < 0:
-            raise convert_error(err)
+        self.__run(uv.UV_RUN_DEFAULT)
 
         if self._timers:
             raise RuntimeError(
@@ -844,3 +886,5 @@ include "tcp.pyx"
 
 include "dns.pyx"
 include "server.pyx"
+
+include "os_signal.pyx"
