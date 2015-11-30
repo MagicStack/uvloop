@@ -2,7 +2,7 @@
 @cython.internal
 @cython.no_gc_clear
 cdef class UVAsync(UVHandle):
-    def __cinit__(self, Loop loop, object callback):
+    cdef _init(self, method_t* callback, object ctx):
         cdef int err
 
         self._handle = <uv.uv_handle_t*> \
@@ -11,7 +11,7 @@ cdef class UVAsync(UVHandle):
             self._close()
             raise MemoryError()
 
-        err = uv.uv_async_init(loop.uvloop,
+        err = uv.uv_async_init(self._loop.uvloop,
                                <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:
@@ -20,6 +20,7 @@ cdef class UVAsync(UVHandle):
 
         self._handle.data = <void*> self
         self.callback = callback
+        self.ctx = ctx
 
     cdef send(self):
         cdef int err
@@ -31,13 +32,23 @@ cdef class UVAsync(UVHandle):
             self._close()
             raise convert_error(err)
 
+    @staticmethod
+    cdef UVAsync new(Loop loop, method_t* callback, object ctx):
+        cdef UVAsync handle
+        handle = UVAsync.__new__(UVAsync)
+        handle._set_loop(loop)
+        handle._init(callback, ctx)
+        return handle
+
 
 cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVAsync callback") == 0:
         return
 
-    cdef UVAsync async_ = <UVAsync> handle.data
+    cdef:
+        UVAsync async_ = <UVAsync> handle.data
+        method_t cb = async_.callback[0] # deref
     try:
-        async_.callback()
+        cb(async_.ctx)
     except BaseException as ex:
         async_._loop._handle_uvcb_exception(ex)

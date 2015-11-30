@@ -2,7 +2,7 @@
 @cython.internal
 @cython.no_gc_clear
 cdef class UVPoll(UVHandle):
-    def __cinit__(self, Loop loop, int fd):
+    cdef _init(self, int fd):
         cdef int err
 
         self._handle = <uv.uv_handle_t*> \
@@ -11,7 +11,8 @@ cdef class UVPoll(UVHandle):
             self._close()
             raise MemoryError()
 
-        err = uv.uv_poll_init(loop.uvloop, <uv.uv_poll_t *>self._handle, fd)
+        err = uv.uv_poll_init(self._loop.uvloop,
+                              <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
             __cleanup_handle_after_init(<UVHandle>self)
             raise convert_error(err)
@@ -20,6 +21,14 @@ cdef class UVPoll(UVHandle):
         self.fd = fd
         self.reading_handle = None
         self.writing_handle = None
+
+    @staticmethod
+    cdef UVPoll new(Loop loop, int fd):
+        cdef UVPoll handle
+        handle = UVPoll.__new__(UVPoll)
+        handle._set_loop(loop)
+        handle._init(fd)
+        return handle
 
     cdef int is_active(self):
         return (self.reading_handle is not None or

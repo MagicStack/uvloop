@@ -1,4 +1,3 @@
-@cython.final
 @cython.internal
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
@@ -57,7 +56,6 @@ cdef class Handle:
         self._cancel()
 
 
-@cython.final
 @cython.internal
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
@@ -70,10 +68,13 @@ cdef class TimerHandle:
         self.args = args
         self.closed = 0
 
-        loop._timers.add(self)
+        self.timer = UVTimer.new(
+            loop, <method_t*>&self._run, self, delay)
 
-        self.timer = UVTimer(loop, self._run, delay)
         self.timer.start()
+
+        # Only add to loop._timers when `self.timer` is successfully created
+        loop._timers.add(self)
 
         IF DEBUG:
             self.loop._debug_cb_timer_handles_total += 1
@@ -98,7 +99,7 @@ cdef class TimerHandle:
 
         self.loop._timers.remove(self)
 
-    def _run(self):
+    cdef _run(self):
         if self.closed == 1:
             return
 

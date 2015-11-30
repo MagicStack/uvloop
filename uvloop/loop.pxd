@@ -20,6 +20,8 @@ cdef class UVTimer(UVHandle)
 cdef class UVSignal(UVHandle)
 cdef class UVIdle(UVHandle)
 
+ctypedef object (*method_t)(object ctx)
+
 
 cdef class Loop:
     cdef:
@@ -73,6 +75,11 @@ cdef class Loop:
 
             uint64_t _debug_stream_write_ctx_total
             uint64_t _debug_stream_write_ctx_cnt
+
+    cdef _on_wake(self)
+    cdef _on_idle(self)
+    cdef _on_sigint(self)
+    cdef _on_sighup(self)
 
     cdef _check_sigint(self)
 

@@ -6,7 +6,7 @@ cdef class Handle:
         Loop loop
         object __weakref__
 
-    cdef inline _run(self)
+    cdef _run(self)
     cdef _cancel(self)
 
 
@@ -18,4 +18,5 @@ cdef class TimerHandle:
         Loop loop
         object __weakref__
 
+    cdef _run(self)
     cdef _cancel(self)

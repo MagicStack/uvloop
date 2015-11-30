@@ -106,10 +106,17 @@ cdef class Loop:
         self._ready = col_deque()
         self._ready_len = 0
 
-        self.handler_async = UVAsync(self, self._on_wake)
-        self.handler_idle = UVIdle(self, self._on_idle)
-        self.handler_sigint = UVSignal(self, self._on_sigint, uv.SIGINT)
-        self.handler_sighup = UVSignal(self, self._on_sighup, uv.SIGHUP)
+        self.handler_async = UVAsync.new(
+            self, <method_t*>&self._on_wake, self)
+
+        self.handler_idle = UVIdle.new(
+            self, <method_t*>&self._on_idle, self)
+
+        self.handler_sigint = UVSignal.new(
+            self, <method_t*>&self._on_sigint, self, uv.SIGINT)
+
+        self.handler_sighup = UVSignal.new(
+            self, <method_t*>&self._on_sighup, self, uv.SIGHUP)
 
     def __init__(self):
         self.set_debug((not sys_ignore_environment
@@ -123,12 +130,12 @@ cdef class Loop:
         PyMem_Free(self.uvloop)
         self.uvloop = NULL
 
-    def _on_wake(self):
+    cdef _on_wake(self):
         if (self._ready_len > 0 or self._stopping) \
                             and not self.handler_idle.running:
             self.handler_idle.start()
 
-    def _on_sigint(self):
+    cdef _on_sigint(self):
         try:
             PyErr_CheckSignals()
         except KeyboardInterrupt as ex:
@@ -136,14 +143,14 @@ cdef class Loop:
         else:
             self._stop(KeyboardInterrupt())
 
-    def _on_sighup(self):
+    cdef _on_sighup(self):
         self._stop(SystemExit())
 
     cdef _check_sigint(self):
         self.uv_signals.save()
         __signal_set_sigint()
 
-    def _on_idle(self):
+    cdef _on_idle(self):
         cdef:
             int i, ntodo
             object popleft = self._ready.popleft
@@ -670,8 +677,7 @@ cdef class Loop:
         if ai is NULL:
             raise RuntimeError('loop._getaddeinfo() result is NULL')
 
-        cdef UVTCPServer srv = UVTCPServer(self)
-        srv.set_protocol_factory(protocol_factory)
+        cdef UVTCPServer srv = UVTCPServer.new(self, protocol_factory)
 
         srv.bind(ai.ai_addr)
         srv.listen()
@@ -736,7 +742,7 @@ cdef class Loop:
         try:
             poll = <UVPoll>(self._polls[fd])
         except KeyError:
-            poll = UVPoll(self, fd)
+            poll = UVPoll.new(self, fd)
             self._polls[fd] = poll
 
         if not args:
@@ -770,7 +776,7 @@ cdef class Loop:
         try:
             poll = <UVPoll>(self._polls[fd])
         except KeyError:
-            poll = UVPoll(self, fd)
+            poll = UVPoll.new(self, fd)
             self._polls[fd] = poll
 
         if not args:

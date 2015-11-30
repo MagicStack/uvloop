@@ -1,7 +1,7 @@
 @cython.internal
 @cython.no_gc_clear
 cdef class UVTcpStream(UVStream):
-    def __cinit__(self, Loop loop, *_):
+    cdef _init(self):
         cdef int err
 
         self._handle = <uv.uv_handle_t*> \
@@ -10,7 +10,7 @@ cdef class UVTcpStream(UVStream):
             self._close()
             raise MemoryError()
 
-        err = uv.uv_tcp_init(loop.uvloop, <uv.uv_tcp_t*>self._handle)
+        err = uv.uv_tcp_init(self._loop.uvloop, <uv.uv_tcp_t*>self._handle)
         if err < 0:
             __cleanup_handle_after_init(<UVHandle>self)
             raise convert_error(err)
@@ -36,12 +36,23 @@ cdef class UVTcpStream(UVStream):
 
 
 @cython.final
+@cython.internal
 @cython.no_gc_clear
 cdef class UVTCPServer(UVTcpStream):
-    def __cinit__(self, *_):
+    cdef _init(self):
+        UVTcpStream._init(<UVTcpStream>self)
         self.protocol_factory = None
 
-    cdef set_protocol_factory(self, object protocol_factory):
+    @staticmethod
+    cdef UVTCPServer new(Loop loop, object protocol_factory):
+        cdef UVTCPServer handle
+        handle = UVTCPServer.__new__(UVTCPServer)
+        handle._set_loop(loop)
+        handle._init()
+        handle._set_protocol_factory(protocol_factory)
+        return handle
+
+    cdef _set_protocol_factory(self, object protocol_factory):
         if self.protocol_factory is not None:
             raise RuntimeError('can only set protocol_factory once')
         self.protocol_factory = protocol_factory
@@ -77,16 +88,19 @@ cdef class UVTCPServer(UVTcpStream):
 
     cdef _on_listen(self):
         protocol = self.protocol_factory()
-        client = UVServerTransport(self._loop, protocol)
+        client = UVServerTransport.new(self._loop, protocol)
         client._accept(<UVStream>self)
 
 
 @cython.final
+@cython.internal
 @cython.no_gc_clear
 cdef class UVServerTransport(UVTcpStream):
-    def __cinit__(self, Loop loop, object protocol not None):
-        self.protocol = protocol
-        self.protocol_data_received = protocol.data_received
+    cdef _init(self):
+        UVTcpStream._init(<UVTcpStream>self)
+
+        self.protocol = None
+        self.protocol_data_received = None
 
         self.eof = 0
         self.reading = 0
@@ -96,6 +110,19 @@ cdef class UVServerTransport(UVTcpStream):
         self.protocol_paused = 0
         self.high_water = FLOW_CONTROL_HIGH_WATER
         self.low_water = FLOW_CONTROL_LOW_WATER
+
+    @staticmethod
+    cdef UVServerTransport new(Loop loop, object protocol):
+        cdef UVServerTransport handle
+        handle = UVServerTransport.__new__(UVServerTransport)
+        handle._set_loop(loop)
+        handle._init()
+        handle._set_protocol(protocol)
+        return handle
+
+    cdef _set_protocol(self, object protocol):
+        self.protocol = protocol
+        self.protocol_data_received = protocol.data_received
 
     cdef _on_accept(self):
         self.opened = 1

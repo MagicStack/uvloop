@@ -2,7 +2,7 @@
 @cython.internal
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
-cdef class __StreamWriteContext:
+cdef class _StreamWriteContext:
     # used to hold additional write request information for uv_write
 
     cdef:
@@ -18,21 +18,6 @@ cdef class __StreamWriteContext:
 
         bint            closed
 
-    def __cinit__(self, UVStream stream, object data, object callback):
-        IF DEBUG:
-            stream._loop._debug_stream_write_ctx_total += 1
-            stream._loop._debug_stream_write_ctx_cnt += 1
-
-        self.req.data = <void*> self
-        Py_INCREF(self)
-
-        PyObject_GetBuffer(data, &self.py_buf, PyBUF_SIMPLE)
-        self.uv_buf = uv.uv_buf_init(<char*>self.py_buf.buf, self.py_buf.len)
-        self.stream = stream
-        self.callback = callback
-
-        self.closed = 0
-
     cdef close(self):
         if self.closed:
             return
@@ -45,11 +30,32 @@ cdef class __StreamWriteContext:
         IF not DEBUG:
             self.stream = None
 
+    @staticmethod
+    cdef _StreamWriteContext new(UVStream stream, object data, object callback):
+        cdef _StreamWriteContext ctx
+        ctx = _StreamWriteContext.__new__(_StreamWriteContext)
+
+        ctx.req.data = <void*> ctx
+        Py_INCREF(ctx)
+
+        PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
+        ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
+        ctx.stream = stream
+        ctx.callback = callback
+
+        ctx.closed = 0
+
+        IF DEBUG:
+            stream._loop._debug_stream_write_ctx_total += 1
+            stream._loop._debug_stream_write_ctx_cnt += 1
+
+        return ctx
+
     IF DEBUG:
         def __dealloc__(self):
             if not self.closed:
                 raise RuntimeError(
-                    'open __StreamWriteContext is being deallocated')
+                    'open _StreamWriteContext is being deallocated')
 
             IF DEBUG:
                 self.stream._loop._debug_stream_write_ctx_cnt -= 1
@@ -150,11 +156,11 @@ cdef class UVStream(UVHandle):
     cdef _write(self, object data, object callback):
         cdef:
             int err
-            __StreamWriteContext ctx
+            _StreamWriteContext ctx
 
         self._ensure_alive()
 
-        ctx = __StreamWriteContext(self, data, callback)
+        ctx = _StreamWriteContext.new(self, data, callback)
 
         err = uv.uv_write(&ctx.req,
                           <uv.uv_stream_t*>self._handle,
@@ -323,15 +329,15 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
     if req.data is NULL:
         # Shouldn't happen as:
-        #    - __StreamWriteContext does an extra INCREF in its 'init()'
-        #    - __StreamWriteContext holds a ref to the relevant UVStream
+        #    - _StreamWriteContext does an extra INCREF in its 'init()'
+        #    - _StreamWriteContext holds a ref to the relevant UVStream
         aio_logger.error(
             'UVStream.write callback called with NULL req.data, status=%r',
             status)
         return
 
     cdef:
-        __StreamWriteContext ctx = <__StreamWriteContext> req.data
+        _StreamWriteContext ctx = <_StreamWriteContext> req.data
         UVStream stream = ctx.stream
         object callback = ctx.callback
 

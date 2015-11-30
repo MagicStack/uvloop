@@ -16,37 +16,13 @@ cdef class UVHandle:
        2. call "__ensure_handle_data" in *all* libuv handle callbacks.
     """
 
-    def __cinit__(self, Loop loop, *_):
+    def __cinit__(self):
         self._closed = 0
         self._handle = NULL
-        self._loop = loop
-        IF DEBUG:
-            if loop is None:
-                raise RuntimeError(
-                    '{} is initialized, but the '
-                    'loop is None'.format(self))
-            cls_name = self.__class__.__name__
-            loop._debug_handles_total.update([cls_name])
-            loop._debug_handles_count.update([cls_name])
+        self._loop = None
 
-    IF DEBUG:
-        def __init__(self, *_):
-            # Will be called after all __cinit__'s.
-            if self._closed == 0:
-                if self._handle is NULL:
-                    raise RuntimeError(
-                        '{} was initialized, but the '
-                        'handle is NULL'.format(self))
-
-                if self._handle.data is not <void*>self:
-                    raise RuntimeError(
-                        '{} was initialized, but the '
-                        'handle.data is wrong'.format(self))
-
-                if self._handle.loop is not <void*>self._loop.uvloop:
-                    raise RuntimeError(
-                        '{} was initialized, but the '
-                        'handle.loop is wrong'.format(self))
+    def __init__(self):
+        raise TypeError('{} is not supposed to be instantiated from Python')
 
     def __dealloc__(self):
         IF DEBUG:
@@ -73,6 +49,19 @@ cdef class UVHandle:
         uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
         self._handle = NULL
 
+    cdef inline _set_loop(self, Loop loop):
+        IF DEBUG:
+            if self._loop is not None:
+                raise RuntimeError(
+                    '{}._set_loop can only be called once'.format(
+                        self.__class__.__name__))
+
+            cls_name = self.__class__.__name__
+            loop._debug_handles_total.update([cls_name])
+            loop._debug_handles_count.update([cls_name])
+
+        self._loop = loop
+
     cdef inline bint _is_alive(self):
         return self._closed != 1 and self._handle is not NULL
 
@@ -81,6 +70,27 @@ cdef class UVHandle:
             raise RuntimeError(
                 'unable to perform operation on {!r}; '
                 'the handler is closed'.format(self))
+
+        IF DEBUG:
+            if self._loop is None:
+                raise RuntimeError(
+                    '{} is initialized, but the '
+                    'loop is None'.format(self))
+
+            if self._handle is NULL:
+                raise RuntimeError(
+                    '{} was initialized, but the '
+                    'handle is NULL'.format(self))
+
+            if self._handle.data is not <void*>self:
+                raise RuntimeError(
+                    '{} was initialized, but the '
+                    'handle.data is wrong'.format(self))
+
+            if self._handle.loop is not <void*>self._loop.uvloop:
+                raise RuntimeError(
+                    '{} was initialized, but the '
+                    'handle.loop is wrong'.format(self))
 
     cdef _close(self):
         if self._closed == 1:
