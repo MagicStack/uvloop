@@ -9,6 +9,7 @@ cdef class _StreamWriteContext:
         uv.uv_write_t   req     # uv_cancel doesn't support uv_write_t,
                                 # hence we don't use UVRequest here,
                                 # and just work with the request directly.
+                                # libuv will initialize `req`.
 
         uv.uv_buf_t     uv_buf
         Py_buffer       py_buf

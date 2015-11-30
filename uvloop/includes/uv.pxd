@@ -293,3 +293,15 @@ cdef extern from "../vendor/libuv/include/uv.h":
         uint64_t ru_nivcsw      # involuntary context switches
 
     int uv_getrusage(uv_rusage_t* rusage)
+
+    # Memory Allocation
+
+    ctypedef void* (*uv_malloc_func)(size_t size)
+    ctypedef void* (*uv_realloc_func)(void* ptr, size_t size)
+    ctypedef void* (*uv_calloc_func)(size_t count, size_t size)
+    ctypedef void (*uv_free_func)(void* ptr)
+
+    int uv_replace_allocator(uv_malloc_func malloc_func,
+                             uv_realloc_func realloc_func,
+                             uv_calloc_func calloc_func,
+                             uv_free_func free_func)

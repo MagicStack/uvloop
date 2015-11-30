@@ -8,12 +8,13 @@ cimport cython
 
 from .includes cimport uv
 from .includes cimport system
+from .includes.python cimport PyMem_Malloc, PyMem_Free, \
+                              PyMem_Calloc, PyMem_Realloc
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset
 
 from cpython cimport PyObject
-from cpython cimport PyMem_Malloc, PyMem_Free
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
@@ -45,6 +46,9 @@ cdef Loop __main_loop__ = None
 cdef class Loop:
     def __cinit__(self):
         cdef int err
+
+        # Install PyMem* memory allocators if they aren't installed yet.
+        __install_pymem()
 
         self.uvloop = <uv.uv_loop_t*> \
                             PyMem_Malloc(sizeof(uv.uv_loop_t))
@@ -894,3 +898,20 @@ include "dns.pyx"
 include "server.pyx"
 
 include "os_signal.pyx"
+
+
+# Install PyMem* memory allocators
+cdef bint __mem_installed = 0
+cdef __install_pymem():
+    global __mem_installed
+    if __mem_installed:
+        return
+    __mem_installed = 1
+
+    cdef int err
+    err = uv.uv_replace_allocator(<uv.uv_malloc_func>PyMem_Malloc,
+                                  <uv.uv_realloc_func>PyMem_Realloc,
+                                  <uv.uv_calloc_func>PyMem_Calloc,
+                                  <uv.uv_free_func>PyMem_Free)
+    if err < 0:
+        raise convert_error(err)
