@@ -29,16 +29,6 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 
-cdef Future
-IF USE_C_FUTURE:
-    Future = c_Future
-ELSE:
-    Future = aio_Future
-
-
-_CFUTURE = bool(USE_C_FUTURE)
-
-
 cdef Loop __main_loop__ = None
 
 
@@ -377,7 +367,7 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
 
         def callback(result):
             if AddrInfo.isinstance(result):
@@ -808,14 +798,14 @@ cdef class Loop:
     def sock_recv(self, sock, n):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
         self._sock_recv(fut, False, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
         if data:
             self._sock_sendall(fut, False, sock, data)
         else:
@@ -825,14 +815,14 @@ cdef class Loop:
     def sock_accept(self, sock):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
         self._sock_accept(fut, False, sock)
         return fut
 
     def sock_connect(self, sock, address):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = Future(loop=self)
+        fut = aio_Future(loop=self)
         try:
             if self._debug:
                 aio__check_resolved_address(sock, address)

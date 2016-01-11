@@ -48,14 +48,6 @@ setup(
     cmdclass = {'build_ext': libuv_build_ext},
     ext_modules=[
         Extension(
-            "uvloop.futures",
-            sources = [
-                "uvloop/futures.c",
-            ],
-            extra_compile_args=['-O2']
-        ),
-
-        Extension(
             "uvloop.loop",
             sources = [
                 "uvloop/loop.c",

@@ -7,8 +7,6 @@ import socket
 import sys
 import threading
 
-from . import futures
-cdef c_Future = futures.Future
 
 cdef aio_CancelledError = asyncio.CancelledError
 cdef aio_TimeoutError = asyncio.TimeoutError
@@ -68,5 +66,5 @@ cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
-del asyncio, concurrent, collections, futures, \
+del asyncio, concurrent, collections, \
     functools, socket, os, sys, threading
