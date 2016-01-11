@@ -6,6 +6,7 @@ all: clean compile
 
 clean:
 	rm -fdr uvloop/*.c uvloop/*.html uvloop/*.so build *.egg-info
+	rm -fdr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
 
 
