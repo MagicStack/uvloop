@@ -42,14 +42,16 @@ cdef class UVTCPServer(UVTcpStream):
     cdef _init(self):
         UVTcpStream._init(<UVTcpStream>self)
         self.protocol_factory = None
+        self.host_server = None
 
     @staticmethod
-    cdef UVTCPServer new(Loop loop, object protocol_factory):
+    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server):
         cdef UVTCPServer handle
         handle = UVTCPServer.__new__(UVTCPServer)
         handle._set_loop(loop)
         handle._init()
         handle._set_protocol_factory(protocol_factory)
+        handle.host_server = server
         return handle
 
     cdef _set_protocol_factory(self, object protocol_factory):
@@ -88,7 +90,7 @@ cdef class UVTCPServer(UVTcpStream):
 
     cdef _on_listen(self):
         protocol = self.protocol_factory()
-        client = UVServerTransport.new(self._loop, protocol)
+        client = UVServerTransport.new(self._loop, protocol, self.host_server)
         client._accept(<UVStream>self)
 
 
@@ -112,12 +114,15 @@ cdef class UVServerTransport(UVTcpStream):
         self.low_water = FLOW_CONTROL_LOW_WATER
 
     @staticmethod
-    cdef UVServerTransport new(Loop loop, object protocol):
+    cdef UVServerTransport new(Loop loop, object protocol, Server server):
         cdef UVServerTransport handle
         handle = UVServerTransport.__new__(UVServerTransport)
         handle._set_loop(loop)
         handle._init()
         handle._set_protocol(protocol)
+        handle.host_server = server
+        if server is not None:
+            (<Server>server)._attach()
         return handle
 
     cdef _set_protocol(self, object protocol):
@@ -210,15 +215,37 @@ cdef class UVServerTransport(UVTcpStream):
                     'protocol': self.protocol,
                 })
 
+    cdef _call_connection_lost(self, exc):
+        try:
+            if self.protocol is not None:
+                self.protocol.connection_lost(exc)
+        finally:
+            self.protocol = None
+            self.protocol_data_received = None
+
+            self._close()
+
+            server = self.host_server
+            if server is not None:
+                server._detach()
+                self.host_server = None
+
+    cdef _report_callback_error(self, exc):
+        self._call_connection_lost(exc)
+        super()._report_callback_error(exc)
+
+    cdef _raise_fatal_error(self, exc):
+        self._call_connection_lost(exc)
+        super()._raise_fatal_error(exc)
+
     # Public API
 
     property _closing:
         def __get__(self):
-            # "self._closing" refers to "UVHandle._closing" cdef
-            return (<UVHandle>self)._closing or (<UVHandle>self)._closed
+            return (<UVHandle>self)._closed
 
     def is_closing(self):
-        return (<UVHandle>self)._closing or (<UVHandle>self)._closed
+        return (<UVHandle>self)._closed
 
     def write(self, object buf):
         self._write(buf, None)
@@ -279,23 +306,8 @@ cdef class UVServerTransport(UVTcpStream):
         return (self._low_water, self._high_water)
 
     def get_extra_info(self, name, default=None):
-        cdef:
-            int buf_len = sizeof(system.sockaddr_storage)
-            int err
-            system.sockaddr_storage buf
-
         if name == 'socket':
-            err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
-                                        <system.sockaddr*>&buf,
-                                        &buf_len)
-            if err < 0:
-                self._close()
-                raise convert_error(err)
-
-            return socket_fromfd(self._fileno(),
-                                 buf.ss_family,
-                                 uv.SOCK_STREAM)
-
+            return self._get_socket()
         return default
 
     def abort(self):

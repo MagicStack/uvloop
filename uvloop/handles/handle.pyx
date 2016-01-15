@@ -38,13 +38,25 @@ cdef class UVHandle:
         if self._handle is NULL:
             return
 
+        if self._handle.loop is NULL:
+            # The handle wasn't initialized with "uv_{handle}_init"
+            self._closed = 1
+            PyMem_Free(self._handle)
+            raise RuntimeError(
+                '{} is open in __dealloc__ with loop set to NULL'
+                .format(self.__class__.__name__))
+
+        # When we're at this point, something went wrong.
+
         if self._closed == 1:
             # So _handle is not NULL and self._closed == 1?
             raise RuntimeError(
                 '{}.__dealloc__: _handle is NULL, _closed == 1'.format(
                     self.__class__.__name__))
 
-        # Let's close the handle.
+        # The handle is dealloced while open.  Let's try to close it.
+        # Situations when this is possible include unhandled exceptions,
+        # errors during Handle.__cinit__/__init__ etc.
         self._handle.data = <void*> __NOHANDLE__
         uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
         self._handle = NULL

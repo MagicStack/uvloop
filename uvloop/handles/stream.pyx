@@ -69,6 +69,7 @@ cdef class _StreamWriteContext:
 cdef class UVStream(UVHandle):
     def __cinit__(self):
         self.__reading = 0
+        self.__cached_socket = None
 
     cdef _shutdown(self):
         cdef int err
@@ -186,9 +187,33 @@ cdef class UVStream(UVHandle):
 
         return fd
 
+    cdef _get_socket(self):
+        cdef:
+            int buf_len = sizeof(system.sockaddr_storage)
+            int err
+            system.sockaddr_storage buf
+
+        if self.__cached_socket is not None:
+            return self.__cached_socket
+
+        err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
+                                    <system.sockaddr*>&buf,
+                                    &buf_len)
+        if err < 0:
+            raise convert_error(err)
+
+        self.__cached_socket = socket_fromfd(self._fileno(),
+                                            buf.ss_family,
+                                            uv.SOCK_STREAM)
+
+        return self.__cached_socket
+
     cdef _close(self):
         self.__reading_stopped()
         UVHandle._close(self)
+        if self.__cached_socket is not None:
+            self.__cached_socket.close()
+            self.__cached_socket = None
 
     # Methods to override.
 

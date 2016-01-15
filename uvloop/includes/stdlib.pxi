@@ -2,6 +2,7 @@ import asyncio, asyncio.log, asyncio.base_events
 import collections
 import concurrent.futures
 import functools
+import itertools
 import os
 import socket
 import sys
@@ -28,6 +29,8 @@ cdef col_Counter = collections.Counter
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 
 cdef ft_partial = functools.partial
+
+cdef iter_chain = itertools.chain
 
 cdef int has_AF_INET6 = hasattr(socket, 'AF_INET6')
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
@@ -66,5 +69,5 @@ cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
-del asyncio, concurrent, collections, \
-    functools, socket, os, sys, threading
+del asyncio, concurrent, collections
+del functools, itertools, socket, os, sys, threading

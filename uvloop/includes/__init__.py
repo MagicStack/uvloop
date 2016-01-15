@@ -3,6 +3,7 @@ import asyncio
 import collections
 import concurrent.futures
 import functools
+import itertools
 import os
 import socket
 import sys

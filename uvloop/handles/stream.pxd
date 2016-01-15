@@ -2,8 +2,10 @@ cdef class UVStream(UVHandle):
     cdef:
         uv.uv_shutdown_t _shutdown_req
         bint __reading
+        object __cached_socket
 
     cdef _fileno(self)
+    cdef _get_socket(self)
 
     cdef _shutdown(self)
 

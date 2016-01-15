@@ -662,21 +662,66 @@ cdef class Loop:
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
     @aio_coroutine
-    async def create_server(self, protocol_factory, str host, int port):
-        addrinfo = await self._getaddrinfo(host, port, 0, 0, 0, 0, 0)
-        if not AddrInfo.isinstance(addrinfo):
-            raise RuntimeError('unvalid loop._getaddeinfo() result')
+    async def create_server(self, protocol_factory, str host, int port,
+                            *,
+                            int family=uv.AF_UNSPEC,
+                            int flags=uv.AI_PASSIVE,
+                            sock=None,
+                            int backlog=100,
+                            ssl=None,            # not implemented
+                            reuse_address=None,  # ignored, libuv sets it
+                            reuse_port=None):    # ignored
 
-        cdef system.addrinfo *ai = (<AddrInfo>addrinfo).data
-        if ai is NULL:
-            raise RuntimeError('loop._getaddeinfo() result is NULL')
+        cdef:
+            UVTCPServer tcp
+            system.addrinfo *addrinfo
+            Server server = Server(self)
 
-        cdef UVTCPServer srv = UVTCPServer.new(self, protocol_factory)
+        if ssl is not None:
+            raise NotImplementedError('SSL is not yet supported')
 
-        srv.bind(ai.ai_addr)
-        srv.listen()
-        self._servers.add(srv) # XXX
-        return srv
+        if host is not None or port is not None:
+            if sock is not None:
+                raise ValueError(
+                    'host/port and sock can not be specified at the same time')
+
+            if host == '':
+                hosts = [None]
+            elif (isinstance(host, str) or not isinstance(host, col_Iterable)):
+                hosts = [host]
+            else:
+                hosts = host
+
+            fs = [self._getaddrinfo(host, port, family,
+                                    uv.SOCK_STREAM, 0, flags,
+                                    0) for host in hosts]
+
+            infos = await aio_gather(*fs, loop=self)
+
+            completed = False
+            try:
+                for info in infos:
+                    addrinfo = (<AddrInfo>info).data
+                    while addrinfo != NULL:
+                        tcp = UVTCPServer.new(self, protocol_factory, server)
+                        tcp.bind(addrinfo.ai_addr)
+                        tcp.listen(backlog)
+
+                        server._add_server(tcp)
+
+                        addrinfo = addrinfo.ai_next
+
+                completed = True
+            finally:
+                if not completed:
+                    server.close()
+        else:
+            tcp = UVTCPServer.new(self, protocol_factory, server)
+            tcp.open(sock.fileno())
+            tcp.listen(backlog)
+            server._add_server(tcp)
+
+        return server
 
     def default_exception_handler(self, context):
         message = context.get('message')

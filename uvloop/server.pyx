@@ -1,70 +1,65 @@
 cdef class Server:
-    cdef:
-        Loop loop
-        int active_count
-        int closed
+    def __cinit__(self, Loop loop):
+        self._loop = loop
+        self._servers = []
+        self._waiters = []
+        self._active_count = 0
 
-        list sockets
-        list waiters
-
-    def __cinit__(self, Loop loop not None, list sockets not None):
-        self.loop = loop
-        self.sockets = sockets
-        self.waiters = []
-        self.active_count = 0
-        self.closed = 0
-
-    cdef _attach(self):
-        if self.closed is 1:
-            raise RuntimeError('cannot _attach() after close()')
-
-        self.active_count += 1
-
-    cdef _detach(self):
-        if self.active_count == 0:
-            raise RuntimeError('too many _detach() calls on Server')
-
-        self.active_count -= 1
-
-        if self.active_count == 0 and self.closed == 1:
-            self._wakeup()
+    cdef _add_server(self, UVTCPServer srv):
+        self._servers.append(srv)
 
     cdef _wakeup(self):
-        if self.closed is 1:
-            raise RuntimeError('cannot _wakeup() after close()')
+        cdef list waiters
 
-        cdef list waiters = self.waiters
-        self.waiters = None
+        waiters = self._waiters
+        self._waiters = None
         for waiter in waiters:
             if not waiter.done():
                 waiter.set_result(waiter)
 
+    cdef _attach(self):
+        assert self._servers is not None
+        self._active_count += 1
+
+    cdef _detach(self):
+        assert self._active_count > 0
+        self._active_count -= 1
+        if self._active_count == 0 and self._servers is None:
+            self._wakeup()
+
     # Public API
 
     def __repr__(self):
-        return '<%s sockets=%r closed=%r>' % (
-            self.__class__.__name__,
-            self.sockets,
-            bool(self.closed))
+        return '<%s sockets=%r>' % (self.__class__.__name__, self.sockets)
+
+    @aio_coroutine
+    async def wait_closed(self):
+        if self._servers is None or self._waiters is None:
+            return
+        waiter = aio_Future(loop=self._loop)
+        self._waiters.append(waiter)
+        await waiter
 
     def close(self):
-        if self.closed == 1:
+        if self._servers is None:
             return
-        self.closed = 1
 
-        cdef list sockets = self.sockets
-        self.sockets = None
+        cdef list servers = self._servers
+        self._servers = None
 
-        for sock in sockets:
-            self.loop._stop_serving(sock)
+        for server in servers:
+            <UVTCPServer>server._close()
 
-        if self.active_count == 0:
+        if self._active_count == 0:
             self._wakeup()
 
-    async def wait_closed(self):
-        if self.sockets is None or self.waiters is None:
-            return
+    property sockets:
+        def __get__(self):
+            cdef list sockets = []
 
-        waiter = aio_Future(loop=self.loop)
-        self.waiters.append(waiter)
-        await waiter
+            for server in self._servers:
+                sockets.append(
+                    (<UVTCPServer>server)._get_socket()
+                )
+
+            return sockets

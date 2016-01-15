@@ -12,6 +12,7 @@ cdef class UVTcpStream(UVStream):
 cdef class UVTCPServer(UVTcpStream):
     cdef:
         object protocol_factory
+        Server host_server
 
     cdef _init(self)
     cdef _set_protocol_factory(self, object protocol_factory)
@@ -23,11 +24,13 @@ cdef class UVTCPServer(UVTcpStream):
     cdef _on_listen(self)
 
     @staticmethod
-    cdef UVTCPServer new(Loop loop, object protocol_factory)
+    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server)
 
 
 cdef class UVServerTransport(UVTcpStream):
     cdef:
+        Server host_server
+
         bint eof
         bint reading
 
@@ -58,5 +61,7 @@ cdef class UVServerTransport(UVTcpStream):
     cdef _maybe_pause_protocol(self)
     cdef _maybe_resume_protocol(self)
 
+    cdef _call_connection_lost(self, exc)
+
     @staticmethod
-    cdef UVServerTransport new(Loop loop, object protocol)
+    cdef UVServerTransport new(Loop loop, object protocol, Server server)

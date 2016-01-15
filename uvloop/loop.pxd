@@ -120,4 +120,6 @@ include "handles/tcp.pxd"
 
 include "request.pxd"
 
+include "server.pxd"
+
 include "os_signal.pxd"
