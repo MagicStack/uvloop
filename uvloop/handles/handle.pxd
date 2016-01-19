@@ -8,4 +8,6 @@ cdef class UVHandle:
     cdef inline bint _is_alive(self)
     cdef inline _ensure_alive(self)
 
+    cdef _fatal_error(self, exc, throw)
+
     cdef _close(self)

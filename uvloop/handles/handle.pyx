@@ -104,6 +104,17 @@ cdef class UVHandle:
                     '{} was initialized, but the '
                     'handle.loop is wrong'.format(self))
 
+    cdef _fatal_error(self, exc, throw):
+        # Fatal error means an error that was returned by the
+        # underlying libuv handle function.  We usually can't
+        # recover from that, hence we just close the handle.
+        self._close()
+
+        if throw or self._loop is None:
+            raise exc
+        else:
+            self._loop._handle_uvcb_exception(exc)
+
     cdef _close(self):
         if self._closed == 1:
             return

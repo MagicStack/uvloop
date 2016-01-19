@@ -61,6 +61,7 @@ cdef class UVServerTransport(UVTcpStream):
     cdef _maybe_pause_protocol(self)
     cdef _maybe_resume_protocol(self)
 
+    cdef _fatal_error(self, exc, throw)
     cdef _call_connection_lost(self, exc)
 
     @staticmethod

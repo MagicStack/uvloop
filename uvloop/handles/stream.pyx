@@ -80,8 +80,9 @@ cdef class UVStream(UVHandle):
                              <uv.uv_stream_t*> self._handle,
                              __uv_stream_on_shutdown)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef _listen(self, int backlog):
         cdef int err
@@ -91,8 +92,9 @@ cdef class UVStream(UVHandle):
                            backlog,
                            __uv_stream_on_listen)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef _accept(self, UVStream server):
         cdef int err
@@ -101,8 +103,9 @@ cdef class UVStream(UVHandle):
         err = uv.uv_accept(<uv.uv_stream_t*>server._handle,
                            <uv.uv_stream_t*>self._handle)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
         self._on_accept()
 
@@ -117,8 +120,9 @@ cdef class UVStream(UVHandle):
                                __loop_alloc_buffer,
                                __uv_stream_on_read)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
         else:
             # UVStream must live until the read callback is called
             self.__reading_started()
@@ -146,8 +150,9 @@ cdef class UVStream(UVHandle):
 
         err = uv.uv_read_stop(<uv.uv_stream_t*>self._handle)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef bint _is_readable(self):
         return uv.uv_is_readable(<uv.uv_stream_t*>self._handle)
@@ -171,9 +176,12 @@ cdef class UVStream(UVHandle):
                           __uv_stream_on_write)
 
         if err < 0:
+            # close write context
             ctx.close()
-            self._close()
-            raise convert_error(err)
+
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef _fileno(self):
         cdef:
@@ -182,7 +190,6 @@ cdef class UVStream(UVHandle):
 
         err = uv.uv_fileno(<uv.uv_handle_t*>self._handle, <uv.uv_os_fd_t*>&fd)
         if err < 0:
-            self._close()
             raise convert_error(err)
 
         return fd
@@ -260,8 +267,7 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
 
     if status < 0:
         exc = convert_error(status)
-        stream._loop._handle_uvcb_exception(exc)
-        stream._close()
+        stream._fatal_error(exc, False)
         return
 
     try:
@@ -284,8 +290,7 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
 
     if status < 0:
         exc = convert_error(status)
-        stream._loop._handle_uvcb_exception(exc)
-        stream._close()
+        stream._fatal_error(exc, False)
         return
 
     try:
@@ -338,10 +343,9 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
         # Therefore, we're closing the stream.  Since "UVHandle._close()"
         # doesn't raise exceptions unless uvloop is built with DEBUG=1,
         # we don't need try...finally here.
-        sc._close()
 
         exc = convert_error(nread)
-        sc._loop._handle_uvcb_exception(exc)
+        sc._fatal_error(exc, False)
         return
 
     try:
@@ -367,11 +371,11 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
         UVStream stream = ctx.stream
         object callback = ctx.callback
 
+    ctx.close()
+
     if status < 0:
-        ctx.close()
         exc = convert_error(status)
-        stream._loop._handle_uvcb_exception(exc)
-        stream._close()
+        stream._fatal_error(exc, False)
         return
 
     try:
@@ -380,5 +384,3 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
             callback()
     except BaseException as exc:
         stream._loop._handle_uvcb_exception(exc)
-    finally:
-        ctx.close()

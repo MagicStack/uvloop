@@ -23,7 +23,6 @@ cdef class UVTcpStream(UVStream):
         self._ensure_alive()
         err = uv.uv_tcp_nodelay(<uv.uv_tcp_t *>self._handle, flag)
         if err < 0:
-            self._close()
             raise convert_error(err)
 
     cdef _set_keepalive(self, bint flag, unsigned int delay):
@@ -31,7 +30,6 @@ cdef class UVTcpStream(UVStream):
         self._ensure_alive()
         err = uv.uv_tcp_keepalive(<uv.uv_tcp_t *>self._handle, flag, delay)
         if err < 0:
-            self._close()
             raise convert_error(err)
 
 
@@ -65,8 +63,9 @@ cdef class UVTCPServer(UVTcpStream):
         err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle,
                              <uv.uv_os_sock_t>sockfd)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
         self.opened = 1
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
@@ -75,8 +74,9 @@ cdef class UVTCPServer(UVTcpStream):
         err = uv.uv_tcp_bind(<uv.uv_tcp_t *>self._handle,
                              addr, flags)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
         self.opened = 1
 
     cdef listen(self, int backlog=100):
@@ -215,6 +215,10 @@ cdef class UVServerTransport(UVTcpStream):
                     'protocol': self.protocol,
                 })
 
+    cdef _fatal_error(self, exc, throw):
+        super(UVServerTransport, self)._fatal_error(exc, throw)
+        self._call_connection_lost(exc)
+
     cdef _call_connection_lost(self, exc):
         try:
             if self.protocol is not None:
@@ -223,20 +227,15 @@ cdef class UVServerTransport(UVTcpStream):
             self.protocol = None
             self.protocol_data_received = None
 
+            # Although it's likely that the handler has been
+            # closed already (by _fatal_error, for instance),
+            # we want to make sure that it's closed.
             self._close()
 
             server = self.host_server
             if server is not None:
                 server._detach()
                 self.host_server = None
-
-    cdef _report_callback_error(self, exc):
-        self._call_connection_lost(exc)
-        super()._report_callback_error(exc)
-
-    cdef _raise_fatal_error(self, exc):
-        self._call_connection_lost(exc)
-        super()._raise_fatal_error(exc)
 
     # Public API
 
