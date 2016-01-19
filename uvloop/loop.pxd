@@ -96,7 +96,7 @@ cdef class Loop:
     cdef inline void __track_request__(self, UVRequest request)
     cdef inline void __untrack_request__(self, UVRequest request)
 
-    cdef void _handle_uvcb_exception(self, object ex)
+    cdef void _handle_exception(self, object ex)
 
     cdef inline _check_closed(self)
     cdef inline _check_thread(self)

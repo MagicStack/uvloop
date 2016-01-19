@@ -144,4 +144,4 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
             ai.set_data(res)
             callback(ai)
     except Exception as ex:
-        loop._handle_uvcb_exception(ex)
+        loop._handle_exception(ex)

@@ -113,7 +113,7 @@ cdef class UVHandle:
         if throw or self._loop is None:
             raise exc
         else:
-            self._loop._handle_uvcb_exception(exc)
+            self._loop._handle_exception(exc)
 
     cdef _error(self, exc, throw):
         # A non-fatal error is usually an error that was caught
@@ -123,7 +123,7 @@ cdef class UVHandle:
         if throw or self._loop is None:
             raise exc
         else:
-            self._loop._handle_uvcb_exception(exc)
+            self._loop._handle_exception(exc)
 
     cdef _close(self):
         if self._closed == 1:

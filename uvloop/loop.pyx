@@ -340,7 +340,7 @@ cdef class Loop:
     cdef _call_later(self, uint64_t delay, object callback, object args):
         return TimerHandle(self, callback, args, delay)
 
-    cdef void _handle_uvcb_exception(self, object ex):
+    cdef void _handle_exception(self, object ex):
         if isinstance(ex, Exception):
             self.call_exception_handler({'exception': ex})
         else:
@@ -904,7 +904,7 @@ cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
     if loop._recv_buffer_in_use == 1:
         buf.len = 0
         exc = RuntimeError('concurrent allocations')
-        loop._handle_uvcb_exception(exc)
+        loop._handle_exception(exc)
         return
 
     loop._recv_buffer_in_use = 1

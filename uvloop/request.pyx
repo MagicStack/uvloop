@@ -70,4 +70,4 @@ cdef class UVRequest:
                 return
             else:
                 ex = convert_error(err)
-                self.loop._handle_uvcb_exception(ex)
+                self.loop._handle_exception(ex)
