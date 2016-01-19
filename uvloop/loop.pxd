@@ -20,7 +20,7 @@ cdef class UVTimer(UVHandle)
 cdef class UVSignal(UVHandle)
 cdef class UVIdle(UVHandle)
 
-ctypedef object (*method_t)(object ctx)
+ctypedef object (*method_t)(object)
 
 
 cdef class Loop:
