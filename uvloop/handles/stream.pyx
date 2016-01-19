@@ -114,7 +114,7 @@ cdef class UVStream(UVHandle):
         self._ensure_alive()
 
         if self.__reading:
-            raise RuntimeError('Already reading')
+            return
 
         err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
                                __loop_alloc_buffer,
@@ -143,7 +143,7 @@ cdef class UVStream(UVHandle):
         cdef int err
 
         if not self.__reading:
-            raise RuntimeError('Already stopped')
+            return
         self.__reading_stopped()
 
         self._ensure_alive()
