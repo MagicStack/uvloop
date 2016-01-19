@@ -29,8 +29,9 @@ cdef class UVAsync(UVHandle):
 
         err = uv.uv_async_send(<uv.uv_async_t*>self._handle)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     @staticmethod
     cdef UVAsync new(Loop loop, method_t* callback, object ctx):
@@ -51,4 +52,4 @@ cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
     try:
         cb(async_.ctx)
     except BaseException as ex:
-        async_._loop._handle_uvcb_exception(ex)
+        async_._error(ex, False)

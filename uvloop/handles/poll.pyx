@@ -45,8 +45,9 @@ cdef class UVPoll(UVHandle):
             __on_uvpoll_event)
 
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef inline _poll_stop(self):
         cdef int err
@@ -56,8 +57,9 @@ cdef class UVPoll(UVHandle):
 
         err = uv.uv_poll_stop(<uv.uv_poll_t*>self._handle)
         if err < 0:
-            self._close()
-            raise convert_error(err)
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
     cdef start_reading(self, Handle callback):
         cdef:
@@ -134,18 +136,18 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
 
     if status < 0:
         exc = convert_error(status)
-        poll._loop._handle_uvcb_exception(exc)
-        poll._close()
+        poll._fatal_error(exc, False)
         return
 
     if events | uv.UV_READABLE and poll.reading_handle is not None:
         try:
             poll.reading_handle._run()
         except BaseException as ex:
-            poll._loop._handle_uvcb_exception(ex)
+            poll._error(ex, False)
+            # continue code execution
 
     if events | uv.UV_WRITABLE and poll.writing_handle is not None:
         try:
             poll.writing_handle._run()
         except BaseException as ex:
-            poll._loop._handle_uvcb_exception(ex)
+            poll._error(ex, False)

@@ -32,8 +32,9 @@ cdef class UVTimer(UVHandle):
             err = uv.uv_timer_stop(<uv.uv_timer_t*>self._handle)
             self.running = 0
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
 
     cdef start(self):
         cdef int err
@@ -45,8 +46,9 @@ cdef class UVTimer(UVHandle):
                                     __uvtimer_callback,
                                     self.timeout, 0)
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
             self.running = 1
 
     @staticmethod
@@ -72,4 +74,4 @@ cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
     try:
         cb(timer.ctx)
     except BaseException as ex:
-        timer._loop._handle_uvcb_exception(ex)
+        timer._error(ex, False)

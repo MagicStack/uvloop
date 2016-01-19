@@ -34,8 +34,9 @@ cdef class UVSignal(UVHandle):
             err = uv.uv_signal_stop(<uv.uv_signal_t *>self._handle)
             self.running = 0
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
 
     cdef start(self):
         cdef int err
@@ -47,8 +48,9 @@ cdef class UVSignal(UVHandle):
                                      __uvsignal_callback,
                                      self.signum)
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
             self.running = 1
 
     @staticmethod
@@ -73,4 +75,4 @@ cdef void __uvsignal_callback(uv.uv_signal_t* handle, int signum) with gil:
     try:
         cb(sig.ctx)
     except BaseException as ex:
-        sig._loop._handle_uvcb_exception(ex)
+        sig._error(ex, False)

@@ -273,7 +273,7 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
     try:
         stream._on_shutdown()
     except BaseException as ex:
-        stream._loop._handle_uvcb_exception(ex)
+        stream._error(ex, False)
 
 
 cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
@@ -296,7 +296,7 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
     try:
         stream._on_listen()
     except BaseException as exc:
-        stream._loop._handle_uvcb_exception(exc)
+        stream._error(exc, False)
 
 
 cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
@@ -324,7 +324,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
             sc._stop_reading()
             sc._on_eof()
         except BaseException as ex:
-            sc._loop._handle_uvcb_exception(ex)
+            sc._error(ex, False)
         finally:
             return
 
@@ -351,7 +351,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
     try:
         sc._on_read(loop._recv_buffer[:nread])
     except BaseException as exc:
-        loop._handle_uvcb_exception(exc)
+        sc._error(exc, False)
 
 
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
@@ -383,4 +383,4 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
         if callback is not None:
             callback()
     except BaseException as exc:
-        stream._loop._handle_uvcb_exception(exc)
+        stream._error(exc, False)

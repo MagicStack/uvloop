@@ -32,8 +32,9 @@ cdef class UVIdle(UVHandle):
             err = uv.uv_idle_stop(<uv.uv_idle_t*>self._handle)
             self.running = 0
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
 
     cdef start(self):
         cdef int err
@@ -44,8 +45,9 @@ cdef class UVIdle(UVHandle):
             err = uv.uv_idle_start(<uv.uv_idle_t*>self._handle,
                                    cb_idle_callback)
             if err < 0:
-                self._close()
-                raise convert_error(err)
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return
             self.running = 1
 
     @staticmethod
@@ -67,4 +69,4 @@ cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
     try:
         cb(idle.ctx)
     except BaseException as ex:
-        idle._loop._handle_uvcb_exception(ex)
+        idle._error(ex, False)
