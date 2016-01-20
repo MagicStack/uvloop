@@ -179,7 +179,7 @@ cdef class Loop:
         if self._stopping:
             uv.uv_stop(self.uvloop)  # void
 
-    cdef _stop(self, exc=None):
+    cdef _stop(self, exc):
         if exc is not None:
             self._last_error = exc
         if self._stopping == 1:
@@ -329,13 +329,17 @@ cdef class Loop:
         return uv.uv_now(self.uvloop)
 
     cdef _call_soon(self, object callback, object args):
+        cdef Handle handle
+        handle = Handle.new(self, callback, args)
+        self._call_soon_handle(handle)
+        return handle
+
+    cdef _call_soon_handle(self, Handle handle):
         self._check_closed()
-        handle = Handle(self, callback, args)
         self._ready.append(handle)
         self._ready_len += 1;
         if not self.handler_idle.running:
             self.handler_idle.start()
-        return handle
 
     cdef _call_later(self, uint64_t delay, object callback, object args):
         return TimerHandle(self, callback, args, delay)
@@ -347,7 +351,7 @@ cdef class Loop:
             # BaseException
             self._last_error = ex
             # Exit ASAP
-            self._stop()
+            self._stop(None)
 
     cdef inline _check_closed(self):
         if self._closed == 1:
@@ -540,9 +544,10 @@ cdef class Loop:
     def call_soon(self, callback, *args):
         if self._debug == 1:
             self._check_thread()
-        if not args:
-            args = None
-        return self._call_soon(callback, args)
+        if args:
+            return self._call_soon(callback, args)
+        else:
+            return self._call_soon(callback, None)
 
     def call_soon_threadsafe(self, callback, *args):
         if not args:
@@ -572,7 +577,8 @@ cdef class Loop:
         return self._time() / 1000
 
     def stop(self):
-        self._call_soon(lambda: self._stop(), None)
+        self._call_soon_handle(
+            Handle.new_meth1(self, <method1_t*>&self._stop, self, None))
 
     def run_forever(self):
         self._check_closed()
@@ -787,7 +793,7 @@ cdef class Loop:
         if not args:
             args = None
 
-        poll.start_reading(Handle(self, callback, args))
+        poll.start_reading(Handle.new(self, callback, args))
 
     def remove_reader(self, fd):
         cdef:
@@ -821,7 +827,7 @@ cdef class Loop:
         if not args:
             args = None
 
-        poll.start_writing(Handle(self, callback, args))
+        poll.start_writing(Handle.new(self, callback, args))
 
     def remove_writer(self, fd):
         cdef:

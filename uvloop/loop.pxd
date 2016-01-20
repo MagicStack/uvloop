@@ -21,6 +21,8 @@ cdef class UVSignal(UVHandle)
 cdef class UVIdle(UVHandle)
 
 ctypedef object (*method_t)(object)
+ctypedef object (*method1_t)(object, object)
+ctypedef object (*method2_t)(object, object, object)
 
 
 cdef class Loop:
@@ -87,10 +89,12 @@ cdef class Loop:
     cdef _run(self, uv.uv_run_mode)
 
     cdef _close(self)
-    cdef _stop(self, exc=*)
+    cdef _stop(self, exc)
     cdef uint64_t _time(self)
 
     cdef _call_soon(self, object callback, object args)
+    cdef _call_soon_handle(self, Handle handle)
+
     cdef _call_later(self, uint64_t delay, object callback, object args)
 
     cdef inline void __track_request__(self, UVRequest request)

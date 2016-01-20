@@ -22,7 +22,9 @@ cdef class UVHandle:
         self._loop = None
 
     def __init__(self):
-        raise TypeError('{} is not supposed to be instantiated from Python')
+        raise TypeError(
+            '{} is not supposed to be instantiated from Python'.format(
+                self.__class__.__name__))
 
     def __dealloc__(self):
         IF DEBUG:

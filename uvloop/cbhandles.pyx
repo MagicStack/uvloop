@@ -2,12 +2,10 @@
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class Handle:
-    def __cinit__(self, Loop loop, object callback, object args):
-        self.callback = callback
-        self.args = args
+    def __cinit__(self):
         self.cancelled = 0
         self.done = 0
-        self.loop = loop
+        self.cb_type = 0
 
         IF DEBUG:
             self.loop._debug_cb_handles_total += 1
@@ -19,36 +17,125 @@ cdef class Handle:
             if self.done == 0 and self.cancelled == 0:
                 raise RuntimeError('Active Handle is deallacating')
 
-    cdef inline _run(self):
+    @staticmethod
+    cdef new(Loop loop, object callback, object args):
+        cdef Handle handle
+        handle = Handle.__new__(Handle)
+
+        handle.loop = loop
+        handle.cb_type = 1
+
+        handle.arg1 = callback
+        handle.arg2 = args
+
+        return handle
+
+    @staticmethod
+    cdef new_meth(Loop loop, method_t *callback, object ctx):
+        cdef Handle handle
+        handle = Handle.__new__(Handle)
+
+        handle.loop = loop
+        handle.cb_type = 2
+
+        handle.callback = <void*> callback
+        handle.arg1 = ctx
+
+        return handle
+
+    @staticmethod
+    cdef new_meth1(Loop loop, method1_t *callback,
+                   object ctx, object arg):
+
+        cdef Handle handle
+        handle = Handle.__new__(Handle)
+
+        handle.loop = loop
+        handle.cb_type = 3
+
+        handle.callback = <void*> callback
+        handle.arg1 = ctx
+        handle.arg2 = arg
+
+        return handle
+
+    @staticmethod
+    cdef new_meth2(Loop loop, method2_t *callback,
+                   object ctx, object arg1, object arg2):
+
+        cdef Handle handle
+        handle = Handle.__new__(Handle)
+
+        handle.loop = loop
+        handle.cb_type = 4
+
+        handle.callback = <void*> callback
+        handle.arg1 = ctx
+        handle.arg2 = arg1
+        handle.arg3 = arg2
+
+        return handle
+
+    def __init__(self):
+        raise TypeError(
+            '{} is not supposed to be instantiated from Python'.format(
+                self.__class__.__name__))
+
+    cdef _run(self):
+        cdef:
+            method_t meth
+            method1_t meth1
+            method2_t meth2
+            int cb_type = self.cb_type
+            void *callback = self.callback
+
         if self.cancelled == 1 or self.done == 1:
             return
 
-        callback = self.callback
-        args = self.args
+        arg1 = self.arg1
+        arg2 = self.arg2
+        arg3 = self.arg3
+        self.arg1 = self.arg2 = self.arg3 = None
 
-        self.callback = None
-        self.args = None
-
+        self.cb_type = 0
         self.done = 1
         try:
             self.loop._executing_py_code = 1
             try:
-                if args is not None:
-                    callback(*args)
+                if cb_type == 1:
+                    if arg2 is not None:
+                        arg1(*arg2)
+                    else:
+                        arg1()
+                elif cb_type == 2:
+                    meth = (<method_t*>callback)[0]
+                    meth(arg1)
+                elif cb_type == 3:
+                    meth1 = (<method1_t*>callback)[0]
+                    meth1(arg1, arg2)
+                elif cb_type == 4:
+                    meth2 = (<method2_t*>callback)[0]
+                    meth2(arg1, arg2, arg3)
                 else:
-                    callback()
+                    raise RuntimeError('invalid Handle.cb_type: {}'.format(
+                        cb_type))
             finally:
                 self.loop._executing_py_code = 0
         except Exception as ex:
+            msg = 'Exception in callback'
+            if cb_type == 1:
+                msg = 'Exception in callback {}'.format(arg1)
+
             self.loop.call_exception_handler({
-                'message': 'Exception in callback {}'.format(callback),
+                'message': msg,
                 'exception': ex
             })
 
+
     cdef _cancel(self):
         self.cancelled = 1
-        self.callback = None
-        self.args = None
+        self.cb_type = 0
+        self.arg1 = self.arg2 = self.arg3 = None
 
     # Public API
 
