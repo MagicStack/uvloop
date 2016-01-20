@@ -83,39 +83,37 @@ cdef class Handle:
 
     cdef _run(self):
         cdef:
-            method_t meth
-            method1_t meth1
-            method2_t meth2
-            int cb_type = self.cb_type
-            void *callback = self.callback
+            int cb_type
+            void *callback
 
         if self.cancelled == 1 or self.done == 1:
             return
+
+        cb_type = self.cb_type
+        self.cb_type = 0
+
+        callback = self.callback
 
         arg1 = self.arg1
         arg2 = self.arg2
         arg3 = self.arg3
         self.arg1 = self.arg2 = self.arg3 = None
 
-        self.cb_type = 0
         self.done = 1
         try:
             self.loop._executing_py_code = 1
             try:
                 if cb_type == 1:
-                    if arg2 is not None:
-                        arg1(*arg2)
-                    else:
+                    if arg2 is None:
                         arg1()
+                    else:
+                        arg1(*arg2)
                 elif cb_type == 2:
-                    meth = (<method_t*>callback)[0]
-                    meth(arg1)
+                    ((<method_t*>callback)[0])(arg1)
                 elif cb_type == 3:
-                    meth1 = (<method1_t*>callback)[0]
-                    meth1(arg1, arg2)
+                    ((<method1_t*>callback)[0])(arg1, arg2)
                 elif cb_type == 4:
-                    meth2 = (<method2_t*>callback)[0]
-                    meth2(arg1, arg2, arg3)
+                    ((<method2_t*>callback)[0])(arg1, arg2, arg3)
                 else:
                     raise RuntimeError('invalid Handle.cb_type: {}'.format(
                         cb_type))
