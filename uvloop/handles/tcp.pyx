@@ -33,7 +33,6 @@ cdef class UVTcpStream(UVStream):
             raise convert_error(err)
 
 
-@cython.final
 @cython.internal
 @cython.no_gc_clear
 cdef class UVTCPServer(UVTcpStream):
@@ -94,7 +93,6 @@ cdef class UVTCPServer(UVTcpStream):
         client._accept(<UVStream>self)
 
 
-@cython.final
 @cython.internal
 @cython.no_gc_clear
 cdef class UVServerTransport(UVTcpStream):

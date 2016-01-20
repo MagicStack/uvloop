@@ -1,4 +1,3 @@
-@cython.final
 @cython.internal
 @cython.no_gc_clear
 cdef class UVSignal(UVHandle):

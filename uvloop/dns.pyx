@@ -1,4 +1,3 @@
-@cython.final
 @cython.internal
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class AddrInfo:
@@ -77,7 +76,6 @@ cdef class AddrInfo:
         return type(other) is AddrInfo
 
 
-@cython.final
 @cython.internal
 cdef class AddrInfoRequest(UVRequest):
     cdef:
