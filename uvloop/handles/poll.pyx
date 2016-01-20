@@ -73,6 +73,8 @@ cdef class UVPoll(UVHandle):
                 mask |= uv.UV_WRITABLE
 
             self._poll_start(mask)
+        else:
+            self.reading_handle._cancel()
 
         self.reading_handle = callback
 
@@ -89,6 +91,8 @@ cdef class UVPoll(UVHandle):
                 mask |= uv.UV_READABLE
 
             self._poll_start(mask)
+        else:
+            self.writing_handle._cancel()
 
         self.writing_handle = callback
 
@@ -96,6 +100,7 @@ cdef class UVPoll(UVHandle):
         if self.reading_handle is None:
             return False
 
+        self.reading_handle._cancel()
         self.reading_handle = None
 
         if self.writing_handle is None:
@@ -109,6 +114,7 @@ cdef class UVPoll(UVHandle):
         if self.writing_handle is None:
             return False
 
+        self.writing_handle._cancel()
         self.writing_handle = None
 
         if self.reading_handle is None:
