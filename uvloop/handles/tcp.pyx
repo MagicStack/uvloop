@@ -137,7 +137,9 @@ cdef class UVServerTransport(UVTcpStream):
 
     cdef _on_eof(self):
         keep_open = self.protocol.eof_received()
-        if not keep_open:
+        if keep_open:
+            self._stop_reading()
+        else:
             self._close()
 
     cdef _write(self, object data, object callback):
@@ -213,10 +215,6 @@ cdef class UVServerTransport(UVTcpStream):
                     'protocol': self.protocol,
                 })
 
-    cdef _fatal_error(self, exc, throw):
-        super(UVServerTransport, self)._fatal_error(exc, throw)
-        self._call_connection_lost(exc)
-
     cdef _call_connection_lost(self, exc):
         try:
             if self.protocol is not None:
@@ -234,6 +232,15 @@ cdef class UVServerTransport(UVTcpStream):
             if server is not None:
                 server._detach()
                 self.host_server = None
+
+    cdef _fatal_error(self, exc, throw):
+        UVHandle._fatal_error(<UVHandle>self, exc, throw)
+
+        self._loop._call_soon_handle(
+            new_MethodHandle1(self._loop,
+                              "UVServerTransport._call_connection_lost",
+                              <method1_t*>&self._call_connection_lost,
+                              self, exc))
 
     # Public API
 

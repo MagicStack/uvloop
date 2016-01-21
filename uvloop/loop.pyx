@@ -157,7 +157,7 @@ cdef class Loop:
         ntodo = len(self._ready)
         for i from 0 <= i < ntodo:
             handler = <Handle> popleft()
-            if handler.cancelled == 0:
+            if handler.cancelled == 0 and handler.done == 0:
                 try:
                     handler._run()
                 except BaseException as ex:
@@ -200,12 +200,16 @@ cdef class Loop:
         global __main_loop__
 
         if self.py_signals is not None:
+            # self.py_signals is not None only for the main thread
             __main_loop__ = self
 
+        self._executing_py_code = 0
         with nogil:
             err = uv.uv_run(self.uvloop, mode)
+        self._executing_py_code = 1
 
         if self.py_signals is not None:
+            # self.py_signals is not None only for the main thread
             self.py_signals.restore()
             __main_loop__ = None
 
@@ -228,7 +232,6 @@ cdef class Loop:
         self._thread_is_main = MAIN_THREAD_ID == self._thread_id
         self._sigint_check = 0
         self._running = 1
-        self._executing_py_code = 0
 
         self.handler_idle.start()
         self.handler_sigint.start()
@@ -330,7 +333,7 @@ cdef class Loop:
 
     cdef _call_soon(self, object callback, object args):
         cdef Handle handle
-        handle = Handle.new(self, callback, args)
+        handle = new_Handle(self, callback, args)
         self._call_soon_handle(handle)
         return handle
 
@@ -366,6 +369,68 @@ cdef class Loop:
                 "Non-thread-safe operation invoked on an event loop other "
                 "than the current one")
 
+    cdef _add_reader(self, fd, Handle handle):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            poll = UVPoll.new(self, fd)
+            self._polls[fd] = poll
+
+        poll.start_reading(handle)
+
+    cdef _remove_reader(self, fd):
+        cdef:
+            UVPoll poll
+
+        if self._closed == 1:
+            return False
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        result = poll.stop_reading()
+        if not poll.is_active():
+            self._polls_gc[fd] = poll
+        return result
+
+    cdef _add_writer(self, fd, Handle handle):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            poll = UVPoll.new(self, fd)
+            self._polls[fd] = poll
+
+        poll.start_writing(handle)
+
+    cdef _remove_writer(self, fd):
+        cdef:
+            UVPoll poll
+
+        if self._closed == 1:
+            return False
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        result = poll.stop_writing()
+        if not poll.is_active():
+            self._polls_gc[fd] = poll
+        return result
+
     cdef _getaddrinfo(self, str host, int port,
                       int family, int type,
                       int proto, int flags,
@@ -392,9 +457,12 @@ cdef class Loop:
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
 
-    def _sock_recv(self, fut, registered, sock, n):
+    cdef _sock_recv(self, fut, registered, sock, n):
         # _sock_recv() can add itself as an I/O callback if the operation can't
         # be done immediately. Don't use it directly, call sock_recv().
+        cdef:
+            Handle handle
+
         fd = sock.fileno()
         if registered:
             # Remove the callback early.  It should be rare that the
@@ -407,13 +475,23 @@ cdef class Loop:
         try:
             data = sock.recv(n)
         except (BlockingIOError, InterruptedError):
-            self.add_reader(fd, self._sock_recv, fut, True, sock, n)
+            handle = new_MethodHandle4(
+                self,
+                "Loop._sock_recv",
+                <method4_t*>&self._sock_recv,
+                self,
+                fut, True, sock, n)
+
+            self._add_reader(fd, handle)
         except Exception as exc:
             fut.set_exception(exc)
         else:
             fut.set_result(data)
 
-    def _sock_sendall(self, fut, registered, sock, data):
+    cdef _sock_sendall(self, fut, registered, sock, data):
+        cdef:
+            Handle handle
+
         fd = sock.fileno()
 
         if registered:
@@ -434,9 +512,20 @@ cdef class Loop:
         else:
             if n:
                 data = data[n:]
-            self.add_writer(fd, self._sock_sendall, fut, True, sock, data)
 
-    def _sock_accept(self, fut, registered, sock):
+            handle = new_MethodHandle4(
+                self,
+                "Loop._sock_sendall",
+                <method4_t*>&self._sock_sendall,
+                self,
+                fut, True, sock, data)
+
+            self._add_writer(fd, handle)
+
+    cdef _sock_accept(self, fut, registered, sock):
+        cdef:
+            Handle handle
+
         fd = sock.fileno()
         if registered:
             self.remove_reader(fd)
@@ -446,13 +535,23 @@ cdef class Loop:
             conn, address = sock.accept()
             conn.setblocking(False)
         except (BlockingIOError, InterruptedError):
-            self.add_reader(fd, self._sock_accept, fut, True, sock)
+            handle = new_MethodHandle3(
+                self,
+                "Loop._sock_accept",
+                <method3_t*>&self._sock_accept,
+                self,
+                fut, True, sock)
+
+            self._add_reader(fd, handle)
         except Exception as exc:
             fut.set_exception(exc)
         else:
             fut.set_result((conn, address))
 
-    def _sock_connect(self, fut, sock, address):
+    cdef _sock_connect(self, fut, sock, address):
+        cdef:
+            Handle handle
+
         fd = sock.fileno()
         try:
             sock.connect(address)
@@ -461,17 +560,22 @@ cdef class Loop:
             # connection runs in background. We have to wait until the socket
             # becomes writable to be notified when the connection succeed or
             # fails.
-            fut.add_done_callback(ft_partial(self._sock_connect_done, fd))
-            self.add_writer(fd, self._sock_connect_cb, fut, sock, address)
+            fut.add_done_callback(lambda fut: self._remove_writer(fd))
+
+            handle = new_MethodHandle3(
+                self,
+                "Loop._sock_connect",
+                <method3_t*>&self._sock_connect_cb,
+                self,
+                fut, sock, address)
+
+            self._add_writer(fd, handle)
         except Exception as exc:
             fut.set_exception(exc)
         else:
             fut.set_result(None)
 
-    def _sock_connect_done(self, fd, fut):
-        self.remove_writer(fd)
-
-    def _sock_connect_cb(self, fut, sock, address):
+    cdef _sock_connect_cb(self, fut, sock, address):
         if fut.cancelled():
             return
 
@@ -578,7 +682,12 @@ cdef class Loop:
 
     def stop(self):
         self._call_soon_handle(
-            Handle.new_meth1(self, <method1_t*>&self._stop, self, None))
+            new_MethodHandle1(
+                self,
+                "Loop._stop",
+                <method1_t*>&self._stop,
+                self,
+                None))
 
     def run_forever(self):
         self._check_closed()
@@ -779,72 +888,20 @@ cdef class Loop:
                                      exc_info=True)
 
     def add_reader(self, fd, callback, *args):
-        cdef:
-            UVPoll poll
-
-        self._check_closed()
-
-        try:
-            poll = <UVPoll>(self._polls[fd])
-        except KeyError:
-            poll = UVPoll.new(self, fd)
-            self._polls[fd] = poll
-
-        if not args:
+        if len(args) == 0:
             args = None
-
-        poll.start_reading(Handle.new(self, callback, args))
+        self._add_reader(fd, new_Handle(self, callback, args))
 
     def remove_reader(self, fd):
-        cdef:
-            UVPoll poll
-
-        if self._closed == 1:
-            return False
-
-        try:
-            poll = <UVPoll>(self._polls[fd])
-        except KeyError:
-            return False
-
-        result = poll.stop_reading()
-        if not poll.is_active():
-            self._polls_gc[fd] = poll
-        return result
+        self._remove_reader(fd)
 
     def add_writer(self, fd, callback, *args):
-        cdef:
-            UVPoll poll
-
-        self._check_closed()
-
-        try:
-            poll = <UVPoll>(self._polls[fd])
-        except KeyError:
-            poll = UVPoll.new(self, fd)
-            self._polls[fd] = poll
-
-        if not args:
+        if len(args) == 0:
             args = None
-
-        poll.start_writing(Handle.new(self, callback, args))
+        self._add_writer(fd, new_Handle(self, callback, args))
 
     def remove_writer(self, fd):
-        cdef:
-            UVPoll poll
-
-        if self._closed == 1:
-            return False
-
-        try:
-            poll = <UVPoll>(self._polls[fd])
-        except KeyError:
-            return False
-
-        result = poll.stop_writing()
-        if not poll.is_active():
-            self._polls_gc[fd] = poll
-        return result
+        self._remove_writer(fd)
 
     def sock_recv(self, sock, n):
         if self._debug and sock.gettimeout() != 0:

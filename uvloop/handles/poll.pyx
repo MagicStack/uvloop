@@ -125,9 +125,21 @@ cdef class UVPoll(UVHandle):
         return True
 
     cdef stop(self):
-        self.reading_handle = None
-        self.writing_handle = None
+        if self.reading_handle is not None:
+            self.reading_handle._cancel()
+            self.reading_handle = None
+
+        if self.writing_handle is not None:
+            self.writing_handle._cancel()
+            self.writing_handle = None
+
         self._poll_stop()
+
+    cdef _close(self):
+        if self.is_active():
+            self.stop()
+
+        UVHandle._close(<UVHandle>self)
 
 
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
@@ -144,14 +156,14 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
         poll._fatal_error(exc, False)
         return
 
-    if events | uv.UV_READABLE and poll.reading_handle is not None:
+    if (events | uv.UV_READABLE) and poll.reading_handle is not None:
         try:
             poll.reading_handle._run()
         except BaseException as ex:
             poll._error(ex, False)
             # continue code execution
 
-    if events | uv.UV_WRITABLE and poll.writing_handle is not None:
+    if (events | uv.UV_WRITABLE) and poll.writing_handle is not None:
         try:
             poll.writing_handle._run()
         except BaseException as ex:
