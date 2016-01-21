@@ -40,7 +40,10 @@ class _TestTCP:
                     loop=self.loop)
 
                 try:
-                    addr = srv.sockets[0].getsockname()
+                    srv_socks = srv.sockets
+                    self.assertTrue(srv_socks)
+
+                    addr = srv_socks[0].getsockname()
 
                     tasks = []
                     for _ in range(TOTAL_CNT):
@@ -55,6 +58,10 @@ class _TestTCP:
 
                 finally:
                     srv.close()
+
+                    # Check that the server cleaned-up proxy-sockets
+                    for srv_sock in srv_socks:
+                        self.assertEqual(srv_sock.fileno(), -1)
 
             except:
                 self.loop.stop()  # We don't want this test to stuck when
