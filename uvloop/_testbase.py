@@ -2,6 +2,7 @@
 
 
 import asyncio
+import gc
 import inspect
 import re
 import socket
@@ -30,6 +31,20 @@ class BaseTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.loop.close()
+
+        if getattr(self.loop, '_debug_cc', False):
+            gc.collect()
+            gc.collect()
+            gc.collect()
+
+            self.assertEqual(self.loop._debug_cb_handles_count, 0)
+            self.assertEqual(self.loop._debug_cb_timer_handles_count, 0)
+            self.assertEqual(self.loop._debug_stream_write_ctx_cnt, 0)
+
+            for h_name, h_cnt in self.loop._debug_handles_count.items():
+                with self.subTest(handle_name=h_name):
+                    self.assertEqual(h_cnt, 0)
+
         asyncio.set_event_loop(None)
         self.loop = None
 

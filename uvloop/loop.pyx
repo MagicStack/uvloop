@@ -79,6 +79,8 @@ cdef class Loop:
         self.uvloop.data = <void*> self
 
         IF DEBUG:
+            self._debug_cc = True
+
             self._debug_handles_count = col_Counter()
             self._debug_handles_total = col_Counter()
 

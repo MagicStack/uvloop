@@ -69,16 +69,19 @@ cdef class Loop:
         bint _recv_buffer_in_use
 
         IF DEBUG:
-            object _debug_handles_total
-            object _debug_handles_count
+            readonly bint _debug_cc  # True when compiled with DEBUG.
+                                     # Only for unittests.
 
-            uint64_t _debug_cb_handles_total
-            uint64_t _debug_cb_handles_count
-            uint64_t _debug_cb_timer_handles_total
-            uint64_t _debug_cb_timer_handles_count
+            readonly object _debug_handles_total
+            readonly object _debug_handles_count
 
-            uint64_t _debug_stream_write_ctx_total
-            uint64_t _debug_stream_write_ctx_cnt
+            readonly uint64_t _debug_cb_handles_total
+            readonly uint64_t _debug_cb_handles_count
+            readonly uint64_t _debug_cb_timer_handles_total
+            readonly uint64_t _debug_cb_timer_handles_count
+
+            readonly uint64_t _debug_stream_write_ctx_total
+            readonly uint64_t _debug_stream_write_ctx_cnt
 
     cdef _on_wake(self)
     cdef _on_idle(self)
