@@ -779,7 +779,7 @@ cdef class Loop:
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
     @aio_coroutine
-    async def create_server(self, protocol_factory, str host, int port,
+    async def create_server(self, protocol_factory, host, int port,
                             *,
                             int family=uv.AF_UNSPEC,
                             int flags=uv.AI_PASSIVE,

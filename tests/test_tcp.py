@@ -45,7 +45,7 @@ class _TestTCP:
             try:
                 srv = await asyncio.start_server(
                     handle_client,
-                    '127.0.0.1', 0,
+                    ('127.0.0.1', 'localhost'), 0,
                     family=socket.AF_INET,
                     loop=self.loop)
 
