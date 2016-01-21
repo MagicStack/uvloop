@@ -48,7 +48,7 @@ cdef class Server:
         self._servers = None
 
         for server in servers:
-            <UVTCPServer>server._close()
+            (<UVTCPServer>server)._close()
 
         if self._active_count == 0:
             self._wakeup()
