@@ -32,7 +32,7 @@ cdef class Handle:
         cdef:
             int cb_type
             object callback
-            bint old_exec_py_code = self.loop._executing_py_code
+            bint old_exec_py_code
 
         if self.cancelled or self.done:
             return
@@ -47,6 +47,7 @@ cdef class Handle:
         Py_INCREF(self)   # Since _run is a cdef and there's no BoundMethod,
                           # we guard 'self' manually (since the callback
                           # might cause GC of the handle.)
+        old_exec_py_code = self.loop._executing_py_code
         self.loop._executing_py_code = 1
         try:
             if cb_type == 1:
@@ -165,14 +166,13 @@ cdef class TimerHandle:
 
     cdef _run(self):
         cdef:
-            bint old_exec_py_code = self.loop._executing_py_code
+            bint old_exec_py_code
 
         if self.closed == 1:
             return
 
         callback = self.callback
         args = self.args
-        loop = self.loop
         self._cancel()
 
         IF DEBUG:
@@ -181,19 +181,20 @@ cdef class TimerHandle:
 
         Py_INCREF(self)  # Since _run is a cdef and there's no BoundMethod,
                          # we guard 'self' manually.
-        loop._executing_py_code = 1
+        old_exec_py_code = self.loop._executing_py_code
+        self.loop._executing_py_code = 1
         try:
             if args is not None:
                 callback(*args)
             else:
                 callback()
         except Exception as ex:
-            loop.call_exception_handler({
+            self.loop.call_exception_handler({
                 'message': 'Exception in callback {}'.format(callback),
                 'exception': ex
             })
         finally:
-            loop._executing_py_code = old_exec_py_code
+            self.loop._executing_py_code = old_exec_py_code
             Py_DECREF(self)
 
     # Public API
