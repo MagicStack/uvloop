@@ -17,6 +17,11 @@ class _TestTCP:
             data = await reader.readexactly(4)
             self.assertEqual(data, b'AAAA')
             writer.write(b'OK')
+
+            data = await reader.readexactly(4)
+            self.assertEqual(data, b'BBBB')
+            writer.write(b'SPAM')
+
             await writer.drain()
             writer.close()
 
@@ -27,9 +32,14 @@ class _TestTCP:
             with sock:
                 sock.setblocking(False)
                 await self.loop.sock_connect(sock, addr)
+
                 await self.loop.sock_sendall(sock, b'AAAA')
                 data = await self.loop.sock_recv(sock, 2)
                 self.assertEqual(data, b'OK')
+
+                await self.loop.sock_sendall(sock, b'BBBB')
+                data = await self.loop.sock_recv(sock, 4)
+                self.assertEqual(data, b'SPAM')
 
         async def start_server():
             try:
