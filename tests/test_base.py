@@ -214,7 +214,7 @@ class _TestBase:
             self.loop.run_forever()
             log.assert_called_with(
                 self.mock_pattern('Exception in callback.*zero'),
-                exc_info=(ZeroDivisionError, mock.ANY, mock.ANY))
+                exc_info=mock.ANY)
 
         # Test call_later (events.TimerHandle)
         with mock.patch.object(logger, 'error') as log:
@@ -224,7 +224,7 @@ class _TestBase:
             self.loop.run_forever()
             log.assert_called_with(
                 self.mock_pattern('Exception in callback.*zero'),
-                exc_info=(ZeroDivisionError, mock.ANY, mock.ANY))
+                exc_info=mock.ANY)
 
     def test_set_exc_handler_custom(self):
         logger = logging.getLogger('asyncio')
@@ -253,7 +253,7 @@ class _TestBase:
             run_loop()
             log.assert_called_with(
                         self.mock_pattern('Exception in callback.*zero'),
-                        exc_info=(ZeroDivisionError, mock.ANY, mock.ANY))
+                        exc_info=mock.ANY)
 
         self.assertEqual(len(errors), 1)
 
@@ -278,7 +278,7 @@ class _TestBase:
             run_loop()
             log.assert_called_with(
                 self.mock_pattern('Unhandled error in exception handler'),
-                exc_info=(AttributeError, mock.ANY, mock.ANY))
+                exc_info=mock.ANY)
 
     def test_default_exc_handler_broken(self):
         logger = logging.getLogger('asyncio')
