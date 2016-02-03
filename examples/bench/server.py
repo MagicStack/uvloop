@@ -27,11 +27,11 @@ async def echo_server(loop, address):
 
 async def echo_client(loop, client):
     with client:
-         while True:
-             data = await loop.sock_recv(client, 10000)
-             if not data:
-                  break
-             await loop.sock_sendall(client, data)
+        while True:
+            data = await loop.sock_recv(client, 10000)
+            if not data:
+                break
+            await loop.sock_sendall(client, data)
     if PRINT:
         print('Connection closed')
 
@@ -48,7 +48,7 @@ async def echo_client_streams(reader, writer):
          await writer.drain()
     if PRINT:
         print('Connection closed')
-        writer.close()
+    writer.close()
 
 
 async def print_debug(loop):
@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--uvloop', default=False, action='store_true')
     parser.add_argument('--streams', default=False, action='store_true')
+    parser.add_argument('--addr', default='127.0.0.1:25000', type=str)
     parser.add_argument('--print', default=False, action='store_true')
     args = parser.parse_args()
 
@@ -82,14 +83,20 @@ if __name__ == '__main__':
         loop.create_task(print_debug(loop))
         PRINT = 0
 
+    addr = args.addr.split(':')
+    addr[1] = int(addr[1])
+    addr = tuple(addr)
+    print('serving on: {}'.format(addr))
+
     if args.streams:
         print('using asyncio/streams')
         coro = asyncio.start_server(echo_client_streams,
-                                    '127.0.0.1', 25000, loop=loop)
+                                    *addr,
+                                    loop=loop)
         loop.create_task(coro)
     else:
         print('using sock_recv/sock_sendall')
-        loop.create_task(echo_server(loop, ('', 25000)))
+        loop.create_task(echo_server(loop, addr))
     try:
         loop.run_forever()
     finally:

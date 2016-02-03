@@ -18,8 +18,14 @@ if __name__ == '__main__':
                         help='number of times to run the test')
     parser.add_argument('--workers', default=3, type=int,
                         help='number of workers')
+    parser.add_argument('--addr', default='127.0.0.1:25000', type=str,
+                        help='number of workers')
     args = parser.parse_args()
 
+    addr = args.addr.split(':')
+    addr[1] = int(addr[1])
+    addr = tuple(addr)
+    print('will connect to: {}'.format(addr))
 
     MSGSIZE = args.msize
 
@@ -28,7 +34,7 @@ if __name__ == '__main__':
     def run_test(n):
         print('Sending', NMESSAGES, 'messages')
         sock = socket(AF_INET, SOCK_STREAM)
-        sock.connect(('localhost', 25000))
+        sock.connect(addr)
         while n > 0:
             sock.sendall(msg)
             nrecv = 0
