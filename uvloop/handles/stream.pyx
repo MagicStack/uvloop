@@ -214,6 +214,11 @@ cdef class UVStream(UVHandle):
 
         return self.__cached_socket
 
+    cdef inline size_t _get_write_buffer_size(self):
+        if self._handle is NULL:
+            return 0
+        return (<uv.uv_stream_t*>self._handle).write_queue_size
+
     cdef _close(self):
         self.__reading_stopped()
         UVHandle._close(self)

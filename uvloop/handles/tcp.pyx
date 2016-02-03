@@ -149,11 +149,6 @@ cdef class UVServerTransport(UVTcpStream):
     cdef _on_write(self):
         self._maybe_resume_protocol()
 
-    cdef inline size_t _get_write_buffer_size(self):
-        if self._handle is NULL:
-            return 0
-        return (<uv.uv_stream_t*>self._handle).write_queue_size
-
     cdef _set_write_buffer_limits(self, int high=-1, int low=-1):
         if high == -1:
             if low == -1:
