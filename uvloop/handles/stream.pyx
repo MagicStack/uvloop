@@ -408,6 +408,12 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
     ctx.close()
 
+    if stream._closed:
+        # The stream was closed, there is nothing to do.
+        # Even if there is an error, like EPIPE, there
+        # is no reason to report it.
+        return
+
     if status < 0:
         IF DEBUG:
             stream._loop._debug_stream_write_errors_total += 1
