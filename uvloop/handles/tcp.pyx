@@ -300,6 +300,13 @@ cdef class UVServerTransport(UVTcpStream):
     def get_extra_info(self, name, default=None):
         if name == 'socket':
             return self._get_socket()
+        if name == 'sockname':
+            return self._get_socket().getsockname()
+        if name == 'peername':
+            try:
+                return self._get_socket().getpeername()
+            except socket_error:
+                return default
         return default
 
     def abort(self):
