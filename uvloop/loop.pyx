@@ -481,7 +481,7 @@ cdef class Loop:
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
 
-    cdef _sock_recv(self, fut, registered, sock, n):
+    cdef _sock_recv(self, fut, int registered, sock, n):
         # _sock_recv() can add itself as an I/O callback if the operation can't
         # be done immediately. Don't use it directly, call sock_recv().
         cdef:
@@ -504,7 +504,7 @@ cdef class Loop:
                 "Loop._sock_recv",
                 <method4_t*>&self._sock_recv,
                 self,
-                fut, True, sock, n)
+                fut, 1, sock, n)
 
             self._add_reader(fd, handle)
         except Exception as exc:
@@ -515,7 +515,7 @@ cdef class Loop:
                     self._sock_try_read_total += 1
             fut.set_result(data)
 
-    cdef _sock_sendall(self, fut, registered, sock, data):
+    cdef _sock_sendall(self, fut, int registered, sock, data):
         cdef:
             Handle handle
 
@@ -551,11 +551,11 @@ cdef class Loop:
                 "Loop._sock_sendall",
                 <method4_t*>&self._sock_sendall,
                 self,
-                fut, True, sock, data)
+                fut, 1, sock, data)
 
             self._add_writer(fd, handle)
 
-    cdef _sock_accept(self, fut, registered, sock):
+    cdef _sock_accept(self, fut, int registered, sock):
         cdef:
             Handle handle
 
@@ -573,7 +573,7 @@ cdef class Loop:
                 "Loop._sock_accept",
                 <method3_t*>&self._sock_accept,
                 self,
-                fut, True, sock)
+                fut, 1, sock)
 
             self._add_reader(fd, handle)
         except Exception as exc:
@@ -804,8 +804,6 @@ cdef class Loop:
         self._check_closed()
         if self._task_factory is None:
             task = aio_Task(coro, loop=self)
-            if task._source_traceback:
-                del task._source_traceback[-1]
         else:
             task = self._task_factory(self, coro)
         return task
@@ -919,12 +917,7 @@ cdef class Loop:
             message = 'Unhandled exception in event loop'
 
         exception = context.get('exception')
-        if exception is not None:
-            exc_info = (type(exception), exception, exception.__traceback__)
-        else:
-            exc_info = False
-
-        aio_logger.error(message, exc_info=exc_info)
+        aio_logger.error(message, exc_info=exception)
 
     def set_exception_handler(self, handler):
         if handler is not None and not callable(handler):
@@ -985,7 +978,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = aio_Future(loop=self)
-        self._sock_recv(fut, False, sock, n)
+        self._sock_recv(fut, 0, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
@@ -993,7 +986,7 @@ cdef class Loop:
             raise ValueError("the socket must be non-blocking")
         fut = aio_Future(loop=self)
         if data:
-            self._sock_sendall(fut, False, sock, data)
+            self._sock_sendall(fut, 0, sock, data)
         else:
             fut.set_result(None)
         return fut
@@ -1002,7 +995,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = aio_Future(loop=self)
-        self._sock_accept(fut, False, sock)
+        self._sock_accept(fut, 0, sock)
         return fut
 
     def sock_connect(self, sock, address):

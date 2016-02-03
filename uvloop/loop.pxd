@@ -143,9 +143,9 @@ cdef class Loop:
     cdef _add_writer(self, fd, Handle handle)
     cdef _remove_writer(self, fd)
 
-    cdef _sock_recv(self, fut, registered, sock, n)
-    cdef _sock_sendall(self, fut, registered, sock, data)
-    cdef _sock_accept(self, fut, registered, sock)
+    cdef _sock_recv(self, fut, int registered, sock, n)
+    cdef _sock_sendall(self, fut, int registered, sock, data)
+    cdef _sock_accept(self, fut, int registered, sock)
 
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
