@@ -220,11 +220,14 @@ cdef class UVStream(UVHandle):
         return (<uv.uv_stream_t*>self._handle).write_queue_size
 
     cdef _close(self):
-        self.__reading_stopped()
-        UVHandle._close(self)
-        if self.__cached_socket is not None:
-            self.__cached_socket.close()
-            self.__cached_socket = None
+        try:
+            self._stop_reading()
+
+            if self.__cached_socket is not None:
+                self.__cached_socket.close()
+                self.__cached_socket = None
+        finally:
+            UVHandle._close(<UVHandle>self)
 
     # Methods to override.
 
