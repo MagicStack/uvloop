@@ -22,7 +22,7 @@ compile: clean
 
 debug: clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
-	cython -3 -a uvloop/loop.pyx; rm uvloop/__debug.*
+	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
 	python3 setup.py build_ext --inplace
 
 
