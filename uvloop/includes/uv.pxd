@@ -8,6 +8,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_EBUSY
     cdef int UV_ECANCELED
     cdef int UV_EOF
+    cdef int UV_ECONNRESET
 
 
     cdef int SOL_SOCKET
