@@ -40,14 +40,13 @@ cdef class Handle:
         cb_type = self.cb_type
         self.done = 1
 
-        IF DEBUG:
-            if old_exec_py_code == 1:
-                raise RuntimeError('Python exec-mode before Handle._run')
-
         Py_INCREF(self)   # Since _run is a cdef and there's no BoundMethod,
                           # we guard 'self' manually (since the callback
                           # might cause GC of the handle.)
         old_exec_py_code = self.loop._executing_py_code
+        IF DEBUG:
+            if old_exec_py_code == 1:
+                raise RuntimeError('Python exec-mode before Handle._run')
         self.loop._executing_py_code = 1
         try:
             if cb_type == 1:
@@ -175,13 +174,12 @@ cdef class TimerHandle:
         args = self.args
         self._cancel()
 
-        IF DEBUG:
-            if old_exec_py_code == 1:
-                raise RuntimeError('Python exec-mode before TimerHandle._run')
-
         Py_INCREF(self)  # Since _run is a cdef and there's no BoundMethod,
                          # we guard 'self' manually.
         old_exec_py_code = self.loop._executing_py_code
+        IF DEBUG:
+            if old_exec_py_code == 1:
+                raise RuntimeError('Python exec-mode before TimerHandle._run')
         self.loop._executing_py_code = 1
         try:
             if args is not None:
