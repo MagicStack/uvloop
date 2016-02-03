@@ -39,6 +39,7 @@ cdef class UVServerTransport(UVTcpStream):
 
         bint flow_control_enabled
         bint protocol_paused
+        bint con_closed_scheduled
 
         size_t high_water
         size_t low_water
@@ -61,7 +62,11 @@ cdef class UVServerTransport(UVTcpStream):
     cdef _maybe_resume_protocol(self)
 
     cdef _fatal_error(self, exc, throw)
+
     cdef _call_connection_lost(self, exc)
+    cdef _schedule_call_connection_lost(self, exc)
+
+    cdef _close(self)
 
     @staticmethod
     cdef UVServerTransport new(Loop loop, object protocol, Server server)

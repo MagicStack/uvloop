@@ -104,6 +104,7 @@ cdef class UVServerTransport(UVTcpStream):
 
         self.eof = 0
         self.reading = 0
+        self.con_closed_scheduled = 0
 
         # Flow control
         self.flow_control_enabled = 1
@@ -228,14 +229,27 @@ cdef class UVServerTransport(UVTcpStream):
                 server._detach()
                 self.host_server = None
 
-    cdef _fatal_error(self, exc, throw):
-        UVHandle._fatal_error(<UVHandle>self, exc, throw)
+    cdef _schedule_call_connection_lost(self, exc):
+        if self.con_closed_scheduled:
+            return
+        self.con_closed_scheduled = 1
 
         self._loop._call_soon_handle(
             new_MethodHandle1(self._loop,
                               "UVServerTransport._call_connection_lost",
                               <method1_t*>&self._call_connection_lost,
                               self, exc))
+
+    cdef _fatal_error(self, exc, throw):
+        self._schedule_call_connection_lost(exc)
+        UVHandle._fatal_error(<UVHandle>self, exc, throw)
+
+    cdef _close(self):
+        try:
+            if self._is_alive():
+                self._schedule_call_connection_lost(None)
+        finally:
+            UVStream._close(<UVStream>self)
 
     # Public API
 
@@ -263,27 +277,6 @@ cdef class UVServerTransport(UVTcpStream):
     def can_write_eof(self):
         return True
 
-    def is_flow_control_enabled(self):
-        if self.flow_control_enabled == 1:
-            return True
-        else:
-            return False
-
-    def enable_flow_control(self):
-        self.flow_control_enabled = 1
-        self._maybe_pause_protocol()
-
-    def disable_flow_control(self):
-        if self.flow_control_enabled == 0:
-            return
-
-        try:
-            if self.protocol_paused == 1:
-                self.protocol_paused = 0
-                self.prototol.resume_writing()
-        finally:
-            self.flow_control_enabled = 0
-
     def pause_reading(self):
         self._stop_reading()
 
@@ -310,7 +303,14 @@ cdef class UVServerTransport(UVTcpStream):
         return default
 
     def abort(self):
-        self._close() # TODO?
+        # TODO
+        # This is probably correct -- we should close the transport
+        # right away
+        self._close()
 
     def close(self):
+        # This isn't correct.
+        # We should stop reading; if the write-buffer isn't
+        # empty - we should let it be sent, and only after
+        # that we close
         self._close() # TODO
