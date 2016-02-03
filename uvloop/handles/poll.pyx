@@ -158,13 +158,21 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
 
     if (events | uv.UV_READABLE) and poll.reading_handle is not None:
         try:
+            IF DEBUG:
+                poll._loop._poll_read_events_total += 1
             poll.reading_handle._run()
         except BaseException as ex:
+            IF DEBUG:
+                poll._loop._poll_read_cb_errors_total += 1
             poll._error(ex, False)
             # continue code execution
 
     if (events | uv.UV_WRITABLE) and poll.writing_handle is not None:
         try:
+            IF DEBUG:
+                poll._loop._poll_write_events_total += 1
             poll.writing_handle._run()
         except BaseException as ex:
+            IF DEBUG:
+                poll._loop._poll_write_cb_errors_total += 1
             poll._error(ex, False)

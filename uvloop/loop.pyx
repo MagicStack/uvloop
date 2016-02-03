@@ -81,17 +81,39 @@ cdef class Loop:
         IF DEBUG:
             self._debug_cc = True
 
-            self._debug_handles_count = col_Counter()
+            self._debug_handles_current = col_Counter()
+            self._debug_handles_closed = col_Counter()
             self._debug_handles_total = col_Counter()
 
+            self._debug_stream_read_cb_total = 0
+            self._debug_stream_read_eof_total = 0
+            self._debug_stream_read_errors_total = 0
+            self._debug_stream_read_cb_errors_total = 0
+            self._debug_stream_read_eof_cb_errors_total = 0
+
+            self._debug_stream_shutdown_errors_total = 0
+            self._debug_stream_listen_errors_total = 0
+
+            self._debug_stream_write_errors_total = 0
             self._debug_stream_write_ctx_total = 0
             self._debug_stream_write_ctx_cnt = 0
+            self._debug_stream_write_cb_errors_total = 0
 
             self._debug_cb_handles_total = 0
             self._debug_cb_handles_count = 0
 
             self._debug_cb_timer_handles_total = 0
             self._debug_cb_timer_handles_count = 0
+
+            self._poll_read_events_total = 0
+            self._poll_read_cb_errors_total = 0
+            self._poll_write_events_total = 0
+            self._poll_write_cb_errors_total = 0
+
+            self._sock_try_read_total = 0
+            self._sock_try_write_total = 0
+
+            self._debug_exception_handler_cnt = 0
 
         self._last_error = None
 
@@ -488,6 +510,9 @@ cdef class Loop:
         except Exception as exc:
             fut.set_exception(exc)
         else:
+            IF DEBUG:
+                if not registered:
+                    self._sock_try_read_total += 1
             fut.set_result(data)
 
     cdef _sock_sendall(self, fut, registered, sock, data):
@@ -508,6 +533,12 @@ cdef class Loop:
         except Exception as exc:
             fut.set_exception(exc)
             return
+        else:
+            IF DEBUG:
+                if not registered:
+                    # This can be a partial success, i.e. only part
+                    # of the data was sent
+                    self._sock_try_write_total += 1
 
         if n == len(data):
             fut.set_result(None)
@@ -594,8 +625,6 @@ cdef class Loop:
         else:
             fut.set_result(None)
 
-    # Public API
-
     IF DEBUG:
         def print_debug_info(self):
             cdef:
@@ -608,39 +637,83 @@ cdef class Loop:
             ################### OS
 
             print('---- Process info: -----')
-            print('Process memory:    ', rusage.ru_maxrss)
-            print('Number of signals: ', rusage.ru_nsignals)
+            print('Process memory:            {}'.format(rusage.ru_maxrss))
+            print('Number of signals:         {}'.format(rusage.ru_nsignals))
             print('')
 
             ################### Loop
 
             print('--- Loop debug info: ---')
-            print('Loop time:        {}'.format(self.time()))
+            print('Loop time:                 {}'.format(self.time()))
+            print('Errors logged:             {}'.format(
+                self._debug_exception_handler_cnt))
             print()
-
-            print('UVHandles (current | total):')
-            for name in sorted(self._debug_handles_total):
-                print('    {: <18} {: >5} | {}'.format(
-                    name,
-                    self._debug_handles_count[name],
-                    self._debug_handles_total[name]))
-            print()
-
-            print('Write contexts:   {: >5} | {}'.format(
-                self._debug_stream_write_ctx_cnt,
-                self._debug_stream_write_ctx_total))
-            print()
-
-            print('Callback handles: {: >5} | {}'.format(
+            print('Callback handles:          {: <8} | {}'.format(
                 self._debug_cb_handles_count,
                 self._debug_cb_handles_total))
-            print('Timer handles:    {: >5} | {}'.format(
+            print('Timer handles:             {: <8} | {}'.format(
                 self._debug_cb_timer_handles_count,
                 self._debug_cb_timer_handles_total))
             print()
 
-            print('------------------------')
+            print('                        alive  | closed  |')
+            print('UVHandles               python | libuv   | total')
+            print('                        objs   | handles |')
+            print('-------------------------------+---------+---------')
+            for name in sorted(self._debug_handles_total):
+                print('    {: <18} {: >7} | {: >7} | {: >7}'.format(
+                    name,
+                    self._debug_handles_current[name],
+                    self._debug_handles_closed[name],
+                    self._debug_handles_total[name]))
+            print()
+
+            print('--- Streams debug info: ---')
+            print('Write errors:              {}'.format(
+                self._debug_stream_write_errors_total))
+            print('Write contexts:            {: <8} | {}'.format(
+                self._debug_stream_write_ctx_cnt,
+                self._debug_stream_write_ctx_total))
+            print('Write failed callbacks:    {}'.format(
+                self._debug_stream_write_cb_errors_total))
+            print()
+            print('Read errors:               {}'.format(
+                self._debug_stream_read_errors_total))
+            print('Read callbacks:            {}'.format(
+                self._debug_stream_read_cb_total))
+            print('Read failed callbacks:     {}'.format(
+                self._debug_stream_read_cb_errors_total))
+            print('Read EOFs:                 {}'.format(
+                self._debug_stream_read_eof_total))
+            print('Read EOF failed callbacks: {}'.format(
+                self._debug_stream_read_eof_cb_errors_total))
+            print()
+            print('Listen errors:             {}'.format(
+                self._debug_stream_listen_errors_total))
+            print('Shutdown errors            {}'.format(
+                self._debug_stream_shutdown_errors_total))
+            print()
+
+            print('--- Polls debug info: ---')
+            print('Read events:               {}'.format(
+                self._poll_read_events_total))
+            print('Read callbacks failed:     {}'.format(
+                self._poll_read_cb_errors_total))
+            print('Write events:              {}'.format(
+                self._poll_write_events_total))
+            print('Write callbacks failed:    {}'.format(
+                self._poll_write_cb_errors_total))
+            print()
+
+            print('--- Sock ops successfull on 1st try: ---')
+            print('Socket try-reads:          {}'.format(
+                self._sock_try_read_total))
+            print('Socket try-writes:         {}'.format(
+                self._sock_try_write_total))
+
             print(flush=True)
+
+    # Public API
 
     def __repr__(self):
         return ('<%s running=%s closed=%s debug=%s>'
@@ -860,6 +933,9 @@ cdef class Loop:
         self._exception_handler = handler
 
     def call_exception_handler(self, context):
+        IF DEBUG:
+            self._debug_exception_handler_cnt += 1
+
         if self._exception_handler is None:
             try:
                 self.default_exception_handler(context)

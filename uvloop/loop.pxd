@@ -73,15 +73,37 @@ cdef class Loop:
                                      # Only for unittests.
 
             readonly object _debug_handles_total
-            readonly object _debug_handles_count
+            readonly object _debug_handles_closed
+            readonly object _debug_handles_current
 
             readonly uint64_t _debug_cb_handles_total
             readonly uint64_t _debug_cb_handles_count
             readonly uint64_t _debug_cb_timer_handles_total
             readonly uint64_t _debug_cb_timer_handles_count
 
+            readonly uint64_t _debug_stream_shutdown_errors_total
+            readonly uint64_t _debug_stream_listen_errors_total
+
+            readonly uint64_t _debug_stream_read_cb_total
+            readonly uint64_t _debug_stream_read_cb_errors_total
+            readonly uint64_t _debug_stream_read_eof_total
+            readonly uint64_t _debug_stream_read_eof_cb_errors_total
+            readonly uint64_t _debug_stream_read_errors_total
+
+            readonly uint64_t _debug_stream_write_errors_total
             readonly uint64_t _debug_stream_write_ctx_total
             readonly uint64_t _debug_stream_write_ctx_cnt
+            readonly uint64_t _debug_stream_write_cb_errors_total
+
+            readonly uint64_t _poll_read_events_total
+            readonly uint64_t _poll_read_cb_errors_total
+            readonly uint64_t _poll_write_events_total
+            readonly uint64_t _poll_write_cb_errors_total
+
+            readonly uint64_t _sock_try_read_total
+            readonly uint64_t _sock_try_write_total
+
+            readonly uint64_t _debug_exception_handler_cnt
 
     cdef _on_wake(self)
     cdef _on_idle(self)

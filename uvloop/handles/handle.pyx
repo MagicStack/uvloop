@@ -29,7 +29,7 @@ cdef class UVHandle:
     def __dealloc__(self):
         IF DEBUG:
             if self._loop is not None:
-                self._loop._debug_handles_count.subtract([
+                self._loop._debug_handles_current.subtract([
                     self.__class__.__name__])
             else:
                 # No "@cython.no_gc_clear" decorator on this UVHandle
@@ -72,7 +72,7 @@ cdef class UVHandle:
 
             cls_name = self.__class__.__name__
             loop._debug_handles_total.update([cls_name])
-            loop._debug_handles_count.update([cls_name])
+            loop._debug_handles_current.update([cls_name])
 
         self._loop = loop
 
@@ -218,6 +218,9 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
     elif <object>handle.data is not __NOHANDLE__:
         h = <UVHandle>handle.data
         h._handle = NULL
+        IF DEBUG:
+            h._loop._debug_handles_closed.update([
+                h.__class__.__name__])
         Py_DECREF(h) # Was INCREFed in UVHandle._close
 
     PyMem_Free(handle)

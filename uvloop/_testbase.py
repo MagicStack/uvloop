@@ -41,9 +41,14 @@ class BaseTestCase(unittest.TestCase):
             self.assertEqual(self.loop._debug_cb_timer_handles_count, 0)
             self.assertEqual(self.loop._debug_stream_write_ctx_cnt, 0)
 
-            for h_name, h_cnt in self.loop._debug_handles_count.items():
+            for h_name, h_cnt in self.loop._debug_handles_current.items():
                 with self.subTest(handle_name=h_name):
                     self.assertEqual(h_cnt, 0)
+
+            for h_name, h_cnt in self.loop._debug_handles_total.items():
+                with self.subTest(handle_name=h_name):
+                    self.assertEqual(
+                        h_cnt, self.loop._debug_handles_closed[h_name])
 
         asyncio.set_event_loop(None)
         self.loop = None

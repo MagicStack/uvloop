@@ -265,6 +265,9 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
     cdef UVStream stream = <UVStream> req.data
 
     if status < 0:
+        IF DEBUG:
+            stream._loop._debug_stream_shutdown_errors_total += 1
+
         exc = convert_error(status)
         stream._fatal_error(exc, False)
         return
@@ -288,6 +291,9 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
         UVStream stream = <UVStream> handle.data
 
     if status < 0:
+        IF DEBUG:
+            stream._loop._debug_stream_listen_errors_total += 1
+
         exc = convert_error(status)
         stream._fatal_error(exc, False)
         return
@@ -312,7 +318,14 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
         UVStream sc = <UVStream>stream.data
         Loop loop = sc._loop
 
+    # It's OK to free the buffer early, since nothing will
+    # be able to touch it until this method is done.
     __loop_free_buffer(loop)
+
+    if sc._closed:
+        # The stream was closed, there is no reason to
+        # do any work now.
+        return
 
     if nread == uv.UV_EOF:
         # From libuv docs:
@@ -320,9 +333,15 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
         #     when an error happens by calling uv_read_stop() or uv_close().
         #     Trying to read from the stream again is undefined.
         try:
+            IF DEBUG:
+                loop._debug_stream_read_eof_total += 1
+
             sc._stop_reading()
             sc._on_eof()
         except BaseException as ex:
+            IF DEBUG:
+                loop._debug_stream_read_eof_cb_errors_total += 1
+
             sc._error(ex, False)
         finally:
             return
@@ -343,13 +362,22 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
         # doesn't raise exceptions unless uvloop is built with DEBUG=1,
         # we don't need try...finally here.
 
+        IF DEBUG:
+            loop._debug_stream_read_errors_total += 1
+
         exc = convert_error(nread)
         sc._fatal_error(exc, False)
         return
 
     try:
+        IF DEBUG:
+            loop._debug_stream_read_cb_total += 1
+
         sc._on_read(loop._recv_buffer[:nread])
     except BaseException as exc:
+        IF DEBUG:
+            loop._debug_stream_read_cb_errors_total += 1
+
         sc._error(exc, False)
 
 
@@ -373,6 +401,9 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
     ctx.close()
 
     if status < 0:
+        IF DEBUG:
+            stream._loop._debug_stream_write_errors_total += 1
+
         exc = convert_error(status)
         stream._fatal_error(exc, False)
         return
@@ -382,4 +413,7 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
         if callback is not None:
             callback()
     except BaseException as exc:
+        IF DEBUG:
+            stream._loop._debug_stream_write_cb_errors_total += 1
+
         stream._error(exc, False)
