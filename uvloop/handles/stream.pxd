@@ -20,7 +20,7 @@ cdef class UVStream(UVHandle):
     cdef bint _is_readable(self)
     cdef bint _is_writable(self)
 
-    cdef _write(self, object data, object callback)
+    cdef _write(self, object data)
     cdef inline size_t _get_write_buffer_size(self)
 
     cdef _close(self)

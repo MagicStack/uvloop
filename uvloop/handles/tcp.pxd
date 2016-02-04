@@ -55,7 +55,7 @@ cdef class UVServerTransport(UVTcpStream):
     cdef _on_accept(self)
     cdef _on_write(self)
 
-    cdef _write(self, object data, object callback)
+    cdef _write(self, object data)
 
     cdef _set_write_buffer_limits(self, int high=*, int low=*)
     cdef _maybe_pause_protocol(self)

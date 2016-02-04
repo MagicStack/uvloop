@@ -13,7 +13,6 @@ cdef class _StreamWriteContext:
         uv.uv_buf_t     uv_buf
         Py_buffer       py_buf
 
-        object          callback
         UVStream        stream
 
         bint            closed
@@ -23,7 +22,6 @@ cdef class _StreamWriteContext:
             return
 
         self.closed = 1
-        self.callback = None
         PyBuffer_Release(&self.py_buf)  # void
         self.req.data = NULL
         Py_DECREF(self)
@@ -31,7 +29,7 @@ cdef class _StreamWriteContext:
             self.stream = None
 
     @staticmethod
-    cdef _StreamWriteContext new(UVStream stream, object data, object callback):
+    cdef _StreamWriteContext new(UVStream stream, object data):
         cdef _StreamWriteContext ctx
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
 
@@ -41,7 +39,6 @@ cdef class _StreamWriteContext:
         PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
         ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
         ctx.stream = stream
-        ctx.callback = callback
 
         ctx.closed = 0
 
@@ -159,14 +156,14 @@ cdef class UVStream(UVHandle):
     cdef bint _is_writable(self):
         return uv.uv_is_writable(<uv.uv_stream_t*>self._handle)
 
-    cdef _write(self, object data, object callback):
+    cdef _write(self, object data):
         cdef:
             int err
             _StreamWriteContext ctx
 
         self._ensure_alive()
 
-        ctx = _StreamWriteContext.new(self, data, callback)
+        ctx = _StreamWriteContext.new(self, data)
 
         err = uv.uv_write(&ctx.req,
                           <uv.uv_stream_t*>self._handle,
@@ -404,7 +401,6 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
     cdef:
         _StreamWriteContext ctx = <_StreamWriteContext> req.data
         UVStream stream = ctx.stream
-        object callback = ctx.callback
 
     ctx.close()
 
@@ -424,8 +420,6 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
     try:
         stream._on_write()
-        if callback is not None:
-            callback()
     except BaseException as exc:
         IF DEBUG:
             stream._loop._debug_stream_write_cb_errors_total += 1

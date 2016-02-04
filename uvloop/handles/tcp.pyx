@@ -143,8 +143,8 @@ cdef class UVServerTransport(UVTcpStream):
         else:
             self._close()
 
-    cdef _write(self, object data, object callback):
-        UVStream._write(self, data, callback)
+    cdef _write(self, object data):
+        UVStream._write(self, data)
         self._maybe_pause_protocol()
 
     cdef _on_write(self):
@@ -261,11 +261,11 @@ cdef class UVServerTransport(UVTcpStream):
         return (<UVHandle>self)._closed
 
     def write(self, object buf):
-        self._write(buf, None)
+        self._write(buf)
 
     def writelines(self, bufs):
         for buf in bufs:
-            self._write(buf, None)
+            self._write(buf)
 
     def write_eof(self):
         if self.eof == 1:
