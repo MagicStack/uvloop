@@ -3,15 +3,15 @@ cdef class UVTransport(UVStream):
         bint eof
         bint reading
 
-        bint flow_control_enabled
-        bint protocol_paused
+        size_t _high_water
+        size_t _low_water
+        bint _flow_control_enabled
+        bint _protocol_paused
+
         bint con_closed_scheduled
 
-        size_t high_water
-        size_t low_water
-
-        object protocol
-        object protocol_data_received
+        object _protocol
+        object _protocol_data_received
 
         Server host_server
 

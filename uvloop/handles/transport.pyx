@@ -1,44 +1,46 @@
 @cython.no_gc_clear
 cdef class UVTransport(UVStream):
     def __cinit__(self):
-        self.protocol = None
-        self.protocol_data_received = None
+        self._protocol = None
+        self._protocol_data_received = None
 
         self.eof = 0
         self.reading = 0
         self.con_closed_scheduled = 0
 
         # Flow control
-        self.flow_control_enabled = 1
-        self.protocol_paused = 0
-        self.high_water = FLOW_CONTROL_HIGH_WATER
-        self.low_water = FLOW_CONTROL_LOW_WATER
+        self._flow_control_enabled = 1
+        self._protocol_paused = 0
+        self._high_water = FLOW_CONTROL_HIGH_WATER
+        self._low_water = FLOW_CONTROL_LOW_WATER
+
+        self.host_server = None
 
     cdef _set_protocol(self, object protocol):
-        self.protocol = protocol
+        self._protocol = protocol
 
         # Store a reference to the bound method directly
-        self.protocol_data_received = protocol.data_received
+        self._protocol_data_received = protocol.data_received
 
     cdef _on_accept(self):
         # Implementation for UVStream._on_accept
 
         self._start_reading()
-        self._loop.call_soon(self.protocol.connection_made, self)
+        self._loop.call_soon(self._protocol.connection_made, self)
 
     cdef _on_read(self, bytes buf):
         # Implementation for UVStream._on_read
 
-        self.protocol_data_received(buf)
+        self._protocol_data_received(buf)
 
     cdef _on_eof(self):
         # Implementation for UVStream._on_eof
 
-        keep_open = self.protocol.eof_received()
+        keep_open = self._protocol.eof_received()
         if keep_open:
             self._stop_reading()
         else:
-            self._close()
+            self.close()
 
     cdef _write(self, object data):
         # Overloads UVStream._write
@@ -63,60 +65,60 @@ cdef class UVTransport(UVStream):
             raise ValueError('high (%r) must be >= low (%r) must be >= 0' %
                              (high, low))
 
-        self.high_water = high
-        self.low_water = low
+        self._high_water = high
+        self._low_water = low
 
         self._maybe_pause_protocol()
         self._maybe_resume_protocol()
 
     cdef _maybe_pause_protocol(self):
-        if self.flow_control_enabled == 0:
+        if not self._flow_control_enabled:
             return
 
         cdef:
             size_t size = self._get_write_buffer_size()
 
-        if size <= self.high_water:
+        if size <= self._high_water:
             return
 
-        if self.protocol_paused == 0:
-            self.protocol_paused = 1
+        if not self._protocol_paused:
+            self._protocol_paused = 1
             try:
-                self.protocol.pause_writing()
+                self._protocol.pause_writing()
             except Exception as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.pause_writing() failed',
                     'exception': exc,
                     'transport': self,
-                    'protocol': self.protocol,
+                    'protocol': self._protocol,
                 })
 
     cdef _maybe_resume_protocol(self):
-        if self.flow_control_enabled == 0:
+        if not self._flow_control_enabled:
             return
 
         cdef:
             size_t size = self._get_write_buffer_size()
 
-        if self.protocol_paused == 1 and size <= self.low_water:
-            self.protocol_paused = 0
+        if self._protocol_paused and size <= self._low_water:
+            self._protocol_paused = 0
             try:
-                self.protocol.resume_writing()
+                self._protocol.resume_writing()
             except Exception as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.resume_writing() failed',
                     'exception': exc,
                     'transport': self,
-                    'protocol': self.protocol,
+                    'protocol': self._protocol,
                 })
 
     cdef _call_connection_lost(self, exc):
         try:
-            if self.protocol is not None:
-                self.protocol.connection_lost(exc)
+            if self._protocol is not None:
+                self._protocol.connection_lost(exc)
         finally:
-            self.protocol = None
-            self.protocol_data_received = None
+            self._protocol = None
+            self._protocol_data_received = None
 
             # Although it's likely that the handler has been
             # closed already (by _fatal_error, for instance),
@@ -168,7 +170,7 @@ cdef class UVTransport(UVStream):
             self._write(buf)
 
     def write_eof(self):
-        if self.eof == 1:
+        if self.eof:
             return
         self.eof = 1
 
