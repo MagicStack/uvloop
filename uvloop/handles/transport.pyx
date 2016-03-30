@@ -14,7 +14,7 @@ cdef class UVTransport(UVStream):
         self._high_water = FLOW_CONTROL_HIGH_WATER
         self._low_water = FLOW_CONTROL_LOW_WATER
 
-        self.host_server = None
+        self._server = None
 
     cdef _set_protocol(self, object protocol):
         self._protocol = protocol
@@ -125,10 +125,10 @@ cdef class UVTransport(UVStream):
             # we want to make sure that it's closed.
             self._close()
 
-            server = self.host_server
+            server = self._server
             if server is not None:
                 server._detach()
-                self.host_server = None
+                self._server = None
 
     cdef _schedule_call_connection_lost(self, exc):
         if self.con_closed_scheduled:

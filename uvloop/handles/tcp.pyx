@@ -21,7 +21,7 @@ cdef __init_tcp_handle(UVStream handle, Loop loop):
 cdef class UVTCPServer(UVStream):
     def __cinit__(self):
         self.protocol_factory = None
-        self.host_server = None
+        self._server = None
         self.opened = 0
 
     @staticmethod
@@ -34,7 +34,7 @@ cdef class UVTCPServer(UVStream):
             raise RuntimeError('can only set protocol_factory once')
         handle.protocol_factory = protocol_factory
 
-        handle.host_server = server
+        handle._server = server
         return handle
 
     cdef open(self, int sockfd):
@@ -72,7 +72,7 @@ cdef class UVTCPServer(UVStream):
         # Implementation for UVStream._on_listen
 
         protocol = self.protocol_factory()
-        client = UVTCPTransport.new(self._loop, protocol, self.host_server)
+        client = UVTCPTransport.new(self._loop, protocol, self._server)
         client._accept(<UVStream>self)
 
 
@@ -84,7 +84,7 @@ cdef class UVTCPTransport(UVTransport):
         handle = UVTCPTransport.__new__(UVTCPTransport)
         __init_tcp_handle(<UVStream>handle, loop)
         handle._set_protocol(protocol)
-        handle.host_server = server
+        handle._server = server
         if server is not None:
             (<Server>server)._attach()
         return handle

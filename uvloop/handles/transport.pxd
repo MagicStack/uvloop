@@ -13,7 +13,7 @@ cdef class UVTransport(UVStream):
         object _protocol
         object _protocol_data_received
 
-        Server host_server
+        Server _server
 
     cdef _set_protocol(self, object protocol)
     cdef _set_write_buffer_limits(self, int high=*, int low=*)

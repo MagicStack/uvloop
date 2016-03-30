@@ -1,8 +1,8 @@
 cdef class UVTCPServer(UVStream):
     cdef:
         object protocol_factory
-        Server host_server
         bint opened
+        Server _server
 
     cdef open(self, int sockfd)
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
