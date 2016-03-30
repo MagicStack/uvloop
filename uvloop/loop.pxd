@@ -159,6 +159,7 @@ include "handles/timer.pxd"
 include "handles/signal.pxd"
 include "handles/poll.pxd"
 include "handles/stream.pxd"
+include "handles/transport.pxd"
 include "handles/tcp.pxd"
 
 include "request.pxd"

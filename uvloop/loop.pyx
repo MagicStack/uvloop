@@ -1059,6 +1059,7 @@ include "handles/timer.pyx"
 include "handles/signal.pyx"
 include "handles/poll.pyx"
 include "handles/stream.pyx"
+include "handles/transport.pyx"
 include "handles/tcp.pyx"
 
 include "request.pyx"
