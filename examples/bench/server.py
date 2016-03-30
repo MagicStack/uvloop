@@ -93,7 +93,7 @@ if __name__ == '__main__':
         coro = asyncio.start_server(echo_client_streams,
                                     *addr,
                                     loop=loop)
-        loop.create_task(coro)
+        srv = loop.run_until_complete(coro)
     else:
         print('using sock_recv/sock_sendall')
         loop.create_task(echo_server(loop, addr))

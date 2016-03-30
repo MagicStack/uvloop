@@ -12,6 +12,7 @@ cdef class UVStream(UVHandle):
     cdef _listen(self, int backlog)
     cdef _accept(self, UVStream server)
 
+    cdef bint _is_reading(self)
     cdef _start_reading(self)
     cdef _stop_reading(self)
     cdef __reading_started(self)

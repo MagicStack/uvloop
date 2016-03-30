@@ -103,6 +103,9 @@ cdef class UVStream(UVHandle):
 
         self._on_accept()
 
+    cdef bint _is_reading(self):
+        return self.__reading
+
     cdef _start_reading(self):
         cdef int err
         self._ensure_alive()

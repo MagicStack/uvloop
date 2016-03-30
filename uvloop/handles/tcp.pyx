@@ -84,7 +84,5 @@ cdef class UVTCPTransport(UVTransport):
         handle = UVTCPTransport.__new__(UVTCPTransport)
         __init_tcp_handle(<UVStream>handle, loop)
         handle._set_protocol(protocol)
-        handle._server = server
-        if server is not None:
-            (<Server>server)._attach()
+        handle._set_server(server)
         return handle
