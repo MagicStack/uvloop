@@ -1,4 +1,3 @@
-@cython.internal
 @cython.no_gc_clear
 cdef class UVSignal(UVHandle):
     cdef _init(self, method_t* callback, object ctx, int signum):

@@ -1,7 +1,6 @@
 cdef __NOHANDLE__ = object()
 
 
-@cython.internal
 @cython.no_gc_clear
 cdef class UVHandle:
     """A base class for all libuv handles.

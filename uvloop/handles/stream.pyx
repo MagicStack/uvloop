@@ -1,4 +1,3 @@
-@cython.internal
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class _StreamWriteContext:
@@ -60,7 +59,6 @@ cdef class _StreamWriteContext:
             self.stream = None
 
 
-@cython.internal
 @cython.no_gc_clear
 cdef class UVStream(UVHandle):
     def __cinit__(self):

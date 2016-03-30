@@ -1,4 +1,3 @@
-@cython.internal
 @cython.no_gc_clear
 cdef class UVPoll(UVHandle):
     cdef _init(self, int fd):

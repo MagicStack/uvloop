@@ -1,4 +1,3 @@
-@cython.internal
 @cython.no_gc_clear
 cdef class UVTcpStream(UVStream):
     cdef _init(self):
@@ -33,7 +32,6 @@ cdef class UVTcpStream(UVStream):
             raise convert_error(err)
 
 
-@cython.internal
 @cython.no_gc_clear
 cdef class UVTCPServer(UVTcpStream):
     cdef _init(self):

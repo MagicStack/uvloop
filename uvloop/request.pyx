@@ -1,4 +1,3 @@
-@cython.internal
 cdef class UVRequest:
     """A base class for all libuv requests (uv_getaddrinfo_t, etc).
 
