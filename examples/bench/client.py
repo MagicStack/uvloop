@@ -22,9 +22,14 @@ if __name__ == '__main__':
                         help='number of workers')
     args = parser.parse_args()
 
-    addr = args.addr.split(':')
-    addr[1] = int(addr[1])
-    addr = tuple(addr)
+    unix = False
+    if args.addr.startswith('file:'):
+        unix = True
+        addr = args.addr[5:]
+    else:
+        addr = args.addr.split(':')
+        addr[1] = int(addr[1])
+        addr = tuple(addr)
     print('will connect to: {}'.format(addr))
 
     MSGSIZE = args.msize
@@ -33,7 +38,10 @@ if __name__ == '__main__':
 
     def run_test(n):
         print('Sending', NMESSAGES, 'messages')
-        sock = socket(AF_INET, SOCK_STREAM)
+        if unix:
+            sock = socket(AF_UNIX, SOCK_STREAM)
+        else:
+            sock = socket(AF_INET, SOCK_STREAM)
         sock.connect(addr)
         while n > 0:
             sock.sendall(msg)

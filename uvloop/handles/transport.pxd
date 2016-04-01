@@ -15,6 +15,8 @@ cdef class UVTransport(UVStream):
 
         Server _server
 
+    cdef _init(self, Loop loop, object protocol, Server server)
+
     cdef _set_protocol(self, object protocol)
     cdef _set_server(self, Server server)
 

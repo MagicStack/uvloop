@@ -45,6 +45,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
 
     ctypedef struct uv_os_sock_t
+    ctypedef struct uv_file
     ctypedef struct uv_os_fd_t    # not really a struct; tricking Cython here.
 
     ctypedef struct uv_buf_t:
@@ -87,6 +88,11 @@ cdef extern from "../vendor/libuv/include/uv.h":
         # ...
 
     ctypedef struct uv_tcp_t:
+        void* data
+        uv_loop_t* loop
+        # ...
+
+    ctypedef struct uv_pipe_t:
         void* data
         uv_loop_t* loop
         # ...
@@ -260,6 +266,12 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     int uv_tcp_getsockname(const uv_tcp_t* handle, system.sockaddr* name,
                            int* namelen)
+
+    # Pipes
+
+    int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc)
+    int uv_pipe_open(uv_pipe_t* handle, uv_file file)
+    int uv_pipe_bind(uv_pipe_t* handle, const char* name)
 
     # Polling
 

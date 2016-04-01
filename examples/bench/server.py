@@ -9,9 +9,12 @@ from socket import *
 PRINT = 0
 
 
-async def echo_server(loop, address):
-    sock = socket(AF_INET, SOCK_STREAM)
-    sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+async def echo_server(loop, address, unix):
+    if unix:
+        sock = socket(AF_UNIX, SOCK_STREAM)
+    else:
+        sock = socket(AF_INET, SOCK_STREAM)
+        sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     sock.bind(address)
     sock.listen(5)
     sock.setblocking(False)
@@ -83,20 +86,29 @@ if __name__ == '__main__':
         loop.create_task(print_debug(loop))
         PRINT = 0
 
-    addr = args.addr.split(':')
-    addr[1] = int(addr[1])
-    addr = tuple(addr)
+    unix = False
+    if args.addr.startswith('file:'):
+        unix = True
+        addr = args.addr[5:]
+    else:
+        addr = args.addr.split(':')
+        addr[1] = int(addr[1])
+        addr = tuple(addr)
+
     print('serving on: {}'.format(addr))
 
     if args.streams:
         print('using asyncio/streams')
-        coro = asyncio.start_server(echo_client_streams,
-                                    *addr,
-                                    loop=loop)
+        if unix:
+            coro = asyncio.start_unix_server(echo_client_streams,
+                                             addr, loop=loop)
+        else:
+            coro = asyncio.start_server(echo_client_streams,
+                                        *addr, loop=loop)
         srv = loop.run_until_complete(coro)
     else:
         print('using sock_recv/sock_sendall')
-        loop.create_task(echo_server(loop, addr))
+        loop.create_task(echo_server(loop, addr), unix)
     try:
         loop.run_forever()
     finally:

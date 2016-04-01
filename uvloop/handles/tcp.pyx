@@ -1,7 +1,5 @@
-cdef __init_tcp_handle(UVStream handle, Loop loop):
+cdef __init_tcp_uv_handle(UVStream handle, Loop loop):
     cdef int err
-
-    handle._set_loop(loop)
 
     handle._handle = <uv.uv_handle_t*> \
                         PyMem_Malloc(sizeof(uv.uv_tcp_t))
@@ -18,23 +16,14 @@ cdef __init_tcp_handle(UVStream handle, Loop loop):
 
 
 @cython.no_gc_clear
-cdef class UVTCPServer(UVStream):
-    def __cinit__(self):
-        self.protocol_factory = None
-        self._server = None
-        self.opened = 0
+cdef class UVTCPServer(UVStreamServer):
 
     @staticmethod
     cdef UVTCPServer new(Loop loop, object protocol_factory, Server server):
         cdef UVTCPServer handle
         handle = UVTCPServer.__new__(UVTCPServer)
-        __init_tcp_handle(<UVStream>handle, loop)
-
-        if handle.protocol_factory is not None:
-            raise RuntimeError('can only set protocol_factory once')
-        handle.protocol_factory = protocol_factory
-
-        handle._server = server
+        handle._init(loop, protocol_factory, server)
+        __init_tcp_uv_handle(<UVStream>handle, loop)
         return handle
 
     cdef open(self, int sockfd):
@@ -59,30 +48,19 @@ cdef class UVTCPServer(UVStream):
             return
         self.opened = 1
 
-    cdef listen(self, int backlog=100):
-        if self.protocol_factory is None:
-            raise RuntimeError('unable to listen(); no protocol_factory')
-
-        if self.opened != 1:
-            raise RuntimeError('unopened UVTCPServer')
-
-        self._listen(backlog)
-
-    cdef _on_listen(self):
-        # Implementation for UVStream._on_listen
-
-        protocol = self.protocol_factory()
-        client = UVTCPTransport.new(self._loop, protocol, self._server)
-        client._accept(<UVStream>self)
+    cdef UVTransport _make_new_transport(self, object protocol):
+        cdef UVTCPTransport tr
+        tr = UVTCPTransport.new(self._loop, protocol, self._server)
+        return <UVTransport>tr
 
 
 @cython.no_gc_clear
 cdef class UVTCPTransport(UVTransport):
+
     @staticmethod
     cdef UVTCPTransport new(Loop loop, object protocol, Server server):
         cdef UVTCPTransport handle
         handle = UVTCPTransport.__new__(UVTCPTransport)
-        __init_tcp_handle(<UVStream>handle, loop)
-        handle._set_protocol(protocol)
-        handle._set_server(server)
+        handle._init(loop, protocol, server)
+        __init_tcp_uv_handle(<UVStream>handle, loop)
         return handle

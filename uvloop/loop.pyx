@@ -911,6 +911,20 @@ cdef class Loop:
 
         return server
 
+    @aio_coroutine
+    async def create_unix_server(self, protocol_factory, str path=None,
+                                 *, backlog=100):
+
+        cdef:
+            UVPipeServer pipe
+            Server server = Server(self)
+
+        pipe = UVPipeServer.new(self, protocol_factory, server)
+        pipe.bind(path)
+        pipe.listen(backlog)
+        server._add_server(pipe)
+        return server
+
     def default_exception_handler(self, context):
         message = context.get('message')
         if not message:
@@ -1061,6 +1075,7 @@ include "handles/poll.pyx"
 include "handles/stream.pyx"
 include "handles/transport.pyx"
 include "handles/tcp.pyx"
+include "handles/pipe.pyx"
 
 include "request.pyx"
 include "dns.pyx"

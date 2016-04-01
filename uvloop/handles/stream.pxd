@@ -33,3 +33,16 @@ cdef class UVStream(UVHandle):
     cdef _on_eof(self)
     cdef _on_write(self)
     cdef _on_shutdown(self)
+
+
+cdef class UVStreamServer(UVStream):
+    cdef:
+        object protocol_factory
+        bint opened
+        Server _server
+
+    cdef _init(self, Loop loop, object protocol_factory, Server server)
+
+    cdef listen(self, int backlog=?)
+    cdef _on_listen(self)
+    cdef UVTransport _make_new_transport(self, object protocol)

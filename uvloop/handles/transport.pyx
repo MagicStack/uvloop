@@ -1,5 +1,6 @@
 @cython.no_gc_clear
 cdef class UVTransport(UVStream):
+
     def __cinit__(self):
         self._protocol = None
         self._protocol_data_received = None
@@ -16,6 +17,11 @@ cdef class UVTransport(UVStream):
         self._low_water = FLOW_CONTROL_LOW_WATER
 
         self._server = None
+
+    cdef _init(self, Loop loop, object protocol, Server server):
+        self._set_loop(loop)
+        self._set_protocol(protocol)
+        self._set_server(server)
 
     cdef _set_server(self, Server server):
         self._server = server

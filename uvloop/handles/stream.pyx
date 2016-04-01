@@ -61,6 +61,7 @@ cdef class _StreamWriteContext:
 
 @cython.no_gc_clear
 cdef class UVStream(UVHandle):
+
     def __cinit__(self):
         self.__reading = 0
         self.__cached_socket = None
@@ -255,6 +256,34 @@ cdef class UVStream(UVHandle):
             self._closed,
             self.__reading,
             id(self))
+
+
+@cython.no_gc_clear
+cdef class UVStreamServer(UVStream):
+
+    cdef _init(self, Loop loop, object protocol_factory, Server server):
+        self._set_loop(loop)
+        self.protocol_factory = protocol_factory
+        self._server = server
+        self.opened = 0
+
+    cdef listen(self, int backlog=100):
+        if self.protocol_factory is None:
+            raise RuntimeError('unable to listen(); no protocol_factory')
+
+        if self.opened != 1:
+            raise RuntimeError('unopened UVTCPServer')
+
+        self._listen(backlog)
+
+    cdef _on_listen(self):
+        # Implementation for UVStream._on_listen
+        protocol = self.protocol_factory()
+        client = self._make_new_transport(protocol)
+        client._accept(<UVStream>self)
+
+    cdef UVTransport _make_new_transport(self, object protocol):
+        raise NotImplementedError
 
 
 cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,

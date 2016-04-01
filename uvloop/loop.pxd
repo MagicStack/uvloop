@@ -161,6 +161,7 @@ include "handles/poll.pxd"
 include "handles/stream.pxd"
 include "handles/transport.pxd"
 include "handles/tcp.pxd"
+include "handles/pipe.pxd"
 
 include "request.pxd"
 

@@ -5,7 +5,7 @@ cdef class Server:
         self._waiters = []
         self._active_count = 0
 
-    cdef _add_server(self, UVTCPServer srv):
+    cdef _add_server(self, UVStreamServer srv):
         self._servers.append(srv)
 
     cdef _wakeup(self):
@@ -48,7 +48,7 @@ cdef class Server:
         self._servers = None
 
         for server in servers:
-            (<UVTCPServer>server)._close()
+            (<UVStreamServer>server)._close()
 
         if self._active_count == 0:
             self._wakeup()
@@ -59,7 +59,7 @@ cdef class Server:
 
             for server in self._servers:
                 sockets.append(
-                    (<UVTCPServer>server)._get_socket()
+                    (<UVStreamServer>server)._get_socket()
                 )
 
             return sockets
