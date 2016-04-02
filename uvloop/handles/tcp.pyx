@@ -35,7 +35,8 @@ cdef class UVTCPServer(UVStreamServer):
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
-        self.opened = 1
+
+        self._mark_as_open()
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         cdef int err
@@ -46,7 +47,8 @@ cdef class UVTCPServer(UVStreamServer):
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
-        self.opened = 1
+
+        self._mark_as_open()
 
     cdef UVTransport _make_new_transport(self, object protocol):
         cdef UVTCPTransport tr

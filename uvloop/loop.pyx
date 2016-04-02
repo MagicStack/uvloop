@@ -913,14 +913,35 @@ cdef class Loop:
 
     @aio_coroutine
     async def create_unix_server(self, protocol_factory, str path=None,
-                                 *, backlog=100):
+                                 *, backlog=100, sock=None, ssl=None):
 
         cdef:
             UVPipeServer pipe
             Server server = Server(self)
 
+        if ssl is not None:
+            raise NotImplementedError('SSL is not yet supported')
+
         pipe = UVPipeServer.new(self, protocol_factory, server)
-        pipe.bind(path)
+
+        if path is not None:
+            if sock is not None:
+                raise ValueError(
+                    'path and sock can not be specified at the same time')
+
+            pipe.bind(path)
+
+        else:
+            if sock is None:
+                raise ValueError(
+                    'path was not specified, and no sock specified')
+
+            if sock.family != uv.AF_UNIX:
+                raise ValueError(
+                    'A UNIX Domain Socket was expected, got {!r}'.format(sock))
+
+            pipe.open(sock.fileno())
+
         pipe.listen(backlog)
         server._add_server(pipe)
         return server

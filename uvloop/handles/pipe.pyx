@@ -31,6 +31,18 @@ cdef class UVPipeServer(UVStreamServer):
         __init_pipe_uv_handle(<UVStream>handle, loop)
         return handle
 
+    cdef open(self, int sockfd):
+        cdef int err
+        self._ensure_alive()
+        err = uv.uv_pipe_open(<uv.uv_pipe_t *>self._handle,
+                              <uv.uv_file>sockfd)
+        if err < 0:
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
+
+        self._mark_as_open()
+
     cdef bind(self, str path):
         cdef int err
         self._ensure_alive()
@@ -40,7 +52,8 @@ cdef class UVPipeServer(UVStreamServer):
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
-        self.opened = 1
+
+        self._mark_as_open()
 
     cdef UVTransport _make_new_transport(self, object protocol):
         cdef UVPipeTransport tr

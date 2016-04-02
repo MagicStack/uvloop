@@ -43,6 +43,8 @@ cdef class UVStreamServer(UVStream):
 
     cdef _init(self, Loop loop, object protocol_factory, Server server)
 
+    cdef inline _mark_as_open(self)
+
     cdef listen(self, int backlog=?)
     cdef _on_listen(self)
     cdef UVTransport _make_new_transport(self, object protocol)

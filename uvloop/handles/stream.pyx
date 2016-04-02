@@ -282,6 +282,9 @@ cdef class UVStreamServer(UVStream):
         client = self._make_new_transport(protocol)
         client._accept(<UVStream>self)
 
+    cdef inline _mark_as_open(self):
+        self.opened = 1
+
     cdef UVTransport _make_new_transport(self, object protocol):
         raise NotImplementedError
 

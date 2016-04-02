@@ -17,6 +17,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int SO_REUSEPORT
     cdef int AF_INET
     cdef int AF_INET6
+    cdef int AF_UNIX
     cdef int AF_UNSPEC
     cdef int AI_PASSIVE
     cdef int INET6_ADDRSTRLEN
