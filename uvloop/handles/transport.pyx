@@ -83,7 +83,6 @@ cdef class UVTransport(UVStream):
         self._low_water = low
 
         self._maybe_pause_protocol()
-        self._maybe_resume_protocol()
 
     cdef _maybe_pause_protocol(self):
         if not self._flow_control_enabled:
