@@ -4,11 +4,41 @@ from . cimport system
 
 
 cdef extern from "../vendor/libuv/include/uv.h":
-    cdef int UV_EINVAL
+    cdef int UV_EACCES
+    cdef int UV_EAGAIN
+    cdef int UV_EALREADY
     cdef int UV_EBUSY
-    cdef int UV_ECANCELED
-    cdef int UV_EOF
+    cdef int UV_ECONNABORTED
+    cdef int UV_ECONNREFUSED
     cdef int UV_ECONNRESET
+    cdef int UV_ECANCELED
+    cdef int UV_EEXIST
+    cdef int UV_EINTR
+    cdef int UV_EINVAL
+    cdef int UV_EISDIR
+    cdef int UV_ENOENT
+    cdef int UV_EOF
+    cdef int UV_EPERM
+    cdef int UV_EPIPE
+    cdef int UV_ESHUTDOWN
+    cdef int UV_ESRCH
+    cdef int UV_ETIMEDOUT
+
+    cdef int UV_EAI_ADDRFAMILY
+    cdef int UV_EAI_AGAIN
+    cdef int UV_EAI_BADFLAGS
+    cdef int UV_EAI_BADHINTS
+    cdef int UV_EAI_CANCELED
+    cdef int UV_EAI_FAIL
+    cdef int UV_EAI_FAMILY
+    cdef int UV_EAI_MEMORY
+    cdef int UV_EAI_NODATA
+    cdef int UV_EAI_NONAME
+    cdef int UV_EAI_OVERFLOW
+    cdef int UV_EAI_PROTOCOL
+    cdef int UV_EAI_SERVICE
+    cdef int UV_EAI_SOCKTYPE
+
 
 
     cdef int SOL_SOCKET
@@ -27,23 +57,6 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     cdef int SIGINT
     cdef int SIGHUP
-
-
-    cdef int UV_EAI_ADDRFAMILY
-    cdef int UV_EAI_AGAIN
-    cdef int UV_EAI_BADFLAGS
-    cdef int UV_EAI_BADHINTS
-    cdef int UV_EAI_CANCELED
-    cdef int UV_EAI_FAIL
-    cdef int UV_EAI_FAMILY
-    cdef int UV_EAI_MEMORY
-    cdef int UV_EAI_NODATA
-    cdef int UV_EAI_NONAME
-    cdef int UV_EAI_OVERFLOW
-    cdef int UV_EAI_PROTOCOL
-    cdef int UV_EAI_SERVICE
-    cdef int UV_EAI_SOCKTYPE
-
 
     ctypedef struct uv_os_sock_t
     ctypedef struct uv_file

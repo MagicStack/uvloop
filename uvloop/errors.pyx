@@ -1,9 +1,54 @@
-class LoopError(Exception):
-    pass
+cdef str __strerr(int errno):
+    return strerror(errno).decode()
 
 
-class UVError(LoopError):
-    pass
+cdef int __convert_python_error(int uverr):
+    exc = OSError
+
+    # XXX Won't work for Windows:
+    # From libuv docs:
+    #      Implementation detail: on Unix error codes are the
+    #      negated errno (or -errno), while on Windows they
+    #      are defined by libuv to arbitrary negative numbers.
+    oserr = -uverr
+
+    if uverr in (uv.UV_EACCES, uv.UV_EPERM):
+        exc = PermissionError
+
+    elif uverr in (uv.UV_EAGAIN, uv.UV_EALREADY):
+        exc = BlockingIOError
+
+    elif uverr in (uv.UV_EPIPE, uv.UV_ESHUTDOWN):
+        exc = BrokenPipeError
+
+    elif uverr == uv.UV_ECONNABORTED:
+        exc = ConnectionAbortedError
+
+    elif uverr == uv.UV_ECONNREFUSED:
+        exc = ConnectionRefusedError
+
+    elif uverr == uv.UV_ECONNRESET:
+        exc = ConnectionResetError
+
+    elif uverr == uv.UV_EEXIST:
+        exc = FileExistsError
+
+    elif uverr == uv.UV_ENOENT:
+        exc = FileNotFoundError
+
+    elif uverr == uv.UV_EINTR:
+        exc = InterruptedError
+
+    elif uverr == uv.UV_EISDIR:
+        exc = IsADirectoryError
+
+    elif uverr == uv.UV_ESRCH:
+        exc = ProcessLookupError
+
+    elif uverr == uv.UV_ETIMEDOUT:
+        exc = TimeoutError
+
+    return exc(oserr, __strerr(oserr))
 
 
 cdef int __convert_socket_error(int uverr):
@@ -65,7 +110,4 @@ cdef convert_error(int uverr):
         msg = system.gai_strerror(sock_err).decode('utf-8')
         return socket_gaierror(sock_err, msg)
 
-    msg = uv.uv_strerror(uverr).decode('utf-8')
-    name = uv.uv_err_name(uverr).decode('utf-8')
-    value = '({}) {}'.format(name, msg)
-    return LoopError(value)
+    return __convert_python_error(uverr)
