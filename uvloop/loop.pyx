@@ -1023,9 +1023,16 @@ cdef class Loop:
                 raise OSError('Multiple exceptions: {}'.format(
                     ', '.join(str(exc) for exc in exceptions)))
         else:
-            # TODO
-            if sock is not None:
-                raise ValueError('sock param is not yet supported')
+            if sock is None:
+                raise ValueError(
+                    'host and port was not specified and no sock specified')
+
+            fileno = sock.fileno()
+            protocol = protocol_factory()
+            tr = UVTCPTransport.new(self, protocol, None)
+            # libuv will make socket non-blocking
+            tr.open(fileno)
+            tr._schedule_call_connection_made()
 
         return tr, protocol
 

@@ -24,6 +24,15 @@ cdef __tcp_bind(UVStream handle, system.sockaddr* addr, unsigned int flags=0):
         raise exc
 
 
+cdef __tcp_open(UVStream handle, int sockfd):
+    cdef int err
+    err = uv.uv_tcp_open(<uv.uv_tcp_t *>handle._handle,
+                         <uv.uv_os_sock_t>sockfd)
+    if err < 0:
+        exc = convert_error(err)
+        raise exc
+
+
 @cython.no_gc_clear
 cdef class UVTCPServer(UVStreamServer):
 
@@ -36,16 +45,13 @@ cdef class UVTCPServer(UVStreamServer):
         return handle
 
     cdef open(self, int sockfd):
-        cdef int err
         self._ensure_alive()
-        err = uv.uv_tcp_open(<uv.uv_tcp_t *>self._handle,
-                             <uv.uv_os_sock_t>sockfd)
-        if err < 0:
-            exc = convert_error(err)
+        try:
+            __tcp_open(<UVStream>self, sockfd)
+        except Exception as exc:
             self._fatal_error(exc, True)
-            return
-
-        self._mark_as_open()
+        else:
+            self._mark_as_open()
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         self._ensure_alive()
@@ -76,6 +82,10 @@ cdef class UVTCPTransport(UVTransport):
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         self._ensure_alive()
         __tcp_bind(<UVStream>self, addr, flags)
+
+    cdef open(self, int sockfd):
+        self._ensure_alive()
+        __tcp_open(<UVStream>self, sockfd)
 
     cdef connect(self, system.sockaddr* addr, object callback):
         cdef _TCPConnectRequest req
