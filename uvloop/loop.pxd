@@ -150,6 +150,9 @@ cdef class Loop:
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
 
+    cdef _connect_tcp_transport(self, UVTCPTransport transport,
+                                system.sockaddr* addr)
+
 include "cbhandles.pxd"
 
 include "handles/handle.pxd"

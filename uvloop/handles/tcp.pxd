@@ -7,5 +7,8 @@ cdef class UVTCPServer(UVStreamServer):
 
 
 cdef class UVTCPTransport(UVTransport):
+    cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
+    cdef connect(self, system.sockaddr* addr, object callback)
+
     @staticmethod
     cdef UVTCPTransport new(Loop loop, object protocol, Server server)

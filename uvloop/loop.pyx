@@ -12,7 +12,8 @@ from .includes.python cimport PyMem_Malloc, PyMem_Free, \
                               PyMem_Calloc, PyMem_Realloc
 
 from libc.stdint cimport uint64_t
-from libc.string cimport memset
+from libc.string cimport memset, strerror
+from libc cimport errno
 
 from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
@@ -910,6 +911,123 @@ cdef class Loop:
             server._add_server(tcp)
 
         return server
+
+    cdef _connect_tcp_transport(self, UVTCPTransport transport,
+                                system.sockaddr* addr):
+
+        fut = aio_Future(loop=self)
+        def caller(result):
+            if result is None:
+                fut.set_result(None)
+                transport._schedule_call_connection_made()
+            else:
+                fut.set_exception(result)
+
+        transport.connect(addr, caller)
+        return fut
+
+    @aio_coroutine
+    async def create_connection(self, protocol_factory, host=None, port=None, *,
+                                ssl=None, family=0, proto=0, flags=0, sock=None,
+                                local_addr=None, server_hostname=None):
+
+        cdef:
+            AddrInfo ai_local = None
+            AddrInfo ai_remote
+            system.addrinfo *rai
+            system.addrinfo *lai
+            UVTCPTransport tr
+
+        if ssl is not None:
+            raise NotImplementedError('SSL is not yet supported')
+
+        if host is not None or port is not None:
+            f1 = self._getaddrinfo(host, port, family,
+                                   uv.SOCK_STREAM, 0, flags,
+                                   0)  # 0 == don't unpack
+
+            fs = [f1]
+
+            f2 = None
+            if local_addr is not None:
+                if not isinstance(local_addr, (tuple, list)) or \
+                        len(local_addr) != 2:
+                    raise ValueError(
+                        'local_addr must be a tuple of host and port')
+
+                f2 = self._getaddrinfo(local_addr[0], local_addr[1], family,
+                                       uv.SOCK_STREAM, 0, flags,
+                                       0)  # 0 == don't unpack
+                fs.append(f2)
+
+            await aio_wait(fs, loop=self)
+
+            ai_remote = f1.result()
+            if ai_remote.data is NULL:
+                raise OSError('getaddrinfo() returned empty list')
+
+            if f2 is not None:
+                ai_local = f2.result()
+                if ai_local.data is NULL:
+                    raise OSError(
+                        'getaddrinfo() returned empty list for local_addr')
+
+            protocol = protocol_factory()
+
+            exceptions = []
+            rai = ai_remote.data
+            while rai is not NULL:
+                tr = None
+                try:
+                    tr = UVTCPTransport.new(self, protocol, None)
+                    if ai_local is not None:
+                        lai = ai_local.data
+                        while lai is not NULL:
+                            try:
+                                tr.bind(lai.ai_addr)
+                                break
+                            except OSError as exc:
+                                exceptions.append(exc)
+                            lai = lai.ai_next
+                        else:
+                            tr._close()
+                            tr = None
+
+                            rai = rai.ai_next
+                            continue
+
+                    await self._connect_tcp_transport(tr, rai.ai_addr)
+
+                except OSError as exc:
+                    if tr is not None:
+                        tr._close()
+                        tr = None
+                    exceptions.append(exc)
+                except:
+                    if tr is not None:
+                        tr._close()
+                        tr = None
+                    raise
+                else:
+                    break
+
+                rai = rai.ai_next
+
+            else:
+                # If they all have the same str(), raise one.
+                model = str(exceptions[0])
+                if all(str(exc) == model for exc in exceptions):
+                    raise exceptions[0]
+                # Raise a combined exception so the user can see all
+                # the various error messages.
+                raise OSError('Multiple exceptions: {}'.format(
+                    ', '.join(str(exc) for exc in exceptions)))
+        else:
+            # TODO
+            if sock is not None:
+                raise ValueError('sock param is not yet supported')
+
+        return tr, protocol
 
     @aio_coroutine
     async def create_unix_server(self, protocol_factory, str path=None,

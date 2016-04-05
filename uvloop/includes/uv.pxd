@@ -124,6 +124,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
         uv_req_type type
         # ...
 
+    ctypedef struct uv_connect_t:
+        void* data
+
     ctypedef struct uv_getaddrinfo_t:
         void* data
         # ...
@@ -188,6 +191,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status) with gil
     ctypedef void (*uv_poll_cb)(uv_poll_t* handle,
                                 int status, int events) with gil
+
+    ctypedef void (*uv_connect_cb)(uv_connect_t* req, int status) with gil
 
     # Buffers
 
@@ -280,6 +285,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     int uv_tcp_getsockname(const uv_tcp_t* handle, system.sockaddr* name,
                            int* namelen)
+
+    int uv_tcp_connect(uv_connect_t* req, uv_tcp_t* handle,
+                       const system.sockaddr* addr, uv_connect_cb cb)
 
     # Pipes
 
