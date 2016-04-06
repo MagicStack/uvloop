@@ -1,22 +1,25 @@
 @cython.no_gc_clear
 cdef class UVAsync(UVHandle):
-    cdef _init(self, method_t* callback, object ctx):
+    cdef _init(self, Loop loop, method_t* callback, object ctx):
         cdef int err
+
+        self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_async_t))
         if self._handle is NULL:
-            self._close()
+            self._abort_init()
             raise MemoryError()
 
         err = uv.uv_async_init(self._loop.uvloop,
                                <uv.uv_async_t*>self._handle,
                                __uvasync_callback)
         if err < 0:
-            __cleanup_handle_after_init(<UVHandle>self)
+            self._abort_init()
             raise convert_error(err)
 
-        self._handle.data = <void*> self
+        self._finish_init()
+
         self.callback = callback
         self.ctx = ctx
 
@@ -35,8 +38,7 @@ cdef class UVAsync(UVHandle):
     cdef UVAsync new(Loop loop, method_t* callback, object ctx):
         cdef UVAsync handle
         handle = UVAsync.__new__(UVAsync)
-        handle._set_loop(loop)
-        handle._init(callback, ctx)
+        handle._init(loop, callback, ctx)
         return handle
 
 

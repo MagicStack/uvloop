@@ -262,7 +262,7 @@ cdef class UVStream(UVHandle):
 cdef class UVStreamServer(UVStream):
 
     cdef _init(self, Loop loop, object protocol_factory, Server server):
-        self._set_loop(loop)
+        self._start_init(loop)
         self.protocol_factory = protocol_factory
         self._server = server
         self.opened = 0

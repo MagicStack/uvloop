@@ -4,7 +4,7 @@ cdef __init_pipe_uv_handle(UVStream handle, Loop loop):
     handle._handle = <uv.uv_handle_t*> \
                         PyMem_Malloc(sizeof(uv.uv_pipe_t))
     if handle._handle is NULL:
-        handle._close()
+        handle._abort_init()
         raise MemoryError()
 
     # Initialize pipe handle with ipc=0.
@@ -14,10 +14,10 @@ cdef __init_pipe_uv_handle(UVStream handle, Loop loop):
                           <uv.uv_pipe_t*>handle._handle,
                           0)
     if err < 0:
-        __cleanup_handle_after_init(<UVHandle>handle)
+        handle._abort_init()
         raise convert_error(err)
 
-    handle._handle.data = <void*> handle
+    handle._finish_init()
 
 
 @cython.no_gc_clear

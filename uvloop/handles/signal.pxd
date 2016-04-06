@@ -5,7 +5,7 @@ cdef class UVSignal(UVHandle):
         bint running
         int signum
 
-    cdef _init(self, method_t* callback, object ctx, int signum)
+    cdef _init(self, Loop loop, method_t* callback, object ctx, int signum)
 
     cdef stop(self)
     cdef start(self)

@@ -19,7 +19,7 @@ cdef class UVTransport(UVStream):
         self._server = None
 
     cdef _init(self, Loop loop, object protocol, Server server):
-        self._set_loop(loop)
+        self._start_init(loop)
         self._set_protocol(protocol)
         if server is not None:
             self._set_server(server)

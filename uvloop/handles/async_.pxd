@@ -3,7 +3,7 @@ cdef class UVAsync(UVHandle):
         method_t* callback
         object ctx
 
-    cdef _init(self, method_t* callback, object ctx)
+    cdef _init(self, Loop loop, method_t* callback, object ctx)
 
     cdef send(self)
 

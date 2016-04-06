@@ -4,7 +4,7 @@ cdef class UVPoll(UVHandle):
         Handle reading_handle
         Handle writing_handle
 
-    cdef _init(self, int fd)
+    cdef _init(self, Loop loop, int fd)
     cdef _close(self)
 
     cdef inline _poll_start(self, int flags)

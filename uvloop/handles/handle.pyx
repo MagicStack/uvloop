@@ -17,6 +17,7 @@ cdef class UVHandle:
 
     def __cinit__(self):
         self._closed = 0
+        self._inited = 0
         self._handle = NULL
         self._loop = None
 
@@ -58,15 +59,40 @@ cdef class UVHandle:
         # The handle is dealloced while open.  Let's try to close it.
         # Situations when this is possible include unhandled exceptions,
         # errors during Handle.__cinit__/__init__ etc.
-        self._handle.data = <void*> __NOHANDLE__
-        uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
+        if self._inited:
+            self._handle.data = <void*> __NOHANDLE__
+            uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
+        else:
+            # The handle was allocated, but not initialized
+            self._closed = 1
+            PyMem_Free(self._handle)
         self._handle = NULL
 
-    cdef inline _set_loop(self, Loop loop):
+    cdef inline _abort_init(self):
+        if self._handle is not NULL:
+            PyMem_Free(self._handle)
+            self._handle = NULL
+
+        IF DEBUG:
+            name = self.__class__.__name__
+            if self._inited:
+                raise RuntimeError(
+                    '_abort_init: {}._inited is set'.format(name))
+            if self._closed:
+                raise RuntimeError(
+                    '_abort_init: {}._closed is set'.format(name))
+
+        self._closed = 1
+
+    cdef inline _finish_init(self):
+        self._inited = 1
+        self._handle.data = <void*>self
+
+    cdef inline _start_init(self, Loop loop):
         IF DEBUG:
             if self._loop is not None:
                 raise RuntimeError(
-                    '{}._set_loop can only be called once'.format(
+                    '{}._start_init can only be called once'.format(
                         self.__class__.__name__))
 
             cls_name = self.__class__.__name__
@@ -76,34 +102,32 @@ cdef class UVHandle:
         self._loop = loop
 
     cdef inline bint _is_alive(self):
-        return self._closed != 1 and self._handle is not NULL
+        cdef bint res
+        res = self._closed != 1 and self._inited == 1
+        IF DEBUG:
+            if res:
+                name = self.__class__.__name__
+                if self._handle is NULL:
+                    raise RuntimeError(
+                        '{} is alive, but _handle is NULL'.format(name))
+                if self._loop is None:
+                    raise RuntimeError(
+                        '{} is alive, but _loop is None'.format(name))
+                if self._handle.loop is not self._loop.uvloop:
+                    raise RuntimeError(
+                        '{} is alive, but _handle.loop is not '
+                        'initialized'.format(name))
+                if self._handle.data is not <void*>self:
+                    raise RuntimeError(
+                        '{} is alive, but _handle.data is not '
+                        'initialized'.format(name))
+        return res
 
     cdef inline _ensure_alive(self):
-        if self._closed == 1 or self._handle is NULL:
+        if not self._is_alive():
             raise RuntimeError(
                 'unable to perform operation on {!r}; '
                 'the handler is closed'.format(self))
-
-        IF DEBUG:
-            if self._loop is None:
-                raise RuntimeError(
-                    '{} is initialized, but the '
-                    'loop is None'.format(self))
-
-            if self._handle is NULL:
-                raise RuntimeError(
-                    '{} was initialized, but the '
-                    'handle is NULL'.format(self))
-
-            if self._handle.data is not <void*>self:
-                raise RuntimeError(
-                    '{} was initialized, but the '
-                    'handle.data is wrong'.format(self))
-
-            if self._handle.loop is not <void*>self._loop.uvloop:
-                raise RuntimeError(
-                    '{} was initialized, but the '
-                    'handle.loop is wrong'.format(self))
 
     cdef _fatal_error(self, exc, throw):
         # Fatal error means an error that was returned by the
@@ -161,12 +185,6 @@ cdef class UVHandle:
             self.__class__.__name__,
             self._closed,
             id(self))
-
-
-cdef void __cleanup_handle_after_init(UVHandle h):
-    PyMem_Free(h._handle)
-    h._handle = NULL
-    h._closed = 1
 
 
 cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,

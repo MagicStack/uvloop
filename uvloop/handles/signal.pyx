@@ -1,21 +1,24 @@
 @cython.no_gc_clear
 cdef class UVSignal(UVHandle):
-    cdef _init(self, method_t* callback, object ctx, int signum):
+    cdef _init(self, Loop loop, method_t* callback, object ctx, int signum):
         cdef int err
+
+        self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_signal_t))
         if self._handle is NULL:
-            self._close()
+            self._abort_init()
             raise MemoryError()
 
         err = uv.uv_signal_init(self._loop.uvloop,
                                 <uv.uv_signal_t *>self._handle)
         if err < 0:
-            __cleanup_handle_after_init(<UVHandle>self)
+            self._abort_init()
             raise convert_error(err)
 
-        self._handle.data = <void*> self
+        self._finish_init()
+
         self.callback = callback
         self.ctx = ctx
         self.running = 0
@@ -57,8 +60,7 @@ cdef class UVSignal(UVHandle):
 
         cdef UVSignal handle
         handle = UVSignal.__new__(UVSignal)
-        handle._set_loop(loop)
-        handle._init(callback, ctx, signum)
+        handle._init(loop, callback, ctx, signum)
         return handle
 
 

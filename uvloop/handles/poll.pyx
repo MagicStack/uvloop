@@ -1,21 +1,24 @@
 @cython.no_gc_clear
 cdef class UVPoll(UVHandle):
-    cdef _init(self, int fd):
+    cdef _init(self, Loop loop, int fd):
         cdef int err
+
+        self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_poll_t))
         if self._handle is NULL:
-            self._close()
+            self._abort_init()
             raise MemoryError()
 
         err = uv.uv_poll_init(self._loop.uvloop,
                               <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
-            __cleanup_handle_after_init(<UVHandle>self)
+            self._abort_init()
             raise convert_error(err)
 
-        self._handle.data = <void*> self
+        self._finish_init()
+
         self.fd = fd
         self.reading_handle = None
         self.writing_handle = None
@@ -24,8 +27,7 @@ cdef class UVPoll(UVHandle):
     cdef UVPoll new(Loop loop, int fd):
         cdef UVPoll handle
         handle = UVPoll.__new__(UVPoll)
-        handle._set_loop(loop)
-        handle._init(fd)
+        handle._init(loop, fd)
         return handle
 
     cdef int is_active(self):

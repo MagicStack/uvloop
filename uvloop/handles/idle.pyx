@@ -1,20 +1,23 @@
 @cython.no_gc_clear
 cdef class UVIdle(UVHandle):
-    cdef _init(self, method_t* callback, object ctx):
+    cdef _init(self, Loop loop, method_t* callback, object ctx):
         cdef int err
+
+        self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
                             PyMem_Malloc(sizeof(uv.uv_idle_t))
         if self._handle is NULL:
-            self._close()
+            self._abort_init()
             raise MemoryError()
 
         err = uv.uv_idle_init(self._loop.uvloop, <uv.uv_idle_t*>self._handle)
         if err < 0:
-            __cleanup_handle_after_init(<UVHandle>self)
+            self._abort_init()
             raise convert_error(err)
 
-        self._handle.data = <void*> self
+        self._finish_init()
+
         self.callback = callback
         self.ctx = ctx
         self.running = 0
@@ -52,8 +55,7 @@ cdef class UVIdle(UVHandle):
     cdef UVIdle new(Loop loop, method_t* callback, object ctx):
         cdef UVIdle handle
         handle = UVIdle.__new__(UVIdle)
-        handle._set_loop(loop)
-        handle._init(callback, ctx)
+        handle._init(loop, callback, ctx)
         return handle
 
 

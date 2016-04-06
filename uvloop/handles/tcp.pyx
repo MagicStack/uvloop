@@ -4,15 +4,15 @@ cdef __tcp_init_uv_handle(UVStream handle, Loop loop):
     handle._handle = <uv.uv_handle_t*> \
                         PyMem_Malloc(sizeof(uv.uv_tcp_t))
     if handle._handle is NULL:
-        handle._close()
+        handle._abort_init()
         raise MemoryError()
 
     err = uv.uv_tcp_init(handle._loop.uvloop, <uv.uv_tcp_t*>handle._handle)
     if err < 0:
-        __cleanup_handle_after_init(<UVHandle>handle)
+        handle._abort_init()
         raise convert_error(err)
 
-    handle._handle.data = <void*> handle
+    handle._finish_init()
 
 
 cdef __tcp_bind(UVStream handle, system.sockaddr* addr, unsigned int flags=0):
