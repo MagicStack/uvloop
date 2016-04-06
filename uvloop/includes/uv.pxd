@@ -39,8 +39,6 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int UV_EAI_SERVICE
     cdef int UV_EAI_SOCKTYPE
 
-
-
     cdef int SOL_SOCKET
     cdef int SO_ERROR
     cdef int SO_REUSEADDR
