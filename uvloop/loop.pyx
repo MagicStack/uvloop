@@ -20,7 +20,7 @@ from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
-                     Py_buffer
+                     Py_buffer, PyBytes_AsString
 from cpython cimport PyErr_CheckSignals
 
 
@@ -1188,6 +1188,76 @@ cdef class Loop:
     def set_default_executor(self, executor):
         self._default_executor = executor
 
+    @aio_coroutine
+    async def __subprocess_run(self, protocol_factory, args,
+                               stdin=subprocess_PIPE,
+                               stdout=subprocess_PIPE,
+                               stderr=subprocess_PIPE,
+                               universal_newlines=False,
+                               shell=True,
+                               bufsize=0,
+                               preexec_fn=None,
+                               close_fds=None,  # TODO
+                               cwd=None,
+                               env=None,
+                               startupinfo=None,
+                               creationflags=0,
+                               restore_signals=True,  # TODO
+                               start_new_session=False,
+                               pass_fds=()  # TODO
+                            ):
+
+        if universal_newlines:
+            raise ValueError("universal_newlines must be False")
+        if bufsize != 0:
+            raise ValueError("bufsize must be 0")
+        if preexec_fn:
+            raise ValueError('preexec_fn is not supported')
+        if startupinfo is not None:
+            raise ValueError('startupinfo is not supported')
+        if creationflags != 0:
+            raise ValueError('creationflags is not supported')
+
+        waiter = aio_Future(loop=self)
+        protocol = protocol_factory()
+        proc = UVProcessTransport.new(self, protocol,
+                                      args, env, cwd, start_new_session,
+                                      stdin, stdout, stderr,
+                                      waiter)
+
+        await waiter
+        return proc, protocol
+
+    def subprocess_shell(self, protocol_factory, cmd, *,
+                         shell=True, **kwargs):
+
+        if not shell:
+            raise ValueError("shell must be True")
+
+        args = [cmd]
+        if shell:
+            args = [b'/bin/sh', b'-c'] + args
+
+        return self.__subprocess_run(protocol_factory, args, shell=True,
+                                     **kwargs)
+
+    def subprocess_exec(self,  protocol_factory, program, *args,
+                        shell=False, **kwargs):
+
+        if shell:
+            raise ValueError("shell must be False")
+
+        args = list((program,) + args)
+
+        return self.__subprocess_run(protocol_factory, args, shell=False,
+                                     **kwargs)
+
+    def add_signal_handler(self, sig, callback, *args):
+        """TODO"""
+
+    def remove_signal_handler(self, sig):
+        """TODO"""
+
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
@@ -1210,6 +1280,13 @@ cdef inline void __loop_free_buffer(Loop loop):
     loop._recv_buffer_in_use = 0
 
 
+def _set_result_unless_cancelled(fut, result):
+    """Helper setting the result only if the future was not cancelled."""
+    if fut.cancelled():
+        return
+    fut.set_result(result)
+
+
 include "cbhandles.pyx"
 
 include "handles/handle.pyx"
@@ -1222,6 +1299,7 @@ include "handles/stream.pyx"
 include "handles/transport.pyx"
 include "handles/tcp.pyx"
 include "handles/pipe.pyx"
+include "handles/process.pyx"
 
 include "request.pyx"
 include "dns.pyx"

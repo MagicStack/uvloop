@@ -40,6 +40,8 @@ cdef class UVHandle:
         if self._handle is NULL:
             return
 
+        # -> When we're at this point, something is wrong <-
+
         if self._handle.loop is NULL:
             # The handle wasn't initialized with "uv_{handle}_init"
             self._closed = 1
@@ -47,8 +49,6 @@ cdef class UVHandle:
             raise RuntimeError(
                 '{} is open in __dealloc__ with loop set to NULL'
                 .format(self.__class__.__name__))
-
-        # When we're at this point, something went wrong.
 
         if self._closed == 1:
             # So _handle is not NULL and self._closed == 1?

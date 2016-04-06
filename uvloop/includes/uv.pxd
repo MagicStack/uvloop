@@ -1,4 +1,5 @@
-from libc.stdint cimport uint16_t, uint32_t, uint64_t
+from libc.stdint cimport uint16_t, uint32_t, uint64_t, int64_t
+from posix.types cimport gid_t, uid_t
 
 from . cimport system
 
@@ -55,6 +56,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     cdef int SIGINT
     cdef int SIGHUP
+    cdef int SIGKILL
+    cdef int SIGTERM
 
     ctypedef struct uv_os_sock_t
     ctypedef struct uv_file
@@ -139,6 +142,11 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef struct uv_shutdown_t:
         void* data
+        # ...
+
+    ctypedef struct uv_process_t:
+        void* data
+        int pid
         # ...
 
     ctypedef enum uv_req_type:
@@ -338,3 +346,48 @@ cdef extern from "../vendor/libuv/include/uv.h":
                              uv_realloc_func realloc_func,
                              uv_calloc_func calloc_func,
                              uv_free_func free_func)
+
+    # Process
+
+    ctypedef void (*uv_exit_cb)(uv_process_t*, int64_t exit_status,
+                                int term_signal) with gil
+
+    ctypedef enum uv_process_flags:
+        UV_PROCESS_SETUID = 1,
+        UV_PROCESS_SETGID = 2,
+        UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS = 4,
+        UV_PROCESS_DETACHED = 8,
+        UV_PROCESS_WINDOWS_HIDE = 16
+
+    ctypedef enum uv_stdio_flags:
+        UV_IGNORE = 0x00,
+        UV_CREATE_PIPE = 0x01,
+        UV_INHERIT_FD = 0x02,
+        UV_INHERIT_STREAM = 0x04,
+        UV_READABLE_PIPE = 0x10,
+        UV_WRITABLE_PIPE = 0x20
+
+    ctypedef union uv_stdio_container_data_u:
+        uv_stream_t* stream
+        int fd
+
+    ctypedef struct uv_stdio_container_t:
+        uv_stdio_flags flags
+        uv_stdio_container_data_u data
+
+    ctypedef struct uv_process_options_t:
+        uv_exit_cb exit_cb
+        char* file
+        char** args
+        char** env
+        char* cwd
+        unsigned int flags
+        int stdio_count
+        uv_stdio_container_t* stdio
+        uid_t uid
+        gid_t gid
+
+    int uv_spawn(uv_loop_t* loop, uv_process_t* handle,
+                 const uv_process_options_t* options)
+
+    int uv_process_kill(uv_process_t* handle, int signum)

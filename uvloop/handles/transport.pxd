@@ -40,3 +40,11 @@ cdef class UVTransport(UVStream):
 
     # Overloads of UVHandle methods:
     cdef _fatal_error(self, exc, throw)
+
+
+cdef class UVReadTransport(UVTransport):
+    pass
+
+
+cdef class UVWriteTransport(UVTransport):
+    pass

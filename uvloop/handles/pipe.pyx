@@ -71,3 +71,27 @@ cdef class UVPipeTransport(UVTransport):
         handle._init(loop, protocol, server)
         __init_pipe_uv_handle(<UVStream>handle, loop)
         return handle
+
+
+@cython.no_gc_clear
+cdef class UVReadPipeTransport(UVReadTransport):
+
+    @staticmethod
+    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server):
+        cdef UVReadPipeTransport handle
+        handle = UVReadPipeTransport.__new__(UVReadPipeTransport)
+        handle._init(loop, protocol, server)
+        __init_pipe_uv_handle(<UVStream>handle, loop)
+        return handle
+
+
+@cython.no_gc_clear
+cdef class UVWritePipeTransport(UVWriteTransport):
+
+    @staticmethod
+    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server):
+        cdef UVWritePipeTransport handle
+        handle = UVWritePipeTransport.__new__(UVWritePipeTransport)
+        handle._init(loop, protocol, server)
+        __init_pipe_uv_handle(<UVStream>handle, loop)
+        return handle

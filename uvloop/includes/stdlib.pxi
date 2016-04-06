@@ -5,6 +5,7 @@ import functools
 import itertools
 import os
 import socket
+import subprocess
 import sys
 import threading
 
@@ -22,6 +23,8 @@ cdef aio__check_resolved_address = asyncio.base_events._check_resolved_address
 cdef aio_iscoroutine = asyncio.iscoroutine
 cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
 cdef aio_wrap_future = asyncio.wrap_future
+cdef aio_BaseProtocol = asyncio.BaseProtocol
+cdef aio_Protocol = asyncio.Protocol
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
@@ -66,9 +69,15 @@ cdef str sys_platform = sys.platform
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
 
+cdef str sys_fs_encoding = sys.getfilesystemencoding()
+
 cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
+
+cdef int subprocess_PIPE = subprocess.PIPE
+cdef int subprocess_STDOUT = subprocess.STDOUT
+cdef int subprocess_DEVNULL = subprocess.DEVNULL
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode.
 del asyncio, concurrent, collections
-del functools, itertools, socket, os, sys, threading
+del functools, itertools, socket, os, sys, threading, subprocess

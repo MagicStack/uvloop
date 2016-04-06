@@ -32,7 +32,10 @@ cdef class UVTransport(UVStream):
         self._protocol = protocol
 
         # Store a reference to the bound method directly
-        self._protocol_data_received = protocol.data_received
+        try:
+            self._protocol_data_received = protocol.data_received
+        except AttributeError:
+            pass
 
     cdef _on_accept(self):
         # Implementation for UVStream._on_accept
@@ -217,6 +220,8 @@ cdef class UVTransport(UVStream):
         return self._closing
 
     def write(self, object buf):
+        self._ensure_alive()
+
         if self._eof:
             raise RuntimeError('Cannot call write() after write_eof()')
         if not buf:
@@ -232,6 +237,8 @@ cdef class UVTransport(UVStream):
             self.write(buf)
 
     def write_eof(self):
+        self._ensure_alive()
+
         if self._eof:
             return
 
@@ -243,6 +250,8 @@ cdef class UVTransport(UVStream):
         return True
 
     def pause_reading(self):
+        self._ensure_alive()
+
         if self._closing:
             raise RuntimeError('Cannot pause_reading() when closing')
         if not self._is_reading():
@@ -250,6 +259,8 @@ cdef class UVTransport(UVStream):
         self._stop_reading()
 
     def resume_reading(self):
+        self._ensure_alive()
+
         if self._is_reading():
             raise RuntimeError('Not paused')
         if self._closing:
@@ -260,6 +271,8 @@ cdef class UVTransport(UVStream):
         return self._get_write_buffer_size()
 
     def set_write_buffer_limits(self, high=None, low=None):
+        self._ensure_alive()
+
         if high is None:
             high = -1
         if low is None:
@@ -281,3 +294,45 @@ cdef class UVTransport(UVStream):
             except socket_error:
                 return default
         return default
+
+
+@cython.no_gc_clear
+cdef class UVReadTransport(UVTransport):
+    # No multiple-inheritance for extension classes -- let's
+    # just mask the methods we don't need
+
+    def get_write_buffer_limits(self):
+        raise NotImplementedError
+
+    def set_write_buffer_limits(self, high=None, low=None):
+        raise NotImplementedError
+
+    def get_write_buffer_size(self):
+        raise NotImplementedError
+
+    def write(self, data):
+        raise NotImplementedError
+
+    def writelines(self, list_of_data):
+        raise NotImplementedError
+
+    def write_eof(self):
+        raise NotImplementedError
+
+    def can_write_eof(self):
+        raise NotImplementedError
+
+    def abort(self):
+        raise NotImplementedError
+
+
+@cython.no_gc_clear
+cdef class UVWriteTransport(UVTransport):
+    # No multiple-inheritance for extension classes -- let's
+    # just mask the methods we don't need
+
+    def pause_reading(self):
+        raise NotImplementedError
+
+    def resume_reading(self):
+        raise NotImplementedError

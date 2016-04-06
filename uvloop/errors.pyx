@@ -2,15 +2,15 @@ cdef str __strerr(int errno):
     return strerror(errno).decode()
 
 
-cdef int __convert_python_error(int uverr):
-    exc = OSError
-
+cdef __convert_python_error(int uverr):
     # XXX Won't work for Windows:
     # From libuv docs:
     #      Implementation detail: on Unix error codes are the
     #      negated errno (or -errno), while on Windows they
     #      are defined by libuv to arbitrary negative numbers.
-    oserr = -uverr
+    cdef int oserr = -uverr
+
+    exc = OSError
 
     if uverr in (uv.UV_EACCES, uv.UV_EPERM):
         exc = PermissionError

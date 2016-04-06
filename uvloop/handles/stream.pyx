@@ -111,7 +111,7 @@ cdef class UVStream(UVHandle):
         cdef int err
         self._ensure_alive()
 
-        if self.__reading:
+        if self.__reading or not self._is_readable():
             return
 
         err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
@@ -140,7 +140,7 @@ cdef class UVStream(UVHandle):
     cdef _stop_reading(self):
         cdef int err
 
-        if not self.__reading:
+        if not self.__reading or not self._is_readable():
             return
         self.__reading_stopped()
 
@@ -152,10 +152,10 @@ cdef class UVStream(UVHandle):
             self._fatal_error(exc, True)
             return
 
-    cdef bint _is_readable(self):
+    cdef inline bint _is_readable(self):
         return uv.uv_is_readable(<uv.uv_stream_t*>self._handle)
 
-    cdef bint _is_writable(self):
+    cdef inline bint _is_writable(self):
         return uv.uv_is_writable(<uv.uv_stream_t*>self._handle)
 
     cdef _write(self, object data):
