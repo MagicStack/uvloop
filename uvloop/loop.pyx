@@ -1204,6 +1204,7 @@ cdef class Loop:
                                creationflags=0,
                                restore_signals=True,  # TODO
                                start_new_session=False,
+                               executable=None,
                                pass_fds=()  # TODO
                             ):
 
@@ -1217,6 +1218,9 @@ cdef class Loop:
             raise ValueError('startupinfo is not supported')
         if creationflags != 0:
             raise ValueError('creationflags is not supported')
+
+        if executable is not None:
+            args[0] = executable
 
         waiter = aio_Future(loop=self)
         protocol = protocol_factory()

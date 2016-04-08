@@ -14,14 +14,14 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env, cwd,
                start_new_session,
-               int stdin, int stdout, int stderr)
+               stdin, stdout, stderr)
 
     cdef char** __to_cstring_array(self, list arr)
     cdef _init_args(self, list args)
     cdef _init_env(self, dict env)
-    cdef _init_files(self, int stdin, int stdout, int stderr)
+    cdef _init_files(self, stdin, stdout, stderr)
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
-                        int stdin, int stdout, int stderr)
+                       stdin, stdout, stderr)
 
     cdef _on_exit(self, int64_t exit_status, int term_signal)
     cdef _kill(self, int signum)

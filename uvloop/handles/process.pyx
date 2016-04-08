@@ -9,7 +9,7 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
-               int stdin, int stdout, int stderr):
+               stdin, stdout, stderr):
 
         cdef int err
 
@@ -23,7 +23,7 @@ cdef class UVProcess(UVHandle):
 
         try:
             self._init_options(args, env, cwd, start_new_session,
-                                stdin, stdout, stderr)
+                               stdin, stdout, stderr)
         except:
             self._abort_init()
             raise
@@ -74,7 +74,7 @@ cdef class UVProcess(UVHandle):
         return ret
 
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
-                        int stdin, int stdout, int stderr):
+                       stdin, stdout, stderr):
 
         memset(&self.options, 0, sizeof(uv.uv_process_options_t))
 
@@ -144,7 +144,7 @@ cdef class UVProcess(UVHandle):
         else:
             self.__env = None
 
-    cdef _init_files(self, int stdin, int stdout, int stderr):
+    cdef _init_files(self, stdin, stdout, stderr):
         self.iocnt[0].flags = uv.UV_IGNORE
         self.iocnt[1].flags = uv.UV_IGNORE
         self.iocnt[2].flags = uv.UV_IGNORE
@@ -187,43 +187,46 @@ cdef class UVProcessTransport(UVProcess):
     cdef _pipe_data_received(self, int fd, data):
         self._loop.call_soon(self._protocol.pipe_data_received, fd, data)
 
-    cdef _init_files(self, int stdin, int stdout, int stderr):
+    cdef _init_files(self, stdin, stdout, stderr):
         UVProcess._init_files(self, stdin, stdout, stderr)
 
         self.stdin = self.stdout = self.stderr = None
 
-        if stdin == subprocess_PIPE:
-            proto = WriteSubprocessPipeProto(self, 0)
-            self.stdin = UVWritePipeTransport.new(self._loop, proto, None)
+        if stdin is not None:
+            if stdin == subprocess_PIPE:
+                proto = WriteSubprocessPipeProto(self, 0)
+                self.stdin = UVWritePipeTransport.new(self._loop, proto, None)
 
-            io = &self.iocnt[0]
-            io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                           uv.UV_WRITABLE_PIPE)
-            io.data.stream = <uv.uv_stream_t*>self.stdin._handle
-        else:
-            raise NotImplementedError
+                io = &self.iocnt[0]
+                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
+                                               uv.UV_WRITABLE_PIPE)
+                io.data.stream = <uv.uv_stream_t*>self.stdin._handle
+            else:
+                raise NotImplementedError
 
-        if stdout == subprocess_PIPE:
-            proto = ReadSubprocessPipeProto(self, 1)
-            self.stdout = UVReadPipeTransport.new(self._loop, proto, None)
+        if stdout is not None:
+            if stdout == subprocess_PIPE:
+                proto = ReadSubprocessPipeProto(self, 1)
+                self.stdout = UVReadPipeTransport.new(self._loop, proto, None)
 
-            io = &self.iocnt[1]
-            io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                           uv.UV_READABLE_PIPE)
-            io.data.stream = <uv.uv_stream_t*>self.stdout._handle
-        else:
-            raise NotImplementedError
+                io = &self.iocnt[1]
+                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
+                                               uv.UV_READABLE_PIPE)
+                io.data.stream = <uv.uv_stream_t*>self.stdout._handle
+            else:
+                raise NotImplementedError
 
-        if stderr == subprocess_PIPE:
-            proto = ReadSubprocessPipeProto(self, 2)
-            self.stderr = UVReadPipeTransport.new(self._loop, proto, None)
+        if stderr is not None:
+            if stderr == subprocess_PIPE:
+                proto = ReadSubprocessPipeProto(self, 2)
+                self.stderr = UVReadPipeTransport.new(self._loop, proto, None)
 
-            io = &self.iocnt[2]
-            io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                           uv.UV_READABLE_PIPE)
-            io.data.stream = <uv.uv_stream_t*>self.stderr._handle
-        else:
-            raise NotImplementedError
+                io = &self.iocnt[2]
+                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
+                                               uv.UV_READABLE_PIPE)
+                io.data.stream = <uv.uv_stream_t*>self.stderr._handle
+            else:
+                raise NotImplementedError
 
 
     @staticmethod
@@ -338,8 +341,8 @@ class ReadSubprocessPipeProto(WriteSubprocessPipeProto,
         (<UVProcessTransport>self.proc)._pipe_data_received(self.fd, data)
 
 
-cdef int __process_convert_fileno(object obj):
-    if isinstance(obj, int):
+cdef __process_convert_fileno(object obj):
+    if obj is None or isinstance(obj, int):
         return obj
 
     fileno = obj.fileno()

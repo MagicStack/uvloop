@@ -50,6 +50,22 @@ class _TestProcess:
 
         self.loop.run_until_complete(test())
 
+    def test_process_executable_1(self):
+        async def test():
+            proc = await asyncio.create_subprocess_exec(
+                b'doesnotexist', b'-c', b'print("spam")',
+                executable=sys.executable,
+                stdout=subprocess.PIPE,
+                loop=self.loop)
+
+            exitcode = await proc.wait()
+            self.assertEqual(exitcode, 0)
+
+            out = await proc.stdout.read()
+            self.assertEqual(out, b'spam\n')
+
+        self.loop.run_until_complete(test())
+
     def test_process_streams_1(self):
         async def test():
 
