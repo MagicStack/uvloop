@@ -58,10 +58,7 @@ class _TestProcess:
                 stdout=subprocess.PIPE,
                 loop=self.loop)
 
-            exitcode = await proc.wait()
-            self.assertEqual(exitcode, 0)
-
-            out = await proc.stdout.read()
+            out, err = await proc.communicate()
             self.assertEqual(out, b'spam\n')
 
         self.loop.run_until_complete(test())
