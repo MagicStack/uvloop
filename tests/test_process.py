@@ -1,4 +1,5 @@
 import asyncio
+import signal
 import socket
 import subprocess
 import sys
@@ -60,6 +61,47 @@ class _TestProcess:
 
             out, err = await proc.communicate()
             self.assertEqual(out, b'spam\n')
+
+        self.loop.run_until_complete(test())
+
+    def test_process_send_signal_1(self):
+        async def test():
+            prog = '''\
+import signal
+
+def handler(signum, frame):
+    if signum == signal.SIGUSR1:
+        print('WORLD')
+
+signal.signal(signal.SIGUSR1, handler)
+a = input()
+print(a)
+a = input()
+print(a)
+exit(11)
+            '''
+
+            cmd = sys.executable
+            proc = await asyncio.create_subprocess_exec(
+                cmd, b'-c', prog,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                loop=self.loop)
+
+            proc.stdin.write(b'HELLO\n')
+            await proc.stdin.drain()
+
+            self.assertEqual(await proc.stdout.readline(), b'HELLO\n')
+
+            proc.send_signal(signal.SIGUSR1)
+
+            proc.stdin.write(b'!\n')
+            await proc.stdin.drain()
+
+            self.assertEqual(await proc.stdout.readline(), b'WORLD\n')
+            self.assertEqual(await proc.stdout.readline(), b'!\n')
+            self.assertEqual(await proc.wait(), 11)
 
         self.loop.run_until_complete(test())
 
