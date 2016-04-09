@@ -64,6 +64,28 @@ class _TestProcess:
 
         self.loop.run_until_complete(test())
 
+    def test_process_pid_1(self):
+        async def test():
+            prog = '''\
+import os
+print(os.getpid())
+            '''
+
+            cmd = sys.executable
+            proc = await asyncio.create_subprocess_exec(
+                cmd, b'-c', prog,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                loop=self.loop)
+
+            pid = proc.pid
+            expected_result = '{}\n'.format(pid).encode()
+
+            out, err = await proc.communicate()
+            self.assertEqual(out, expected_result)
+
+        self.loop.run_until_complete(test())
+
     def test_process_send_signal_1(self):
         async def test():
             prog = '''\
