@@ -2,6 +2,8 @@ cdef class UVProcess(UVHandle):
     cdef:
         object _returncode
 
+        set _fds_to_close
+
         # Attributes used to compose uv_process_options_t:
         uv.uv_process_options_t options
         uv.uv_stdio_container_t[3] iocnt
@@ -23,6 +25,8 @@ cdef class UVProcess(UVHandle):
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
                        stdin, stdout, stderr)
 
+    cdef _close_after_spawn(self, int fd)
+
     cdef _on_exit(self, int64_t exit_status, int term_signal)
     cdef _kill(self, int signum)
 
@@ -35,6 +39,10 @@ cdef class UVProcessTransport(UVProcess):
         UVWritePipeTransport stdin
         UVReadPipeTransport stdout
         UVReadPipeTransport stderr
+
+    cdef _file_redirect_stdio(self, int fd)
+    cdef _file_devnull(self)
+    cdef _file_outpipe(self)
 
     cdef _check_proc(self)
     cdef _pipe_connection_lost(self, int fd, exc)

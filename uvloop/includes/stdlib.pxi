@@ -64,6 +64,13 @@ cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
 
 cdef str os_name = os.name
 cdef os_environ = os.environ
+cdef os_dup = os.dup
+cdef os_pipe = os.pipe
+cdef os_set_inheritable = os.set_inheritable
+cdef os_close = os.close
+cdef os_open = os.open
+cdef os_devnull = os.devnull
+cdef os_O_RDWR = os.O_RDWR
 
 cdef str sys_platform = sys.platform
 cdef sys_ignore_environment = sys.flags.ignore_environment
@@ -78,6 +85,7 @@ cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
 
 
-# Cython doesn't clean-up imported objects properly in Py3 mode.
+# Cython doesn't clean-up imported objects properly in Py3 mode,
+# so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
-del functools, itertools, socket, os, sys, threading, subprocess
+del functools, itertools, socket, os, threading, subprocess

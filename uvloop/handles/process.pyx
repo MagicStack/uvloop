@@ -6,6 +6,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_env = NULL
         self.uv_opt_args = NULL
         self._returncode = None
+        self._fds_to_close = set()
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
@@ -36,6 +37,17 @@ cdef class UVProcess(UVHandle):
             raise convert_error(err)
 
         self._finish_init()
+
+        fds_to_close = self._fds_to_close
+        self._fds_to_close = None
+        for fd in fds_to_close:
+            os_close(fd)
+
+    cdef _close_after_spawn(self, int fd):
+        if self._fds_to_close is None:
+            raise RuntimeError(
+                'UVProcess._close_after_spawn called after uv_spawn')
+        self._fds_to_close.add(fd)
 
     cdef _free(self):
         if self.uv_opt_env is not NULL:
@@ -187,47 +199,108 @@ cdef class UVProcessTransport(UVProcess):
     cdef _pipe_data_received(self, int fd, data):
         self._loop.call_soon(self._protocol.pipe_data_received, fd, data)
 
+    cdef _file_redirect_stdio(self, int fd):
+        fd = os_dup(fd)
+        os_set_inheritable(fd, True)
+        self._close_after_spawn(fd)
+        return fd
+
+    cdef _file_devnull(self):
+        dn = os_open(os_devnull, os_O_RDWR)
+        os_set_inheritable(dn, True)
+        self._close_after_spawn(dn)
+        return dn
+
+    cdef _file_outpipe(self):
+        r, w = os_pipe()
+        os_set_inheritable(w, True)
+        self._close_after_spawn(w)
+        return r, w
+
     cdef _init_files(self, stdin, stdout, stderr):
+        cdef uv.uv_stdio_container_t *iocnt
+
         UVProcess._init_files(self, stdin, stdout, stderr)
 
         self.stdin = self.stdout = self.stderr = None
+        io = [None, None, None]
 
         if stdin is not None:
             if stdin == subprocess_PIPE:
                 proto = WriteSubprocessPipeProto(self, 0)
                 self.stdin = UVWritePipeTransport.new(self._loop, proto, None)
 
-                io = &self.iocnt[0]
-                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                               uv.UV_WRITABLE_PIPE)
-                io.data.stream = <uv.uv_stream_t*>self.stdin._handle
+                iocnt = &self.iocnt[0]
+                iocnt.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
+                                                  uv.UV_READABLE_PIPE)
+                iocnt.data.stream = <uv.uv_stream_t*>self.stdin._handle
+            elif stdin == subprocess_DEVNULL:
+                io[0] = self._file_devnull()
+            elif stdout == subprocess_STDOUT:
+                raise ValueError(
+                    'subprocess.STDOUT is supported only by stderr parameter')
             else:
-                raise NotImplementedError
+                raise ValueError(
+                    'invalid stdin argument value {!r}'.format(stdin))
+        else:
+            io[0] = self._file_redirect_stdio(sys.stdin.fileno())
 
         if stdout is not None:
             if stdout == subprocess_PIPE:
+                # We can't use UV_CREATE_PIPE here, since 'stderr' might be
+                # set to 'subprocess.STDOUT', and there is no way to
+                # emulate that functionality with libuv high-level
+                # streams API. Therefore, we create pipes for stdout and
+                # stderr manually.
+
+                r, w  = self._file_outpipe()
+                io[1] = w
+
                 proto = ReadSubprocessPipeProto(self, 1)
                 self.stdout = UVReadPipeTransport.new(self._loop, proto, None)
-
-                io = &self.iocnt[1]
-                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                               uv.UV_READABLE_PIPE)
-                io.data.stream = <uv.uv_stream_t*>self.stdout._handle
+                self.stdout.open(r)
+            elif stdout == subprocess_DEVNULL:
+                io[1] = self._file_devnull()
+            elif stdout == subprocess_STDOUT:
+                raise ValueError(
+                    'subprocess.STDOUT is supported only by stderr parameter')
             else:
-                raise NotImplementedError
+                raise ValueError(
+                    'invalid stdout argument value {!r}'.format(stdin))
+        else:
+            io[1] = self._file_redirect_stdio(sys.stdout.fileno())
 
         if stderr is not None:
             if stderr == subprocess_PIPE:
+                r, w  = self._file_outpipe()
+                io[2] = w
+
                 proto = ReadSubprocessPipeProto(self, 2)
                 self.stderr = UVReadPipeTransport.new(self._loop, proto, None)
+                self.stderr.open(r)
+            elif stderr == subprocess_STDOUT:
+                if io[1] is None:
+                    # shouldn't ever happen
+                    raise RuntimeError('cannot apply subprocess.STDOUT')
 
-                io = &self.iocnt[2]
-                io.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                               uv.UV_READABLE_PIPE)
-                io.data.stream = <uv.uv_stream_t*>self.stderr._handle
+                newfd = os_dup(io[1])
+                os_set_inheritable(newfd, True)
+                self._close_after_spawn(newfd)
+                io[2] = newfd
+            elif stdout == subprocess_DEVNULL:
+                io[2] = self._file_devnull()
             else:
-                raise NotImplementedError
+                raise ValueError(
+                    'invalid stderr argument value {!r}'.format(stdin))
+        else:
+            io[2] = self._file_redirect_stdio(sys.stderr.fileno())
 
+        assert len(io) == 3
+        for idx in range(3):
+            if io[idx] is not None:
+                iocnt = &self.iocnt[idx]
+                iocnt.flags = uv.UV_INHERIT_FD
+                iocnt.data.fd = io[idx]
 
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,

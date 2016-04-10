@@ -1,8 +1,10 @@
 import asyncio
+import contextlib
 import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import uvloop
 
 from uvloop import _testbase as tb
@@ -127,7 +129,7 @@ exit(11)
 
         self.loop.run_until_complete(test())
 
-    def test_process_streams_1(self):
+    def test_process_streams_basic_1(self):
         async def test():
 
             prog = '''\
@@ -151,23 +153,98 @@ while True:
                 loop=self.loop)
 
             proc.stdin.write(b'foobar\n')
+            await proc.stdin.drain()
             out = await proc.stdout.readline()
             self.assertEqual(out, b'>foobar<\n')
 
             proc.stdin.write(b'stderr\n')
+            await proc.stdin.drain()
             out = await proc.stderr.readline()
             self.assertEqual(out, b'OUCH\n')
 
             proc.stdin.write(b'stop\n')
+            await proc.stdin.drain()
 
             exitcode = await proc.wait()
             self.assertEqual(exitcode, 20)
 
         self.loop.run_until_complete(test())
 
+    def test_process_streams_stderr_to_stdout(self):
+        async def test():
+            prog = '''\
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
+            '''
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, '-c', prog,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                loop=self.loop)
+
+            out, err = await proc.communicate()
+            self.assertIsNone(err)
+            self.assertEqual(out, b'out\nerr\n')
+
+        self.loop.run_until_complete(test())
+
+    def test_process_streams_devnull(self):
+        async def test():
+            prog = '''\
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
+            '''
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, '-c', prog,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                loop=self.loop)
+
+            out, err = await proc.communicate()
+            self.assertIsNone(err)
+            self.assertIsNone(out)
+
+        self.loop.run_until_complete(test())
+
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
-    pass
+    def test_process_streams_redirect(self):
+        # This won't work for asyncio implementation of subprocess
+
+        async def test():
+            prog = bR'''
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
+            '''
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, '-c', prog,
+                loop=self.loop)
+
+            out, err = await proc.communicate()
+            self.assertIsNone(out)
+            self.assertIsNone(err)
+
+        with tempfile.NamedTemporaryFile('w') as stdout:
+            with tempfile.NamedTemporaryFile('w') as stderr:
+                with contextlib.redirect_stdout(stdout):
+                    with contextlib.redirect_stderr(stderr):
+                        self.loop.run_until_complete(test())
+
+                stdout.flush()
+                stderr.flush()
+
+                with open(stdout.name, 'rb') as so:
+                    self.assertEqual(so.read(), b'out\n')
+
+                with open(stderr.name, 'rb') as se:
+                    self.assertEqual(se.read(), b'err\n')
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):

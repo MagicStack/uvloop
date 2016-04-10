@@ -1,4 +1,4 @@
-cdef __init_pipe_uv_handle(UVStream handle, Loop loop):
+cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
     cdef int err
 
     handle._handle = <uv.uv_handle_t*> \
@@ -20,6 +20,15 @@ cdef __init_pipe_uv_handle(UVStream handle, Loop loop):
     handle._finish_init()
 
 
+cdef __pipe_open(UVStream handle, int fd):
+    cdef int err
+    err = uv.uv_pipe_open(<uv.uv_pipe_t *>handle._handle,
+                          <uv.uv_file>fd)
+    if err < 0:
+        exc = convert_error(err)
+        raise exc
+
+
 @cython.no_gc_clear
 cdef class UVPipeServer(UVStreamServer):
 
@@ -28,19 +37,12 @@ cdef class UVPipeServer(UVStreamServer):
         cdef UVPipeServer handle
         handle = UVPipeServer.__new__(UVPipeServer)
         handle._init(loop, protocol_factory, server)
-        __init_pipe_uv_handle(<UVStream>handle, loop)
+        __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
     cdef open(self, int sockfd):
-        cdef int err
         self._ensure_alive()
-        err = uv.uv_pipe_open(<uv.uv_pipe_t *>self._handle,
-                              <uv.uv_file>sockfd)
-        if err < 0:
-            exc = convert_error(err)
-            self._fatal_error(exc, True)
-            return
-
+        __pipe_open(<UVStream>self, sockfd)
         self._mark_as_open()
 
     cdef bind(self, str path):
@@ -69,8 +71,11 @@ cdef class UVPipeTransport(UVTransport):
         cdef UVPipeTransport handle
         handle = UVPipeTransport.__new__(UVPipeTransport)
         handle._init(loop, protocol, server)
-        __init_pipe_uv_handle(<UVStream>handle, loop)
+        __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef open(self, int sockfd):
+        __pipe_open(<UVStream>self, sockfd)
 
 
 @cython.no_gc_clear
@@ -81,8 +86,11 @@ cdef class UVReadPipeTransport(UVReadTransport):
         cdef UVReadPipeTransport handle
         handle = UVReadPipeTransport.__new__(UVReadPipeTransport)
         handle._init(loop, protocol, server)
-        __init_pipe_uv_handle(<UVStream>handle, loop)
+        __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef open(self, int sockfd):
+        __pipe_open(<UVStream>self, sockfd)
 
 
 @cython.no_gc_clear
@@ -93,5 +101,8 @@ cdef class UVWritePipeTransport(UVWriteTransport):
         cdef UVWritePipeTransport handle
         handle = UVWritePipeTransport.__new__(UVWritePipeTransport)
         handle._init(loop, protocol, server)
-        __init_pipe_uv_handle(<UVStream>handle, loop)
+        __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef open(self, int sockfd):
+        __pipe_open(<UVStream>self, sockfd)
