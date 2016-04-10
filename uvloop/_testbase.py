@@ -42,11 +42,13 @@ class BaseTestCase(unittest.TestCase):
             self.assertEqual(self.loop._debug_stream_write_ctx_cnt, 0)
 
             for h_name, h_cnt in self.loop._debug_handles_current.items():
-                with self.subTest(handle_name=h_name):
+                with self.subTest('Alive handle after test',
+                                  handle_name=h_name):
                     self.assertEqual(h_cnt, 0)
 
             for h_name, h_cnt in self.loop._debug_handles_total.items():
-                with self.subTest(handle_name=h_name):
+                with self.subTest('Total/closed handles',
+                                  handle_name=h_name):
                     self.assertEqual(
                         h_cnt, self.loop._debug_handles_closed[h_name])
 

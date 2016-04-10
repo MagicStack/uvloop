@@ -919,7 +919,7 @@ cdef class Loop:
         def caller(result):
             if result is None:
                 fut.set_result(None)
-                transport._schedule_call_connection_made()
+                transport._init_protocol(None)
             else:
                 fut.set_exception(result)
 
@@ -1032,7 +1032,7 @@ cdef class Loop:
             tr = UVTCPTransport.new(self, protocol, None)
             # libuv will make socket non-blocking
             tr.open(fileno)
-            tr._schedule_call_connection_made()
+            tr._init_protocol(None)
 
         return tr, protocol
 
@@ -1229,7 +1229,12 @@ cdef class Loop:
                                       stdin, stdout, stderr,
                                       waiter)
 
-        await waiter
+        try:
+            await waiter
+        except:
+            proc.close()
+            raise
+
         return proc, protocol
 
     def subprocess_shell(self, protocol_factory, cmd, *,
@@ -1255,6 +1260,46 @@ cdef class Loop:
 
         return self.__subprocess_run(protocol_factory, args, shell=False,
                                      **kwargs)
+
+    @aio_coroutine
+    async def connect_read_pipe(self, proto_factory, pipe):
+        cdef:
+            UVReadPipeTransport transp
+            int fileno = os_dup(pipe.fileno())
+
+        waiter = aio_Future(loop=self)
+        proto = proto_factory()
+        transp = UVReadPipeTransport.new(self, proto, None)
+        transp._add_extra_info('pipe', pipe)
+        transp._fileobj = pipe
+        try:
+            transp.open(fileno)
+            transp._init_protocol(waiter)
+            await waiter
+        except:
+            transp.close()
+            raise
+        return transp, proto
+
+    @aio_coroutine
+    async def connect_write_pipe(self, proto_factory, pipe):
+        cdef:
+            UVWritePipeTransport transp
+            int fileno = os_dup(pipe.fileno())
+
+        waiter = aio_Future(loop=self)
+        proto = proto_factory()
+        transp = UVWritePipeTransport.new(self, proto, None)
+        transp._add_extra_info('pipe', pipe)
+        transp._fileobj = pipe
+        try:
+            transp.open(fileno)
+            transp._init_protocol(waiter)
+            await waiter
+        except:
+            transp.close()
+            raise
+        return transp, proto
 
     def add_signal_handler(self, sig, callback, *args):
         """TODO"""

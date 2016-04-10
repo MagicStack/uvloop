@@ -17,12 +17,30 @@ cdef class UVTransport(UVStream):
         self._low_water = FLOW_CONTROL_LOW_WATER
 
         self._server = None
+        self._extra_info = None
+        self._fileobj = None
 
     cdef _init(self, Loop loop, object protocol, Server server):
         self._start_init(loop)
         self._set_protocol(protocol)
         if server is not None:
             self._set_server(server)
+
+    cdef _close(self):
+        UVStream._close(self)
+
+        if self._fileobj is not None:
+            try:
+                self._fileobj.close()
+            except Exception as exc:
+                self._loop.call_exception_handler({
+                    'exception': exc,
+                    'transport': self,
+                    'message': 'could not close attached file object {!r}'.
+                        format(self._fileobj)
+                })
+            finally:
+                self._fileobj = None
 
     cdef _set_server(self, Server server):
         self._server = server
@@ -37,6 +55,23 @@ cdef class UVTransport(UVStream):
         except AttributeError:
             pass
 
+    cdef _init_protocol(self, waiter):
+        if self._protocol is None:
+            raise RuntimeError('invalid _init_protocol call')
+
+        self._schedule_call_connection_made()
+
+        if waiter is not None:
+            IF DEBUG:
+                if not isinstance(waiter, aio_Future):
+                    raise TypeError('invalid waiter')
+            self._loop.call_soon(_set_result_unless_cancelled, waiter, True)
+
+    cdef _add_extra_info(self, str name, object obj):
+        if self._extra_info is None:
+            self._extra_info = {}
+        self._extra_info[name] = obj
+
     cdef _on_accept(self):
         # Implementation for UVStream._on_accept
         self._schedule_call_connection_made()
@@ -49,7 +84,13 @@ cdef class UVTransport(UVStream):
     cdef _on_eof(self):
         # Implementation for UVStream._on_eof
 
-        keep_open = self._protocol.eof_received()
+        try:
+            meth = self._protocol.eof_received
+        except AttributeError:
+            keep_open = False
+        else:
+            keep_open = meth()
+
         if keep_open:
             self._stop_reading()
         else:
@@ -284,6 +325,8 @@ cdef class UVTransport(UVStream):
         return (self._low_water, self._high_water)
 
     def get_extra_info(self, name, default=None):
+        if self._extra_info is not None and name in self._extra_info:
+            return self._extra_info[name]
         if name == 'socket':
             return self._get_socket()
         if name == 'sockname':

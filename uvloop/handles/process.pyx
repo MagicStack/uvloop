@@ -317,11 +317,11 @@ cdef class UVProcessTransport(UVProcess):
                      __process_convert_fileno(stderr))
 
         if handle.stdin is not None:
-            handle.stdin._schedule_call_connection_made()
+            handle.stdin._init_protocol(None)
         if handle.stdout is not None:
-            handle.stdout._schedule_call_connection_made()
+            handle.stdout._init_protocol(None)
         if handle.stderr is not None:
-            handle.stderr._schedule_call_connection_made()
+            handle.stderr._init_protocol(None)
 
         loop.call_soon(protocol.connection_made, handle)
         if waiter is not None:
