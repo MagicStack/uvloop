@@ -49,10 +49,12 @@ cdef extern from "../vendor/libuv/include/uv.h":
     cdef int AF_UNIX
     cdef int AF_UNSPEC
     cdef int AI_PASSIVE
+    cdef int AI_NUMERICHOST
     cdef int INET6_ADDRSTRLEN
     cdef int IPV6_V6ONLY
     cdef int IPPROTO_IPV6
     cdef int SOCK_STREAM
+    cdef int SOCK_DGRAM
 
     cdef int SIGINT
     cdef int SIGHUP
@@ -194,6 +196,10 @@ cdef extern from "../vendor/libuv/include/uv.h":
     ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                        int status,
                                        system.addrinfo* res) with gil
+    ctypedef void (*uv_getnameinfo_cb)(uv_getnameinfo_t* req,
+                                       int status,
+                                       const char* hostname,
+                                       const char* service) with gil
     ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status) with gil
     ctypedef void (*uv_poll_cb)(uv_poll_t* handle,
                                 int status, int events) with gil
@@ -259,7 +265,14 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     void uv_freeaddrinfo(system.addrinfo* ai)
 
+    int uv_getnameinfo(uv_loop_t* loop,
+                       uv_getnameinfo_t* req,
+                       uv_getnameinfo_cb getnameinfo_cb,
+                       const system.sockaddr* addr,
+                       int flags)
+
     int ntohl(int)
+    int htonl(int)
     int ntohs(int)
 
     int uv_ip4_name(const system.sockaddr_in* src, char* dst, size_t size)

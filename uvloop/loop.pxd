@@ -133,6 +133,8 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack)
 
+    cdef _getnameinfo(self, system.sockaddr *addr, int flags)
+
     cdef _add_reader(self, fd, Handle handle)
     cdef _remove_reader(self, fd)
 

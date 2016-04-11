@@ -466,6 +466,20 @@ cdef class Loop:
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
 
+    cdef _getnameinfo(self, system.sockaddr *addr, int flags):
+        cdef NameInfoRequest nr
+        fut = aio_Future(loop=self)
+
+        def callback(result):
+            if isinstance(result, tuple):
+                fut.set_result(result)
+            else:
+                fut.set_exception(result)
+
+        nr = NameInfoRequest(self, callback)
+        nr.query(addr, flags)
+        return fut
+
     cdef _sock_recv(self, fut, int registered, sock, n):
         # _sock_recv() can add itself as an I/O callback if the operation can't
         # be done immediately. Don't use it directly, call sock_recv().
@@ -833,6 +847,69 @@ cdef class Loop:
                     int family=0, int type=0, int proto=0, int flags=0):
 
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
+
+    @aio_coroutine
+    async def getnameinfo(self, sockaddr, int flags=0):
+        cdef:
+            AddrInfo ai_cnt
+            system.addrinfo *ai
+            system.sockaddr_in6 *sin6
+
+        if not isinstance(sockaddr, tuple):
+            raise TypeError('getnameinfo() argument 1 must be a tuple')
+
+        sl = len(sockaddr)
+
+        if sl < 2 or sl > 4:
+            raise ValueError('sockaddr must be a tuple of 2, 3 or 4 values')
+
+        host = sockaddr[0]
+        if not isinstance(host, str):
+            raise TypeError('host must be a string')
+
+        port = sockaddr[1]
+        if not isinstance(port, int):
+            raise TypeError('port must be an int')
+
+        if sl > 2:
+            flowinfo = sockaddr[2]
+            if flowinfo < 0 or flowinfo > 0xfffff:
+                raise OverflowError(
+                    'getsockaddrarg: flowinfo must be 0-1048575.')
+        else:
+            flowinfo = 0
+
+        if sl > 3:
+            scope_id = sockaddr[3]
+            if scope_id < 0 or scope_id > 2 ** 32:
+                raise OverflowError(
+                    'getsockaddrarg: scope_id must be unsigned 32 bit integer')
+        else:
+            scope_id = 0
+
+        ai_cnt = await self._getaddrinfo(
+            host, port,
+            uv.AF_UNSPEC,         # family
+            uv.SOCK_DGRAM,        # type
+            0,                    # proto
+            uv.AI_NUMERICHOST,    # flags
+            0)                    # unpack
+
+        ai = ai_cnt.data
+
+        if ai.ai_next:
+            raise OSError("sockaddr resolved to multiple addresses")
+
+        if ai.ai_family == uv.AF_INET:
+            if sl > 2:
+                raise OSError("IPv4 sockaddr must be 2 tuple")
+        elif ai.ai_family == uv.AF_INET6:
+            # Modify some fields in `ai`
+            sin6 = <system.sockaddr_in6*> ai.ai_addr
+            sin6.sin6_flowinfo = uv.htonl(flowinfo)
+            sin6.sin6_scope_id = scope_id
+
+        return await self._getnameinfo(ai.ai_addr, flags)
 
     @aio_coroutine
     async def create_server(self, protocol_factory, host, port,

@@ -96,6 +96,7 @@ cdef class AddrInfoRequest(UVRequest):
         self.request = <uv.uv_req_t*> PyMem_Malloc(
             sizeof(uv.uv_getaddrinfo_t))
         if self.request is NULL:
+            self.on_done()
             raise MemoryError()
 
         self.callback = callback
@@ -113,6 +114,32 @@ cdef class AddrInfoRequest(UVRequest):
             callback(convert_error(err))
 
 
+cdef class NameInfoRequest(UVRequest):
+    cdef:
+        object callback
+
+    def __cinit__(self, Loop loop, callback):
+        self.request = <uv.uv_req_t*> PyMem_Malloc(
+            sizeof(uv.uv_getnameinfo_t))
+        if self.request is NULL:
+            self.on_done()
+            raise MemoryError()
+
+        self.callback = callback
+        self.request.data = <void*>self
+
+    cdef query(self, system.sockaddr *addr, int flags):
+        cdef int err
+        err = uv.uv_getnameinfo(self.loop.uvloop,
+                                <uv.uv_getnameinfo_t*>self.request,
+                                __on_nameinfo_resolved,
+                                addr,
+                                flags)
+        if err < 0:
+            self.on_done()
+            self.callback(convert_error(err))
+
+
 cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
                                  int status, system.addrinfo *res) with gil:
 
@@ -128,11 +155,6 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
         AddrInfo ai
 
     try:
-        # We no longer need our AddrInfoRequest wrapper -- on_done()
-        # will untrack it in the loop, and it will be garbage
-        # collected soon.
-        request.on_done()
-
         if status < 0:
             callback(convert_error(status))
         else:
@@ -141,3 +163,26 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
             callback(ai)
     except Exception as ex:
         loop._handle_exception(ex)
+    finally:
+        request.on_done()
+
+
+cdef void __on_nameinfo_resolved(uv.uv_getnameinfo_t* req,
+                                 int status,
+                                 const char* hostname,
+                                 const char* service) with gil:
+    cdef:
+        NameInfoRequest request = <NameInfoRequest> req.data
+        Loop loop = request.loop
+        object callback = request.callback
+
+    try:
+        if status < 0:
+            callback(convert_error(status))
+        else:
+            callback(((<bytes>hostname).decode(),
+                      (<bytes>service).decode()))
+    except Exception as ex:
+        loop._handle_exception(ex)
+    finally:
+        request.on_done()

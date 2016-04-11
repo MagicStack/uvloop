@@ -34,6 +34,29 @@ class BaseTestDNS:
 
             self.assertEqual(a1, a2)
 
+    def _test_getnameinfo(self, *args, **kwargs):
+        err = None
+        try:
+            a1 = socket.getnameinfo(*args, **kwargs)
+        except Exception as ex:
+            err = ex
+
+        try:
+            a2 = self.loop.run_until_complete(
+                self.loop.getnameinfo(*args, **kwargs))
+        except Exception as ex:
+            if err is not None:
+                self.assertEqual(ex.__class__, err.__class__)
+                self.assertEqual(ex.args, err.args)
+            else:
+                raise
+        else:
+            if err is not None:
+                self.fail(
+                    'uv failed, but blocking getnameinfo run without error')
+
+            self.assertEqual(a1, a2)
+
     def test_getaddrinfo_1(self):
         self._test_getaddrinfo(_HOST, _PORT)
 
@@ -45,6 +68,23 @@ class BaseTestDNS:
 
     def test_getaddrinfo_4(self):
         self._test_getaddrinfo(_HOST, _PORT, family=-1)
+
+    ######
+
+    def test_getnameinfo_1(self):
+        self._test_getnameinfo(('127.0.0.1', 80), 0)
+
+    def test_getnameinfo_2(self):
+        self._test_getnameinfo(('127.0.0.1', 80, 1231231231213), 0)
+
+    def test_getnameinfo_3(self):
+        self._test_getnameinfo(('127.0.0.1', 80, 0, 0), 0)
+
+    def test_getnameinfo_4(self):
+        self._test_getnameinfo(('::1', 80), 0)
+
+    def test_getnameinfo_5(self):
+        self._test_getnameinfo(('localhost', 8080), 0)
 
 
 class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
