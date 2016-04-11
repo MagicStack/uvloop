@@ -394,7 +394,7 @@ cdef class Loop:
                 "Non-thread-safe operation invoked on an event loop other "
                 "than the current one")
 
-    cdef _add_reader(self, fd, Handle handle):
+    cdef inline _add_reader(self, fd, Handle handle):
         cdef:
             UVPoll poll
 
@@ -408,7 +408,7 @@ cdef class Loop:
 
         poll.start_reading(handle)
 
-    cdef _remove_reader(self, fd):
+    cdef inline _remove_reader(self, fd):
         cdef:
             UVPoll poll
 
@@ -425,7 +425,7 @@ cdef class Loop:
             self._polls_gc[fd] = poll
         return result
 
-    cdef _add_writer(self, fd, Handle handle):
+    cdef inline _add_writer(self, fd, Handle handle):
         cdef:
             UVPoll poll
 
@@ -439,7 +439,7 @@ cdef class Loop:
 
         poll.start_writing(handle)
 
-    cdef _remove_writer(self, fd):
+    cdef inline _remove_writer(self, fd):
         cdef:
             UVPoll poll
 
@@ -494,7 +494,7 @@ cdef class Loop:
             # selector says the fd is ready but the call still returns
             # EAGAIN, and I am willing to take a hit in that case in
             # order to simplify the common case.
-            self.remove_reader(fd)
+            self._remove_reader(fd)
         if fut.cancelled():
             return
         try:
@@ -523,7 +523,7 @@ cdef class Loop:
         fd = sock.fileno()
 
         if registered:
-            self.remove_writer(fd)
+            self._remove_writer(fd)
         if fut.cancelled():
             return
 
@@ -562,7 +562,7 @@ cdef class Loop:
 
         fd = sock.fileno()
         if registered:
-            self.remove_reader(fd)
+            self._remove_reader(fd)
         if fut.cancelled():
             return
         try:
