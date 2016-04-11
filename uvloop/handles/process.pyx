@@ -171,7 +171,14 @@ cdef class UVProcess(UVHandle):
             raise convert_error(err)
 
     cdef _on_exit(self, int64_t exit_status, int term_signal):
-        self._returncode = exit_status
+        if term_signal:
+            # From Python docs:
+            #    A negative value -N indicates that the child was
+            #    terminated by signal N (POSIX only).
+            self._returncode = -term_signal
+        else:
+            self._returncode = exit_status
+
         self._close()
 
 
@@ -186,7 +193,7 @@ cdef class UVProcessTransport(UVProcess):
 
         for waiter in self._exit_waiters:
             if not waiter.cancelled():
-                waiter.set_result(exit_status)
+                waiter.set_result(self._returncode)
         self._exit_waiters.clear()
 
     cdef _check_proc(self):
@@ -364,6 +371,9 @@ cdef class UVProcessTransport(UVProcess):
             self._kill(uv.SIGKILL)
 
         self._close()
+
+    def get_extra_info(self, name, default=None):
+        return default
 
     def _wait(self):
         fut = aio_Future(loop=self._loop)
