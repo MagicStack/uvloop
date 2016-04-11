@@ -196,6 +196,12 @@ class write(Command):
         return sock, None
 
 
+class close(Command):
+    def _run(self, sock):
+        sock.close()
+        return sock, None
+
+
 class read(Command):
 
     def __init__(self, nbytes):

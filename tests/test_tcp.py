@@ -216,6 +216,50 @@ class _TestTCP:
 
         self.loop.run_until_complete(runner())
 
+    def test_create_connection_3(self):
+        CNT = 0
+        TOTAL_CNT = 100
+
+        def server():
+            data = yield tb.read(4)
+            self.assertEqual(data, b'AAAA')
+            yield tb.close()
+
+        async def client(addr):
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+
+            with self.assertRaises(asyncio.IncompleteReadError):
+                await reader.readexactly(10)
+
+            writer.close()
+
+            nonlocal CNT
+            CNT += 1
+
+        def run(coro):
+            nonlocal CNT
+            CNT = 0
+
+            srv = tb.tcp_server(server,
+                                max_clients=TOTAL_CNT,
+                                backlog=TOTAL_CNT,
+                                timeout=5)
+            srv.start()
+
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(coro(srv.addr))
+
+            self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
+            srv.stop()
+            self.assertEqual(CNT, TOTAL_CNT)
+
+        run(client)
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
     pass
