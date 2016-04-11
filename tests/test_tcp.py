@@ -131,6 +131,67 @@ class _TestTCP:
         self.loop.run_forever()
         self.assertEqual(CNT, TOTAL_CNT)
 
+    def test_create_connection_1(self):
+        CNT = 0
+        TOTAL_CNT = 100
+
+        def server():
+            data = yield tb.read(4)
+            self.assertEqual(data, b'AAAA')
+            yield tb.write(b'OK')
+
+            data = yield tb.read(4)
+            self.assertEqual(data, b'BBBB')
+            yield tb.write(b'SPAM')
+
+        async def client():
+            reader, writer = await asyncio.open_connection(
+                *srv.addr,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+
+        srv = tb.tcp_server(server,
+                            max_clients=TOTAL_CNT,
+                            backlog=TOTAL_CNT)
+        srv.start()
+
+        tasks = []
+        for _ in range(TOTAL_CNT):
+            tasks.append(client())
+
+        self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
+
+        srv.stop()
+
+        self.assertEqual(CNT, TOTAL_CNT)
+
+    def test_create_connection_2(self):
+        sock = socket.socket()
+        with sock:
+            sock.bind(('127.0.0.1', 0))
+            addr = sock.getsockname()
+
+        async def client():
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                loop=self.loop)
+
+        async def runner():
+            with self.assertRaises(ConnectionRefusedError):
+                await client()
+
+        self.loop.run_until_complete(runner())
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
     pass

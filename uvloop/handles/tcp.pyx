@@ -115,6 +115,7 @@ cdef class _TCPConnectRequest(UVRequest):
                                 __tcp_connect_callback)
         if err < 0:
             exc = convert_error(err)
+            self.on_done()
             raise exc
 
 
@@ -126,11 +127,15 @@ cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
     wrapper = <_TCPConnectRequest> req.data
     callback = wrapper.callback
 
-    wrapper.on_done()
-
     if status < 0:
         exc = convert_error(status)
     else:
         exc = None
 
-    callback(exc)
+    try:
+        callback(exc)
+    except BaseException as ex:
+        wrapper.transport._error(ex, False)
+    finally:
+        wrapper.on_done()
+

@@ -55,7 +55,6 @@ cdef class Loop:
 
         self._sigint_check = 0
 
-        self._requests = set()
         self._timers = set()
         self._servers = set()
         self._polls = dict()
@@ -215,14 +214,6 @@ cdef class Loop:
         if not self.handler_idle.running:
             self.handler_idle.start()
 
-    cdef inline void __track_request__(self, UVRequest request):
-        """Internal helper for tracking UVRequests."""
-        self._requests.add(request)
-
-    cdef inline void __untrack_request__(self, UVRequest request):
-        """Internal helper for tracking UVRequests."""
-        self._requests.remove(request)
-
     cdef __run(self, uv.uv_run_mode mode):
         global __main_loop__
 
@@ -308,10 +299,6 @@ cdef class Loop:
             self._polls.clear()
             self._polls_gc.clear()
 
-        if self._requests:
-            for request in tuple(self._requests):
-                (<UVRequest>request).cancel()
-
         if self._timers:
             for timer_cbhandle in tuple(self._timers):
                 timer_cbhandle.cancel()
@@ -330,11 +317,6 @@ cdef class Loop:
             raise RuntimeError(
                 "new poll handles were queued during loop closing: {}"
                     .format(self._polls))
-
-        if self._requests:
-            raise RuntimeError(
-                "new requests were queued or old requests weren't completed "
-                "during loop closing: {}".format(self._requests))
 
         if self._ready:
             raise RuntimeError(

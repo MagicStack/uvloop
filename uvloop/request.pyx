@@ -3,12 +3,15 @@ cdef class UVRequest:
 
     Important: it's a responsibility of the subclass to call the
     "on_done" method in the request's callback.
+
+    If "on_done" isn't called, the request object will never die.
     """
 
     def __cinit__(self, Loop loop, *_):
+        self.request = NULL
         self.loop = loop
         self.done = 0
-        loop.__track_request__(self)
+        Py_INCREF(self)
 
     def __dealloc__(self):
         if self.request is not NULL:
@@ -21,7 +24,7 @@ cdef class UVRequest:
 
     cdef on_done(self):
         self.done = 1
-        self.loop.__untrack_request__(self)
+        Py_DECREF(self)
 
     cdef cancel(self):
         # Most requests are implemented using a threadpool.  It's only
@@ -65,7 +68,6 @@ cdef class UVRequest:
                 #     Only cancellation of uv_fs_t, uv_getaddrinfo_t,
                 #     uv_getnameinfo_t and uv_work_t requests is currently
                 #     supported.
-                self.on_done()
                 return
             else:
                 ex = convert_error(err)
