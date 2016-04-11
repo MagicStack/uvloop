@@ -123,8 +123,6 @@ class _TestUnix:
                     self.loop.stop()  # We don't want this test to stuck when
                                       # it fails.
                     raise
-                finally:
-                    sock.close()
 
         self.loop.create_task(start_server())
         self.loop.run_forever()

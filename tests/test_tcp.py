@@ -123,9 +123,6 @@ class _TestTCP:
                                   # it fails.
                 raise
 
-            finally:
-                sock.close()
-
         self.loop.create_task(start_server())
         self.loop.run_forever()
         self.assertEqual(CNT, TOTAL_CNT)

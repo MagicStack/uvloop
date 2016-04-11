@@ -4,11 +4,6 @@ cdef class UVTransport(UVStream):
         readonly bint _closing
         dict _extra_info
 
-        # Points to a Python file-object that should be closed
-        # when the transport is closing.  Used by pipes.  This
-        # should probably be refactored somehow.
-        object _fileobj
-
         size_t _high_water
         size_t _low_water
         bint _flow_control_enabled

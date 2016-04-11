@@ -218,6 +218,12 @@ cdef class UVStream(UVHandle):
             return 0
         return (<uv.uv_stream_t*>self._handle).write_queue_size
 
+    cdef _attach_fileobj(self, file):
+        # When we create a TCP/PIPE/etc connection/server based on
+        # a Python file object, we need to close the file object when
+        # the uv handle is closed.
+        self._fileobj = file
+
     cdef _close(self):
         try:
             self._stop_reading()
@@ -225,6 +231,20 @@ cdef class UVStream(UVHandle):
             if self.__cached_socket is not None:
                 self.__cached_socket.close()
                 self.__cached_socket = None
+
+            if self._fileobj is not None:
+                try:
+                    self._fileobj.close()
+                except Exception as exc:
+                    self._loop.call_exception_handler({
+                        'exception': exc,
+                        'transport': self,
+                        'message': 'could not close attached file object {!r}'.
+                            format(self._fileobj)
+                    })
+                finally:
+                    self._fileobj = None
+
         finally:
             UVHandle._close(<UVHandle>self)
 

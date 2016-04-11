@@ -906,7 +906,9 @@ cdef class Loop:
                     server.close()
         else:
             tcp = UVTCPServer.new(self, protocol_factory, server)
-            tcp.open(sock.fileno())
+            fileno = os_dup(sock.fileno())
+            tcp.open(fileno)
+            tcp._attach_fileobj(sock)
             tcp.listen(backlog)
             server._add_server(tcp)
 
@@ -1027,11 +1029,12 @@ cdef class Loop:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
 
-            fileno = sock.fileno()
             protocol = protocol_factory()
             tr = UVTCPTransport.new(self, protocol, None)
             # libuv will make socket non-blocking
+            fileno = os_dup(sock.fileno())
             tr.open(fileno)
+            tr._attach_fileobj(sock)
             tr._init_protocol(None)
 
         return tr, protocol
@@ -1065,7 +1068,9 @@ cdef class Loop:
                 raise ValueError(
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
+            fileno = os_dup(sock.fileno())
             pipe.open(sock.fileno())
+            pipe._attach_fileobj(sock)
 
         pipe.listen(backlog)
         server._add_server(pipe)
@@ -1271,7 +1276,7 @@ cdef class Loop:
         proto = proto_factory()
         transp = UVReadPipeTransport.new(self, proto, None)
         transp._add_extra_info('pipe', pipe)
-        transp._fileobj = pipe
+        transp._attach_fileobj(pipe)
         try:
             transp.open(fileno)
             transp._init_protocol(waiter)
@@ -1291,7 +1296,7 @@ cdef class Loop:
         proto = proto_factory()
         transp = UVWritePipeTransport.new(self, proto, None)
         transp._add_extra_info('pipe', pipe)
-        transp._fileobj = pipe
+        transp._attach_fileobj(pipe)
         try:
             transp.open(fileno)
             transp._init_protocol(waiter)

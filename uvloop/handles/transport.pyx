@@ -26,22 +26,6 @@ cdef class UVTransport(UVStream):
         if server is not None:
             self._set_server(server)
 
-    cdef _close(self):
-        UVStream._close(self)
-
-        if self._fileobj is not None:
-            try:
-                self._fileobj.close()
-            except Exception as exc:
-                self._loop.call_exception_handler({
-                    'exception': exc,
-                    'transport': self,
-                    'message': 'could not close attached file object {!r}'.
-                        format(self._fileobj)
-                })
-            finally:
-                self._fileobj = None
-
     cdef _set_server(self, Server server):
         self._server = server
         (<Server>server)._attach()

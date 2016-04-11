@@ -4,6 +4,13 @@ cdef class UVStream(UVHandle):
         bint __reading
         object __cached_socket
 
+        # Points to a Python file-object that should be closed
+        # when the transport is closing.  Used by pipes.  This
+        # should probably be refactored somehow.
+        object _fileobj
+
+    cdef _attach_fileobj(self, file)
+
     cdef _fileno(self)
     cdef _get_socket(self)
 
