@@ -1204,17 +1204,24 @@ cdef class Loop:
                                shell=True,
                                bufsize=0,
                                preexec_fn=None,
-                               close_fds=None,  # TODO
+                               close_fds=None,
                                cwd=None,
                                env=None,
                                startupinfo=None,
                                creationflags=0,
-                               restore_signals=True,  # TODO
+                               restore_signals=True,
                                start_new_session=False,
                                executable=None,
-                               pass_fds=()  # TODO
+                               pass_fds=()
                             ):
 
+        # TODO: To implement close_fds, restore_signals, and preexec_fn --
+        # we'll likely need to add new functionality to libuv, mainly,
+        # an ability to run a callback before calling execvp in the
+        # child process.
+
+        if preexec_fn is not None:
+            raise ValueError('preexec_fn parameter is not supported')
         if universal_newlines:
             raise ValueError("universal_newlines must be False")
         if bufsize != 0:
@@ -1233,7 +1240,7 @@ cdef class Loop:
         protocol = protocol_factory()
         proc = UVProcessTransport.new(self, protocol,
                                       args, env, cwd, start_new_session,
-                                      stdin, stdout, stderr,
+                                      stdin, stdout, stderr, pass_fds,
                                       waiter)
 
         try:

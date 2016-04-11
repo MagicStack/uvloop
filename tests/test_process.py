@@ -213,6 +213,44 @@ print('err', file=sys.stderr, flush=True)
 
         self.loop.run_until_complete(test())
 
+    def test_process_streams_pass_fds(self):
+        async def test():
+            prog = '''\
+import sys, os
+assert sys.argv[1] == '--'
+inherited = int(sys.argv[2])
+non_inherited = int(sys.argv[3])
+
+os.fstat(inherited)
+
+try:
+    os.fstat(non_inherited)
+except:
+    pass
+else:
+    raise RuntimeError()
+
+print("OK")
+            '''
+
+            with tempfile.TemporaryFile() as inherited, \
+                    tempfile.TemporaryFile() as non_inherited:
+
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable, '-c', prog, '--',
+                    str(inherited.fileno()),
+                    str(non_inherited.fileno()),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    pass_fds=(inherited.fileno(),),
+                    loop=self.loop)
+
+                out, err = await proc.communicate()
+                self.assertEqual(err, b'')
+                self.assertEqual(out, b'OK\n')
+
+        self.loop.run_until_complete(test())
+
 
 class _AsyncioTests:
 

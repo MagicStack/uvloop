@@ -16,7 +16,7 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env, cwd,
                start_new_session,
-               stdin, stdout, stderr)
+               stdin, stdout, stderr, pass_fds)
 
     cdef char** __to_cstring_array(self, list arr)
     cdef _init_args(self, list args)
@@ -51,5 +51,5 @@ cdef class UVProcessTransport(UVProcess):
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env, cwd,
                                 start_new_session,
-                                stdin, stdout, stderr,
+                                stdin, stdout, stderr, pass_fds,
                                 waiter)

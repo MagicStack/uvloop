@@ -10,7 +10,7 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
-               stdin, stdout, stderr):
+               stdin, stdout, stderr, pass_fds):
 
         cdef int err
 
@@ -25,6 +25,13 @@ cdef class UVProcess(UVHandle):
         try:
             self._init_options(args, env, cwd, start_new_session,
                                stdin, stdout, stderr)
+
+            restore_inheritable = set()
+            if pass_fds:
+                for fd in pass_fds:
+                    if not os_get_inheritable(fd):
+                        restore_inheritable.add(fd)
+                        os_set_inheritable(fd, True)
         except:
             self._abort_init()
             raise
@@ -37,6 +44,9 @@ cdef class UVProcess(UVHandle):
             raise convert_error(err)
 
         self._finish_init()
+
+        for fd in restore_inheritable:
+            os_set_inheritable(fd, False)
 
         fds_to_close = self._fds_to_close
         self._fds_to_close = None
@@ -157,11 +167,7 @@ cdef class UVProcess(UVHandle):
             self.__env = None
 
     cdef _init_files(self, stdin, stdout, stderr):
-        self.iocnt[0].flags = uv.UV_IGNORE
-        self.iocnt[1].flags = uv.UV_IGNORE
-        self.iocnt[2].flags = uv.UV_IGNORE
-        self.options.stdio_count = 3
-        self.options.stdio = self.iocnt
+        self.options.stdio_count = 0
 
     cdef _kill(self, int signum):
         cdef int err
@@ -231,6 +237,9 @@ cdef class UVProcessTransport(UVProcess):
 
         self.stdin = self.stdout = self.stderr = None
         io = [None, None, None]
+
+        self.options.stdio_count = 3
+        self.options.stdio = self.iocnt
 
         if stdin is not None:
             if stdin == subprocess_PIPE:
@@ -312,7 +321,7 @@ cdef class UVProcessTransport(UVProcess):
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
                                 cwd, start_new_session,
-                                stdin, stdout, stderr,
+                                stdin, stdout, stderr, pass_fds,
                                 waiter):
 
         cdef UVProcessTransport handle
@@ -321,7 +330,8 @@ cdef class UVProcessTransport(UVProcess):
         handle._init(loop, args, env, cwd, start_new_session,
                      __process_convert_fileno(stdin),
                      __process_convert_fileno(stdout),
-                     __process_convert_fileno(stderr))
+                     __process_convert_fileno(stderr),
+                     pass_fds)
 
         if handle.stdin is not None:
             handle.stdin._init_protocol(None)

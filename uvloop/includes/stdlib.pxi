@@ -67,6 +67,7 @@ cdef os_environ = os.environ
 cdef os_dup = os.dup
 cdef os_pipe = os.pipe
 cdef os_set_inheritable = os.set_inheritable
+cdef os_get_inheritable = os.get_inheritable
 cdef os_close = os.close
 cdef os_open = os.open
 cdef os_devnull = os.devnull
