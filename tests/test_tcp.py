@@ -192,8 +192,9 @@ class _TestTCP:
             for _ in range(TOTAL_CNT):
                 tasks.append(coro(srv.addr))
 
-            self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
-            srv.stop()
+            self.loop.run_until_complete(
+                asyncio.gather(*tasks, loop=self.loop))
+            srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
         run(client)
@@ -254,11 +255,27 @@ class _TestTCP:
             for _ in range(TOTAL_CNT):
                 tasks.append(coro(srv.addr))
 
-            self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
-            srv.stop()
+            self.loop.run_until_complete(
+                asyncio.gather(*tasks, loop=self.loop))
+            srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
         run(client)
+
+    def test_create_connection_4(self):
+        sock = socket.socket()
+        sock.close()
+
+        async def client():
+            reader, writer = await asyncio.open_connection(
+                sock=sock,
+                loop=self.loop)
+
+        async def runner():
+            with self.assertRaisesRegex(OSError, 'Bad file'):
+                await client()
+
+        self.loop.run_until_complete(runner())
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):

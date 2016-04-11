@@ -132,6 +132,149 @@ class _TestUnix:
         self.loop.run_forever()
         self.assertEqual(CNT, TOTAL_CNT)
 
+    def test_create_unix_connection_1(self):
+        CNT = 0
+        TOTAL_CNT = 100
+
+        def server():
+            data = yield tb.read(4)
+            self.assertEqual(data, b'AAAA')
+            yield tb.write(b'OK')
+
+            data = yield tb.read(4)
+            self.assertEqual(data, b'BBBB')
+            yield tb.write(b'SPAM')
+
+        async def client(addr):
+            reader, writer = await asyncio.open_unix_connection(
+                addr,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+
+        async def client_2(addr):
+            sock = socket.socket(socket.AF_UNIX)
+            sock.connect(addr)
+            reader, writer = await asyncio.open_unix_connection(
+                sock=sock,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+
+        def run(coro):
+            nonlocal CNT
+            CNT = 0
+
+            srv = tb.unix_server(server,
+                                 max_clients=TOTAL_CNT,
+                                 backlog=TOTAL_CNT,
+                                 timeout=5)
+            srv.start()
+
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(coro(srv.addr))
+
+            self.loop.run_until_complete(
+                asyncio.gather(*tasks, loop=self.loop))
+            srv.join()
+            self.assertEqual(CNT, TOTAL_CNT)
+
+        run(client)
+        run(client_2)
+
+    def test_create_unix_connection_2(self):
+        with tempfile.NamedTemporaryFile() as tmp:
+            path = tmp.name
+
+        async def client():
+            reader, writer = await asyncio.open_unix_connection(
+                path,
+                loop=self.loop)
+
+        async def runner():
+            with self.assertRaises(FileNotFoundError):
+                await client()
+
+        self.loop.run_until_complete(runner())
+
+    def test_create_unix_connection_3(self):
+        CNT = 0
+        TOTAL_CNT = 100
+
+        def server():
+            data = yield tb.read(4)
+            self.assertEqual(data, b'AAAA')
+            yield tb.close()
+
+        async def client(addr):
+            reader, writer = await asyncio.open_unix_connection(
+                addr,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+
+            with self.assertRaises(asyncio.IncompleteReadError):
+                await reader.readexactly(10)
+
+            writer.close()
+
+            nonlocal CNT
+            CNT += 1
+
+        def run(coro):
+            nonlocal CNT
+            CNT = 0
+
+            srv = tb.unix_server(server,
+                                 max_clients=TOTAL_CNT,
+                                 backlog=TOTAL_CNT,
+                                 timeout=5)
+            srv.start()
+
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(coro(srv.addr))
+
+            self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
+            srv.join()
+            self.assertEqual(CNT, TOTAL_CNT)
+
+        run(client)
+
+    def test_create_unix_connection_4(self):
+        sock = socket.socket()
+        sock.close()
+
+        async def client():
+            reader, writer = await asyncio.open_unix_connection(
+                sock=sock,
+                loop=self.loop)
+
+        async def runner():
+            with self.assertRaisesRegex(OSError, 'Bad file'):
+                await client()
+
+        self.loop.run_until_complete(runner())
+
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
     pass

@@ -149,6 +149,9 @@ cdef class Loop:
     cdef _connect_tcp_transport(self, UVTCPTransport transport,
                                 system.sockaddr* addr)
 
+    cdef _connect_unix_transport(self, UVPipeTransport transport,
+                                 bytes addr)
+
 include "cbhandles.pxd"
 
 include "handles/handle.pxd"

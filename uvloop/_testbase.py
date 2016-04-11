@@ -7,6 +7,7 @@ import inspect
 import re
 import socket
 import ssl
+import tempfile
 import threading
 import unittest
 import uvloop
@@ -71,6 +72,38 @@ class AIOTestCase(BaseTestCase):
 ###############################################################################
 ## Socket Testing Utilities
 ###############################################################################
+
+
+def unix_server(server_prog, *,
+                addr=None,
+                timeout=1,
+                backlog=1,
+                max_clients=1):
+
+    if not inspect.isgeneratorfunction(server_prog):
+        raise TypeError('server_prog: a generator function was expected')
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+    if timeout is None:
+        raise RuntimeError('timeout is required')
+    if timeout <= 0:
+        raise RuntimeError('only blocking sockets are supported')
+    sock.settimeout(timeout)
+
+    if addr is None:
+        with tempfile.NamedTemporaryFile() as tmp:
+            addr = tmp.name
+
+    try:
+        sock.bind(addr)
+        sock.listen(backlog)
+    except OSError as ex:
+        sock.close()
+        raise ex
+
+    srv = Server(sock, server_prog, timeout, max_clients)
+    return srv
 
 
 def tcp_server(server_prog, *,

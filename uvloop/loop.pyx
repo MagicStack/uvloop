@@ -877,8 +877,12 @@ cdef class Loop:
                     addrinfo = (<AddrInfo>info).data
                     while addrinfo != NULL:
                         tcp = UVTCPServer.new(self, protocol_factory, server)
-                        tcp.bind(addrinfo.ai_addr)
-                        tcp.listen(backlog)
+                        try:
+                            tcp.bind(addrinfo.ai_addr)
+                            tcp.listen(backlog)
+                        except:
+                            tcp._close()
+                            raise
 
                         server._add_server(tcp)
 
@@ -891,10 +895,14 @@ cdef class Loop:
         else:
             tcp = UVTCPServer.new(self, protocol_factory, server)
             fileno = os_dup(sock.fileno())
-            tcp.open(fileno)
-            tcp._attach_fileobj(sock)
-            tcp.listen(backlog)
-            server._add_server(tcp)
+            try:
+                tcp.open(fileno)
+                tcp._attach_fileobj(sock)
+                tcp.listen(backlog)
+                server._add_server(tcp)
+            except:
+                tcp._close()
+                raise
 
         return server
 
@@ -904,8 +912,20 @@ cdef class Loop:
         fut = aio_Future(loop=self)
         def caller(result):
             if result is None:
-                fut.set_result(None)
-                transport._init_protocol(None)
+                transport._init_protocol(fut)
+            else:
+                fut.set_exception(result)
+
+        transport.connect(addr, caller)
+        return fut
+
+    cdef _connect_unix_transport(self, UVPipeTransport transport,
+                                 bytes addr):
+
+        fut = aio_Future(loop=self)
+        def caller(result):
+            if result is None:
+                transport._init_protocol(fut)
             else:
                 fut.set_exception(result)
 
@@ -1013,13 +1033,19 @@ cdef class Loop:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
 
+            fut = aio_Future(loop=self)
             protocol = protocol_factory()
             tr = UVTCPTransport.new(self, protocol, None)
-            # libuv will make socket non-blocking
-            fileno = os_dup(sock.fileno())
-            tr.open(fileno)
-            tr._attach_fileobj(sock)
-            tr._init_protocol(None)
+            try:
+                # libuv will make socket non-blocking
+                fileno = os_dup(sock.fileno())
+                tr.open(fileno)
+                tr._attach_fileobj(sock)
+                tr._init_protocol(fut)
+                await fut
+            except:
+                tr._close()
+                raise
 
         return tr, protocol
 
@@ -1041,7 +1067,11 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
-            pipe.bind(path)
+            try:
+                pipe.bind(path)
+            except:
+                pipe._close()
+                raise
 
         else:
             if sock is None:
@@ -1052,13 +1082,69 @@ cdef class Loop:
                 raise ValueError(
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
-            fileno = os_dup(sock.fileno())
-            pipe.open(sock.fileno())
+            try:
+                fileno = os_dup(sock.fileno())
+                pipe.open(sock.fileno())
+            except:
+                pipe._close()
+                raise
+
             pipe._attach_fileobj(sock)
 
-        pipe.listen(backlog)
+        try:
+            pipe.listen(backlog)
+        except:
+            pipe._close()
+            raise
+
         server._add_server(pipe)
         return server
+
+    @aio_coroutine
+    async def create_unix_connection(self, protocol_factory, path, *,
+                                     ssl=None, sock=None,
+                                     server_hostname=None):
+
+        cdef UVPipeTransport tr
+
+        if ssl is not None:
+            raise NotImplementedError('SSL is not yet supported')
+
+        if path is not None:
+            if isinstance(path, str):
+                path = path.encode(sys_fs_encoding)
+
+            if sock is not None:
+                raise ValueError(
+                    'path and sock can not be specified at the same time')
+
+            protocol = protocol_factory()
+            tr = UVPipeTransport.new(self, protocol, None)
+            try:
+                await self._connect_unix_transport(tr, path)
+            except:
+                tr._close()
+                raise
+
+        else:
+            if sock is None:
+                raise ValueError('no path and sock were specified')
+
+            fut = aio_Future(loop=self)
+            protocol = protocol_factory()
+            tr = UVPipeTransport.new(self, protocol, None)
+            try:
+                # libuv will make socket non-blocking
+                fileno = os_dup(sock.fileno())
+                tr.open(fileno)
+                tr._attach_fileobj(sock)
+                tr._init_protocol(fut)
+                await fut
+            except:
+                tr._close()
+                raise
+
+        return tr, protocol
 
     def default_exception_handler(self, context):
         message = context.get('message')

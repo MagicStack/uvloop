@@ -13,6 +13,7 @@ cdef class UVPipeTransport(UVTransport):
     cdef UVPipeTransport new(Loop loop, object protocol, Server server)
 
     cdef open(self, int sockfd)
+    cdef connect(self, char* addr, object callback)
 
 
 cdef class UVReadPipeTransport(UVReadTransport):

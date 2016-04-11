@@ -77,6 +77,11 @@ cdef class UVPipeTransport(UVTransport):
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
+    cdef connect(self, char* addr, object callback):
+        cdef _PipeConnectRequest req
+        req = _PipeConnectRequest(self._loop, self, callback)
+        req.connect(addr)
+
 
 @cython.no_gc_clear
 cdef class UVReadPipeTransport(UVReadTransport):
@@ -106,3 +111,47 @@ cdef class UVWritePipeTransport(UVWriteTransport):
 
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
+
+
+cdef class _PipeConnectRequest(UVRequest):
+    cdef:
+        object callback
+        UVPipeTransport transport
+
+    def __cinit__(self, loop, transport, callback):
+        self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
+        if self.request is NULL:
+            self.on_done()
+            raise MemoryError()
+        self.request.data = <void*>self
+
+        self.transport = transport
+        self.callback = callback
+
+    cdef connect(self, char* addr):
+        # uv_pipe_connect returns void
+        uv.uv_pipe_connect(<uv.uv_connect_t*>self.request,
+                           <uv.uv_pipe_t*>self.transport._handle,
+                           addr,
+                           __pipe_connect_callback)
+
+cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
+    cdef:
+        _TCPConnectRequest wrapper
+        object callback
+
+    wrapper = <_TCPConnectRequest> req.data
+    callback = wrapper.callback
+
+    if status < 0:
+        exc = convert_error(status)
+    else:
+        exc = None
+
+    try:
+        callback(exc)
+    except BaseException as ex:
+        wrapper.transport._error(ex, False)
+    finally:
+        wrapper.on_done()
+

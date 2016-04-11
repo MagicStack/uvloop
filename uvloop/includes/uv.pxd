@@ -301,6 +301,9 @@ cdef extern from "../vendor/libuv/include/uv.h":
     int uv_pipe_open(uv_pipe_t* handle, uv_file file)
     int uv_pipe_bind(uv_pipe_t* handle, const char* name)
 
+    void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
+                         const char* name, uv_connect_cb cb)
+
     # Polling
 
     int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle, int fd)

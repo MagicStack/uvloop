@@ -249,7 +249,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         return
 
     PyMem_Free(handle)
-    raise RuntimeError('closing UVHandle in invalid state')
+    raise RuntimeError('UVHandle got GCed woitout being properly closed')
 
 
 cdef void __close_all_handles(Loop loop):
