@@ -137,6 +137,8 @@ cdef class Loop:
         self.handler_sighup = UVSignal.new(
             self, <method_t*>&self._on_sighup, self, uv.SIGHUP)
 
+        uv.uv_disable_stdio_inheritance()
+
     def __init__(self):
         self.set_debug((not sys_ignore_environment
                         and bool(os_environ.get('PYTHONASYNCIODEBUG'))))

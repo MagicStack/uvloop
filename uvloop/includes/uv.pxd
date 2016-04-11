@@ -391,3 +391,5 @@ cdef extern from "../vendor/libuv/include/uv.h":
                  const uv_process_options_t* options)
 
     int uv_process_kill(uv_process_t* handle, int signum)
+
+    void uv_disable_stdio_inheritance()
