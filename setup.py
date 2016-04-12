@@ -42,7 +42,7 @@ class libuv_build_ext(build_ext):
 
 setup(
     name='uvloop',
-    version='0.4.3',
+    version='0.4.4',
     packages=['uvloop'],
     cmdclass = {'build_ext': libuv_build_ext},
     ext_modules=[
