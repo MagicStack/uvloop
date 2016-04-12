@@ -3,6 +3,7 @@ import os
 import socket
 import tempfile
 import uvloop
+import unittest.mock
 
 from uvloop import _testbase as tb
 
@@ -274,6 +275,34 @@ class _TestUnix:
                 await client()
 
         self.loop.run_until_complete(runner())
+
+    def test_create_unix_connection_5(self):
+        s1, s2 = socket.socketpair(socket.AF_UNIX)
+
+        excs = []
+
+        class Proto(asyncio.Protocol):
+            def connection_lost(self, exc):
+                excs.append(exc)
+
+        proto = Proto()
+
+        async def client():
+            t, _ = await self.loop.create_unix_connection(
+                lambda: proto,
+                None,
+                sock=s2)
+
+            t.write(b'AAAAA')
+            s1.close()
+            t.write(b'AAAAA')
+            await asyncio.sleep(0.1)
+
+        self.loop.run_until_complete(client())
+
+        self.assertEqual(len(excs), 1)
+        self.assertIn(excs[0].__class__,
+            (BrokenPipeError, ConnectionResetError))
 
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):

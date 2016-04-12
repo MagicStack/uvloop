@@ -222,7 +222,7 @@ cdef class UVTransport(UVStream):
             self._closing = 1
             self._stop_reading()
         self._conn_lost += 1
-        self._schedule_call_connection_lost(None)
+        self._schedule_call_connection_lost(exc)
 
     # Public API
 
