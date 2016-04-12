@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test debug
+.PHONY: compile clean all distclean test debug sdist
 
 
 all: clean compile
@@ -29,3 +29,7 @@ debug: clean
 test:
 	PYTHONASYNCIODEBUG=1 python3 -m unittest discover -s tests
 	python3 -m unittest discover -s tests
+
+
+sdist: clean compile test
+	python3 setup.py sdist

@@ -1,0 +1,4 @@
+recursive-include tests *.py
+recursive-include uvloop *.pyx *.pxd *.pxi *.py
+recursive-include vendor *.*
+include LICENSE README.rst Makefile
