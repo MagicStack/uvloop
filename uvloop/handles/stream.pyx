@@ -215,9 +215,8 @@ cdef class UVStream(UVHandle):
         if err < 0:
             raise convert_error(err)
 
-        self.__cached_socket = socket_fromfd(self._fileno(),
-                                            buf.ss_family,
-                                            uv.SOCK_STREAM)
+        self.__cached_socket = socket_socket(
+            buf.ss_family, uv.SOCK_STREAM, 0, self._fileno())
 
         return self.__cached_socket
 
@@ -237,7 +236,10 @@ cdef class UVStream(UVHandle):
             self._stop_reading()
 
             if self.__cached_socket is not None:
-                self.__cached_socket.close()
+                try:
+                    self.__cached_socket.detach()
+                except OSError:
+                    pass
                 self.__cached_socket = None
 
             if self._fileobj is not None:

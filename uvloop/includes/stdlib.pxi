@@ -45,7 +45,6 @@ cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error
 cdef socket_timeout = socket.timeout
 cdef socket_socket = socket.socket
-cdef socket_fromfd = socket.fromfd
 
 cdef int socket_EAI_ADDRFAMILY = getattr(socket, 'EAI_ADDRFAMILY', -1)
 cdef int socket_EAI_AGAIN      = getattr(socket, 'EAI_AGAIN', -1)

@@ -338,6 +338,55 @@ class _TestTCP:
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
 
+    def test_transport_get_extra_info(self):
+        fut = asyncio.Future(loop=self.loop)
+
+        async def handle_client(reader, writer):
+            with self.assertRaises(asyncio.IncompleteReadError):
+                data = await reader.readexactly(4)
+            writer.close()
+
+            # Previously, when we used socket.fromfd to create a socket
+            # for UVTransports (to make get_extra_info() work), a duplicate
+            # of the socket was created, preventing UVTransport from being
+            # properly closed.
+            # This test ensures that server handle will receive an EOF
+            # and finish the request.
+            fut.set_result(None)
+
+        async def test_client(addr):
+            t, p = await self.loop.create_connection(
+                lambda: asyncio.Protocol(), *addr)
+
+            sock = t.get_extra_info('socket')
+            self.assertTrue(isinstance(sock, socket.socket))
+
+            self.assertEqual(t.get_extra_info('sockname'),
+                             sock.getsockname())
+
+            self.assertEqual(t.get_extra_info('peername'),
+                             sock.getpeername())
+
+            t.write(b'OK')  # We want server to fail.
+            t.close()
+
+            await fut
+
+        async def start_server():
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop)
+
+            addr = srv.sockets[0].getsockname()
+            await test_client(addr)
+
+            srv.close()
+            await srv.wait_closed()
+
+        self.loop.run_until_complete(start_server())
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
     pass
