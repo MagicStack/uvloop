@@ -1,6 +1,6 @@
 @cython.no_gc_clear
 cdef class UVSignal(UVHandle):
-    cdef _init(self, Loop loop, method_t* callback, object ctx, int signum):
+    cdef _init(self, Loop loop, Handle h, int signum):
         cdef int err
 
         self._start_init(loop)
@@ -19,8 +19,7 @@ cdef class UVSignal(UVHandle):
 
         self._finish_init()
 
-        self.callback = callback
-        self.ctx = ctx
+        self.h = h
         self.running = 0
         self.signum = signum
 
@@ -55,12 +54,11 @@ cdef class UVSignal(UVHandle):
             self.running = 1
 
     @staticmethod
-    cdef UVSignal new(Loop loop, method_t* callback, object ctx,
-                      int signum):
+    cdef UVSignal new(Loop loop, Handle h, int signum):
 
         cdef UVSignal handle
         handle = UVSignal.__new__(UVSignal)
-        handle._init(loop, callback, ctx, signum)
+        handle._init(loop, h, signum)
         return handle
 
 
@@ -70,9 +68,9 @@ cdef void __uvsignal_callback(uv.uv_signal_t* handle, int signum) with gil:
 
     cdef:
         UVSignal sig = <UVSignal> handle.data
-        method_t cb = sig.callback[0] # deref
+        Handle h = sig.h
     sig.running = 0
     try:
-        cb(sig.ctx)
+        h._run()
     except BaseException as ex:
         sig._error(ex, False)

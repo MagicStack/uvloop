@@ -4,6 +4,7 @@ import concurrent.futures
 import functools
 import itertools
 import os
+import signal as std_signal
 import socket
 import subprocess
 import sys
@@ -85,8 +86,10 @@ cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
 
+cdef int signal_NSIG = std_signal.NSIG
+
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
-del functools, itertools, socket, os, threading, subprocess
+del functools, itertools, socket, os, threading, std_signal, subprocess

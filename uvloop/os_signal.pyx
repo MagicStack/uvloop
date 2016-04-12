@@ -44,7 +44,7 @@ cdef void __signal_handler_sigint(int sig):
         # Shouldn't ever happen.
         return
 
-    if __main_loop__._executing_py_code:
+    if __main_loop__._executing_py_code and not __main_loop__._custom_sigint:
         handle = __main_loop__.py_signals.signals[sig]
         if handle not in (SIG_DFL, SIG_IGN, SIG_ERR, NULL):
             handle(sig)  # void

@@ -55,6 +55,9 @@ cdef class Loop:
         dict _polls
         dict _polls_gc
 
+        dict _signal_handlers
+        bint _custom_sigint
+
         UVAsync handler_async
         UVIdle handler_idle
         UVSignal handler_sigint
@@ -125,6 +128,7 @@ cdef class Loop:
 
     cdef void _handle_exception(self, object ex)
 
+    cdef inline _check_signal(self, sig)
     cdef inline _check_closed(self)
     cdef inline _check_thread(self)
 

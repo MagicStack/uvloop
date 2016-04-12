@@ -53,7 +53,9 @@ cdef class Loop:
         self._running = 0
         self._stopping = 0
 
+        self._custom_sigint = 0
         self._sigint_check = 0
+        self._signal_handlers = dict()
 
         self._timers = set()
         self._servers = set()
@@ -131,10 +133,16 @@ cdef class Loop:
             self, <method_t*>&self._on_idle, self)
 
         self.handler_sigint = UVSignal.new(
-            self, <method_t*>&self._on_sigint, self, uv.SIGINT)
+            self,
+            new_MethodHandle(
+                self, "loop._on_sigint", <method_t*>&self._on_sigint, self),
+            uv.SIGINT)
 
         self.handler_sighup = UVSignal.new(
-            self, <method_t*>&self._on_sighup, self, uv.SIGHUP)
+            self,
+            new_MethodHandle(
+                self, "loop._on_sighup", <method_t*>&self._on_sighup, self),
+            uv.SIGHUP)
 
         uv.uv_disable_stdio_inheritance()
 
@@ -157,6 +165,14 @@ cdef class Loop:
 
     cdef _on_sigint(self):
         try:
+            uvs = self._signal_handlers[uv.SIGINT]
+        except KeyError:
+            pass
+        else:
+            (<UVSignal>uvs).h._run()
+            return
+
+        try:
             PyErr_CheckSignals()
         except KeyboardInterrupt as ex:
             self._stop(ex)
@@ -164,6 +180,14 @@ cdef class Loop:
             self._stop(KeyboardInterrupt())
 
     cdef _on_sighup(self):
+        try:
+            uvs = self._signal_handlers[uv.SIGHUP]
+        except KeyError:
+            pass
+        else:
+            (<UVSignal>uvs).h._run()
+            return
+
         self._stop(SystemExit())
 
     cdef _check_sigint(self):
@@ -303,6 +327,10 @@ cdef class Loop:
             for timer_cbhandle in tuple(self._timers):
                 timer_cbhandle.cancel()
 
+        for sig_handle in self._signal_handlers.values():
+            (<UVSignal>sig_handle)._close()
+        self._signal_handlers.clear()
+
         __close_all_handles(self)
 
         # Allow loop to fire "close" callbacks
@@ -364,6 +392,14 @@ cdef class Loop:
             self._last_error = ex
             # Exit ASAP
             self._stop(None)
+
+    cdef inline _check_signal(self, sig):
+        if not isinstance(sig, int):
+            raise TypeError('sig must be an int, not {!r}'.format(sig))
+
+        if not (1 <= sig < signal_NSIG):
+            raise ValueError(
+                'sig {} out of range(1, {})'.format(sig, signal_NSIG))
 
     cdef inline _check_closed(self):
         if self._closed == 1:
@@ -1461,10 +1497,62 @@ cdef class Loop:
         return transp, proto
 
     def add_signal_handler(self, sig, callback, *args):
-        """TODO"""
+        cdef:
+            Handle h
+            UVSignal uvs
+
+        if (aio_iscoroutine(callback)
+                or aio_iscoroutinefunction(callback)):
+            raise TypeError("coroutines cannot be used "
+                            "with add_signal_handler()")
+
+        self._check_signal(sig)
+        self._check_closed()
+
+        if sig in self._signal_handlers:
+            IF DEBUG:
+                assert isinstance(self._signal_handlers[sig], UVSignal)
+            uvs = self._signal_handlers[sig]
+            try:
+                uvs.stop()
+            finally:
+                uvs._close()
+
+        h = new_Handle(self, callback, args)
+        uvs = UVSignal.new(self, h, sig)
+
+        self._signal_handlers[sig] = uvs
+
+        if sig == uv.SIGINT:
+            # Needed for __signal_handler_sigint
+            self._custom_sigint = 1
+            return
+        if sig == uv.SIGHUP:
+            # loop._on_sigint and loop._on_sighup will handle
+            # any signals installed by user
+            return
+
+        uvs.start()
 
     def remove_signal_handler(self, sig):
-        """TODO"""
+        cdef:
+            UVSignal uvs
+
+        self._check_signal(sig)
+
+        if sig not in self._signal_handlers:
+            return False
+
+        if sig == uv.SIGINT:
+            self._custom_sigint = 0
+
+        uvs = <UVSignal>(self._signal_handlers.pop(sig))
+        try:
+            uvs.stop()
+        finally:
+            uvs._close()
+
+        return True
 
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,

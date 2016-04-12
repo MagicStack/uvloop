@@ -3,7 +3,6 @@
 cdef class Handle:
     def __cinit__(self):
         self.cancelled = 0
-        self.done = 0
         self.cb_type = 0
 
     cdef inline _set_loop(self, Loop loop):
@@ -19,9 +18,6 @@ cdef class Handle:
             else:
                 raise RuntimeError('Handle.loop is None in Handle.__dealloc__')
 
-            if self.done == 0 and self.cancelled == 0:
-                raise RuntimeError('active Handle is deallacating')
-
     def __init__(self):
         raise TypeError(
             '{} is not supposed to be instantiated from Python'.format(
@@ -33,11 +29,10 @@ cdef class Handle:
             object callback
             bint old_exec_py_code
 
-        if self.cancelled or self.done:
+        if self.cancelled:
             return
 
         cb_type = self.cb_type
-        self.done = 1
 
         Py_INCREF(self)   # Since _run is a cdef and there's no BoundMethod,
                           # we guard 'self' manually (since the callback
@@ -93,12 +88,6 @@ cdef class Handle:
 
         finally:
             self.loop._executing_py_code = old_exec_py_code
-
-            if self.cancelled == 0:
-                self.cb_type = 0
-                self.arg1 = self.arg2 = self.arg3 = None
-                self.arg4 = self.arg5 = None
-
             Py_DECREF(self)
 
     cdef _cancel(self):
@@ -109,10 +98,9 @@ cdef class Handle:
     # Public API
 
     def __repr__(self):
-        return '<Handle {!r} cancelled:{} done:{} {:#x}>'.format(
+        return '<Handle {!r} cancelled:{} {:#x}>'.format(
             self.arg1 if self.cb_type == 1 else self.meth_name,
             self.cancelled,
-            self.done,
             id(self))
 
     def cancel(self):
