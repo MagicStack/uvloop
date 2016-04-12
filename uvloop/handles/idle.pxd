@@ -1,13 +1,12 @@
 cdef class UVIdle(UVHandle):
     cdef:
-        method_t* callback
-        object ctx
+        Handle h
         bint running
 
-    cdef _init(self, Loop loop, method_t* callback, object ctx)
+    cdef _init(self, Loop loop, Handle h)
 
     cdef stop(self)
     cdef start(self)
 
     @staticmethod
-    cdef UVIdle new(Loop loop, method_t* callback, object ctx)
+    cdef UVIdle new(Loop loop, Handle h)

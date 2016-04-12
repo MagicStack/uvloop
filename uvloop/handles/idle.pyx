@@ -1,6 +1,6 @@
 @cython.no_gc_clear
 cdef class UVIdle(UVHandle):
-    cdef _init(self, Loop loop, method_t* callback, object ctx):
+    cdef _init(self, Loop loop, Handle h):
         cdef int err
 
         self._start_init(loop)
@@ -18,8 +18,7 @@ cdef class UVIdle(UVHandle):
 
         self._finish_init()
 
-        self.callback = callback
-        self.ctx = ctx
+        self.h = h
         self.running = 0
 
     cdef stop(self):
@@ -52,10 +51,10 @@ cdef class UVIdle(UVHandle):
             self.running = 1
 
     @staticmethod
-    cdef UVIdle new(Loop loop, method_t* callback, object ctx):
+    cdef UVIdle new(Loop loop, Handle h):
         cdef UVIdle handle
         handle = UVIdle.__new__(UVIdle)
-        handle._init(loop, callback, ctx)
+        handle._init(loop, h)
         return handle
 
 
@@ -65,8 +64,8 @@ cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
 
     cdef:
         UVIdle idle = <UVIdle> handle.data
-        method_t cb = idle.callback[0] # deref
+        Handle h = idle.h
     try:
-        cb(idle.ctx)
+        h._run()
     except BaseException as ex:
         idle._error(ex, False)

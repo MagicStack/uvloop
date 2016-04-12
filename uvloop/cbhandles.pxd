@@ -12,7 +12,7 @@ cdef class Handle:
         object __weakref__
 
     cdef inline _set_loop(self, Loop loop)
-    cdef _run(self)
+    cdef inline _run(self)
     cdef _cancel(self)
 
 

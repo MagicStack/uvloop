@@ -130,7 +130,9 @@ cdef class Loop:
             self, <method_t*>&self._on_wake, self)
 
         self.handler_idle = UVIdle.new(
-            self, <method_t*>&self._on_idle, self)
+            self,
+            new_MethodHandle(
+                self, "loop._on_idle", <method_t*>&self._on_idle, self))
 
         self.handler_sigint = UVSignal.new(
             self,

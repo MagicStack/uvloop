@@ -23,7 +23,7 @@ cdef class Handle:
             '{} is not supposed to be instantiated from Python'.format(
                 self.__class__.__name__))
 
-    cdef _run(self):
+    cdef inline _run(self):
         cdef:
             int cb_type
             object callback
