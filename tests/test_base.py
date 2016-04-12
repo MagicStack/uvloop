@@ -58,6 +58,7 @@ class _TestBase:
 
         def cb(inc=10, stop=False):
             calls.append(inc)
+            self.assertTrue(self.loop.is_running())
             if stop:
                 self.loop.call_soon(self.loop.stop)
 
@@ -67,7 +68,7 @@ class _TestBase:
         self.loop.call_later(0.05, cb, 100, True).cancel()
 
         self.loop.call_later(0.05, cb, 1, True)
-        self.loop.call_later(1000, cb, 1000) # shouldn't be called
+        self.loop.call_later(1000, cb, 1000)  # shouldn't be called
 
         started = time.monotonic()
         self.loop.run_forever()
@@ -77,6 +78,8 @@ class _TestBase:
         self.assertGreater(finished - started, 0.04)
 
         self.assertEqual(calls, [10, 1])
+
+        self.assertFalse(self.loop.is_running())
 
     def test_call_later_negative(self):
         calls = []
