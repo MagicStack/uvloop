@@ -39,4 +39,4 @@ sdist: clean compile test clean-libuv
 
 
 sdist-upload: clean compile test clean-libuv
-	python3 setup.py sdist
+	python3 setup.py sdist upload
