@@ -38,9 +38,10 @@ cdef class Handle:
                           # we guard 'self' manually (since the callback
                           # might cause GC of the handle.)
         old_exec_py_code = self.loop._executing_py_code
-        IF DEBUG:
-            if old_exec_py_code == 1:
-                raise RuntimeError('Python exec-mode before Handle._run')
+        # old_exec_py_code might be 0 -- that means that this
+        # handle is run by libuv callback or something
+        # and it can be 1 -- that means that we're calling it
+        # from a UVHandle (for instance UVIdle) callback.
         self.loop._executing_py_code = 1
         try:
             if cb_type == 1:
