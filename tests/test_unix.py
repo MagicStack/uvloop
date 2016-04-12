@@ -296,7 +296,7 @@ class _TestUnix:
             t.write(b'AAAAA')
             s1.close()
             t.write(b'AAAAA')
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1, loop=self.loop)
 
         self.loop.run_until_complete(client())
 
