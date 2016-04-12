@@ -34,7 +34,7 @@ cdef class SignalsStack:
                 raise RuntimeError("Couldn't restore signal {}".format(i))
 
 
-cdef void __signal_handler_sigint(int sig):
+cdef void __signal_handler_sigint(int sig) nogil:
     cdef sighandler_t handle
 
     if sig != SIGINT:
