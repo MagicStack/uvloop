@@ -70,7 +70,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.uvloop:
-        loop = uvloop.Loop()
+        loop = uvloop.new_event_loop()
         print('using UVLoop')
     else:
         loop = asyncio.new_event_loop()
