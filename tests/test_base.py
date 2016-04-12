@@ -288,7 +288,7 @@ class _TestBase:
         logger = logging.getLogger('asyncio')
         _context = None
 
-        class Loop(uvloop.Loop):
+        class Loop(uvloop._Loop):
 
             _selector = mock.Mock()
             _process_events = mock.Mock()
