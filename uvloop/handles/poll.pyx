@@ -159,7 +159,7 @@ cdef class UVPoll(UVHandle):
                 self.writing_handle = None
 
         finally:
-            UVHandle._fatal_error(self, exc, throw, reason)
+            self._close()
 
 
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
