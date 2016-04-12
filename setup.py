@@ -2,6 +2,13 @@ import os
 import subprocess
 import sys
 
+
+if sys.platform in ('win32', 'cygwin', 'cli'):
+    raise RuntimeError('uvloop does not support Windows at the moment')
+if sys.version_info < (3, 5):
+    raise RuntimeError('uvloop requires Python 3.5 or greater')
+
+
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
