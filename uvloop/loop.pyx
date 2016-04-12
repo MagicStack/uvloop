@@ -249,8 +249,14 @@ cdef class Loop:
             __main_loop__ = self
 
         self._executing_py_code = 0
+        # Although every UVHandle holds a reference to the loop,
+        # we want to do everything to ensure that the loop will
+        # never deallocate during the run -- so we do some
+        # manual refs management.
+        Py_INCREF(self)
         with nogil:
             err = uv.uv_run(self.uvloop, mode)
+        Py_DECREF(self)
         self._executing_py_code = 1
 
         if self.py_signals is not None:
