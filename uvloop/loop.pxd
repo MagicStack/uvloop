@@ -55,7 +55,6 @@ cdef class Loop:
         Py_ssize_t _ready_len
 
         set _timers
-        set _servers
         dict _polls
         dict _polls_gc
 

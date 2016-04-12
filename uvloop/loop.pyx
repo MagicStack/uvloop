@@ -58,7 +58,6 @@ cdef class Loop:
         self._signal_handlers = dict()
 
         self._timers = set()
-        self._servers = set()
         self._polls = dict()
         self._polls_gc = dict()
 
@@ -319,11 +318,6 @@ cdef class Loop:
             cb_handle.cancel()
         self._ready.clear()
         self._ready_len = 0
-
-        if self._servers: # XXX
-            for srv in self._servers:
-                (<UVHandle>srv)._close()
-            self._servers.clear()
 
         if self._polls:
             for poll_handle in self._polls.values():
