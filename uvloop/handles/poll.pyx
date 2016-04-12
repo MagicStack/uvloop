@@ -142,6 +142,25 @@ cdef class UVPoll(UVHandle):
 
         UVHandle._close(<UVHandle>self)
 
+    cdef _fatal_error(self, exc, throw, reason=None):
+        try:
+            if self.reading_handle is not None:
+                try:
+                    self.reading_handle._run()
+                except BaseException as ex:
+                    self._loop._handle_exception(ex)
+                self.reading_handle = None
+
+            if self.writing_handle is not None:
+                try:
+                    self.writing_handle._run()
+                except BaseException as ex:
+                    self._loop._handle_exception(ex)
+                self.writing_handle = None
+
+        finally:
+            UVHandle._fatal_error(self, exc, throw, reason)
+
 
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
                             int status, int events) with gil:
@@ -157,7 +176,9 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
         poll._fatal_error(exc, False)
         return
 
-    if (events | uv.UV_READABLE) and poll.reading_handle is not None:
+    if ((events & (uv.UV_READABLE | uv.UV_DISCONNECT)) and
+            poll.reading_handle is not None):
+
         try:
             IF DEBUG:
                 poll._loop._poll_read_events_total += 1
@@ -168,7 +189,9 @@ cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
             poll._error(ex, False)
             # continue code execution
 
-    if (events | uv.UV_WRITABLE) and poll.writing_handle is not None:
+    if ((events & (uv.UV_WRITABLE | uv.UV_DISCONNECT)) and
+            poll.writing_handle is not None):
+
         try:
             IF DEBUG:
                 poll._loop._poll_write_events_total += 1

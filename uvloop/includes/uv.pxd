@@ -172,7 +172,8 @@ cdef extern from "../vendor/libuv/include/uv.h":
 
     ctypedef enum uv_poll_event:
         UV_READABLE = 1,
-        UV_WRITABLE = 2
+        UV_WRITABLE = 2,
+        UV_DISCONNECT = 4
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
