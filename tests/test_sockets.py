@@ -67,6 +67,21 @@ class _TestSockets:
 
         self.loop.run_until_complete(server())
 
+    def test_socket_failed_connect(self):
+        sock = socket.socket()
+        with sock:
+            sock.bind(('127.0.0.1', 0))
+            addr = sock.getsockname()
+
+        async def run():
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                with self.assertRaises(ConnectionRefusedError):
+                    await self.loop.sock_connect(sock, addr)
+
+        self.loop.run_until_complete(run())
+
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
     pass
