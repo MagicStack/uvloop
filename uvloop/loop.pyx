@@ -154,9 +154,10 @@ cdef class Loop:
 
     def __dealloc__(self):
         if self._running == 1:
-            raise SystemExit('deallocating a running event loop!')
+            raise RuntimeError('deallocating a running event loop!')
         if self._closed == 0:
-            aio_logger.error("deallocating an active libuv loop")
+            aio_logger.error("deallocating an open event loop")
+            return
         PyMem_Free(self.uvloop)
         self.uvloop = NULL
 
