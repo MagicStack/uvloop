@@ -56,12 +56,12 @@ class _TestBase:
     def test_call_later(self):
         calls = []
 
-        def cb(inc, stop=False):
+        def cb(inc=10, stop=False):
             calls.append(inc)
             if stop:
                 self.loop.call_soon(self.loop.stop)
 
-        self.loop.call_later(0.05, cb, 10)
+        self.loop.call_later(0.05, cb)
 
         # canceled right away
         self.loop.call_later(0.05, cb, 100, True).cancel()
