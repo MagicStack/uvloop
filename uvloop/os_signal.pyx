@@ -48,8 +48,9 @@ cdef void __signal_handler_sigint(int sig):
         handle = __main_loop__.py_signals.signals[sig]
         if handle not in (SIG_DFL, SIG_IGN, SIG_ERR, NULL):
             handle(sig)  # void
+            return
 
-    elif __main_loop__.uv_signals is not None:
+    if __main_loop__.uv_signals is not None:
         handle = __main_loop__.uv_signals.signals[sig]
         if handle not in (SIG_DFL, SIG_IGN, SIG_ERR, NULL):
             handle(sig)  # void
