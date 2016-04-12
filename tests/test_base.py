@@ -34,7 +34,10 @@ class _TestBase:
 
         self.loop.call_soon(cb, 10)
         self.loop.call_soon(cb, 100).cancel()
-        self.loop.call_soon(cb, 1)
+
+        h = self.loop.call_soon(cb, 1)
+        self.assertIn('.cb', repr(h))
+
         self.loop.run_forever()
 
         self.assertEqual(calls, [10, 1])
