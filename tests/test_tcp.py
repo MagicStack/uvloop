@@ -368,7 +368,10 @@ class _TestTCP:
                              sock.getpeername())
 
             t.write(b'OK')  # We want server to fail.
-            t.close()
+
+            self.assertFalse(t.is_closing())
+            t.abort()
+            self.assertTrue(t.is_closing())
 
             await fut
 
