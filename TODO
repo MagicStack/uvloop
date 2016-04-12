@@ -1,4 +1,0 @@
-* Tests for signals:
-
- - create a subprocess that runs another uvloop and calls 'time.sleep()';
-   the kill it with SIGINT.  Expect it stop immediately.
