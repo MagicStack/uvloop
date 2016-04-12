@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test debug sdist
+.PHONY: compile clean all distclean test debug sdist clean-libuv sdist-upload
 
 
 all: clean compile
@@ -10,8 +10,11 @@ clean:
 	find . -name '__pycache__' | xargs rm -rf
 
 
-distclean: clean
+clean-libuv:
 	git -C vendor/libuv clean -dfX
+
+
+distclean: clean clean-libuv
 
 
 compile: clean
@@ -31,6 +34,9 @@ test:
 	python3 -m unittest discover -s tests
 
 
-sdist: clean compile test
-	git -C vendor/libuv clean -dfX
+sdist: clean compile test clean-libuv
+	python3 setup.py sdist
+
+
+sdist-upload: clean compile test clean-libuv
 	python3 setup.py sdist
