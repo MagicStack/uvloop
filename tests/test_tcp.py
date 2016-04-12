@@ -20,7 +20,7 @@ class _TestTCP:
 
             data = await reader.readexactly(4)
             self.assertEqual(data, b'BBBB')
-            writer.write(b'SPAM')
+            writer.writelines([b'SP', bytearray(b'A'), memoryview(b'M')])
 
             await writer.drain()
             writer.close()

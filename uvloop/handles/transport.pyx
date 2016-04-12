@@ -263,8 +263,7 @@ cdef class UVTransport(UVStream):
         self._maybe_pause_protocol()
 
     def writelines(self, bufs):
-        for buf in bufs:
-            self.write(buf)
+        self.write(b''.join(bufs))
 
     def write_eof(self):
         self._ensure_alive()
