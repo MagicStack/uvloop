@@ -37,6 +37,10 @@ cdef class SignalsStack:
 cdef void __signal_handler_sigint(int sig) nogil:
     cdef sighandler_t handle
 
+    # We can run this method without GIL because there is no
+    # Python code here -- all '.' and '[]' operators work on
+    # C structs.
+
     if sig != SIGINT:
         return
 
