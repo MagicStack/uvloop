@@ -13,6 +13,10 @@ from libc.stdint cimport uint64_t, uint32_t, int64_t
 include "includes/consts.pxi"
 
 
+cdef extern from *:
+     ctypedef int vint "volatile int"
+
+
 cdef class UVHandle
 
 cdef class UVAsync(UVHandle)

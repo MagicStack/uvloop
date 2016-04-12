@@ -1615,7 +1615,7 @@ include "os_signal.pyx"
 
 
 # Install PyMem* memory allocators
-cdef bint __mem_installed = 0
+cdef vint __mem_installed = 0
 cdef __install_pymem():
     global __mem_installed
     if __mem_installed:
@@ -1628,4 +1628,5 @@ cdef __install_pymem():
                                   <uv.uv_calloc_func>PyMem_Calloc,
                                   <uv.uv_free_func>PyMem_Free)
     if err < 0:
+        __mem_installed = 0
         raise convert_error(err)
