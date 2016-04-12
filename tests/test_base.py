@@ -53,21 +53,25 @@ class _TestBase:
     def test_call_later(self):
         calls = []
 
-        def cb(inc):
+        def cb(inc, stop=False):
             calls.append(inc)
-            self.loop.call_soon(self.loop.stop)
+            if stop:
+                self.loop.call_soon(self.loop.stop)
 
         self.loop.call_later(0.05, cb, 10)
-        self.loop.call_later(0.05, cb, 100).cancel() # canceled right away
-        self.loop.call_later(0.05, cb, 1)
+
+        # canceled right away
+        self.loop.call_later(0.05, cb, 100, True).cancel()
+
+        self.loop.call_later(0.05, cb, 1, True)
         self.loop.call_later(1000, cb, 1000) # shouldn't be called
 
         started = time.monotonic()
         self.loop.run_forever()
         finished = time.monotonic()
 
-        self.assertLess(finished - started, 0.07)
-        self.assertGreater(finished - started, 0.045)
+        self.assertLess(finished - started, 0.1)
+        self.assertGreater(finished - started, 0.04)
 
         self.assertEqual(calls, [10, 1])
 
