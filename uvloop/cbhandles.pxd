@@ -2,7 +2,6 @@ cdef class Handle:
     cdef:
         Loop loop
         bint cancelled
-        bint done
 
         str meth_name
         int cb_type

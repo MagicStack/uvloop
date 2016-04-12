@@ -210,7 +210,7 @@ cdef class Loop:
         ntodo = len(self._ready)
         for i from 0 <= i < ntodo:
             handler = <Handle> popleft()
-            if handler.cancelled == 0 and handler.done == 0:
+            if handler.cancelled == 0:
                 try:
                     handler._run()
                 except BaseException as ex:
