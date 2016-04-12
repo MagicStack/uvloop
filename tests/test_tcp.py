@@ -70,7 +70,8 @@ class _TestTCP:
                         self.loop.stop()
 
                 finally:
-                    srv.close()
+                    self.loop.call_soon(srv.close)
+                    await srv.wait_closed()
 
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
