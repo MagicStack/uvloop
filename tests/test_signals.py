@@ -22,7 +22,7 @@ async def worker():
     print('READY', flush=True)
     time.sleep(200)
 
-loop = uvloop.Loop()
+loop = uvloop.new_event_loop()
 asyncio.set_event_loop(loop)
 loop.run_until_complete(worker())
 """
@@ -55,7 +55,7 @@ async def worker():
     srv = await asyncio.start_server(cb, '127.0.0.1', 0)
     print('READY', flush=True)
 
-loop = uvloop.Loop()
+loop = uvloop.new_event_loop()
 asyncio.set_event_loop(loop)
 loop.create_task(worker())
 loop.run_forever()
@@ -97,7 +97,7 @@ def handler_sig(say):
 def handler_hup(say):
     print(say, flush=True)
 
-loop = uvloop.Loop()
+loop = uvloop.new_event_loop()
 loop.add_signal_handler(signal.SIGINT, handler_sig, '!s-int!')
 loop.add_signal_handler(signal.SIGHUP, handler_hup, '!s-hup!')
 asyncio.set_event_loop(loop)
@@ -148,7 +148,7 @@ def handler2():
 def handler_hup():
     exit()
 
-loop = uvloop.Loop()
+loop = uvloop.new_event_loop()
 asyncio.set_event_loop(loop)
 loop.add_signal_handler(signal.SIGUSR1, handler1)
 loop.add_signal_handler(signal.SIGUSR2, handler2)

@@ -60,7 +60,7 @@ class BaseTestCase(unittest.TestCase):
 class UVTestCase(BaseTestCase):
 
     def new_loop(self):
-        return uvloop.Loop()
+        return uvloop.new_event_loop()
 
 
 class AIOTestCase(BaseTestCase):
