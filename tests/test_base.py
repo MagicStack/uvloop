@@ -207,6 +207,13 @@ class _TestBase:
         self.assertRaises(ValueError,
             other_loop.run_until_complete, task)
 
+    def test_run_until_complete_error(self):
+        task = asyncio.Future(loop=self.loop)
+        async def foo():
+            raise ValueError('aaa')
+        with self.assertRaisesRegex(ValueError, 'aaa'):
+            self.loop.run_until_complete(foo())
+
     def test_default_exc_handler_callback(self):
         self.loop._process_events = mock.Mock()
 
