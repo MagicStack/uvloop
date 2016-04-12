@@ -63,11 +63,19 @@ cdef class _StreamWriteContext:
 cdef class UVStream(UVHandle):
 
     def __cinit__(self):
+        self.__shutting_down = 0
         self.__reading = 0
         self.__cached_socket = None
 
     cdef _shutdown(self):
         cdef int err
+
+        if self.__shutting_down:
+            IF DEBUG:
+                raise RuntimeError('UVStream: second shutdown call')
+            return
+        self.__shutting_down = 1
+
         self._ensure_alive()
 
         self._shutdown_req.data = <void*> self
@@ -322,7 +330,13 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
 
     cdef UVStream stream = <UVStream> req.data
 
-    if status < 0:
+    if status < 0 and status != uv.UV_ECANCELED:
+        # From libuv source code:
+        #     The ECANCELED error code is a lie, the shutdown(2) syscall is a
+        #     fait accompli at this point. Maybe we should revisit this in
+        #     v0.11.  A possible reason for leaving it unchanged is that it
+        #     informs the callee that the handle has been destroyed.
+
         IF DEBUG:
             stream._loop._debug_stream_shutdown_errors_total += 1
 

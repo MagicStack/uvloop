@@ -278,6 +278,66 @@ class _TestTCP:
 
         self.loop.run_until_complete(runner())
 
+    def test_transport_shutdown(self):
+        CNT = 0           # number of clients that were successful
+        TOTAL_CNT = 100   # total number of clients that test will create
+        TIMEOUT = 5.0     # timeout for this test
+
+        async def handle_client(reader, writer):
+            nonlocal CNT
+
+            data = await reader.readexactly(4)
+            self.assertEqual(data, b'AAAA')
+
+            writer.write(b'OK')
+            writer.write_eof()
+            writer.write_eof()
+
+            await writer.drain()
+            writer.close()
+
+            CNT += 1
+
+        async def test_client(addr):
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+            data = await reader.readexactly(2)
+            self.assertEqual(data, b'OK')
+
+            writer.close()
+
+        async def start_server():
+            nonlocal CNT
+            CNT = 0
+
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop)
+
+            srv_socks = srv.sockets
+            self.assertTrue(srv_socks)
+
+            addr = srv_socks[0].getsockname()
+
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(test_client(addr))
+
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, loop=self.loop),
+                TIMEOUT, loop=self.loop)
+
+            srv.close()
+            await srv.wait_closed()
+
+        self.loop.run_until_complete(start_server())
+        self.assertEqual(CNT, TOTAL_CNT)
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
     pass
