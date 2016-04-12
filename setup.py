@@ -11,7 +11,6 @@ LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 
 class libuv_build_ext(build_ext):
     def build_libuv(self):
-        cflags = '-fPIC'
         env = os.environ.copy()
 
         env['CFLAGS'] = ('-fPIC ' +
