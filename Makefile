@@ -32,4 +32,5 @@ test:
 
 
 sdist: clean compile test
+	git -C vendor/libuv clean -dfX
 	python3 setup.py sdist
