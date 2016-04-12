@@ -199,15 +199,20 @@ cdef class UVTransport(UVStream):
                               <method1_t*>&self._call_connection_lost,
                               self, exc))
 
-    cdef _fatal_error(self, exc, throw):
+    cdef _fatal_error(self, exc, throw, reason=None):
         # Overload UVHandle._fatal_error
 
         if not isinstance(exc, (BrokenPipeError,
                                 ConnectionResetError,
                                 ConnectionAbortedError)):
 
+            msg = 'Fatal error on transport {}'.format(
+                    self.__class__.__name__)
+            if reason is not None:
+                msg = '{} ({})'.format(msg, reason)
+
             self._loop.call_exception_handler({
-                'message': 'Fatal error on transport',
+                'message': msg,
                 'exception': exc,
                 'transport': self,
                 'protocol': self._protocol,

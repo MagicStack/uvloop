@@ -42,7 +42,7 @@ cdef class UVTransport(UVStream):
     cdef _force_close(self, exc)
 
     # Overloads of UVHandle methods:
-    cdef _fatal_error(self, exc, throw)
+    cdef _fatal_error(self, exc, throw, reason=?)
 
     cdef _add_extra_info(self, str name, object obj)
 

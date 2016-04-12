@@ -132,7 +132,7 @@ cdef class UVHandle:
                 'unable to perform operation on {!r}; '
                 'the handler is closed'.format(self))
 
-    cdef _fatal_error(self, exc, throw):
+    cdef _fatal_error(self, exc, throw, reason=None):
         # Fatal error means an error that was returned by the
         # underlying libuv handle function.  We usually can't
         # recover from that, hence we just close the handle.

@@ -14,7 +14,7 @@ cdef class UVHandle:
     cdef inline _ensure_alive(self)
 
     cdef _error(self, exc, throw)
-    cdef _fatal_error(self, exc, throw)
+    cdef _fatal_error(self, exc, throw, reason=?)
 
     cdef _free(self)
     cdef _close(self)

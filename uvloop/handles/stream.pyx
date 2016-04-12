@@ -327,7 +327,8 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
             stream._loop._debug_stream_shutdown_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False)
+        stream._fatal_error(exc, False,
+            "error status in uv_stream_t.shutdown callback")
         return
 
     try:
@@ -353,7 +354,8 @@ cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
             stream._loop._debug_stream_listen_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False)
+        stream._fatal_error(exc, False,
+            "error status in uv_stream_t.listen callback")
         return
 
     try:
@@ -424,7 +426,8 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
             loop._debug_stream_read_errors_total += 1
 
         exc = convert_error(nread)
-        sc._fatal_error(exc, False)
+        sc._fatal_error(exc, False,
+            "error status in uv_stream_t.read callback")
         return
 
     try:
@@ -468,7 +471,8 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
             stream._loop._debug_stream_write_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False)
+        stream._fatal_error(exc, False,
+            "error status in uv_stream_t.write callback")
         return
 
     try:
