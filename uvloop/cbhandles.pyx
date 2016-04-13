@@ -93,16 +93,18 @@ cdef class Handle:
 
     cdef _cancel(self):
         self.cancelled = 1
-        self.cb_type = 0
+        self.callback = NULL
         self.arg1 = self.arg2 = self.arg3 = self.arg4 = self.arg5 = None
 
     # Public API
 
     def __repr__(self):
-        return '<Handle {!r} cancelled:{} {:#x}>'.format(
-            self.arg1 if self.cb_type == 1 else self.meth_name,
-            self.cancelled,
-            id(self))
+        if self.cancelled:
+            return '<Handle cancelled {:#x}>'.format(id(self))
+        else:
+            return '<Handle {!r} {:#x}>'.format(
+                self.arg1 if self.cb_type == 1 else self.meth_name,
+                id(self))
 
     def cancel(self):
         self._cancel()
@@ -143,13 +145,14 @@ cdef class TimerHandle:
             return
         self.closed = 1
 
-        self.timer._close()
-        self.timer = None  # let it die asap
-
         self.callback = None
         self.args = None
 
-        self.loop._timers.remove(self)
+        try:
+            self.loop._timers.remove(self)
+        finally:
+            self.timer._close()
+            self.timer = None  # let it die asap
 
     cdef _run(self):
         cdef:
@@ -184,6 +187,12 @@ cdef class TimerHandle:
             Py_DECREF(self)
 
     # Public API
+
+    def __repr__(self):
+        if self.closed:
+            return '<TimerHandle cancelled {:#x}>'.format(id(self))
+        else:
+            return '<TimerHandle {!r} {:#x}>'.format(self.callback, id(self))
 
     def cancel(self):
         self._cancel()

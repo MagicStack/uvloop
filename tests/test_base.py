@@ -35,10 +35,13 @@ class _TestBase:
             self.loop.stop()
 
         self.loop.call_soon(cb, 10)
-        self.loop.call_soon(cb, 100).cancel()
 
-        h = self.loop.call_soon(cb, 1)
+        h = self.loop.call_soon(cb, 100)
         self.assertIn('.cb', repr(h))
+        h.cancel()
+        self.assertIn('cancelled', repr(h))
+
+        self.loop.call_soon(cb, 1)
 
         self.loop.run_forever()
 
@@ -67,7 +70,10 @@ class _TestBase:
         self.loop.call_later(0.05, cb)
 
         # canceled right away
-        self.loop.call_later(0.05, cb, 100, True).cancel()
+        h = self.loop.call_later(0.05, cb, 100, True)
+        self.assertIn('.cb', repr(h))
+        h.cancel()
+        self.assertIn('cancelled', repr(h))
 
         self.loop.call_later(0.05, cb, 1, True)
         self.loop.call_later(1000, cb, 1000)  # shouldn't be called
