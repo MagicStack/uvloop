@@ -206,6 +206,9 @@ cdef class UVStream(UVHandle):
             int err
             system.sockaddr_storage buf
 
+        if self._fileobj is not None:
+            return self._fileobj
+
         if self.__cached_socket is not None:
             return self.__cached_socket
 
