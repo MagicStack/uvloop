@@ -1041,8 +1041,27 @@ cdef class Loop:
             system.addrinfo *lai
             UVTCPTransport tr
 
-        if ssl is not None:
-            raise NotImplementedError('SSL is not yet supported')
+            object app_protocol
+            object protocol
+            object ssl_waiter
+
+        app_protocol = protocol = protocol_factory()
+        ssl_waiter = None
+        if ssl:
+            if server_hostname is None:
+                if not host:
+                    raise ValueError('You must set server_hostname '
+                                     'when using ssl without a host')
+                server_hostname = host
+
+            ssl_waiter = aio_Future(loop=self)
+            sslcontext = None if isinstance(ssl, bool) else ssl
+            protocol = aio_SSLProtocol(
+                self, app_protocol, sslcontext, ssl_waiter,
+                False, server_hostname)
+        else:
+            if server_hostname is not None:
+                raise ValueError('server_hostname is only meaningful with ssl')
 
         if host is not None or port is not None:
             f1 = self._getaddrinfo(host, port, family,
@@ -1074,8 +1093,6 @@ cdef class Loop:
                 if ai_local.data is NULL:
                     raise OSError(
                         'getaddrinfo() returned empty list for local_addr')
-
-            protocol = protocol_factory()
 
             exceptions = []
             rai = ai_remote.data
@@ -1146,7 +1163,11 @@ cdef class Loop:
                 tr._close()
                 raise
 
-        return tr, protocol
+        if ssl:
+            await ssl_waiter
+            return protocol._app_transport, app_protocol
+        else:
+            return tr, protocol
 
     @aio_coroutine
     async def create_unix_server(self, protocol_factory, str path=None,
@@ -1204,10 +1225,27 @@ cdef class Loop:
                                      ssl=None, sock=None,
                                      server_hostname=None):
 
-        cdef UVPipeTransport tr
+        cdef:
+            UVPipeTransport tr
+            object app_protocol
+            object protocol
+            object ssl_waiter
 
-        if ssl is not None:
-            raise NotImplementedError('SSL is not yet supported')
+        app_protocol = protocol = protocol_factory()
+        ssl_waiter = None
+        if ssl:
+            if server_hostname is None:
+                raise ValueError('You must set server_hostname '
+                                 'when using ssl without a host')
+
+            ssl_waiter = aio_Future(loop=self)
+            sslcontext = None if isinstance(ssl, bool) else ssl
+            protocol = aio_SSLProtocol(
+                self, app_protocol, sslcontext, ssl_waiter,
+                False, server_hostname)
+        else:
+            if server_hostname is not None:
+                raise ValueError('server_hostname is only meaningful with ssl')
 
         if path is not None:
             if isinstance(path, str):
@@ -1217,7 +1255,6 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
-            protocol = protocol_factory()
             waiter = aio_Future(loop=self)
             tr = UVPipeTransport.new(self, protocol, None, waiter)
             tr.connect(path)
@@ -1236,7 +1273,6 @@ cdef class Loop:
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
             waiter = aio_Future(loop=self)
-            protocol = protocol_factory()
             tr = UVPipeTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
@@ -1249,7 +1285,11 @@ cdef class Loop:
                 tr._close()
                 raise
 
-        return tr, protocol
+        if ssl:
+            await ssl_waiter
+            return protocol._app_transport, app_protocol
+        else:
+            return tr, protocol
 
     def default_exception_handler(self, context):
         message = context.get('message')

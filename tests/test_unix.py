@@ -413,6 +413,71 @@ class _TestSSL(tb.SSLTestCase):
         for client in clients:
             client.stop()
 
+    def test_create_unix_connection_ssl_1(self):
+        CNT = 0
+        TOTAL_CNT = 25
+
+        A_DATA = b'A' * 1024 * 1024
+        B_DATA = b'B' * 1024 * 1024
+
+        sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
+        client_sslctx = self._create_client_ssl_context()
+
+        def server():
+            yield tb.starttls(
+                sslctx,
+                server_side=True)
+
+            data = yield tb.read(len(A_DATA))
+            self.assertEqual(data, A_DATA)
+            yield tb.write(b'OK')
+
+            data = yield tb.read(len(B_DATA))
+            self.assertEqual(data, B_DATA)
+            yield tb.write(b'SPAM')
+
+            yield tb.close()
+
+        async def client(addr):
+            reader, writer = await asyncio.open_unix_connection(
+                addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                loop=self.loop)
+
+            writer.write(A_DATA)
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(B_DATA)
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+
+        def run(coro):
+            nonlocal CNT
+            CNT = 0
+
+            srv = tb.tcp_server(server,
+                                family=socket.AF_UNIX,
+                                max_clients=TOTAL_CNT,
+                                backlog=TOTAL_CNT)
+            srv.start()
+
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(coro(srv.addr))
+
+            self.loop.run_until_complete(
+                asyncio.gather(*tasks, loop=self.loop))
+            srv.join()
+            self.assertEqual(CNT, TOTAL_CNT)
+
+        with self._silence_eof_received_warning():
+            run(client)
+
 
 class Test_UV_UnixSSL(_TestSSL, tb.UVTestCase):
     pass
