@@ -172,8 +172,18 @@ cdef class UVTransport(UVStream):
         self._protocol.connection_made(self)
         self._protocol_connected = 1
 
-        # only start reading when connection_made() has been called
-        self._start_reading()
+        # In asyncio we'd just call start_reading() right after we
+        # call protocol.connection_made().  However, that breaks
+        # SSLProtocol in uvloop, which does some initialization
+        # with loop.call_soon in its connection_made.  It appears,
+        # that uvloop can call protocol.data_received() *before* it
+        # calls the handlers that connection_made set up.
+        # That's why we're using another call_soon here.
+        self._loop._call_soon_handle(
+            new_MethodHandle(self._loop,
+                             "UVTransport._start_reading",
+                             <method_t*>&self._start_reading,
+                             self))
 
     cdef _schedule_call_connection_made(self):
         self._loop._call_soon_handle(

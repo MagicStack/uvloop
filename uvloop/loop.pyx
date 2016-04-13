@@ -971,8 +971,8 @@ cdef class Loop:
             system.addrinfo *addrinfo
             Server server = Server(self)
 
-        if ssl is not None:
-            raise NotImplementedError('SSL is not yet supported')
+        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
+            raise TypeError('ssl argument must be an SSLContext or None')
 
         if host is not None or port is not None:
             if sock is not None:
@@ -997,7 +997,9 @@ cdef class Loop:
                 for info in infos:
                     addrinfo = (<AddrInfo>info).data
                     while addrinfo != NULL:
-                        tcp = UVTCPServer.new(self, protocol_factory, server)
+                        tcp = UVTCPServer.new(
+                            self, protocol_factory, server, ssl)
+
                         try:
                             tcp.bind(addrinfo.ai_addr)
                             tcp.listen(backlog)
@@ -1014,7 +1016,7 @@ cdef class Loop:
                 if not completed:
                     server.close()
         else:
-            tcp = UVTCPServer.new(self, protocol_factory, server)
+            tcp = UVTCPServer.new(self, protocol_factory, server, ssl)
             fileno = os_dup(sock.fileno())
             try:
                 tcp.open(fileno)
@@ -1154,10 +1156,10 @@ cdef class Loop:
             UVPipeServer pipe
             Server server = Server(self)
 
-        if ssl is not None:
-            raise NotImplementedError('SSL is not yet supported')
+        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
+            raise TypeError('ssl argument must be an SSLContext or None')
 
-        pipe = UVPipeServer.new(self, protocol_factory, server)
+        pipe = UVPipeServer.new(self, protocol_factory, server, ssl)
 
         if path is not None:
             if sock is not None:

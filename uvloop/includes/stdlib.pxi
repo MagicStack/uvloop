@@ -7,6 +7,7 @@ import os
 import signal as std_signal
 import socket
 import subprocess
+import ssl
 import sys
 import threading
 import warnings
@@ -81,6 +82,8 @@ cdef sys_exc_info = sys.exc_info
 
 cdef str sys_fs_encoding = sys.getfilesystemencoding()
 
+cdef ssl_SSLContext = ssl.SSLContext
+
 cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 
 cdef int subprocess_PIPE = subprocess.PIPE
@@ -95,5 +98,5 @@ cdef warnings_warn = warnings.warn
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
-del functools, itertools, socket, os, threading, std_signal, subprocess
+del functools, itertools, socket, os, threading, std_signal, subprocess, ssl
 del warnings

@@ -3,7 +3,8 @@ cdef class UVTCPServer(UVStreamServer):
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
 
     @staticmethod
-    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server)
+    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server,
+                         object ssl)
 
 
 cdef class UVTCPTransport(UVTransport):

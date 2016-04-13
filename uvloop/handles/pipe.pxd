@@ -4,7 +4,8 @@ cdef class UVPipeServer(UVStreamServer):
     cdef open(self, int sockfd)
 
     @staticmethod
-    cdef UVPipeServer new(Loop loop, object protocol_factory, Server server)
+    cdef UVPipeServer new(Loop loop, object protocol_factory, Server server,
+                          object ssl)
 
 
 cdef class UVPipeTransport(UVTransport):

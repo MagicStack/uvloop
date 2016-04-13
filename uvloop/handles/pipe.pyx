@@ -33,10 +33,12 @@ cdef __pipe_open(UVStream handle, int fd):
 cdef class UVPipeServer(UVStreamServer):
 
     @staticmethod
-    cdef UVPipeServer new(Loop loop, object protocol_factory, Server server):
+    cdef UVPipeServer new(Loop loop, object protocol_factory, Server server,
+                          object ssl):
+
         cdef UVPipeServer handle
         handle = UVPipeServer.__new__(UVPipeServer)
-        handle._init(loop, protocol_factory, server)
+        handle._init(loop, protocol_factory, server, ssl)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 

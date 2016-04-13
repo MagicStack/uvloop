@@ -2,8 +2,11 @@
 
 
 import asyncio
+import contextlib
 import gc
 import inspect
+import logging
+import os
 import re
 import socket
 import ssl
@@ -55,6 +58,43 @@ class BaseTestCase(unittest.TestCase):
 
         asyncio.set_event_loop(None)
         self.loop = None
+
+
+def _cert_fullname(name):
+    fullname = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'tests', 'certs', name)
+    assert os.path.isfile(fullname)
+    return fullname
+
+
+class SSLTestCase:
+
+    ONLYCERT = _cert_fullname('ssl_cert.pem')
+    ONLYKEY = _cert_fullname('ssl_key.pem')
+
+    def _create_server_ssl_context(self, certfile, keyfile=None):
+        sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        sslcontext.options |= ssl.OP_NO_SSLv2
+        sslcontext.load_cert_chain(certfile, keyfile)
+        return sslcontext
+
+    def _create_client_ssl_context(self):
+        sslcontext = ssl.create_default_context()
+        sslcontext.check_hostname = False
+        sslcontext.verify_mode = ssl.CERT_NONE
+        return sslcontext
+
+    @contextlib.contextmanager
+    def _silence_eof_received_warning(self):
+        # TODO This warning has to be fixed in asyncio.
+        logger = logging.getLogger('asyncio')
+        filter = logging.Filter('has no effect when using ssl')
+        logger.addFilter(filter)
+        try:
+            yield
+        finally:
+            logger.removeFilter(filter)
 
 
 class UVTestCase(BaseTestCase):

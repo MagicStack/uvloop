@@ -37,10 +37,12 @@ cdef __tcp_open(UVStream handle, int sockfd):
 cdef class UVTCPServer(UVStreamServer):
 
     @staticmethod
-    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server):
+    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server,
+                         object ssl):
+
         cdef UVTCPServer handle
         handle = UVTCPServer.__new__(UVTCPServer)
-        handle._init(loop, protocol_factory, server)
+        handle._init(loop, protocol_factory, server, ssl)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
 

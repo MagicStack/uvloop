@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import socket
 import uvloop
+import ssl
+import warnings
 
 from uvloop import _testbase as tb
 
@@ -8,18 +11,21 @@ from uvloop import _testbase as tb
 class _TestTCP:
     def test_create_server_1(self):
         CNT = 0           # number of clients that were successful
-        TOTAL_CNT = 100   # total number of clients that test will create
+        TOTAL_CNT = 25    # total number of clients that test will create
         TIMEOUT = 5.0     # timeout for this test
+
+        A_DATA = b'A' * 1024 * 1024
+        B_DATA = b'B' * 1024 * 1024
 
         async def handle_client(reader, writer):
             nonlocal CNT
 
-            data = await reader.readexactly(4)
-            self.assertEqual(data, b'AAAA')
+            data = await reader.readexactly(len(A_DATA))
+            self.assertEqual(data, A_DATA)
             writer.write(b'OK')
 
-            data = await reader.readexactly(4)
-            self.assertEqual(data, b'BBBB')
+            data = await reader.readexactly(len(B_DATA))
+            self.assertEqual(data, B_DATA)
             writer.writelines([b'SP', bytearray(b'A'), memoryview(b'M')])
 
             await writer.drain()
@@ -33,11 +39,11 @@ class _TestTCP:
                 sock.setblocking(False)
                 await self.loop.sock_connect(sock, addr)
 
-                await self.loop.sock_sendall(sock, b'AAAA')
+                await self.loop.sock_sendall(sock, A_DATA)
                 data = await self.loop.sock_recv(sock, 2)
                 self.assertEqual(data, b'OK')
 
-                await self.loop.sock_sendall(sock, b'BBBB')
+                await self.loop.sock_sendall(sock, B_DATA)
                 data = await self.loop.sock_recv(sock, 4)
                 self.assertEqual(data, b'SPAM')
 
@@ -45,42 +51,31 @@ class _TestTCP:
             nonlocal CNT
             CNT = 0
 
-            try:
-                srv = await asyncio.start_server(
-                    handle_client,
-                    ('127.0.0.1', 'localhost'), 0,
-                    family=socket.AF_INET,
-                    loop=self.loop)
+            srv = await asyncio.start_server(
+                handle_client,
+                ('127.0.0.1', 'localhost'), 0,
+                family=socket.AF_INET,
+                loop=self.loop)
 
-                try:
-                    srv_socks = srv.sockets
-                    self.assertTrue(srv_socks)
+            srv_socks = srv.sockets
+            self.assertTrue(srv_socks)
 
-                    addr = srv_socks[0].getsockname()
+            addr = srv_socks[0].getsockname()
 
-                    tasks = []
-                    for _ in range(TOTAL_CNT):
-                        tasks.append(test_client(addr))
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(test_client(addr))
 
-                    try:
-                        await asyncio.wait_for(
-                            asyncio.gather(*tasks, loop=self.loop),
-                            TIMEOUT, loop=self.loop)
-                    finally:
-                        self.loop.stop()
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, loop=self.loop),
+                TIMEOUT, loop=self.loop)
 
-                finally:
-                    self.loop.call_soon(srv.close)
-                    await srv.wait_closed()
+            self.loop.call_soon(srv.close)
+            await srv.wait_closed()
 
-                    # Check that the server cleaned-up proxy-sockets
-                    for srv_sock in srv_socks:
-                        self.assertEqual(srv_sock.fileno(), -1)
-
-            except:
-                self.loop.stop()  # We don't want this test to stuck when
-                                  # it fails.
-                raise
+            # Check that the server cleaned-up proxy-sockets
+            for srv_sock in srv_socks:
+                self.assertEqual(srv_sock.fileno(), -1)
 
         async def start_server_sock():
             nonlocal CNT
@@ -89,47 +84,35 @@ class _TestTCP:
             sock = socket.socket()
             sock.bind(('127.0.0.1', 0))
             addr = sock.getsockname()
-            try:
-                srv = await asyncio.start_server(
-                    handle_client,
-                    None, None,
-                    family=socket.AF_INET,
-                    loop=self.loop,
-                    sock=sock)
 
-                try:
-                    srv_socks = srv.sockets
-                    self.assertTrue(srv_socks)
+            srv = await asyncio.start_server(
+                handle_client,
+                None, None,
+                family=socket.AF_INET,
+                loop=self.loop,
+                sock=sock)
 
-                    tasks = []
-                    for _ in range(TOTAL_CNT):
-                        tasks.append(test_client(addr))
+            srv_socks = srv.sockets
+            self.assertTrue(srv_socks)
 
-                    try:
-                        await asyncio.wait_for(
-                            asyncio.gather(*tasks, loop=self.loop),
-                            TIMEOUT, loop=self.loop)
-                    finally:
-                        self.loop.stop()
+            tasks = []
+            for _ in range(TOTAL_CNT):
+                tasks.append(test_client(addr))
 
-                finally:
-                    srv.close()
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, loop=self.loop),
+                TIMEOUT, loop=self.loop)
 
-                    # Check that the server cleaned-up proxy-sockets
-                    for srv_sock in srv_socks:
-                        self.assertEqual(srv_sock.fileno(), -1)
+            srv.close()
 
-            except:
-                self.loop.stop()  # We don't want this test to stuck when
-                                  # it fails.
-                raise
+            # Check that the server cleaned-up proxy-sockets
+            for srv_sock in srv_socks:
+                self.assertEqual(srv_sock.fileno(), -1)
 
-        self.loop.create_task(start_server())
-        self.loop.run_forever()
+        self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
 
-        self.loop.create_task(start_server_sock())
-        self.loop.run_forever()
+        self.loop.run_until_complete(start_server_sock())
         self.assertEqual(CNT, TOTAL_CNT)
 
     def test_create_connection_1(self):
@@ -185,8 +168,7 @@ class _TestTCP:
 
             srv = tb.tcp_server(server,
                                 max_clients=TOTAL_CNT,
-                                backlog=TOTAL_CNT,
-                                timeout=5)
+                                backlog=TOTAL_CNT)
             srv.start()
 
             tasks = []
@@ -248,8 +230,7 @@ class _TestTCP:
 
             srv = tb.tcp_server(server,
                                 max_clients=TOTAL_CNT,
-                                backlog=TOTAL_CNT,
-                                timeout=5)
+                                backlog=TOTAL_CNT)
             srv.start()
 
             tasks = []
@@ -402,4 +383,107 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
+    pass
+
+
+class _TestSSL(tb.SSLTestCase):
+
+    def test_create_server_ssl_1(self):
+        CNT = 0           # number of clients that were successful
+        TOTAL_CNT = 25    # total number of clients that test will create
+        TIMEOUT = 5.0     # timeout for this test
+
+        A_DATA = b'A' * 1024 * 1024
+        B_DATA = b'B' * 1024 * 1024
+
+        sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
+        client_sslctx = self._create_client_ssl_context()
+
+        clients = []
+
+        async def handle_client(reader, writer):
+            nonlocal CNT
+
+            data = await reader.readexactly(len(A_DATA))
+            self.assertEqual(data, A_DATA)
+            writer.write(b'OK')
+
+            data = await reader.readexactly(len(B_DATA))
+            self.assertEqual(data, B_DATA)
+            writer.writelines([b'SP', bytearray(b'A'), memoryview(b'M')])
+
+            await writer.drain()
+            writer.close()
+
+            CNT += 1
+
+        async def test_client(addr):
+            fut = asyncio.Future(loop=self.loop)
+
+            def prog():
+                try:
+                    yield tb.starttls(client_sslctx)
+                    yield tb.connect(addr)
+                    yield tb.write(A_DATA)
+
+                    data = yield tb.read(2)
+                    self.assertEqual(data, b'OK')
+
+                    yield tb.write(B_DATA)
+                    data = yield tb.read(4)
+                    self.assertEqual(data, b'SPAM')
+
+                    yield tb.close()
+
+                except Exception as ex:
+                    self.loop.call_soon_threadsafe(fut.set_exception, ex)
+                else:
+                    self.loop.call_soon_threadsafe(fut.set_result, None)
+
+            client = tb.tcp_client(prog)
+            client.start()
+            clients.append(client)
+
+            await fut
+
+        async def start_server():
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                ssl=sslctx,
+                loop=self.loop)
+
+            try:
+                srv_socks = srv.sockets
+                self.assertTrue(srv_socks)
+
+                addr = srv_socks[0].getsockname()
+
+                tasks = []
+                for _ in range(TOTAL_CNT):
+                    tasks.append(test_client(addr))
+
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, loop=self.loop),
+                    TIMEOUT, loop=self.loop)
+
+            finally:
+                self.loop.call_soon(srv.close)
+                await srv.wait_closed()
+
+        with self._silence_eof_received_warning():
+            self.loop.run_until_complete(start_server())
+
+        self.assertEqual(CNT, TOTAL_CNT)
+
+        for client in clients:
+            client.stop()
+
+
+class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
+    pass
+
+
+class Test_AIO_TCPSSL(_TestSSL, tb.AIOTestCase):
     pass

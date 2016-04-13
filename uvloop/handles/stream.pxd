@@ -45,11 +45,13 @@ cdef class UVStream(UVHandle):
 
 cdef class UVStreamServer(UVStream):
     cdef:
+        object ssl
         object protocol_factory
         bint opened
         Server _server
 
-    cdef _init(self, Loop loop, object protocol_factory, Server server)
+    cdef _init(self, Loop loop, object protocol_factory, Server server,
+               object ssl)
 
     cdef inline _mark_as_open(self)
 
