@@ -220,7 +220,15 @@ cdef class UVTransport(UVStream):
 
         self._force_close(exc)
 
-    cdef _force_close(self, exc):
+    # Public API
+
+    property _paused:
+        # Used by SSLProto.  Might be removed in the future.
+        def __get__(self):
+            return bool(not self.__reading)
+
+    def _force_close(self, exc):
+        # Used by SSLProto.  Might be removed in the future.
         if self._conn_lost or self._closed:
             return
         if not self._closing:
@@ -228,8 +236,6 @@ cdef class UVTransport(UVStream):
             self._stop_reading()
         self._conn_lost += 1
         self._schedule_call_connection_lost(exc)
-
-    # Public API
 
     def abort(self):
         self._force_close(None)

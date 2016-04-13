@@ -358,6 +358,12 @@ class _TestTCP:
             t, p = await self.loop.create_connection(
                 lambda: asyncio.Protocol(), *addr)
 
+            self.assertFalse(t._paused)
+            t.pause_reading()
+            self.assertTrue(t._paused)
+            t.resume_reading()
+            self.assertFalse(t._paused)
+
             sock = t.get_extra_info('socket')
             self.assertTrue(isinstance(sock, socket.socket))
 

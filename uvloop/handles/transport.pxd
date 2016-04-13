@@ -39,7 +39,6 @@ cdef class UVTransport(UVStream):
     cdef _on_eof(self)
     cdef _on_write(self)
     cdef _write(self, object data)
-    cdef _force_close(self, exc)
 
     # Overloads of UVHandle methods:
     cdef _fatal_error(self, exc, throw, reason=?)
