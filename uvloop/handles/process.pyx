@@ -382,6 +382,13 @@ cdef class UVProcessTransport(UVProcess):
         if self._returncode is None:
             self._kill(uv.SIGKILL)
 
+        if self.stdin is not None:
+            self.stdin.close()
+        if self.stdout is not None:
+            self.stdout.close()
+        if self.stderr is not None:
+            self.stderr.close()
+
         self._close()
 
     def get_extra_info(self, name, default=None):
