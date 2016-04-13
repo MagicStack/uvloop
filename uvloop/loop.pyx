@@ -334,9 +334,17 @@ cdef class Loop:
             (<UVSignal>sig_handle)._close()
         self._signal_handlers.clear()
 
-        __close_all_handles(self)
-
         # Allow loop to fire "close" callbacks
+        self.__run(uv.UV_RUN_NOWAIT)
+
+        # Close all remaining handles
+        self.handler_async._close()
+        self.handler_idle._close()
+        self.handler_sigint._close()
+        self.handler_sighup._close()
+        __close_all_handles(self)
+        # During this run there should be no open handles,
+        # so it should finish right away
         self.__run(uv.UV_RUN_DEFAULT)
 
         if self._timers:

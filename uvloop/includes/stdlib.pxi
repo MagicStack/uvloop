@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import threading
+import warnings
 
 
 cdef aio_CancelledError = asyncio.CancelledError
@@ -87,8 +88,11 @@ cdef int subprocess_DEVNULL = subprocess.DEVNULL
 
 cdef int signal_NSIG = std_signal.NSIG
 
+cdef warnings_warn = warnings.warn
+
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
 del functools, itertools, socket, os, threading, std_signal, subprocess
+del warnings

@@ -62,11 +62,14 @@ cdef class UVHandle:
         if self._inited:
             self._handle.data = <void*> __NOHANDLE__
             uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
+            self._handle = NULL
+            warnings_warn("unclosed resource {!r}".format(self),
+                ResourceWarning)
         else:
             # The handle was allocated, but not initialized
             self._closed = 1
             self._free()
-        self._handle = NULL
+
 
     cdef _free(self):
         PyMem_Free(self._handle)
@@ -249,7 +252,6 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         return
 
     PyMem_Free(handle)
-    raise RuntimeError('UVHandle got GCed woitout being properly closed')
 
 
 cdef void __close_all_handles(Loop loop):
@@ -279,4 +281,7 @@ cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg):
         return
 
     h = <UVHandle>handle.data
-    h._close()
+
+    if not h._closed:
+        warnings_warn("unclosed resource {!r}".format(h), ResourceWarning)
+        h._close()
