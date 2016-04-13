@@ -1277,7 +1277,20 @@ cdef class Loop:
             message = 'Unhandled exception in event loop'
 
         exception = context.get('exception')
-        aio_logger.error(message, exc_info=exception)
+        if exception is not None:
+            exc_info = (type(exception), exception, exception.__traceback__)
+        else:
+            exc_info = False
+
+        log_lines = [message]
+        for key in sorted(context):
+            if key in {'message', 'exception'}:
+                continue
+            value = context[key]
+            value = repr(value)
+            log_lines.append('{}: {}'.format(key, value))
+
+        aio_logger.error('\n'.join(log_lines), exc_info=exc_info)
 
     def set_exception_handler(self, handler):
         if handler is not None and not callable(handler):
