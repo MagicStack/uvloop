@@ -304,6 +304,33 @@ class _TestUnix:
         self.assertIn(excs[0].__class__,
             (BrokenPipeError, ConnectionResetError))
 
+    def test_transport_fromsock_get_extra_info(self):
+        async def test(sock):
+            t, _ = await self.loop.create_unix_connection(
+                asyncio.Protocol,
+                None,
+                sock=sock)
+
+            self.assertIs(t.get_extra_info('socket'), sock)
+            t.close()
+
+        s1, s2 = socket.socketpair(socket.AF_UNIX)
+        with s1, s2:
+            self.loop.run_until_complete(test(s1))
+
+    def test_transport_unclosed_warning(self):
+        async def test(sock):
+            return await self.loop.create_unix_connection(
+                asyncio.Protocol,
+                None,
+                sock=sock)
+
+        with self.assertWarnsRegex(ResourceWarning, 'unclosed'):
+            s1, s2 = socket.socketpair(socket.AF_UNIX)
+            with s1, s2:
+                self.loop.run_until_complete(test(s1))
+            self.loop.close()
+
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
     pass

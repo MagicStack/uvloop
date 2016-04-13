@@ -390,36 +390,6 @@ class _TestTCP:
 
         self.loop.run_until_complete(start_server())
 
-    def test_transport_fromsock_get_extra_info(self):
-        sock = socket.socket()
-
-        async def test():
-            t, _ = await self.loop.create_connection(
-                asyncio.Protocol,
-                None, None,
-                sock=sock)
-
-            self.assertIs(t.get_extra_info('socket'), sock)
-            t.close()
-
-        with sock:
-            self.loop.run_until_complete(test())
-
-    def test_transport_unclosed_warning(self):
-        sock = socket.socket()
-
-        async def test():
-            await self.loop.create_connection(
-                asyncio.Protocol,
-                None, None,
-                sock=sock)
-
-        with sock:
-            self.loop.run_until_complete(test())
-
-        with self.assertWarnsRegex(ResourceWarning, 'unclosed'):
-            self.loop.close()
-
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
     pass
