@@ -1251,6 +1251,10 @@ cdef class Loop:
             if sock is None:
                 raise ValueError('no path and sock were specified')
 
+            if sock.family != uv.AF_UNIX:
+                raise ValueError(
+                    'A UNIX Domain Socket was expected, got {!r}'.format(sock))
+
             fut = aio_Future(loop=self)
             protocol = protocol_factory()
             tr = UVPipeTransport.new(self, protocol, None)

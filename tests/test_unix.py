@@ -262,7 +262,7 @@ class _TestUnix:
         run(client)
 
     def test_create_unix_connection_4(self):
-        sock = socket.socket()
+        sock = socket.socket(socket.AF_UNIX)
         sock.close()
 
         async def client():
