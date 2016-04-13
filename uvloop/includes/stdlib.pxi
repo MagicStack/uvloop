@@ -1,4 +1,4 @@
-import asyncio, asyncio.log, asyncio.base_events
+import asyncio, asyncio.log, asyncio.base_events, asyncio.sslproto
 import collections
 import concurrent.futures
 import functools
@@ -27,6 +27,7 @@ cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
 cdef aio_wrap_future = asyncio.wrap_future
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
+cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
