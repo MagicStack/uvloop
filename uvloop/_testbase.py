@@ -70,48 +70,23 @@ class AIOTestCase(BaseTestCase):
 
 
 ###############################################################################
-## Socket Testing Utilities
+# Socket Testing Utilities
 ###############################################################################
-
-
-def unix_server(server_prog, *,
-                addr=None,
-                timeout=1,
-                backlog=1,
-                max_clients=1):
-
-    if not inspect.isgeneratorfunction(server_prog):
-        raise TypeError('server_prog: a generator function was expected')
-
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
-    if timeout is None:
-        raise RuntimeError('timeout is required')
-    if timeout <= 0:
-        raise RuntimeError('only blocking sockets are supported')
-    sock.settimeout(timeout)
-
-    if addr is None:
-        with tempfile.NamedTemporaryFile() as tmp:
-            addr = tmp.name
-
-    try:
-        sock.bind(addr)
-        sock.listen(backlog)
-    except OSError as ex:
-        sock.close()
-        raise ex
-
-    srv = Server(sock, server_prog, timeout, max_clients)
-    return srv
 
 
 def tcp_server(server_prog, *,
                family=socket.AF_INET,
-               addr=('127.0.0.1', 0),
-               timeout=1,
+               addr=None,
+               timeout=5,
                backlog=1,
-               max_clients=1):
+               max_clients=10):
+
+    if addr is None:
+        if family == socket.AF_UNIX:
+            with tempfile.NamedTemporaryFile() as tmp:
+                addr = tmp.name
+        else:
+            addr = ('127.0.0.1', 0)
 
     if not inspect.isgeneratorfunction(server_prog):
         raise TypeError('server_prog: a generator function was expected')
@@ -135,7 +110,74 @@ def tcp_server(server_prog, *,
     return srv
 
 
-class Server(threading.Thread):
+def tcp_client(client_prog,
+               family=socket.AF_INET,
+               timeout=10):
+
+    if not inspect.isgeneratorfunction(client_prog):
+        raise TypeError('client_prog: a generator function was expected')
+
+    sock = socket.socket(family, socket.SOCK_STREAM)
+
+    if timeout is None:
+        raise RuntimeError('timeout is required')
+    if timeout <= 0:
+        raise RuntimeError('only blocking sockets are supported')
+    sock.settimeout(timeout)
+
+    srv = Client(sock, client_prog, timeout)
+    return srv
+
+
+class _Runner:
+    def _iterate(self, prog, sock):
+        last_val = None
+        while self._active:
+            try:
+                command = prog.send(last_val)
+            except StopIteration:
+                return
+
+            if not isinstance(command, _Command):
+                raise TypeError(
+                    'client_prog yielded invalid command {!r}'.format(command))
+
+            command_res = command._run(sock)
+            assert isinstance(command_res, tuple) and len(command_res) == 2
+
+            last_val = command_res[1]
+            sock = command_res[0]
+
+    def stop(self):
+        self._active = False
+        self.join()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.stop()
+
+
+class Client(_Runner, threading.Thread):
+
+    def __init__(self, sock, prog, timeout):
+        threading.Thread.__init__(self, None, None, 'test-client')
+        self.daemon = True
+
+        self._timeout = timeout
+        self._sock = sock
+        self._active = True
+        self._prog = prog
+
+    def run(self):
+        prog = self._prog()
+        sock = self._sock
+        self._iterate(prog, sock)
+
+
+class Server(_Runner, threading.Thread):
 
     def __init__(self, sock, prog, timeout, max_clients):
         threading.Thread.__init__(self, None, None, 'test-server')
@@ -173,53 +215,20 @@ class Server(threading.Thread):
 
     def _handle_client(self, sock):
         prog = self._prog()
-
-        last_val = None
-        while self._active:
-            try:
-                command = prog.send(last_val)
-            except StopIteration:
-                self._finished_clients += 1
-                return
-
-            if not isinstance(command, Command):
-                raise TypeError(
-                    'server_prog yielded invalid command {!r}'.format(command))
-
-            command_res = command._run(sock)
-            assert isinstance(command_res, tuple) and len(command_res) == 2
-
-            last_val = command_res[1]
-            sock = command_res[0]
+        self._iterate(prog, sock)
 
     @property
     def addr(self):
         return self._sock.getsockname()
 
-    def stop(self):
-        self._active = False
-        self.join()
 
-        if self._finished_clients != self._clients:
-            raise AssertionError(
-                'not all clients are finished: {!r}'.format(
-                    self._clients - self._finished_clients))
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *exc):
-        self.stop()
-
-
-class Command:
+class _Command:
 
     def _run(self, sock):
         raise NotImplementedError
 
 
-class write(Command):
+class write(_Command):
 
     def __init__(self, data:bytes):
         self._data = data
@@ -229,13 +238,22 @@ class write(Command):
         return sock, None
 
 
-class close(Command):
+class connect(_Command):
+    def __init__(self, addr):
+        self._addr = addr
+
+    def _run(self, sock):
+        sock.connect(self._addr)
+        return sock, None
+
+
+class close(_Command):
     def _run(self, sock):
         sock.close()
         return sock, None
 
 
-class read(Command):
+class read(_Command):
 
     def __init__(self, nbytes):
         self._nbytes = nbytes
@@ -260,23 +278,27 @@ class read(Command):
         return sock, data
 
 
-class starttls(Command):
+class starttls(_Command):
 
     def __init__(self, ssl_context, *,
                  server_side=False,
-                 server_hostname=None):
+                 server_hostname=None,
+                 do_handshake_on_connect=True):
 
         assert isinstance(ssl_context, ssl.SSLContext)
         self._ctx = ssl_context
 
         self._server_side = server_side
         self._server_hostname = server_hostname
+        self._do_handshake_on_connect = do_handshake_on_connect
 
     def _run(self, sock):
         ssl_sock = self._ctx.wrap_socket(
             sock, server_side=self._server_side,
-            server_hostname=self._server_hostname)
+            server_hostname=self._server_hostname,
+            do_handshake_on_connect=self._do_handshake_on_connect)
 
-        ssl_sock.do_handshake()
+        if self._server_side:
+            ssl_sock.do_handshake()
 
         return ssl_sock, None
