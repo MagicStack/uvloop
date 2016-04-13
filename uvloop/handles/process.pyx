@@ -197,6 +197,8 @@ cdef class UVProcessTransport(UVProcess):
     cdef _on_exit(self, int64_t exit_status, int term_signal):
         UVProcess._on_exit(self, exit_status, term_signal)
 
+        self._loop.call_soon(self._protocol.process_exited)
+
         for waiter in self._exit_waiters:
             if not waiter.cancelled():
                 waiter.set_result(self._returncode)
