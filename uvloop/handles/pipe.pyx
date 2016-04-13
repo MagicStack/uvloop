@@ -57,9 +57,9 @@ cdef class UVPipeServer(UVStreamServer):
 
         self._mark_as_open()
 
-    cdef UVTransport _make_new_transport(self, object protocol):
+    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
         cdef UVPipeTransport tr
-        tr = UVPipeTransport.new(self._loop, protocol, self._server)
+        tr = UVPipeTransport.new(self._loop, protocol, self._server, waiter)
         return <UVTransport>tr
 
 
@@ -67,19 +67,21 @@ cdef class UVPipeServer(UVStreamServer):
 cdef class UVPipeTransport(UVTransport):
 
     @staticmethod
-    cdef UVPipeTransport new(Loop loop, object protocol, Server server):
+    cdef UVPipeTransport new(Loop loop, object protocol, Server server,
+                             object waiter):
+
         cdef UVPipeTransport handle
         handle = UVPipeTransport.__new__(UVPipeTransport)
-        handle._init(loop, protocol, server)
+        handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
-    cdef connect(self, char* addr, object callback):
+    cdef connect(self, char* addr):
         cdef _PipeConnectRequest req
-        req = _PipeConnectRequest(self._loop, self, callback)
+        req = _PipeConnectRequest(self._loop, self)
         req.connect(addr)
 
 
@@ -87,10 +89,11 @@ cdef class UVPipeTransport(UVTransport):
 cdef class UVReadPipeTransport(UVReadTransport):
 
     @staticmethod
-    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server):
+    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server,
+                                 object waiter):
         cdef UVReadPipeTransport handle
         handle = UVReadPipeTransport.__new__(UVReadPipeTransport)
-        handle._init(loop, protocol, server)
+        handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -102,10 +105,11 @@ cdef class UVReadPipeTransport(UVReadTransport):
 cdef class UVWritePipeTransport(UVWriteTransport):
 
     @staticmethod
-    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server):
+    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server,
+                                  object waiter):
         cdef UVWritePipeTransport handle
         handle = UVWritePipeTransport.__new__(UVWritePipeTransport)
-        handle._init(loop, protocol, server)
+        handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -115,18 +119,15 @@ cdef class UVWritePipeTransport(UVWriteTransport):
 
 cdef class _PipeConnectRequest(UVRequest):
     cdef:
-        object callback
         UVPipeTransport transport
 
-    def __cinit__(self, loop, transport, callback):
+    def __cinit__(self, loop, transport):
         self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
         if self.request is NULL:
             self.on_done()
             raise MemoryError()
         self.request.data = <void*>self
-
         self.transport = transport
-        self.callback = callback
 
     cdef connect(self, char* addr):
         # uv_pipe_connect returns void
@@ -137,11 +138,11 @@ cdef class _PipeConnectRequest(UVRequest):
 
 cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
     cdef:
-        _TCPConnectRequest wrapper
-        object callback
+        _PipeConnectRequest wrapper
+        UVPipeTransport transport
 
-    wrapper = <_TCPConnectRequest> req.data
-    callback = wrapper.callback
+    wrapper = <_PipeConnectRequest> req.data
+    transport = wrapper.transport
 
     if status < 0:
         exc = convert_error(status)
@@ -149,7 +150,7 @@ cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
         exc = None
 
     try:
-        callback(exc)
+        transport._on_connect(exc)
     except BaseException as ex:
         wrapper.transport._error(ex, False)
     finally:

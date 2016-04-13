@@ -55,4 +55,4 @@ cdef class UVStreamServer(UVStream):
 
     cdef listen(self, int backlog=?)
     cdef _on_listen(self)
-    cdef UVTransport _make_new_transport(self, object protocol)
+    cdef UVTransport _make_new_transport(self, object protocol, object waiter)

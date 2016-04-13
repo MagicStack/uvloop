@@ -16,40 +16,40 @@ cdef class UVTransport(UVStream):
         self._high_water = FLOW_CONTROL_HIGH_WATER
         self._low_water = FLOW_CONTROL_LOW_WATER
 
+        self._waiter = None
         self._server = None
         self._extra_info = None
         self._fileobj = None
 
-    cdef _init(self, Loop loop, object protocol, Server server):
+    cdef _init(self, Loop loop, object protocol, Server server, object waiter):
         self._start_init(loop)
-        self._set_protocol(protocol)
-        if server is not None:
-            self._set_server(server)
 
-    cdef _set_server(self, Server server):
-        self._server = server
-        (<Server>server)._attach()
+        IF DEBUG:
+            if protocol is None:
+                raise TypeError('protocol is required')
 
-    cdef _set_protocol(self, object protocol):
+            if waiter is not None and not isinstance(waiter, aio_Future):
+                raise TypeError(
+                    'invalid waiter object {!r}, expected asyncio.Future'.
+                        format(waiter))
+
         self._protocol = protocol
-
         # Store a reference to the bound method directly
         try:
             self._protocol_data_received = protocol.data_received
         except AttributeError:
             pass
 
-    cdef _init_protocol(self, waiter):
+        if server is not None:
+            self._server = server
+            (<Server>server)._attach()
+
+        self._waiter = waiter
+
+    cdef _init_protocol(self):
         if self._protocol is None:
             raise RuntimeError('invalid _init_protocol call')
-
         self._schedule_call_connection_made()
-
-        if waiter is not None:
-            IF DEBUG:
-                if not isinstance(waiter, aio_Future):
-                    raise TypeError('invalid waiter')
-            self._loop.call_soon(_set_result_unless_cancelled, waiter, True)
 
     cdef _add_extra_info(self, str name, object obj):
         if self._extra_info is None:
@@ -58,7 +58,17 @@ cdef class UVTransport(UVStream):
 
     cdef _on_accept(self):
         # Implementation for UVStream._on_accept
-        self._schedule_call_connection_made()
+        self._init_protocol()
+
+    cdef _on_connect(self, object exc):
+        if exc is None:
+            self._init_protocol()
+        else:
+            if self._waiter is None or self._waiter.done():
+                self._fatal_error(exc, False, "connect failed")
+            else:
+                self._waiter.set_exception(exc)
+                self._close()
 
     cdef _on_read(self, bytes buf):
         # Implementation for UVStream._on_read
@@ -171,6 +181,11 @@ cdef class UVTransport(UVStream):
                              "UVTransport._call_connection_made",
                              <method_t*>&self._call_connection_made,
                              self))
+
+        if self._waiter is not None:
+            self._loop.call_soon(
+                _set_result_unless_cancelled, self._waiter, True)
+            self._waiter = None
 
     cdef _call_connection_lost(self, exc):
         if self._closed:

@@ -246,7 +246,8 @@ cdef class UVProcessTransport(UVProcess):
         if stdin is not None:
             if stdin == subprocess_PIPE:
                 proto = WriteSubprocessPipeProto(self, 0)
-                self.stdin = UVWritePipeTransport.new(self._loop, proto, None)
+                self.stdin = UVWritePipeTransport.new(
+                    self._loop, proto, None, None)
 
                 iocnt = &self.iocnt[0]
                 iocnt.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
@@ -275,7 +276,8 @@ cdef class UVProcessTransport(UVProcess):
                 io[1] = w
 
                 proto = ReadSubprocessPipeProto(self, 1)
-                self.stdout = UVReadPipeTransport.new(self._loop, proto, None)
+                self.stdout = UVReadPipeTransport.new(
+                    self._loop, proto, None, None)
                 self.stdout.open(r)
             elif stdout == subprocess_DEVNULL:
                 io[1] = self._file_devnull()
@@ -294,7 +296,8 @@ cdef class UVProcessTransport(UVProcess):
                 io[2] = w
 
                 proto = ReadSubprocessPipeProto(self, 2)
-                self.stderr = UVReadPipeTransport.new(self._loop, proto, None)
+                self.stderr = UVReadPipeTransport.new(
+                    self._loop, proto, None, None)
                 self.stderr.open(r)
             elif stderr == subprocess_STDOUT:
                 if io[1] is None:
@@ -336,12 +339,14 @@ cdef class UVProcessTransport(UVProcess):
                      pass_fds)
 
         if handle.stdin is not None:
-            handle.stdin._init_protocol(None)
+            handle.stdin._init_protocol()
         if handle.stdout is not None:
-            handle.stdout._init_protocol(None)
+            handle.stdout._init_protocol()
         if handle.stderr is not None:
-            handle.stderr._init_protocol(None)
+            handle.stderr._init_protocol()
 
+        # By the time `protocol.connection_made` is called,
+        # all three pipes should be done with initializing.
         loop.call_soon(protocol.connection_made, handle)
         if waiter is not None:
             loop.call_soon(_set_result_unless_cancelled, waiter, True)

@@ -312,13 +312,13 @@ cdef class UVStreamServer(UVStream):
     cdef _on_listen(self):
         # Implementation for UVStream._on_listen
         protocol = self.protocol_factory()
-        client = self._make_new_transport(protocol)
+        client = self._make_new_transport(protocol, None)
         client._accept(<UVStream>self)
 
     cdef inline _mark_as_open(self):
         self.opened = 1
 
-    cdef UVTransport _make_new_transport(self, object protocol):
+    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
         raise NotImplementedError
 
 

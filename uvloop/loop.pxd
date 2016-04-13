@@ -155,11 +155,6 @@ cdef class Loop:
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
 
-    cdef _connect_tcp_transport(self, UVTCPTransport transport,
-                                system.sockaddr* addr)
-
-    cdef _connect_unix_transport(self, UVPipeTransport transport,
-                                 bytes addr)
 
 include "cbhandles.pxd"
 

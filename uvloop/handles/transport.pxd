@@ -15,13 +15,12 @@ cdef class UVTransport(UVStream):
         object _protocol_data_received
 
         Server _server
+        object _waiter
 
-    cdef _init(self, Loop loop, object protocol, Server server)
+    cdef _init(self, Loop loop, object protocol, Server server, object waiter)
 
-    cdef _set_protocol(self, object protocol)
-    cdef _set_server(self, Server server)
-
-    cdef _init_protocol(self, waiter)
+    cdef _init_protocol(self)
+    cdef _on_connect(self, object exc)
 
     cdef _set_write_buffer_limits(self, int high=*, int low=*)
     cdef _maybe_pause_protocol(self)

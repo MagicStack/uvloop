@@ -62,9 +62,9 @@ cdef class UVTCPServer(UVStreamServer):
         else:
             self._mark_as_open()
 
-    cdef UVTransport _make_new_transport(self, object protocol):
+    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
         cdef UVTCPTransport tr
-        tr = UVTCPTransport.new(self._loop, protocol, self._server)
+        tr = UVTCPTransport.new(self._loop, protocol, self._server, waiter)
         return <UVTransport>tr
 
 
@@ -72,10 +72,12 @@ cdef class UVTCPServer(UVStreamServer):
 cdef class UVTCPTransport(UVTransport):
 
     @staticmethod
-    cdef UVTCPTransport new(Loop loop, object protocol, Server server):
+    cdef UVTCPTransport new(Loop loop, object protocol, Server server,
+                            object waiter):
+
         cdef UVTCPTransport handle
         handle = UVTCPTransport.__new__(UVTCPTransport)
-        handle._init(loop, protocol, server)
+        handle._init(loop, protocol, server, waiter)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -87,26 +89,23 @@ cdef class UVTCPTransport(UVTransport):
         self._ensure_alive()
         __tcp_open(<UVStream>self, sockfd)
 
-    cdef connect(self, system.sockaddr* addr, object callback):
+    cdef connect(self, system.sockaddr* addr):
         cdef _TCPConnectRequest req
-        req = _TCPConnectRequest(self._loop, self, callback)
+        req = _TCPConnectRequest(self._loop, self)
         req.connect(addr)
 
 
 cdef class _TCPConnectRequest(UVRequest):
     cdef:
-        object callback
         UVTCPTransport transport
 
-    def __cinit__(self, loop, transport, callback):
+    def __cinit__(self, loop, transport):
         self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
         if self.request is NULL:
             self.on_done()
             raise MemoryError()
         self.request.data = <void*>self
-
         self.transport = transport
-        self.callback = callback
 
     cdef connect(self, system.sockaddr* addr):
         cdef int err
@@ -123,10 +122,10 @@ cdef class _TCPConnectRequest(UVRequest):
 cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
     cdef:
         _TCPConnectRequest wrapper
-        object callback
+        UVTCPTransport transport
 
     wrapper = <_TCPConnectRequest> req.data
-    callback = wrapper.callback
+    transport = wrapper.transport
 
     if status < 0:
         exc = convert_error(status)
@@ -134,7 +133,7 @@ cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
         exc = None
 
     try:
-        callback(exc)
+        transport._on_connect(exc)
     except BaseException as ex:
         wrapper.transport._error(ex, False)
     finally:

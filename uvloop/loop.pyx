@@ -1027,32 +1027,6 @@ cdef class Loop:
 
         return server
 
-    cdef _connect_tcp_transport(self, UVTCPTransport transport,
-                                system.sockaddr* addr):
-
-        fut = aio_Future(loop=self)
-        def caller(result):
-            if result is None:
-                transport._init_protocol(fut)
-            else:
-                fut.set_exception(result)
-
-        transport.connect(addr, caller)
-        return fut
-
-    cdef _connect_unix_transport(self, UVPipeTransport transport,
-                                 bytes addr):
-
-        fut = aio_Future(loop=self)
-        def caller(result):
-            if result is None:
-                transport._init_protocol(fut)
-            else:
-                fut.set_exception(result)
-
-        transport.connect(addr, caller)
-        return fut
-
     @aio_coroutine
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
@@ -1106,7 +1080,8 @@ cdef class Loop:
             while rai is not NULL:
                 tr = None
                 try:
-                    tr = UVTCPTransport.new(self, protocol, None)
+                    waiter = aio_Future(loop=self)
+                    tr = UVTCPTransport.new(self, protocol, None, waiter)
                     if ai_local is not None:
                         lai = ai_local.data
                         while lai is not NULL:
@@ -1123,7 +1098,8 @@ cdef class Loop:
                             rai = rai.ai_next
                             continue
 
-                    await self._connect_tcp_transport(tr, rai.ai_addr)
+                    tr.connect(rai.ai_addr)
+                    await waiter
 
                 except OSError as exc:
                     if tr is not None:
@@ -1154,16 +1130,16 @@ cdef class Loop:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
 
-            fut = aio_Future(loop=self)
+            waiter = aio_Future(loop=self)
             protocol = protocol_factory()
-            tr = UVTCPTransport.new(self, protocol, None)
+            tr = UVTCPTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
                 tr.open(fileno)
                 tr._attach_fileobj(sock)
-                tr._init_protocol(fut)
-                await fut
+                tr._init_protocol()
+                await waiter
             except:
                 tr._close()
                 raise
@@ -1240,9 +1216,11 @@ cdef class Loop:
                     'path and sock can not be specified at the same time')
 
             protocol = protocol_factory()
-            tr = UVPipeTransport.new(self, protocol, None)
+            waiter = aio_Future(loop=self)
+            tr = UVPipeTransport.new(self, protocol, None, waiter)
+            tr.connect(path)
             try:
-                await self._connect_unix_transport(tr, path)
+                await waiter
             except:
                 tr._close()
                 raise
@@ -1255,16 +1233,16 @@ cdef class Loop:
                 raise ValueError(
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
-            fut = aio_Future(loop=self)
+            waiter = aio_Future(loop=self)
             protocol = protocol_factory()
-            tr = UVPipeTransport.new(self, protocol, None)
+            tr = UVPipeTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
                 tr.open(fileno)
                 tr._attach_fileobj(sock)
-                tr._init_protocol(fut)
-                await fut
+                tr._init_protocol()
+                await waiter
             except:
                 tr._close()
                 raise
@@ -1489,12 +1467,12 @@ cdef class Loop:
 
         waiter = aio_Future(loop=self)
         proto = proto_factory()
-        transp = UVReadPipeTransport.new(self, proto, None)
+        transp = UVReadPipeTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
             transp.open(fileno)
-            transp._init_protocol(waiter)
+            transp._init_protocol()
             await waiter
         except:
             transp.close()
@@ -1509,12 +1487,12 @@ cdef class Loop:
 
         waiter = aio_Future(loop=self)
         proto = proto_factory()
-        transp = UVWritePipeTransport.new(self, proto, None)
+        transp = UVWritePipeTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
             transp.open(fileno)
-            transp._init_protocol(waiter)
+            transp._init_protocol()
             await waiter
         except:
             transp.close()

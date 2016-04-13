@@ -10,16 +10,18 @@ cdef class UVPipeServer(UVStreamServer):
 cdef class UVPipeTransport(UVTransport):
 
     @staticmethod
-    cdef UVPipeTransport new(Loop loop, object protocol, Server server)
+    cdef UVPipeTransport new(Loop loop, object protocol, Server server,
+                             object waiter)
 
     cdef open(self, int sockfd)
-    cdef connect(self, char* addr, object callback)
+    cdef connect(self, char* addr)
 
 
 cdef class UVReadPipeTransport(UVReadTransport):
 
     @staticmethod
-    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server)
+    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server,
+                                 object waiter)
 
     cdef open(self, int sockfd)
 
@@ -27,6 +29,7 @@ cdef class UVReadPipeTransport(UVReadTransport):
 cdef class UVWritePipeTransport(UVWriteTransport):
 
     @staticmethod
-    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server)
+    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server,
+                                  object waiter)
 
     cdef open(self, int sockfd)
