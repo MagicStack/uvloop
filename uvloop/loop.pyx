@@ -376,13 +376,13 @@ cdef class Loop:
     cdef uint64_t _time(self):
         return uv.uv_now(self.uvloop)
 
-    cdef _call_soon(self, object callback, object args):
+    cdef inline _call_soon(self, object callback, object args):
         cdef Handle handle
         handle = new_Handle(self, callback, args)
         self._call_soon_handle(handle)
         return handle
 
-    cdef _call_soon_handle(self, Handle handle):
+    cdef inline _call_soon_handle(self, Handle handle):
         self._check_closed()
         self._ready.append(handle)
         self._ready_len += 1;

@@ -124,8 +124,8 @@ cdef class Loop:
     cdef _stop(self, exc)
     cdef uint64_t _time(self)
 
-    cdef _call_soon(self, object callback, object args)
-    cdef _call_soon_handle(self, Handle handle)
+    cdef inline _call_soon(self, object callback, object args)
+    cdef inline _call_soon_handle(self, Handle handle)
 
     cdef _call_later(self, uint64_t delay, object callback, object args)
 
