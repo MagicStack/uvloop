@@ -35,7 +35,7 @@ cdef class Loop:
     cdef:
         uv.uv_loop_t *uvloop
 
-        bint _closed
+        readonly bint _closed
         bint _debug
         bint _running
         bint _stopping

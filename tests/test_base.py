@@ -12,8 +12,10 @@ from uvloop._testbase import UVTestCase, AIOTestCase
 class _TestBase:
 
     def test_close(self):
+        self.assertFalse(self.loop._closed)
         self.assertFalse(self.loop.is_closed())
         self.loop.close()
+        self.assertTrue(self.loop._closed)
         self.assertTrue(self.loop.is_closed())
 
         # it should be possible to call close() more than once
