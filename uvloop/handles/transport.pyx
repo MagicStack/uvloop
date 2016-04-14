@@ -185,6 +185,11 @@ cdef class UVTransport(UVStream):
                              <method_t*>&self._start_reading,
                              self))
 
+        if self._waiter is not None:
+            if not self._waiter.cancelled():
+                self._waiter.set_result(True)
+            self._waiter = None
+
     cdef _schedule_call_connection_made(self):
         self._loop._call_soon_handle(
             new_MethodHandle(self._loop,
@@ -192,12 +197,17 @@ cdef class UVTransport(UVStream):
                              <method_t*>&self._call_connection_made,
                              self))
 
+    cdef _call_connection_lost(self, exc):
         if self._waiter is not None:
-            self._loop.call_soon(
-                _set_result_unless_cancelled, self._waiter, True)
+            # This shouldn't ever happen!
+            self._loop.call_exception_handler({
+                'message': 'waiter is not None in {}._call_connection_lost'.
+                    format(self.__class__.__name__)
+            })
+            if not self._waiter.done():
+                self._waiter.set_exception(exc)
             self._waiter = None
 
-    cdef _call_connection_lost(self, exc):
         if self._closed:
             # The handle is closed -- likely, _call_connection_lost
             # was already called before.
