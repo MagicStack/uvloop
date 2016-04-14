@@ -33,7 +33,7 @@ cdef class UVStreamServer(UVStream):
             client = self._make_new_transport(protocol, None)
 
         else:
-            waiter = aio_Future(loop=self._loop)
+            waiter = self._loop._new_future()
 
             ssl_protocol = aio_SSLProtocol(
                 self._loop, protocol, self.ssl,

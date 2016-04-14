@@ -419,7 +419,7 @@ cdef class UVProcessTransport(UVProcess):
         return default
 
     def _wait(self):
-        fut = aio_Future(loop=self._loop)
+        fut = self._loop._new_future()
         if self._returncode is not None:
             fut.set_result(self._returncode)
             return fut

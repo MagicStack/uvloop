@@ -36,7 +36,7 @@ cdef class Server:
     async def wait_closed(self):
         if self._servers is None or self._waiters is None:
             return
-        waiter = aio_Future(loop=self._loop)
+        waiter = self._loop._new_future()
         self._waiters.append(waiter)
         await waiter
 

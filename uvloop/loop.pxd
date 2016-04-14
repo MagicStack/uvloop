@@ -131,6 +131,7 @@ cdef class Loop:
 
     cdef void _handle_exception(self, object ex)
 
+    cdef inline _new_future(self)
     cdef inline _check_signal(self, sig)
     cdef inline _check_closed(self)
     cdef inline _check_thread(self)

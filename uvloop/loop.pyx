@@ -422,6 +422,9 @@ cdef class Loop:
                 "Non-thread-safe operation invoked on an event loop other "
                 "than the current one")
 
+    cdef inline _new_future(self):
+        return aio_Future(loop=self)
+
     cdef inline _add_reader(self, fd, Handle handle):
         cdef:
             UVPoll poll
@@ -489,7 +492,7 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
 
         def callback(result):
             if AddrInfo.isinstance(result):
@@ -512,7 +515,7 @@ cdef class Loop:
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags):
         cdef NameInfoRequest nr
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
 
         def callback(result):
             if isinstance(result, tuple):
@@ -1054,7 +1057,7 @@ cdef class Loop:
                                      'when using ssl without a host')
                 server_hostname = host
 
-            ssl_waiter = aio_Future(loop=self)
+            ssl_waiter = self._new_future()
             sslcontext = None if isinstance(ssl, bool) else ssl
             protocol = aio_SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
@@ -1099,7 +1102,7 @@ cdef class Loop:
             while rai is not NULL:
                 tr = None
                 try:
-                    waiter = aio_Future(loop=self)
+                    waiter = self._new_future()
                     tr = UVTCPTransport.new(self, protocol, None, waiter)
                     if ai_local is not None:
                         lai = ai_local.data
@@ -1149,7 +1152,7 @@ cdef class Loop:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
 
-            waiter = aio_Future(loop=self)
+            waiter = self._new_future()
             protocol = protocol_factory()
             tr = UVTCPTransport.new(self, protocol, None, waiter)
             try:
@@ -1238,7 +1241,7 @@ cdef class Loop:
                 raise ValueError('You must set server_hostname '
                                  'when using ssl without a host')
 
-            ssl_waiter = aio_Future(loop=self)
+            ssl_waiter = self._new_future()
             sslcontext = None if isinstance(ssl, bool) else ssl
             protocol = aio_SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
@@ -1255,7 +1258,7 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
-            waiter = aio_Future(loop=self)
+            waiter = self._new_future()
             tr = UVPipeTransport.new(self, protocol, None, waiter)
             tr.connect(path)
             try:
@@ -1272,7 +1275,7 @@ cdef class Loop:
                 raise ValueError(
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
-            waiter = aio_Future(loop=self)
+            waiter = self._new_future()
             tr = UVPipeTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
@@ -1370,14 +1373,14 @@ cdef class Loop:
     def sock_recv(self, sock, n):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
         self._sock_recv(fut, 0, sock, n)
         return fut
 
     def sock_sendall(self, sock, data):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
         if data:
             self._sock_sendall(fut, 0, sock, data)
         else:
@@ -1387,14 +1390,14 @@ cdef class Loop:
     def sock_accept(self, sock):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
         self._sock_accept(fut, 0, sock)
         return fut
 
     def sock_connect(self, sock, address):
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = aio_Future(loop=self)
+        fut = self._new_future()
         try:
             if self._debug:
                 aio__check_resolved_address(sock, address)
@@ -1462,7 +1465,7 @@ cdef class Loop:
         if executable is not None:
             args[0] = executable
 
-        waiter = aio_Future(loop=self)
+        waiter = self._new_future()
         protocol = protocol_factory()
         proc = UVProcessTransport.new(self, protocol,
                                       args, env, cwd, start_new_session,
@@ -1507,7 +1510,7 @@ cdef class Loop:
             UVReadPipeTransport transp
             int fileno = os_dup(pipe.fileno())
 
-        waiter = aio_Future(loop=self)
+        waiter = self._new_future()
         proto = proto_factory()
         transp = UVReadPipeTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
@@ -1527,7 +1530,7 @@ cdef class Loop:
             UVWritePipeTransport transp
             int fileno = os_dup(pipe.fileno())
 
-        waiter = aio_Future(loop=self)
+        waiter = self._new_future()
         proto = proto_factory()
         transp = UVWritePipeTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
