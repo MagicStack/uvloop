@@ -51,9 +51,15 @@ class _TestTCP:
             nonlocal CNT
             CNT = 0
 
+            addrs = ('127.0.0.1', 'localhost')
+            if not isinstance(self.loop, uvloop._Loop):
+                # Hack to let tests run on Python 3.5.0
+                # (asyncio doesn't support multiple hosts in 3.5.0)
+                addrs = '127.0.0.1'
+
             srv = await asyncio.start_server(
                 handle_client,
-                ('127.0.0.1', 'localhost'), 0,
+                addrs, 0,
                 family=socket.AF_INET,
                 loop=self.loop)
 
@@ -356,9 +362,9 @@ class _TestTCP:
 
             t.write(b'OK')  # We want server to fail.
 
-            self.assertFalse(t.is_closing())
+            self.assertFalse(t._closing)
             t.abort()
-            self.assertTrue(t.is_closing())
+            self.assertTrue(t._closing)
 
             await fut
 
