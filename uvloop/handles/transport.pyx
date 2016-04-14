@@ -210,12 +210,12 @@ cdef class UVTransport(UVStream):
             self._protocol = None
             self._protocol_data_received = None
 
+            self._close()
+
             server = self._server
             if server is not None:
                 (<Server>server)._detach()
                 self._server = None
-
-            self._close()
 
     cdef _schedule_call_connection_lost(self, exc):
         self._loop._call_soon_handle(
