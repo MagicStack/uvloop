@@ -1,6 +1,7 @@
 cdef class UVProcess(UVHandle):
     cdef:
         object _returncode
+        object _pid
 
         set _fds_to_close
 

@@ -6,6 +6,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_env = NULL
         self.uv_opt_args = NULL
         self._returncode = None
+        self._pid = None
         self._fds_to_close = set()
 
     cdef _init(self, Loop loop, list args, dict env,
@@ -44,6 +45,11 @@ cdef class UVProcess(UVHandle):
             raise convert_error(err)
 
         self._finish_init()
+
+        # asyncio caches the PID in BaseSubprocessTransport,
+        # so that the transport knows what the PID was even
+        # after the process is finished.
+        self._pid = (<uv.uv_process_t*>self._handle).pid
 
         for fd in restore_inheritable:
             os_set_inheritable(fd, False)
@@ -368,8 +374,7 @@ cdef class UVProcessTransport(UVProcess):
         return handle
 
     def get_pid(self):
-        self._ensure_alive()
-        return (<uv.uv_process_t*>self._handle).pid
+        return self._pid
 
     def get_returncode(self):
         return self._returncode
