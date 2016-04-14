@@ -1,4 +1,4 @@
 recursive-include tests *.py
 recursive-include uvloop *.pyx *.pxd *.pxi *.py
-recursive-include vendor/libuv *.*
+recursive-include vendor/libuv *.c *.h LICENSE *.sh *.am *.ac *.m4 *.pc.in
 include LICENSE README.rst Makefile

@@ -25,9 +25,12 @@ class libuv_build_ext(build_ext):
                          ' ' +
                          env.get('ARCHFLAGS', ''))
 
-        subprocess.run(['sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env)
-        subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env)
-        subprocess.run(['make', '-j4'], cwd=LIBUV_DIR, env=env)
+        j_flag = '-j{}'.format(os.cpu_count() or 1)
+
+        subprocess.run(['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env,
+                       check=True)
+        subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env, check=True)
+        subprocess.run(['make', j_flag], cwd=LIBUV_DIR, env=env, check=True)
 
     def build_extensions(self):
         libuv_lib = os.path.join(LIBUV_DIR, '.libs', 'libuv.a')
