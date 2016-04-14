@@ -11,7 +11,8 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
-               stdin, stdout, stderr, pass_fds):
+               stdin, stdout, stderr, pass_fds,
+               debug_flags):
 
         cdef int err
 
@@ -22,6 +23,11 @@ cdef class UVProcess(UVHandle):
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()
+
+        # Too early to call _finish_init, but still a lot of work to do.
+        # Let's set handle.data to NULL, so in case something goes wrong,
+        # callbacks have a chance to avoid casting *something* into UVHandle.
+        self._handle.data = NULL
 
         try:
             self._init_options(args, env, cwd, start_new_session,
@@ -45,6 +51,9 @@ cdef class UVProcess(UVHandle):
             raise convert_error(err)
 
         self._finish_init()
+
+        if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
+            time_sleep(1)
 
         # asyncio caches the PID in BaseSubprocessTransport,
         # so that the transport knows what the PID was even
@@ -194,16 +203,36 @@ cdef class UVProcess(UVHandle):
         self._close()
 
 
+_CALL_PIPE_DATA_RECEIVED = 0
+_CALL_PIPE_CONNECTION_LOST = 1
+_CALL_PROCESS_EXITED = 2
+_CALL_CONNECTION_LOST = 3
+
+
 @cython.no_gc_clear
 cdef class UVProcessTransport(UVProcess):
     def __cinit__(self):
         self._exit_waiters = []
         self._protocol = None
 
+        self._init_futs = []
+        self._pending_calls = []
+        self._stdio_ready = 0
+
+        self.stdin = self.stdout = self.stderr = None
+        self.stdin_proto = self.stdout_proto = self.stderr_proto = None
+
+        self._finished = 0
+
     cdef _on_exit(self, int64_t exit_status, int term_signal):
         UVProcess._on_exit(self, exit_status, term_signal)
 
-        self._loop.call_soon(self._protocol.process_exited)
+        if self._stdio_ready:
+            self._loop.call_soon(self._protocol.process_exited)
+        else:
+            self._pending_calls.append((_CALL_PROCESS_EXITED, None, None))
+
+        self._try_finish()
 
         for waiter in self._exit_waiters:
             if not waiter.cancelled():
@@ -215,10 +244,17 @@ cdef class UVProcessTransport(UVProcess):
             raise ProcessLookupError()
 
     cdef _pipe_connection_lost(self, int fd, exc):
-        self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc)
+        if self._stdio_ready:
+            self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc)
+            self._try_finish()
+        else:
+            self._pending_calls.append((_CALL_PIPE_CONNECTION_LOST, fd, exc))
 
     cdef _pipe_data_received(self, int fd, data):
-        self._loop.call_soon(self._protocol.pipe_data_received, fd, data)
+        if self._stdio_ready:
+            self._loop.call_soon(self._protocol.pipe_data_received, fd, data)
+        else:
+            self._pending_calls.append((_CALL_PIPE_DATA_RECEIVED, fd, data))
 
     cdef _file_redirect_stdio(self, int fd):
         fd = os_dup(fd)
@@ -238,12 +274,17 @@ cdef class UVProcessTransport(UVProcess):
         self._close_after_spawn(w)
         return r, w
 
+    cdef _file_inpipe(self):
+        r, w = os_pipe()
+        os_set_inheritable(r, True)
+        self._close_after_spawn(r)
+        return r, w
+
     cdef _init_files(self, stdin, stdout, stderr):
         cdef uv.uv_stdio_container_t *iocnt
 
         UVProcess._init_files(self, stdin, stdout, stderr)
 
-        self.stdin = self.stdout = self.stderr = None
         io = [None, None, None]
 
         self.options.stdio_count = 3
@@ -251,14 +292,16 @@ cdef class UVProcessTransport(UVProcess):
 
         if stdin is not None:
             if stdin == subprocess_PIPE:
-                proto = WriteSubprocessPipeProto(self, 0)
-                self.stdin = UVWritePipeTransport.new(
-                    self._loop, proto, None, None)
+                r, w  = self._file_inpipe()
+                io[0] = r
 
-                iocnt = &self.iocnt[0]
-                iocnt.flags = <uv.uv_stdio_flags>(uv.UV_CREATE_PIPE |
-                                                  uv.UV_READABLE_PIPE)
-                iocnt.data.stream = <uv.uv_stream_t*>self.stdin._handle
+                self.stdin_proto = WriteSubprocessPipeProto(self, 0)
+                waiter = self._loop._new_future()
+                self.stdin = UVWritePipeTransport.new(
+                    self._loop, self.stdin_proto, None, waiter)
+                self._init_futs.append(waiter)
+                self.stdin.open(w)
+                self.stdin._init_protocol()
             elif stdin == subprocess_DEVNULL:
                 io[0] = self._file_devnull()
             elif stdout == subprocess_STDOUT:
@@ -281,10 +324,13 @@ cdef class UVProcessTransport(UVProcess):
                 r, w  = self._file_outpipe()
                 io[1] = w
 
-                proto = ReadSubprocessPipeProto(self, 1)
+                self.stdout_proto = ReadSubprocessPipeProto(self, 1)
+                waiter = self._loop._new_future()
                 self.stdout = UVReadPipeTransport.new(
-                    self._loop, proto, None, None)
+                    self._loop, self.stdout_proto, None, waiter)
+                self._init_futs.append(waiter)
                 self.stdout.open(r)
+                self.stdout._init_protocol()
             elif stdout == subprocess_DEVNULL:
                 io[1] = self._file_devnull()
             elif stdout == subprocess_STDOUT:
@@ -301,10 +347,13 @@ cdef class UVProcessTransport(UVProcess):
                 r, w  = self._file_outpipe()
                 io[2] = w
 
-                proto = ReadSubprocessPipeProto(self, 2)
+                self.stderr_proto = ReadSubprocessPipeProto(self, 2)
+                waiter = self._loop._new_future()
                 self.stderr = UVReadPipeTransport.new(
-                    self._loop, proto, None, None)
+                    self._loop, self.stderr_proto, None, waiter)
+                self._init_futs.append(waiter)
                 self.stderr.open(r)
+                self.stderr._init_protocol()
             elif stderr == subprocess_STDOUT:
                 if io[1] is None:
                     # shouldn't ever happen
@@ -341,11 +390,55 @@ cdef class UVProcessTransport(UVProcess):
             if waiter is not None and not waiter.cancelled():
                 waiter.set_result(True)
 
+        self._stdio_ready = 1
+        if self._pending_calls:
+            pending_calls = self._pending_calls.copy()
+            self._pending_calls.clear()
+            for (type, fd, arg) in pending_calls:
+                if type == _CALL_PIPE_CONNECTION_LOST:
+                    self._pipe_connection_lost(fd, arg)
+                elif type == _CALL_PIPE_DATA_RECEIVED:
+                    self._pipe_data_received(fd, arg)
+                elif type == _CALL_PROCESS_EXITED:
+                    self._loop.call_soon(self._protocol.process_exited)
+                elif type == _CALL_CONNECTION_LOST:
+                    self._loop.call_soon(self._protocol.connection_lost, None)
+
+    cdef _try_finish(self):
+        if self._returncode is None or self._finished:
+            return
+
+        if ((self.stdin_proto is None or self.stdin_proto.disconnected) and
+            (self.stdout_proto is None or self.stdout_proto.disconnected) and
+            (self.stderr_proto is None or self.stderr_proto.disconnected)):
+
+            self._finished = 1
+
+            if self._stdio_ready:
+                self._loop.call_soon(self._protocol.connection_lost, None)
+            else:
+                self._pending_calls.append((_CALL_CONNECTION_LOST, None, None))
+
+    def __stdio_inited(self, waiter, stdio_fut):
+        exc = stdio_fut.exception()
+        if exc is not None:
+            if waiter is None:
+                raise exc
+            else:
+                waiter.set_exception(exc)
+        else:
+            self._loop._call_soon_handle(
+                new_MethodHandle1(self._loop,
+                                  "UVProcessTransport._call_connection_made",
+                                  <method1_t*>&self._call_connection_made,
+                                  self, waiter))
+
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
                                 cwd, start_new_session,
                                 stdin, stdout, stderr, pass_fds,
-                                waiter):
+                                waiter,
+                                debug_flags):
 
         cdef UVProcessTransport handle
         handle = UVProcessTransport.__new__(UVProcessTransport)
@@ -354,22 +447,21 @@ cdef class UVProcessTransport(UVProcess):
                      __process_convert_fileno(stdin),
                      __process_convert_fileno(stdout),
                      __process_convert_fileno(stderr),
-                     pass_fds)
+                     pass_fds,
+                     debug_flags)
 
-        if handle.stdin is not None:
-            handle.stdin._init_protocol()
-        if handle.stdout is not None:
-            handle.stdout._init_protocol()
-        if handle.stderr is not None:
-            handle.stderr._init_protocol()
-
-        # By the time `protocol.connection_made` is called,
-        # all three pipes should be done with initializing.
-        loop._call_soon_handle(
-            new_MethodHandle1(loop,
-                              "UVProcessTransport._call_connection_made",
-                              <method1_t*>&handle._call_connection_made,
-                              handle, waiter))
+        if handle._init_futs:
+            handle._stdio_ready = 0
+            init_fut = aio_gather(*handle._init_futs, loop=loop)
+            init_fut.add_done_callback(
+                ft_partial(handle.__stdio_inited, waiter))
+        else:
+            handle._stdio_ready = 1
+            loop._call_soon_handle(
+                new_MethodHandle1(loop,
+                                  "UVProcessTransport._call_connection_made",
+                                  <method1_t*>&handle._call_connection_made,
+                                  handle, waiter))
 
         return handle
 

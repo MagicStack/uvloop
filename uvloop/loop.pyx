@@ -1441,13 +1441,19 @@ cdef class Loop:
                                restore_signals=True,
                                start_new_session=False,
                                executable=None,
-                               pass_fds=()
+                               pass_fds=(),
+
+                               # For tests only! Do not use in your code. Ever.
+                               __uvloop_sleep_after_fork=False
                             ):
 
         # TODO: To implement close_fds, restore_signals, and preexec_fn --
         # we'll likely need to add new functionality to libuv, mainly,
         # an ability to run a callback before calling execvp in the
         # child process.
+
+        cdef:
+            int debug_flags = 0
 
         if preexec_fn is not None:
             raise ValueError('preexec_fn parameter is not supported')
@@ -1465,12 +1471,16 @@ cdef class Loop:
         if executable is not None:
             args[0] = executable
 
+        if __uvloop_sleep_after_fork:
+            debug_flags |= __PROCESS_DEBUG_SLEEP_AFTER_FORK
+
         waiter = self._new_future()
         protocol = protocol_factory()
         proc = UVProcessTransport.new(self, protocol,
                                       args, env, cwd, start_new_session,
                                       stdin, stdout, stderr, pass_fds,
-                                      waiter)
+                                      waiter,
+                                      debug_flags)
 
         try:
             await waiter
@@ -1481,7 +1491,8 @@ cdef class Loop:
         return proc, protocol
 
     def subprocess_shell(self, protocol_factory, cmd, *,
-                         shell=True, **kwargs):
+                         shell=True,
+                         **kwargs):
 
         if not shell:
             raise ValueError("shell must be True")

@@ -111,6 +111,13 @@ cdef class UVWritePipeTransport(UVWriteTransport):
                                   object waiter):
         cdef UVWritePipeTransport handle
         handle = UVWritePipeTransport.__new__(UVWritePipeTransport)
+
+        # We listen for read events on write-end of the pipe. When
+        # the read-end is close, the uv_stream_t.read callback will
+        # receive an error -- we want to silence that error, and just
+        # close the transport.
+        handle._close_on_read_error()
+
         handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle

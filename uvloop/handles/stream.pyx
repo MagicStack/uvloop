@@ -65,6 +65,7 @@ cdef class UVStream(UVHandle):
     def __cinit__(self):
         self.__shutting_down = 0
         self.__reading = 0
+        self.__read_error_close = 0
         self.__cached_socket = None
 
     cdef _shutdown(self):
@@ -112,6 +113,9 @@ cdef class UVStream(UVHandle):
 
         self._on_accept()
 
+    cdef inline _close_on_read_error(self):
+        self.__read_error_close = 1
+
     cdef bint _is_reading(self):
         return self.__reading
 
@@ -119,7 +123,7 @@ cdef class UVStream(UVHandle):
         cdef int err
         self._ensure_alive()
 
-        if self.__reading or not self._is_readable():
+        if self.__reading:
             return
 
         err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
@@ -148,7 +152,7 @@ cdef class UVStream(UVHandle):
     cdef _stop_reading(self):
         cdef int err
 
-        if not self.__reading or not self._is_readable():
+        if not self.__reading:
             return
         self.__reading_stopped()
 
@@ -159,12 +163,6 @@ cdef class UVStream(UVHandle):
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
-
-    cdef inline bint _is_readable(self):
-        return uv.uv_is_readable(<uv.uv_stream_t*>self._handle)
-
-    cdef inline bint _is_writable(self):
-        return uv.uv_is_writable(<uv.uv_stream_t*>self._handle)
 
     cdef _write(self, object data):
         cdef:
@@ -412,6 +410,12 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
         IF DEBUG:
             loop._debug_stream_read_errors_total += 1
+
+        if sc.__read_error_close:
+            # Used for getting notified when a pipe is closed.
+            # See UVWritePipeTransport for the explanation.
+            sc._on_eof()
+            return
 
         exc = convert_error(nread)
         sc._fatal_error(exc, False,

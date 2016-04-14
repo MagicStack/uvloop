@@ -3,6 +3,7 @@ cdef class UVStream(UVHandle):
         uv.uv_shutdown_t _shutdown_req
         bint __shutting_down
         bint __reading
+        bint __read_error_close
         object __cached_socket
 
         # Points to a Python file-object that should be closed
@@ -20,14 +21,12 @@ cdef class UVStream(UVHandle):
     cdef _listen(self, int backlog)
     cdef _accept(self, UVStream server)
 
+    cdef inline _close_on_read_error(self)
     cdef bint _is_reading(self)
     cdef _start_reading(self)
     cdef _stop_reading(self)
     cdef __reading_started(self)
     cdef __reading_stopped(self)
-
-    cdef inline bint _is_readable(self)
-    cdef inline bint _is_writable(self)
 
     cdef _write(self, object data)
     cdef inline size_t _get_write_buffer_size(self)

@@ -10,6 +10,7 @@ import subprocess
 import ssl
 import sys
 import threading
+import time
 import warnings
 
 
@@ -92,6 +93,8 @@ cdef int subprocess_DEVNULL = subprocess.DEVNULL
 
 cdef int signal_NSIG = std_signal.NSIG
 
+cdef time_sleep = time.sleep
+
 cdef warnings_warn = warnings.warn
 
 
@@ -99,4 +102,4 @@ cdef warnings_warn = warnings.warn
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
 del functools, itertools, socket, os, threading, std_signal, subprocess, ssl
-del warnings
+del time, warnings

@@ -17,7 +17,8 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env, cwd,
                start_new_session,
-               stdin, stdout, stderr, pass_fds)
+               stdin, stdout, stderr, pass_fds,
+               debug_flags)
 
     cdef char** __to_cstring_array(self, list arr)
     cdef _init_args(self, list args)
@@ -35,14 +36,23 @@ cdef class UVProcess(UVHandle):
 cdef class UVProcessTransport(UVProcess):
     cdef:
         list _exit_waiters
+        list _init_futs
+        bint _stdio_ready
+        list _pending_calls
         object _protocol
+        bint _finished
 
         UVWritePipeTransport stdin
         UVReadPipeTransport stdout
         UVReadPipeTransport stderr
 
+        object stdin_proto
+        object stdout_proto
+        object stderr_proto
+
     cdef _file_redirect_stdio(self, int fd)
     cdef _file_devnull(self)
+    cdef _file_inpipe(self)
     cdef _file_outpipe(self)
 
     cdef _check_proc(self)
@@ -50,9 +60,11 @@ cdef class UVProcessTransport(UVProcess):
     cdef _pipe_data_received(self, int fd, data)
 
     cdef _call_connection_made(self, waiter)
+    cdef _try_finish(self)
 
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env, cwd,
                                 start_new_session,
                                 stdin, stdout, stderr, pass_fds,
-                                waiter)
+                                waiter,
+                                debug_flags)
