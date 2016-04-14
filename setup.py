@@ -52,16 +52,23 @@ class libuv_build_ext(build_ext):
 
 setup(
     name='uvloop',
+    description='Fast implementation of asyncio event loop on top of libuv',
     version='0.4.5',
     packages=['uvloop'],
-    cmdclass = {'build_ext': libuv_build_ext},
+    cmdclass={'build_ext': libuv_build_ext},
     ext_modules=[
         Extension(
             "uvloop.loop",
-            sources = [
+            sources=[
                 "uvloop/loop.c",
             ]
         ),
+    ],
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3.5',
+        'License :: OSI Approved :: MIT License',
+        'Intended Audience :: Developers',
     ],
     provides=['uvloop'],
     include_package_data=True
