@@ -323,6 +323,18 @@ cdef class UVProcessTransport(UVProcess):
                 iocnt.flags = uv.UV_INHERIT_FD
                 iocnt.data.fd = io[idx]
 
+    cdef _call_connection_made(self, waiter):
+        try:
+            self._protocol.connection_made(self)
+        except Exception as ex:
+            if waiter is not None and not waiter.cancelled():
+                waiter.set_exception(ex)
+            else:
+                raise
+        else:
+            if waiter is not None and not waiter.cancelled():
+                waiter.set_result(True)
+
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
                                 cwd, start_new_session,
@@ -347,9 +359,11 @@ cdef class UVProcessTransport(UVProcess):
 
         # By the time `protocol.connection_made` is called,
         # all three pipes should be done with initializing.
-        loop.call_soon(protocol.connection_made, handle)
-        if waiter is not None:
-            loop.call_soon(_set_result_unless_cancelled, waiter, True)
+        loop._call_soon_handle(
+            new_MethodHandle1(loop,
+                              "UVProcessTransport._call_connection_made",
+                              <method1_t*>&handle._call_connection_made,
+                              handle, waiter))
 
         return handle
 

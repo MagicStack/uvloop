@@ -48,6 +48,8 @@ cdef class UVProcessTransport(UVProcess):
     cdef _pipe_connection_lost(self, int fd, exc)
     cdef _pipe_data_received(self, int fd, data)
 
+    cdef _call_connection_made(self, waiter)
+
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env, cwd,
                                 start_new_session,
