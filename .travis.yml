@@ -15,6 +15,7 @@ script:
 
 before_deploy:
     - make sdist
+    - mv `find dist -name 'uvloop-*.tar.gz' | head -1` uvloop.tar.gz
 
 deploy:
   provider: releases
@@ -22,7 +23,7 @@ deploy:
   api_key:
     secure: Rf7uGIR9IH7wPXHKB7LcdjQN2i0P0l7zsOz1IDzT/aNla/tWkxDawIbWTFE1gqaRwAZNAQvLh3xjPAh4XWAtd3Q06NbOFrL3/2uhwzb7fOyRbtqTN3OWkxBDgaTyNee4zVG/guhuDAp2keMIOA6DAk3ZpbIx6QTWErjo8c5mubQqAFKPmFuRhvYTzqg0TZD+iAaen7neAOXa0LDa23T929J96rHE2JmFG21Wx6tPOV31c5/gQmd6fcmmNL524I6pSz7TeRFKveKX6RJzcQwxJtrCsQNMq1pLqm3bd7cd/2MaaPP1EyHt7FXejnXqB0FPSssCgG5TbRzCpatrzRugsWl86uqVxINK8pE/h5wA0T1EwsdJkTeYitZmpQL3mbndArNWkzS+5AuVNEByuzdSSfBMukCgq6vfQI8vUnfF74UIvuzYlGANvAyCTpI7g3g33pgL+BicG5qGOUGvFBG+j2gmiwqsmwC5OxT2JljhI2s6udOu56hNNa9M+MhEvrEya0mNOoReqrZrQruxM4M9WKEWd3y13VVN2aaPoyNh8BLXYnU+CZ+d+O/j0sXoUwx2NG1yU+xYirsoSR3NVURQu10ZvS+H8H3Uu8C6b+XJYfz3w7LXdyjXKSRIjtbsVNreda6dnRR7NfK9PCG9lgchmVkd9+Cc2DcDwfHOXjdy2qs=
   file:
-    - dist/uvloop-*.tar.gz
+    - uvloop.tar.gz
   on:
     repo: MagicStack/uvloop
     tags: true
