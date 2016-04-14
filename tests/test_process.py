@@ -20,16 +20,13 @@ class _TestProcess:
             proc = await asyncio.create_subprocess_shell(
                 cmd,
                 env=env,
-                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
 
-            exitcode = await proc.wait()
-            self.assertEqual(exitcode, 0)
-
-            out = await proc.stdout.read()
+            out, _ = await proc.communicate()
             self.assertEqual(out, b'spam\n')
+            self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
 
@@ -42,16 +39,13 @@ class _TestProcess:
                 cmd,
                 cwd=cwd,
                 env=env,
-                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
 
-            exitcode = await proc.wait()
-            self.assertEqual(exitcode, 0)
-
-            out = await proc.stdout.read()
+            out, _ = await proc.communicate()
             self.assertEqual(out, b'/\n')
+            self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
 
