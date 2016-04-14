@@ -1,0 +1,14 @@
+language: python
+
+os:
+    - linux
+
+python:
+    - 3.5
+
+install:
+    - "pip install --no-binary=:all: cython"
+    - make
+
+script:
+    - make test

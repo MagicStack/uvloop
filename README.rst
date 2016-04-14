@@ -1,8 +1,13 @@
+.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
+    :target: https://travis-ci.org/MagicStack/uvloop
+
+
 An implementation of asyncio-compatible event loop on top of libuv.
 This is a research prototype, do not use it in production.
 
 
-# Build Instructions
+Build Instructions
+------------------
 
 You'll need `Cython` and Python 3.5.  The best way is to create
 a virtual env, so that you'll have `cython` and `python` commands
