@@ -25,8 +25,8 @@ cdef class UVStream(UVHandle):
     cdef bint _is_reading(self)
     cdef _start_reading(self)
     cdef _stop_reading(self)
-    cdef __reading_started(self)
-    cdef __reading_stopped(self)
+    cdef inline __reading_started(self)
+    cdef inline __reading_stopped(self)
 
     cdef _write(self, object data)
     cdef inline size_t _get_write_buffer_size(self)

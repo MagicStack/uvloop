@@ -137,13 +137,13 @@ cdef class UVStream(UVHandle):
             # UVStream must live until the read callback is called
             self.__reading_started()
 
-    cdef __reading_started(self):
+    cdef inline __reading_started(self):
         if self.__reading:
             return
         self.__reading = 1
         Py_INCREF(self)
 
-    cdef __reading_stopped(self):
+    cdef inline __reading_stopped(self):
         if not self.__reading:
             return
         self.__reading = 0
