@@ -109,7 +109,7 @@ cdef class UVTransport(UVStream):
         self._maybe_resume_protocol()
         if not self._get_write_buffer_size():
             if self._closing:
-                self._call_connection_lost(None)
+                self._schedule_call_connection_lost(None)
             elif self._eof:
                 self._shutdown()
 
