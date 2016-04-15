@@ -174,25 +174,32 @@ cdef class UVTransport(UVStream):
                 })
 
     cdef _call_connection_made(self):
+        cdef Py_ssize_t _loop_ready_len
         if self._protocol is None:
             raise RuntimeError(
                 'protocol is not set, cannot call connection_made()')
 
+        _loop_ready_len = self._loop._ready_len
         self._protocol.connection_made(self)
         self._protocol_connected = 1
 
-        # In asyncio we'd just call start_reading() right after we
-        # call protocol.connection_made().  However, that breaks
-        # SSLProtocol in uvloop, which does some initialization
-        # with loop.call_soon in its connection_made.  It appears,
-        # that uvloop can call protocol.data_received() *before* it
-        # calls the handlers that connection_made set up.
-        # That's why we're using another call_soon here.
-        self._loop._call_soon_handle(
-            new_MethodHandle(self._loop,
-                             "UVTransport._start_reading",
-                             <method_t*>&self._start_reading,
-                             self))
+        if _loop_ready_len == self._loop._ready_len:
+            # No new calls were scheduled by 'protocol.connection_made',
+            # so it's safe to start reading right now.
+            self._start_reading()
+        else:
+            # In asyncio we'd just call start_reading() right after we
+            # call protocol.connection_made().  However, that breaks
+            # SSLProtocol in uvloop, which does some initialization
+            # with loop.call_soon in its connection_made.  It appears,
+            # that uvloop can call protocol.data_received() *before* it
+            # calls the handlers that connection_made set up.
+            # That's why we're using another call_soon here.
+            self._loop._call_soon_handle(
+                new_MethodHandle(self._loop,
+                                 "UVTransport._start_reading",
+                                 <method_t*>&self._start_reading,
+                                 self))
 
         if self._waiter is not None:
             if not self._waiter.cancelled():
