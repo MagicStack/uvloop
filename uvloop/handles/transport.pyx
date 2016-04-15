@@ -57,10 +57,13 @@ cdef class UVTransport(UVStream):
         self._extra_info[name] = obj
 
     cdef _on_accept(self):
-        # Implementation for UVStream._on_accept
+        # Implementation for UVStream._on_accept.
+        # Ultimately called by __uv_stream_on_listen.
         self._init_protocol()
 
     cdef _on_connect(self, object exc):
+        # Called from __tcp_connect_callback (tcp.pyx) and
+        # __pipe_connect_callback (pipe.pyx).
         if exc is None:
             self._init_protocol()
         else:
@@ -71,12 +74,15 @@ cdef class UVTransport(UVStream):
                 self._close()
 
     cdef _on_read(self, bytes buf):
-        # Implementation for UVStream._on_read
-
+        # Implementation for UVStream._on_read.
+        # Any exception raised here will be caught in
+        # __uv_stream_on_read.
         self._protocol_data_received(buf)
 
     cdef _on_eof(self):
-        # Implementation for UVStream._on_eof
+        # Implementation for UVStream._on_eof.
+        # Any exception raised here will be caught in
+        # __uv_stream_on_read.
 
         try:
             meth = self._protocol.eof_received
@@ -86,6 +92,9 @@ cdef class UVTransport(UVStream):
             keep_open = meth()
 
         if keep_open:
+            # We're keeping the connection open so the
+            # protocol can write more, but we still can't
+            # receive more, so remove the reader callback.
             self._stop_reading()
         else:
             self.close()
