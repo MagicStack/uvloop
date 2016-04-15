@@ -148,6 +148,14 @@ while True:
                 stderr=subprocess.PIPE,
                 loop=self.loop)
 
+            transp = proc._transport
+            with self.assertRaises(NotImplementedError):
+                # stdin is WriteTransport
+                transp.get_pipe_transport(0).pause_reading()
+            with self.assertRaises((NotImplementedError, AttributeError)):
+                # stdout is ReadTransport
+                transp.get_pipe_transport(1).write(b'wat')
+
             proc.stdin.write(b'foobar\n')
             await proc.stdin.drain()
             out = await proc.stdout.readline()
