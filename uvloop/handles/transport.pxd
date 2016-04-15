@@ -27,10 +27,10 @@ cdef class UVTransport(UVStream):
     cdef _maybe_resume_protocol(self)
 
     cdef _call_connection_made(self)
-    cdef _schedule_call_connection_made(self)
+    cdef inline _schedule_call_connection_made(self)
 
     cdef _call_connection_lost(self, exc)
-    cdef _schedule_call_connection_lost(self, exc)
+    cdef inline _schedule_call_connection_lost(self, exc)
 
     # Implementations and overloads of UVStream methods:
     cdef _on_accept(self)

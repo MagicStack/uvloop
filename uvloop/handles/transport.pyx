@@ -190,7 +190,7 @@ cdef class UVTransport(UVStream):
                 self._waiter.set_result(True)
             self._waiter = None
 
-    cdef _schedule_call_connection_made(self):
+    cdef inline _schedule_call_connection_made(self):
         self._loop._call_soon_handle(
             new_MethodHandle(self._loop,
                              "UVTransport._call_connection_made",
@@ -227,7 +227,7 @@ cdef class UVTransport(UVStream):
                 (<Server>server)._detach()
                 self._server = None
 
-    cdef _schedule_call_connection_lost(self, exc):
+    cdef inline _schedule_call_connection_lost(self, exc):
         self._loop._call_soon_handle(
             new_MethodHandle1(self._loop,
                               "UVTransport._call_connection_lost",
