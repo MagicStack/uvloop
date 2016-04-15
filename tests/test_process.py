@@ -148,6 +148,9 @@ while True:
                 stderr=subprocess.PIPE,
                 loop=self.loop)
 
+            self.assertGreater(proc.pid, 0)
+            self.assertIs(proc.returncode, None)
+
             transp = proc._transport
             with self.assertRaises(NotImplementedError):
                 # stdin is WriteTransport
