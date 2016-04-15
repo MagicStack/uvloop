@@ -52,9 +52,6 @@ cdef class UVProcess(UVHandle):
 
         self._finish_init()
 
-        if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
-            time_sleep(1)
-
         # asyncio caches the PID in BaseSubprocessTransport,
         # so that the transport knows what the PID was even
         # after the process is finished.
@@ -67,6 +64,9 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close = None
         for fd in fds_to_close:
             os_close(fd)
+
+        if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
+            time_sleep(1)
 
     cdef _close_after_spawn(self, int fd):
         if self._fds_to_close is None:
