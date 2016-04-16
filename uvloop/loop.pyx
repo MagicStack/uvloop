@@ -9,7 +9,8 @@ cimport cython
 from .includes cimport uv
 from .includes cimport system
 from .includes.python cimport PyMem_Malloc, PyMem_Free, \
-                              PyMem_Calloc, PyMem_Realloc
+                              PyMem_Calloc, PyMem_Realloc, \
+                              PyUnicode_EncodeFSDefault
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror
@@ -1252,7 +1253,7 @@ cdef class Loop:
 
         if path is not None:
             if isinstance(path, str):
-                path = path.encode(sys_fs_encoding)
+                path = PyUnicode_EncodeFSDefault(path)
 
             if sock is not None:
                 raise ValueError(

@@ -127,7 +127,7 @@ cdef class UVProcess(UVHandle):
 
         if cwd is not None:
             if isinstance(cwd, str):
-                cwd = cwd.encode(sys_fs_encoding)
+                cwd = PyUnicode_EncodeFSDefault(cwd)
             if not isinstance(cwd, bytes):
                 raise ValueError('cwd must be a str or bytes object')
             self.__cwd = cwd
@@ -149,7 +149,7 @@ cdef class UVProcess(UVHandle):
         for i in range(an):
             arg = args[i]
             if isinstance(arg, str):
-                self.__args[i] = arg.encode(sys_fs_encoding)
+                self.__args[i] = PyUnicode_EncodeFSDefault(arg)
             elif not isinstance(arg, bytes):
                 raise TypeError('all args must be str or bytes')
 
@@ -164,13 +164,13 @@ cdef class UVProcess(UVHandle):
                 val = env[key]
 
                 if isinstance(key, str):
-                    key = key.encode(sys_fs_encoding)
+                    key = PyUnicode_EncodeFSDefault(key)
                 elif not isinstance(key, bytes):
                     raise TypeError(
                         'all environment vars must be bytes or str')
 
                 if isinstance(val, str):
-                    val = val.encode(sys_fs_encoding)
+                    val = PyUnicode_EncodeFSDefault(val)
                 elif not isinstance(val, bytes):
                     raise TypeError(
                         'all environment values must be bytes or str')

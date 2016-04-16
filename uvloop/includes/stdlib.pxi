@@ -77,11 +77,8 @@ cdef os_open = os.open
 cdef os_devnull = os.devnull
 cdef os_O_RDWR = os.O_RDWR
 
-cdef str sys_platform = sys.platform
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
-
-cdef str sys_fs_encoding = sys.getfilesystemencoding()
 
 cdef ssl_SSLContext = ssl.SSLContext
 
