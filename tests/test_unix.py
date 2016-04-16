@@ -37,12 +37,18 @@ class _TestUnix:
                 await self.loop.sock_connect(sock, addr)
 
                 await self.loop.sock_sendall(sock, b'AAAA')
-                data = await self.loop.sock_recv(sock, 2)
-                self.assertEqual(data, b'OK')
+
+                buf = b''
+                while len(buf) != 2:
+                    buf += await self.loop.sock_recv(sock, 1)
+                self.assertEqual(buf, b'OK')
 
                 await self.loop.sock_sendall(sock, b'BBBB')
-                data = await self.loop.sock_recv(sock, 4)
-                self.assertEqual(data, b'SPAM')
+
+                buf = b''
+                while len(buf) != 4:
+                    buf += await self.loop.sock_recv(sock, 1)
+                self.assertEqual(buf, b'SPAM')
 
         async def start_server():
             nonlocal CNT
