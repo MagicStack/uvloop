@@ -33,7 +33,6 @@ cdef class _StreamWriteContext:
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
 
         ctx.req.data = <void*> ctx
-        Py_INCREF(ctx)
 
         PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
         ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
@@ -45,6 +44,9 @@ cdef class _StreamWriteContext:
             stream._loop._debug_stream_write_ctx_total += 1
             stream._loop._debug_stream_write_ctx_cnt += 1
 
+        # Do incref after everything else is done
+        # (PyObject_GetBuffer for instance may fail with exception)
+        Py_INCREF(ctx)
         return ctx
 
     IF DEBUG:
