@@ -38,3 +38,5 @@ cdef extern from "sys/socket.h":
         # ...
 
     const char *gai_strerror(int errcode)
+
+    int socketpair(int domain, int type, int protocol, int socket_vector[2])

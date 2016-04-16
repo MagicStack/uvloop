@@ -269,13 +269,13 @@ cdef class UVProcessTransport(UVProcess):
         return dn
 
     cdef _file_outpipe(self):
-        r, w = os_pipe()
+        r, w = __socketpair()
         os_set_inheritable(w, True)
         self._close_after_spawn(w)
         return r, w
 
     cdef _file_inpipe(self):
-        r, w = os_pipe()
+        r, w = __socketpair()
         os_set_inheritable(r, True)
         self._close_after_spawn(r)
         return r, w
@@ -583,3 +583,19 @@ cdef void __uvprocess_on_exit_callback(uv.uv_process_t *handle,
         proc._on_exit(exit_status, term_signal)
     except BaseException as ex:
         proc._error(ex, False)
+
+
+cdef __socketpair():
+    cdef:
+        int fds[2]
+        int err
+
+    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    if err:
+        exc = convert_error(-err)
+        raise exc
+
+    os_set_inheritable(fds[0], False)
+    os_set_inheritable(fds[1], False)
+
+    return fds[0], fds[1]
