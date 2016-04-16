@@ -1,3 +1,10 @@
+cdef extern from "arpa/inet.h":
+
+    int ntohl(int)
+    int htonl(int)
+    int ntohs(int)
+
+
 cdef extern from "sys/socket.h":
 
     struct sockaddr:

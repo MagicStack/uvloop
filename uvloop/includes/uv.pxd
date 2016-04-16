@@ -272,10 +272,6 @@ cdef extern from "../vendor/libuv/include/uv.h":
                        const system.sockaddr* addr,
                        int flags)
 
-    int ntohl(int)
-    int htonl(int)
-    int ntohs(int)
-
     int uv_ip4_name(const system.sockaddr_in* src, char* dst, size_t size)
     int uv_ip6_name(const system.sockaddr_in6* src, char* dst, size_t size)
 

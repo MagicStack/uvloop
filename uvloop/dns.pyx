@@ -1,3 +1,44 @@
+cdef __convert_sockaddr_to_pyaddr(system.sockaddr* addr):
+    # Converts sockaddr structs into what Python socket
+    # module can understand:
+    #   - for IPv4 a tuple of (host, port)
+    #   - for IPv6 a tuple of (host, port, flowinfo, scope_id)
+
+    cdef:
+        char buf[128]  # INET6_ADDRSTRLEN is usually 46
+        int err
+        system.sockaddr_in *addr4
+        system.sockaddr_in6 *addr6
+
+    if addr.sa_family == uv.AF_INET:
+        addr4 = <system.sockaddr_in*>addr
+
+        err = uv.uv_ip4_name(addr4, buf, sizeof(buf))
+        if err < 0:
+            raise convert_error(err)
+
+        return (
+            (<bytes>buf).decode(),
+            system.ntohs(addr4.sin_port)
+        )
+
+    elif addr.sa_family == uv.AF_INET6:
+        addr6 = <system.sockaddr_in6*>addr
+
+        err = uv.uv_ip6_name(addr6, buf, sizeof(buf))
+        if err < 0:
+            raise convert_error(err)
+
+        return (
+            (<bytes>buf).decode(),
+            system.ntohs(addr6.sin6_port),
+            system.ntohl(addr6.sin6_flowinfo),
+            addr6.sin6_scope_id
+        )
+
+    raise RuntimeError("cannot convert sockaddr into Python object")
+
+
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class AddrInfo:
     cdef:
@@ -16,11 +57,6 @@ cdef class AddrInfo:
 
     cdef unpack(self):
         cdef:
-            system.addrinfo *ptr
-            system.sockaddr_in *addr4
-            system.sockaddr_in6 *addr6
-            char buf[92] # INET6_ADDRSTRLEN is usually 46
-            int err
             list result = []
 
         if self.data is NULL:
@@ -28,42 +64,14 @@ cdef class AddrInfo:
 
         ptr = self.data
         while ptr != NULL:
-            if ptr.ai_addr.sa_family == uv.AF_INET:
-                addr4 = <system.sockaddr_in*> ptr.ai_addr
-                err = uv.uv_ip4_name(addr4, buf, sizeof(buf))
-                if err < 0:
-                    raise convert_error(err)
-
+            if ptr.ai_addr.sa_family in (uv.AF_INET, uv.AF_INET6):
                 result.append((
                     ptr.ai_family,
                     ptr.ai_socktype,
                     ptr.ai_protocol,
                     '' if ptr.ai_canonname is NULL else
                         (<bytes>ptr.ai_canonname).decode(),
-                    (
-                        (<bytes>buf).decode(),
-                        uv.ntohs(addr4.sin_port)
-                    )
-                ))
-
-            elif ptr.ai_addr.sa_family == uv.AF_INET6:
-                addr6 = <system.sockaddr_in6*> ptr.ai_addr
-                err = uv.uv_ip6_name(addr6, buf, sizeof(buf))
-                if err < 0:
-                    raise convert_error(err)
-
-                result.append((
-                    ptr.ai_family,
-                    ptr.ai_socktype,
-                    ptr.ai_protocol,
-                    '' if ptr.ai_canonname is NULL else
-                        (<bytes>ptr.ai_canonname).decode(),
-                    (
-                        (<bytes>buf).decode(),
-                        uv.ntohs(addr6.sin6_port),
-                        uv.ntohl(addr6.sin6_flowinfo),
-                        addr6.sin6_scope_id
-                    )
+                    __convert_sockaddr_to_pyaddr(ptr.ai_addr)
                 ))
 
             ptr = ptr.ai_next

@@ -953,7 +953,7 @@ cdef class Loop:
         elif ai.ai_family == uv.AF_INET6:
             # Modify some fields in `ai`
             sin6 = <system.sockaddr_in6*> ai.ai_addr
-            sin6.sin6_flowinfo = uv.htonl(flowinfo)
+            sin6.sin6_flowinfo = system.htonl(flowinfo)
             sin6.sin6_scope_id = scope_id
 
         return await self._getnameinfo(ai.ai_addr, flags)
