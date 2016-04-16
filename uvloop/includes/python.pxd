@@ -5,3 +5,4 @@ cdef extern from "Python.h":
     void PyMem_Free(void *p)
 
     object PyUnicode_EncodeFSDefault(object)
+    void PyErr_SetInterrupt() nogil

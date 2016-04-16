@@ -39,7 +39,7 @@ cdef void __signal_handler_sigint(int sig) nogil:
 
     # We can run this method without GIL because there is no
     # Python code here -- all '.' and '[]' operators work on
-    # C structs.
+    # C structs/pointers.
 
     if sig != SIGINT:
         return
@@ -49,10 +49,8 @@ cdef void __signal_handler_sigint(int sig) nogil:
         return
 
     if __main_loop__._executing_py_code and not __main_loop__._custom_sigint:
-        handle = __main_loop__.py_signals.signals[sig]
-        if handle not in (SIG_DFL, SIG_IGN, SIG_ERR, NULL):
-            handle(sig)  # void
-            return
+        PyErr_SetInterrupt()  # void
+        return
 
     if __main_loop__.uv_signals is not None:
         handle = __main_loop__.uv_signals.signals[sig]

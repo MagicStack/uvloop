@@ -11,7 +11,9 @@ DELAY = 0.01
 
 
 class _TestSignal:
-    def test_signals_sigint_pycode(self):
+    NEW_LOOP = None
+
+    def test_signals_sigint_pycode_stop(self):
         async def runner():
             PROG = R"""\
 import asyncio
@@ -22,7 +24,7 @@ async def worker():
     print('READY', flush=True)
     time.sleep(200)
 
-loop = uvloop.new_event_loop()
+loop = """ + self.NEW_LOOP + """
 asyncio.set_event_loop(loop)
 loop.run_until_complete(worker())
 """
@@ -38,6 +40,43 @@ loop.run_until_complete(worker())
             proc.send_signal(signal.SIGINT)
             out, err = await proc.communicate()
             self.assertIn(b'KeyboardInterrupt', err)
+            self.assertEqual(out, b'')
+
+        self.loop.run_until_complete(runner())
+
+    def test_signals_sigint_pycode_continue(self):
+        async def runner():
+            PROG = R"""\
+import asyncio
+import uvloop
+import time
+
+async def worker():
+    print('READY', flush=True)
+    try:
+        time.sleep(200)
+    except KeyboardInterrupt:
+        print("oups")
+    await asyncio.sleep(0.5)
+    print('done')
+
+loop = """ + self.NEW_LOOP + """
+asyncio.set_event_loop(loop)
+loop.run_until_complete(worker())
+"""
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-c', PROG,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                loop=self.loop)
+
+            await proc.stdout.readline()
+            time.sleep(DELAY)
+            proc.send_signal(signal.SIGINT)
+            out, err = await proc.communicate()
+            self.assertEqual(err, b'')
+            self.assertEqual(out, b'oups\ndone\n')
 
         self.loop.run_until_complete(runner())
 
@@ -55,7 +94,7 @@ async def worker():
     srv = await asyncio.start_server(cb, '127.0.0.1', 0)
     print('READY', flush=True)
 
-loop = uvloop.new_event_loop()
+loop = """ + self.NEW_LOOP + """
 asyncio.set_event_loop(loop)
 loop.create_task(worker())
 loop.run_forever()
@@ -97,7 +136,7 @@ def handler_sig(say):
 def handler_hup(say):
     print(say, flush=True)
 
-loop = uvloop.new_event_loop()
+loop = """ + self.NEW_LOOP + """
 loop.add_signal_handler(signal.SIGINT, handler_sig, '!s-int!')
 loop.add_signal_handler(signal.SIGHUP, handler_hup, '!s-hup!')
 asyncio.set_event_loop(loop)
@@ -148,7 +187,7 @@ def handler2():
 def handler_hup():
     exit()
 
-loop = uvloop.new_event_loop()
+loop = """ + self.NEW_LOOP + """
 asyncio.set_event_loop(loop)
 loop.add_signal_handler(signal.SIGUSR1, handler1)
 loop.add_signal_handler(signal.SIGUSR2, handler2)
@@ -186,8 +225,8 @@ loop.run_forever()
 
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
-    pass
+    NEW_LOOP = 'uvloop.new_event_loop()'
 
 
 class Test_AIO_Signals(_TestSignal, tb.AIOTestCase):
-    pass
+    NEW_LOOP = 'asyncio.new_event_loop()'
