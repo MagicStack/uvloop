@@ -7,7 +7,7 @@ cdef class UVTCPServer(UVStreamServer):
                          object ssl)
 
 
-cdef class UVTCPTransport(UVTransport):
+cdef class UVTCPTransport(UVStream):
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
     cdef open(self, int sockfd)
     cdef connect(self, system.sockaddr* addr)

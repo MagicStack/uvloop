@@ -8,7 +8,7 @@ cdef class UVPipeServer(UVStreamServer):
                           object ssl)
 
 
-cdef class UVPipeTransport(UVTransport):
+cdef class UVPipeTransport(UVStream):
 
     @staticmethod
     cdef UVPipeTransport new(Loop loop, object protocol, Server server,
@@ -18,7 +18,7 @@ cdef class UVPipeTransport(UVTransport):
     cdef connect(self, char* addr)
 
 
-cdef class UVReadPipeTransport(UVReadTransport):
+cdef class UVReadPipeTransport(UVStream):
 
     @staticmethod
     cdef UVReadPipeTransport new(Loop loop, object protocol, Server server,
@@ -27,7 +27,7 @@ cdef class UVReadPipeTransport(UVReadTransport):
     cdef open(self, int sockfd)
 
 
-cdef class UVWritePipeTransport(UVWriteTransport):
+cdef class UVWritePipeTransport(UVStream):
 
     @staticmethod
     cdef UVWritePipeTransport new(Loop loop, object protocol, Server server,

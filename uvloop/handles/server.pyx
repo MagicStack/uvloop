@@ -26,6 +26,7 @@ cdef class UVStreamServer(UVStream):
 
     cdef _on_listen(self):
         # Implementation for UVStream._on_listen
+        cdef UVStream slient
 
         protocol = self.protocol_factory()
 
@@ -51,7 +52,7 @@ cdef class UVStreamServer(UVStream):
     cdef inline _mark_as_open(self):
         self.opened = 1
 
-    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter):
         raise NotImplementedError
 
     def __on_ssl_connected(self, transport, fut):

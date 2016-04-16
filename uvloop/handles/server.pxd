@@ -3,7 +3,6 @@ cdef class UVStreamServer(UVStream):
         object ssl
         object protocol_factory
         bint opened
-        Server _server
 
     cdef _init(self, Loop loop, object protocol_factory, Server server,
                object ssl)
@@ -12,4 +11,4 @@ cdef class UVStreamServer(UVStream):
 
     cdef listen(self, int backlog=?)
     cdef _on_listen(self)
-    cdef UVTransport _make_new_transport(self, object protocol, object waiter)
+    cdef UVStream _make_new_transport(self, object protocol, object waiter)

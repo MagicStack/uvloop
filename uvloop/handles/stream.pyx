@@ -60,13 +60,13 @@ cdef class _StreamWriteContext:
 
 
 @cython.no_gc_clear
-cdef class UVStream(UVHandle):
+cdef class UVStream(UVBaseTransport):
 
     def __cinit__(self):
         self.__shutting_down = 0
         self.__reading = 0
         self.__read_error_close = 0
-        self.__cached_socket = None
+        self._eof = 0
 
     cdef _shutdown(self):
         cdef int err
@@ -154,15 +154,19 @@ cdef class UVStream(UVHandle):
 
         if not self.__reading:
             return
-        self.__reading_stopped()
 
         self._ensure_alive()
 
+        # From libuv docs:
+        #    This function is idempotent and may be safely
+        #    called on a stopped stream.
         err = uv.uv_read_stop(<uv.uv_stream_t*>self._handle)
         if err < 0:
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
+        else:
+            self.__reading_stopped()
 
     cdef _write(self, object data):
         cdef:
@@ -185,30 +189,14 @@ cdef class UVStream(UVHandle):
 
             exc = convert_error(err)
             self._fatal_error(exc, True)
-            return
 
-    cdef _fileno(self):
-        cdef:
-            int fd
-            int err
+        self._maybe_pause_protocol()
 
-        err = uv.uv_fileno(<uv.uv_handle_t*>self._handle, <uv.uv_os_fd_t*>&fd)
-        if err < 0:
-            raise convert_error(err)
-
-        return fd
-
-    cdef _get_socket(self):
+    cdef _new_socket(self):
         cdef:
             int buf_len = sizeof(system.sockaddr_storage)
             int err
             system.sockaddr_storage buf
-
-        if self._fileobj is not None:
-            return self._fileobj
-
-        if self.__cached_socket is not None:
-            return self.__cached_socket
 
         err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
                                     <system.sockaddr*>&buf,
@@ -216,70 +204,92 @@ cdef class UVStream(UVHandle):
         if err < 0:
             raise convert_error(err)
 
-        self.__cached_socket = socket_socket(
+        return socket_socket(
             buf.ss_family, uv.SOCK_STREAM, 0, self._fileno())
 
-        return self.__cached_socket
-
-    cdef inline size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
             return 0
         return (<uv.uv_stream_t*>self._handle).write_queue_size
 
-    cdef _attach_fileobj(self, file):
-        # When we create a TCP/PIPE/etc connection/server based on
-        # a Python file object, we need to close the file object when
-        # the uv handle is closed.
-        self._fileobj = file
-
     cdef _close(self):
         try:
             self._stop_reading()
-
-            if self.__cached_socket is not None:
-                try:
-                    self.__cached_socket.detach()
-                except OSError:
-                    pass
-                self.__cached_socket = None
-
-            if self._fileobj is not None:
-                try:
-                    self._fileobj.close()
-                except Exception as exc:
-                    self._loop.call_exception_handler({
-                        'exception': exc,
-                        'transport': self,
-                        'message': 'could not close attached file object {!r}'.
-                            format(self._fileobj)
-                    })
-                finally:
-                    self._fileobj = None
-
         finally:
-            UVHandle._close(<UVHandle>self)
+            UVBaseTransport._close(<UVHandle>self)
 
     # Methods to override.
 
     cdef _on_accept(self):
-        raise NotImplementedError
+        # Ultimately called by __uv_stream_on_listen.
+        self._init_protocol()
 
     cdef _on_listen(self):
         raise NotImplementedError
 
     cdef _on_read(self, bytes buf):
-        raise NotImplementedError
+        # Any exception raised here will be caught in
+        # __uv_stream_on_read.
+        self._protocol_data_received(buf)
 
     cdef _on_eof(self):
-        raise NotImplementedError
+        # Any exception raised here will be caught in
+        # __uv_stream_on_read.
+
+        try:
+            meth = self._protocol.eof_received
+        except AttributeError:
+            keep_open = False
+        else:
+            keep_open = meth()
+
+        if keep_open:
+            # We're keeping the connection open so the
+            # protocol can write more, but we still can't
+            # receive more, so remove the reader callback.
+            self._stop_reading()
+        else:
+            self.close()
 
     cdef _on_write(self):
-        # This method is optional, no need to raise NotImplementedError
-        pass
+        self._maybe_resume_protocol()
+        if not self._get_write_buffer_size():
+            if self._closing:
+                self._schedule_call_connection_lost(None)
+            elif self._eof:
+                self._shutdown()
 
     cdef _on_shutdown(self):
         # This method is optional, no need to raise NotImplementedError
         pass
+
+    cdef _init(self, Loop loop, object protocol, Server server, object waiter):
+        self._start_init(loop)
+
+        if protocol is None:
+            raise TypeError('protocol is required')
+
+        self._set_protocol(protocol)
+
+        if server is not None:
+            self._set_server(server)
+
+        if waiter is not None:
+            self._set_waiter(waiter)
+
+    cdef _on_connect(self, object exc):
+        # Called from __tcp_connect_callback (tcp.pyx) and
+        # __pipe_connect_callback (pipe.pyx).
+        if exc is None:
+            self._init_protocol()
+        else:
+            if self._waiter is None or self._waiter.done():
+                self._fatal_error(exc, False, "connect failed")
+            else:
+                self._waiter.set_exception(exc)
+                self._close()
+
+    # === Public API ===
 
     def __repr__(self):
         return '<{} closed={} reading={} {:#x}>'.format(
@@ -287,6 +297,53 @@ cdef class UVStream(UVHandle):
             self._closed,
             self.__reading,
             id(self))
+
+    def write(self, object buf):
+        self._ensure_alive()
+
+        if self._eof:
+            raise RuntimeError('Cannot call write() after write_eof()')
+        if not buf:
+            return
+        if self._conn_lost:
+            self._conn_lost += 1
+            return
+        self._write(buf)
+        self._maybe_pause_protocol()
+
+    def writelines(self, bufs):
+        self.write(b''.join(bufs))
+
+    def write_eof(self):
+        self._ensure_alive()
+
+        if self._eof:
+            return
+
+        self._eof = 1
+        if not self._get_write_buffer_size():
+            self._shutdown()
+
+    def can_write_eof(self):
+        return True
+
+    def pause_reading(self):
+        self._ensure_alive()
+
+        if self._closing:
+            raise RuntimeError('Cannot pause_reading() when closing')
+        if not self._is_reading():
+            raise RuntimeError('Already paused')
+        self._stop_reading()
+
+    def resume_reading(self):
+        self._ensure_alive()
+
+        if self._is_reading():
+            raise RuntimeError('Not paused')
+        if self._closing:
+            return
+        self._start_reading()
 
 
 cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
@@ -371,6 +428,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
     if sc._closed:
         # The stream was closed, there is no reason to
         # do any work now.
+        sc.__reading_stopped()  # Just in case.
         return
 
     if nread == uv.UV_EOF:
@@ -448,7 +506,7 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
     cdef:
         _StreamWriteContext ctx = <_StreamWriteContext> req.data
-        UVStream stream = ctx.stream
+        UVStream stream = <UVStream>ctx.stream
 
     ctx.close()
 

@@ -15,7 +15,7 @@ cdef __tcp_init_uv_handle(UVStream handle, Loop loop):
     handle._finish_init()
 
 
-cdef __tcp_bind(UVStream handle, system.sockaddr* addr, unsigned int flags=0):
+cdef __tcp_bind(UVStream handle, system.sockaddr* addr, unsigned int flags):
     cdef int err
     err = uv.uv_tcp_bind(<uv.uv_tcp_t *>handle._handle,
                          addr, flags)
@@ -64,14 +64,14 @@ cdef class UVTCPServer(UVStreamServer):
         else:
             self._mark_as_open()
 
-    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter):
         cdef UVTCPTransport tr
         tr = UVTCPTransport.new(self._loop, protocol, self._server, waiter)
-        return <UVTransport>tr
+        return <UVStream>tr
 
 
 @cython.no_gc_clear
-cdef class UVTCPTransport(UVTransport):
+cdef class UVTCPTransport(UVStream):
 
     @staticmethod
     cdef UVTCPTransport new(Loop loop, object protocol, Server server,

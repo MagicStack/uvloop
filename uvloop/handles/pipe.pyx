@@ -59,14 +59,14 @@ cdef class UVPipeServer(UVStreamServer):
 
         self._mark_as_open()
 
-    cdef UVTransport _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter):
         cdef UVPipeTransport tr
         tr = UVPipeTransport.new(self._loop, protocol, self._server, waiter)
-        return <UVTransport>tr
+        return <UVStream>tr
 
 
 @cython.no_gc_clear
-cdef class UVPipeTransport(UVTransport):
+cdef class UVPipeTransport(UVStream):
 
     @staticmethod
     cdef UVPipeTransport new(Loop loop, object protocol, Server server,
@@ -88,7 +88,7 @@ cdef class UVPipeTransport(UVTransport):
 
 
 @cython.no_gc_clear
-cdef class UVReadPipeTransport(UVReadTransport):
+cdef class UVReadPipeTransport(UVStream):
 
     @staticmethod
     cdef UVReadPipeTransport new(Loop loop, object protocol, Server server,
@@ -102,9 +102,33 @@ cdef class UVReadPipeTransport(UVReadTransport):
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
+    def get_write_buffer_limits(self):
+        raise NotImplementedError
+
+    def set_write_buffer_limits(self, high=None, low=None):
+        raise NotImplementedError
+
+    def get_write_buffer_size(self):
+        raise NotImplementedError
+
+    def write(self, data):
+        raise NotImplementedError
+
+    def writelines(self, list_of_data):
+        raise NotImplementedError
+
+    def write_eof(self):
+        raise NotImplementedError
+
+    def can_write_eof(self):
+        raise NotImplementedError
+
+    def abort(self):
+        raise NotImplementedError
+
 
 @cython.no_gc_clear
-cdef class UVWritePipeTransport(UVWriteTransport):
+cdef class UVWritePipeTransport(UVStream):
 
     @staticmethod
     cdef UVWritePipeTransport new(Loop loop, object protocol, Server server,
@@ -124,6 +148,12 @@ cdef class UVWritePipeTransport(UVWriteTransport):
 
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
+
+    def pause_reading(self):
+        raise NotImplementedError
+
+    def resume_reading(self):
+        raise NotImplementedError
 
 
 cdef class _PipeConnectRequest(UVRequest):
