@@ -1,8 +1,14 @@
 @cython.no_gc_clear
-cdef class UVStreamServer(UVStream):
+cdef class UVStreamServer(UVSocketHandle):
 
-    cdef _init(self, Loop loop, object protocol_factory, Server server,
-               object ssl):
+    def __cinit__(self):
+        self.opened = 0
+        self._server = None
+        self.ssl = None
+        self.protocol_factory = None
+
+    cdef inline _init(self, Loop loop, object protocol_factory,
+                      Server server, object ssl):
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError(
@@ -13,18 +19,26 @@ cdef class UVStreamServer(UVStream):
         self._start_init(loop)
         self.protocol_factory = protocol_factory
         self._server = server
-        self.opened = 0
 
-    cdef listen(self, int backlog=100):
+    cdef inline listen(self, int backlog):
+        cdef int err
+        self._ensure_alive()
+
         if self.protocol_factory is None:
             raise RuntimeError('unable to listen(); no protocol_factory')
 
         if self.opened != 1:
             raise RuntimeError('unopened UVTCPServer')
 
-        self._listen(backlog)
+        err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
+                           backlog,
+                           __uv_streamserver_on_listen)
+        if err < 0:
+            exc = convert_error(err)
+            self._fatal_error(exc, True)
+            return
 
-    cdef _on_listen(self):
+    cdef inline _on_listen(self):
         # Implementation for UVStream._on_listen
         cdef UVStream slient
 
@@ -49,6 +63,25 @@ cdef class UVStreamServer(UVStream):
 
         client._accept(<UVStream>self)
 
+    cdef _fatal_error(self, exc, throw, reason=None):
+        # Overload UVHandle._fatal_error
+
+        if not isinstance(exc, (BrokenPipeError,
+                                ConnectionResetError,
+                                ConnectionAbortedError)):
+
+            msg = 'Fatal error on server {}'.format(
+                    self.__class__.__name__)
+            if reason is not None:
+                msg = '{} ({})'.format(msg, reason)
+
+            self._loop.call_exception_handler({
+                'message': msg,
+                'exception': exc,
+            })
+
+        self._close()
+
     cdef inline _mark_as_open(self):
         self.opened = 1
 
@@ -59,3 +92,30 @@ cdef class UVStreamServer(UVStream):
         exc = fut.exception()
         if exc is not None:
             transport._force_close(exc)
+
+
+cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
+                                      int status) with gil:
+
+    # callback for uv_listen
+
+    if __ensure_handle_data(<uv.uv_handle_t*>handle,
+                            "UVStream listen callback") == 0:
+        return
+
+    cdef:
+        UVStreamServer stream = <UVStreamServer> handle.data
+
+    if status < 0:
+        IF DEBUG:
+            stream._loop._debug_stream_listen_errors_total += 1
+
+        exc = convert_error(status)
+        stream._fatal_error(exc, False,
+            "error status in uv_stream_t.listen callback")
+        return
+
+    try:
+        stream._on_listen()
+    except BaseException as exc:
+        stream._error(exc, False)

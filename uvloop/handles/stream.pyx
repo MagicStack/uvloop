@@ -68,7 +68,7 @@ cdef class UVStream(UVBaseTransport):
         self.__read_error_close = 0
         self._eof = 0
 
-    cdef _shutdown(self):
+    cdef inline _shutdown(self):
         cdef int err
 
         if self.__shutting_down:
@@ -88,19 +88,7 @@ cdef class UVStream(UVBaseTransport):
             self._fatal_error(exc, True)
             return
 
-    cdef _listen(self, int backlog):
-        cdef int err
-        self._ensure_alive()
-
-        err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
-                           backlog,
-                           __uv_stream_on_listen)
-        if err < 0:
-            exc = convert_error(err)
-            self._fatal_error(exc, True)
-            return
-
-    cdef _accept(self, UVStream server):
+    cdef inline _accept(self, UVStream server):
         cdef int err
         self._ensure_alive()
 
@@ -168,7 +156,7 @@ cdef class UVStream(UVBaseTransport):
         else:
             self.__reading_stopped()
 
-    cdef _write(self, object data):
+    cdef inline _write(self, object data):
         cdef:
             int err
             _StreamWriteContext ctx
@@ -192,21 +180,6 @@ cdef class UVStream(UVBaseTransport):
 
         self._maybe_pause_protocol()
 
-    cdef _new_socket(self):
-        cdef:
-            int buf_len = sizeof(system.sockaddr_storage)
-            int err
-            system.sockaddr_storage buf
-
-        err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
-                                    <system.sockaddr*>&buf,
-                                    &buf_len)
-        if err < 0:
-            raise convert_error(err)
-
-        return socket_socket(
-            buf.ss_family, uv.SOCK_STREAM, 0, self._fileno())
-
     cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
             return 0
@@ -216,23 +189,18 @@ cdef class UVStream(UVBaseTransport):
         try:
             self._stop_reading()
         finally:
-            UVBaseTransport._close(<UVHandle>self)
+            UVSocketHandle._close(<UVHandle>self)
 
-    # Methods to override.
-
-    cdef _on_accept(self):
+    cdef inline _on_accept(self):
         # Ultimately called by __uv_stream_on_listen.
         self._init_protocol()
 
-    cdef _on_listen(self):
-        raise NotImplementedError
-
-    cdef _on_read(self, bytes buf):
+    cdef inline _on_read(self, bytes buf):
         # Any exception raised here will be caught in
         # __uv_stream_on_read.
         self._protocol_data_received(buf)
 
-    cdef _on_eof(self):
+    cdef inline _on_eof(self):
         # Any exception raised here will be caught in
         # __uv_stream_on_read.
 
@@ -251,7 +219,7 @@ cdef class UVStream(UVBaseTransport):
         else:
             self.close()
 
-    cdef _on_write(self):
+    cdef inline _on_write(self):
         self._maybe_resume_protocol()
         if not self._get_write_buffer_size():
             if self._closing:
@@ -259,11 +227,9 @@ cdef class UVStream(UVBaseTransport):
             elif self._eof:
                 self._shutdown()
 
-    cdef _on_shutdown(self):
-        # This method is optional, no need to raise NotImplementedError
-        pass
+    cdef inline _init(self, Loop loop, object protocol, Server server,
+                      object waiter):
 
-    cdef _init(self, Loop loop, object protocol, Server server, object waiter):
         self._start_init(loop)
 
         if protocol is None:
@@ -277,7 +243,7 @@ cdef class UVStream(UVBaseTransport):
         if waiter is not None:
             self._set_waiter(waiter)
 
-    cdef _on_connect(self, object exc):
+    cdef inline _on_connect(self, object exc):
         # Called from __tcp_connect_callback (tcp.pyx) and
         # __pipe_connect_callback (pipe.pyx).
         if exc is None:
@@ -373,38 +339,6 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
         stream._fatal_error(exc, False,
             "error status in uv_stream_t.shutdown callback")
         return
-
-    try:
-        stream._on_shutdown()
-    except BaseException as ex:
-        stream._error(ex, False)
-
-
-cdef void __uv_stream_on_listen(uv.uv_stream_t* handle,
-                                int status) with gil:
-
-    # callback for uv_listen
-
-    if __ensure_handle_data(<uv.uv_handle_t*>handle,
-                            "UVStream listen callback") == 0:
-        return
-
-    cdef:
-        UVStream stream = <UVStream> handle.data
-
-    if status < 0:
-        IF DEBUG:
-            stream._loop._debug_stream_listen_errors_total += 1
-
-        exc = convert_error(status)
-        stream._fatal_error(exc, False,
-            "error status in uv_stream_t.listen callback")
-        return
-
-    try:
-        stream._on_listen()
-    except BaseException as exc:
-        stream._error(exc, False)
 
 
 cdef void __uv_stream_on_read(uv.uv_stream_t* stream,

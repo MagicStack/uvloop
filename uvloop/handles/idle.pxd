@@ -3,10 +3,12 @@ cdef class UVIdle(UVHandle):
         Handle h
         bint running
 
+    # All "inline" methods are final
+
     cdef _init(self, Loop loop, Handle h)
 
-    cdef stop(self)
-    cdef start(self)
+    cdef inline stop(self)
+    cdef inline start(self)
 
     @staticmethod
     cdef UVIdle new(Loop loop, Handle h)

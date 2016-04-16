@@ -21,7 +21,7 @@ cdef class UVIdle(UVHandle):
         self.h = h
         self.running = 0
 
-    cdef stop(self):
+    cdef inline stop(self):
         cdef int err
 
         if not self._is_alive():
@@ -36,7 +36,7 @@ cdef class UVIdle(UVHandle):
                 self._fatal_error(exc, True)
                 return
 
-    cdef start(self):
+    cdef inline start(self):
         cdef int err
 
         self._ensure_alive()

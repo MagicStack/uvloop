@@ -213,6 +213,9 @@ class _TestUnix:
                 addr,
                 loop=self.loop)
 
+            sock = writer._transport.get_extra_info('socket')
+            self.assertEqual(sock.family, socket.AF_UNIX)
+
             writer.write(b'AAAA')
 
             with self.assertRaises(asyncio.IncompleteReadError):

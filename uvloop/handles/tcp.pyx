@@ -33,6 +33,24 @@ cdef __tcp_open(UVStream handle, int sockfd):
         raise exc
 
 
+cdef __tcp_get_socket(UVSocketHandle handle):
+    cdef:
+        int buf_len = sizeof(system.sockaddr_storage)
+        int fileno
+        int err
+        system.sockaddr_storage buf
+
+    fileno = handle._fileno()
+
+    err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>handle._handle,
+                                <system.sockaddr*>&buf,
+                                &buf_len)
+    if err < 0:
+        raise convert_error(err)
+
+    return socket_socket(buf.ss_family, uv.SOCK_STREAM, 0, fileno)
+
+
 @cython.no_gc_clear
 cdef class UVTCPServer(UVStreamServer):
 
@@ -45,6 +63,9 @@ cdef class UVTCPServer(UVStreamServer):
         handle._init(loop, protocol_factory, server, ssl)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef _new_socket(self):
+        return __tcp_get_socket(<UVSocketHandle>self)
 
     cdef open(self, int sockfd):
         self._ensure_alive()
@@ -82,6 +103,9 @@ cdef class UVTCPTransport(UVStream):
         handle._init(loop, protocol, server, waiter)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef _new_socket(self):
+        return __tcp_get_socket(<UVSocketHandle>self)
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         self._ensure_alive()

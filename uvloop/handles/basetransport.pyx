@@ -1,9 +1,8 @@
 @cython.no_gc_clear
-cdef class UVBaseTransport(UVHandle):
+cdef class UVBaseTransport(UVSocketHandle):
 
     def __cinit__(self):
         # Flow control
-        self._flow_control_enabled = 1
         self._high_water = FLOW_CONTROL_HIGH_WATER
         self._low_water = FLOW_CONTROL_LOW_WATER
 
@@ -11,8 +10,6 @@ cdef class UVBaseTransport(UVHandle):
         self._protocol_connected = 0
         self._protocol_paused = 0
         self._protocol_data_received = None
-        self._fileobj = None
-        self.__cached_socket = None
 
         self._server = None
         self._waiter = None
@@ -80,9 +77,6 @@ cdef class UVBaseTransport(UVHandle):
         self._maybe_pause_protocol()
 
     cdef inline _maybe_pause_protocol(self):
-        if not self._flow_control_enabled:
-            return
-
         cdef:
             size_t size = self._get_write_buffer_size()
 
@@ -102,9 +96,6 @@ cdef class UVBaseTransport(UVHandle):
                 })
 
     cdef inline _maybe_resume_protocol(self):
-        if not self._flow_control_enabled:
-            return
-
         cdef:
             size_t size = self._get_write_buffer_size()
 
@@ -119,62 +110,6 @@ cdef class UVBaseTransport(UVHandle):
                     'transport': self,
                     'protocol': self._protocol,
                 })
-
-    cdef inline _fileno(self):
-        cdef:
-            int fd
-            int err
-
-        err = uv.uv_fileno(<uv.uv_handle_t*>self._handle,
-                           <uv.uv_os_fd_t*>&fd)
-        if err < 0:
-            raise convert_error(err)
-
-        return fd
-
-    cdef inline _attach_fileobj(self, file):
-        # When we create a TCP/PIPE/etc connection/server based on
-        # a Python file object, we need to close the file object when
-        # the uv handle is closed.
-        self._fileobj = file
-
-    cdef _new_socket(self):
-        raise NotImplementedError
-
-    cdef inline _get_socket(self):
-        if self._fileobj is not None:
-            return self._fileobj
-
-        if self.__cached_socket is not None:
-            return self.__cached_socket
-
-        self.__cached_socket = self._new_socket()
-        return self.__cached_socket
-
-    cdef _close(self):
-        try:
-            if self.__cached_socket is not None:
-                try:
-                    self.__cached_socket.detach()
-                except OSError:
-                    pass
-                self.__cached_socket = None
-
-            if self._fileobj is not None:
-                try:
-                    self._fileobj.close()
-                except Exception as exc:
-                    self._loop.call_exception_handler({
-                        'exception': exc,
-                        'transport': self,
-                        'message': 'could not close attached file object {!r}'.
-                            format(self._fileobj)
-                    })
-                finally:
-                    self._fileobj = None
-
-        finally:
-            UVHandle._close(<UVHandle>self)
 
     cdef _call_connection_made(self):
         cdef Py_ssize_t _loop_ready_len

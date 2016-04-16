@@ -1,21 +1,13 @@
-cdef class UVBaseTransport(UVHandle):
+cdef class UVBaseTransport(UVSocketHandle):
 
     cdef:
         readonly bint _closing
 
-        bint _flow_control_enabled
         bint _protocol_connected
         bint _protocol_paused
         object _protocol_data_received
         size_t _high_water
         size_t _low_water
-
-        # Points to a Python file-object that should be closed
-        # when the transport is closing.  Used by pipes.  This
-        # should probably be refactored somehow.
-        object _fileobj
-
-        object __cached_socket
 
         object _protocol
         Server _server
@@ -24,6 +16,8 @@ cdef class UVBaseTransport(UVHandle):
         dict _extra_info
 
         uint32_t _conn_lost
+
+    # All "inline" methods are final
 
     cdef inline _set_write_buffer_limits(self, int high=*, int low=*)
     cdef inline _maybe_pause_protocol(self)
@@ -38,11 +32,6 @@ cdef class UVBaseTransport(UVHandle):
     # Overloads of UVHandle methods:
     cdef _fatal_error(self, exc, throw, reason=?)
     cdef _close(self)
-
-    cdef inline _fileno(self)
-    cdef inline _attach_fileobj(self, file)
-
-    cdef inline _get_socket(self)
 
     cdef inline _set_server(self, Server server)
     cdef inline _set_waiter(self, object waiter)

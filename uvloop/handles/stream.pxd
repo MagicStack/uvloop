@@ -6,26 +6,25 @@ cdef class UVStream(UVBaseTransport):
         bint __read_error_close
         bint _eof
 
-    cdef _init(self, Loop loop, object protocol, Server server, object waiter)
+    # All "inline" methods are final
 
-    cdef _shutdown(self)
+    cdef inline _init(self, Loop loop, object protocol, Server server,
+                      object waiter)
 
-    cdef _listen(self, int backlog)
-    cdef _accept(self, UVStream server)
+    cdef inline _shutdown(self)
+    cdef inline _accept(self, UVStream server)
 
     cdef inline _close_on_read_error(self)
 
     cdef inline __reading_started(self)
     cdef inline __reading_stopped(self)
 
-    cdef _write(self, object data)
+    cdef inline _write(self, object data)
 
     cdef _close(self)
 
-    cdef _on_accept(self)
-    cdef _on_listen(self)
-    cdef _on_read(self, bytes buf)
-    cdef _on_eof(self)
-    cdef _on_write(self)
-    cdef _on_shutdown(self)
-    cdef _on_connect(self, object exc)
+    cdef inline _on_accept(self)
+    cdef inline _on_read(self, bytes buf)
+    cdef inline _on_eof(self)
+    cdef inline _on_write(self)
+    cdef inline _on_connect(self, object exc)

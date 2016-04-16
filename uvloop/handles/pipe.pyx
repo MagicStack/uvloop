@@ -29,6 +29,10 @@ cdef __pipe_open(UVStream handle, int fd):
         raise exc
 
 
+cdef __pipe_get_socket(UVSocketHandle handle):
+    return socket_socket(uv.AF_UNIX, uv.SOCK_STREAM, 0, handle._fileno())
+
+
 @cython.no_gc_clear
 cdef class UVPipeServer(UVStreamServer):
 
@@ -41,6 +45,9 @@ cdef class UVPipeServer(UVStreamServer):
         handle._init(loop, protocol_factory, server, ssl)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef _new_socket(self):
+        return __pipe_get_socket(<UVSocketHandle>self)
 
     cdef open(self, int sockfd):
         self._ensure_alive()
@@ -78,6 +85,9 @@ cdef class UVPipeTransport(UVStream):
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
+    cdef _new_socket(self):
+        return __pipe_get_socket(<UVSocketHandle>self)
+
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
@@ -98,6 +108,9 @@ cdef class UVReadPipeTransport(UVStream):
         handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef _new_socket(self):
+        return __pipe_get_socket(<UVSocketHandle>self)
 
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
@@ -145,6 +158,9 @@ cdef class UVWritePipeTransport(UVStream):
         handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
+
+    cdef _new_socket(self):
+        return __pipe_get_socket(<UVSocketHandle>self)
 
     cdef open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)

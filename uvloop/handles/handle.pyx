@@ -193,6 +193,68 @@ cdef class UVHandle:
             id(self))
 
 
+@cython.no_gc_clear
+cdef class UVSocketHandle(UVHandle):
+
+    def __cinit__(self):
+        self._fileobj = None
+        self.__cached_socket = None
+
+    cdef inline _fileno(self):
+        cdef:
+            int fd
+            int err
+
+        err = uv.uv_fileno(self._handle, <uv.uv_os_fd_t*>&fd)
+        if err < 0:
+            raise convert_error(err)
+
+        return fd
+
+    cdef _new_socket(self):
+        raise NotImplementedError
+
+    cdef inline _get_socket(self):
+        if self._fileobj:
+            return self._fileobj
+
+        if self.__cached_socket is not None:
+            return self.__cached_socket
+
+        self.__cached_socket = self._new_socket()
+        return self.__cached_socket
+
+    cdef inline _attach_fileobj(self, object file):
+        # When we create a TCP/PIPE/etc connection/server based on
+        # a Python file object, we need to close the file object when
+        # the uv handle is closed.
+        self._fileobj = file
+
+    cdef _close(self):
+        try:
+            if self.__cached_socket is not None:
+                try:
+                    self.__cached_socket.detach()
+                except OSError:
+                    pass
+                self.__cached_socket = None
+
+            if self._fileobj is not None:
+                try:
+                    self._fileobj.close()
+                except Exception as exc:
+                    self._loop.call_exception_handler({
+                        'exception': exc,
+                        'transport': self,
+                        'message': 'could not close attached file object {!r}'.
+                            format(self._fileobj)
+                    })
+                finally:
+                    self._fileobj = None
+        finally:
+            UVHandle._close(self)
+
+
 cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
                                       const char* handle_ctx):
 
