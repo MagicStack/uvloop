@@ -23,22 +23,22 @@ cdef class _StreamWriteContext:
         self.closed = 1
         PyBuffer_Release(&self.py_buf)  # void
         self.req.data = NULL
-        Py_DECREF(self)
         IF not DEBUG:
             self.stream = None
+        Py_DECREF(self)
 
     @staticmethod
     cdef _StreamWriteContext new(UVStream stream, object data):
         cdef _StreamWriteContext ctx
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
+        ctx.stream = None
+        ctx.closed = 1
 
         ctx.req.data = <void*> ctx
 
         PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
         ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
         ctx.stream = stream
-
-        ctx.closed = 0
 
         IF DEBUG:
             stream._loop._debug_stream_write_ctx_total += 1
@@ -47,6 +47,7 @@ cdef class _StreamWriteContext:
         # Do incref after everything else is done
         # (PyObject_GetBuffer for instance may fail with exception)
         Py_INCREF(ctx)
+        ctx.closed = 0
         return ctx
 
     IF DEBUG:
@@ -56,9 +57,9 @@ cdef class _StreamWriteContext:
                     'open _StreamWriteContext is being deallocated')
 
             IF DEBUG:
-                self.stream._loop._debug_stream_write_ctx_cnt -= 1
-
-            self.stream = None
+                if self.stream is not None:
+                    self.stream._loop._debug_stream_write_ctx_cnt -= 1
+                    self.stream = None
 
 
 @cython.no_gc_clear
