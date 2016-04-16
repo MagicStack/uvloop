@@ -278,7 +278,19 @@ cdef class UVStream(UVBaseTransport):
         self._maybe_pause_protocol()
 
     def writelines(self, bufs):
-        self.write(b''.join(bufs))
+        self._ensure_alive()
+
+        if self._eof:
+            raise RuntimeError('Cannot call writelines() after write_eof()')
+        if self._conn_lost:
+            self._conn_lost += 1
+            return
+
+        for buf in bufs:
+            if buf:
+                self._write(buf)
+
+        self._maybe_pause_protocol()
 
     def write_eof(self):
         self._ensure_alive()
