@@ -227,6 +227,85 @@ loop.run_forever()
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'
 
+    def test_signals_restore(self):
+        # Test that uvloop restores signals installed with the signals
+        # module after the loop is done running.
+
+        async def runner():
+            PROG = R"""\
+import asyncio
+import uvloop
+import signal
+import time
+
+srv = None
+
+async def worker():
+    global srv
+    cb = lambda *args: None
+    srv = await asyncio.start_server(cb, '127.0.0.1', 0)
+    print('READY', flush=True)
+
+def py_handler(signum, frame):
+    print('pyhandler', flush=True)
+
+def aio_handler():
+    print('aiohandler', flush=True)
+    loop.stop()
+
+signal.signal(signal.SIGUSR1, py_handler)
+
+print('step1', flush=True)
+print(input(), flush=True)
+loop = """ + self.NEW_LOOP + """
+loop.add_signal_handler(signal.SIGUSR1, aio_handler)
+asyncio.set_event_loop(loop)
+loop.create_task(worker())
+loop.run_forever()
+print('step3', flush=True)
+print(input(), flush=True)
+"""
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-c', PROG,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                loop=self.loop)
+
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'step1\n')
+
+            proc.send_signal(signal.SIGUSR1)
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'pyhandler\n')
+
+            proc.stdin.write(b'test\n')
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'test\n')
+
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'READY\n')
+
+            proc.send_signal(signal.SIGUSR1)
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'aiohandler\n')
+
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'step3\n')
+
+            proc.send_signal(signal.SIGUSR1)
+            ln = await proc.stdout.readline()
+            self.assertEqual(ln, b'pyhandler\n')
+
+            proc.stdin.write(b'done\n')
+
+            out, err = await proc.communicate()
+            self.assertEqual(out, b'done\n')
+            self.assertEqual(err, b'')
+
+        self.loop.run_until_complete(runner())
+
 
 class Test_AIO_Signals(_TestSignal, tb.AIOTestCase):
     NEW_LOOP = 'asyncio.new_event_loop()'

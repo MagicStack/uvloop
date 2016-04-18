@@ -1,5 +1,5 @@
-from posix.signal cimport sigaction_t, sigaction
-from libc.signal cimport SIG_DFL, SIG_IGN, SIG_ERR, sighandler_t, signal, SIGINT
+from posix.signal cimport sigaction_t, sigaction, sigfillset
+from libc.signal cimport SIG_DFL, SIG_IGN, sighandler_t, signal, SIGINT
 
 
 cdef class SignalsStack:
@@ -22,6 +22,7 @@ cdef class SignalsStack:
     cdef restore(self):
         cdef:
             sighandler_t sig
+            sigaction_t sa
 
         if not self.saved:
             raise RuntimeError("SignalsStack.save() wasn't called")
@@ -29,9 +30,14 @@ cdef class SignalsStack:
         for i in range(MAX_SIG):
             if self.signals[i] == NULL:
                 continue
-            sig = signal(i, self.signals[i])
-            if sig == SIG_ERR:
-                raise RuntimeError("Couldn't restore signal {}".format(i))
+
+            memset(&sa, 0, sizeof(sa))
+            if sigfillset(&sa.sa_mask):
+                raise RuntimeError(
+                    'failed to restore signal (sigfillset failed)')
+            sa.sa_handler = self.signals[i]
+            if sigaction(i, &sa, NULL):
+                raise convert_error(-errno.errno)
 
 
 cdef void __signal_handler_sigint(int sig) nogil:
@@ -41,11 +47,7 @@ cdef void __signal_handler_sigint(int sig) nogil:
     # Python code here -- all '.' and '[]' operators work on
     # C structs/pointers.
 
-    if sig != SIGINT:
-        return
-
-    if __main_loop__ is None or __main_loop__.py_signals is None:
-        # Shouldn't ever happen.
+    if sig != SIGINT or __main_loop__ is None:
         return
 
     if __main_loop__._executing_py_code and not __main_loop__._custom_sigint:
@@ -54,9 +56,16 @@ cdef void __signal_handler_sigint(int sig) nogil:
 
     if __main_loop__.uv_signals is not None:
         handle = __main_loop__.uv_signals.signals[sig]
-        if handle not in (SIG_DFL, SIG_IGN, SIG_ERR, NULL):
+        if handle is not NULL:
             handle(sig)  # void
 
 
-cdef void __signal_set_sigint():
-    signal(SIGINT, <sighandler_t>__signal_handler_sigint)
+cdef __signal_set_sigint():
+    cdef sigaction_t sa
+    memset(&sa, 0, sizeof(sa))
+    if sigfillset(&sa.sa_mask):
+        raise RuntimeError(
+            'failed to set SIGINT signal (sigfillset failed)')
+    sa.sa_handler = __signal_handler_sigint
+    if sigaction(SIGINT, &sa, NULL):
+        raise convert_error(-errno.errno)
