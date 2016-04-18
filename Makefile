@@ -21,23 +21,23 @@ distclean: clean clean-libuv
 compile: clean
 	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
 	cython -3 uvloop/loop.pyx; rm uvloop/__debug.*
-	python3 setup.py build_ext --inplace
+	python setup.py build_ext --inplace
 
 
 debug: clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
 	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
-	python3 setup.py build_ext --inplace
+	python setup.py build_ext --inplace
 
 
 test:
-	PYTHONASYNCIODEBUG=1 python3 -m unittest discover -s tests
-	python3 -m unittest discover -s tests
+	PYTHONASYNCIODEBUG=1 python -m unittest discover -s tests
+	python -m unittest discover -s tests
 
 
 sdist: clean compile test clean-libuv
-	python3 setup.py sdist
+	python setup.py sdist
 
 
 sdist-upload: clean compile test clean-libuv
-	python3 setup.py sdist upload
+	python setup.py sdist upload
