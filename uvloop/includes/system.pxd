@@ -1,11 +1,11 @@
-cdef extern from "arpa/inet.h":
+cdef extern from "arpa/inet.h" nogil:
 
     int ntohl(int)
     int htonl(int)
     int ntohs(int)
 
 
-cdef extern from "sys/socket.h":
+cdef extern from "sys/socket.h" nogil:
 
     struct sockaddr:
         unsigned short sa_family
