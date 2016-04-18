@@ -4,7 +4,7 @@ from posix.types cimport gid_t, uid_t
 from . cimport system
 
 
-cdef extern from "../vendor/libuv/include/uv.h":
+cdef extern from "../vendor/libuv/include/uv.h" nogil:
     cdef int UV_EACCES
     cdef int UV_EAGAIN
     cdef int UV_EALREADY
@@ -179,7 +179,7 @@ cdef extern from "../vendor/libuv/include/uv.h":
     const char* uv_err_name(int err)
 
     # no "with gil" for uv_walk_cb, as uv_walk doesn't release GIL
-    ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg)
+    ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg) with gil
 
     ctypedef void (*uv_close_cb)(uv_handle_t* handle) with gil
     ctypedef void (*uv_idle_cb)(uv_idle_t* handle) with gil

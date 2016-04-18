@@ -319,7 +319,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
 cdef void __close_all_handles(Loop loop):
     uv.uv_walk(loop.uvloop, __uv_walk_close_all_handles_cb, <void*>loop) # void
 
-cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg):
+cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg) with gil:
     cdef:
         Loop loop = <Loop>arg
         UVHandle h
