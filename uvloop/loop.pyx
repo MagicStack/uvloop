@@ -764,9 +764,12 @@ cdef class Loop:
     # Public API
 
     def __repr__(self):
-        return ('<%s running=%s closed=%s debug=%s>'
-                % (self.__class__.__name__, self.is_running(),
-                   self.is_closed(), self.get_debug()))
+        return '<{}.{} running={} closed={} debug={}>'.format(
+                    self.__class__.__module__,
+                    self.__class__.__name__,
+                    self.is_running(),
+                    self.is_closed(),
+                    self.get_debug())
 
     def call_soon(self, callback, *args):
         if self._debug == 1:

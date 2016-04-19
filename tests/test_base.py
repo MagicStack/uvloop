@@ -4,6 +4,7 @@ import threading
 import time
 
 import uvloop
+import unittest
 
 from unittest import mock
 from uvloop._testbase import UVTestCase, AIOTestCase
@@ -398,3 +399,17 @@ class TestBaseUV(_TestBase, UVTestCase):
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass
+
+
+class TestPolicy(unittest.TestCase):
+
+    def test_uvloop_policy(self):
+        try:
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            loop = asyncio.new_event_loop()
+            try:
+                self.assertIsInstance(loop, uvloop._Loop)
+            finally:
+                loop.close()
+        finally:
+            asyncio.set_event_loop_policy(None)
