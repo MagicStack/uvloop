@@ -174,6 +174,8 @@ include "handles/process.pxd"
 
 include "request.pxd"
 
+include "handles/udp.pxd"
+
 include "server.pxd"
 
 include "os_signal.pxd"

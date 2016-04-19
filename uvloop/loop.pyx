@@ -1070,7 +1070,7 @@ cdef class Loop:
 
         if host is not None or port is not None:
             f1 = self._getaddrinfo(host, port, family,
-                                   uv.SOCK_STREAM, 0, flags,
+                                   uv.SOCK_STREAM, proto, flags,
                                    0)  # 0 == don't unpack
 
             fs = [f1]
@@ -1083,7 +1083,7 @@ cdef class Loop:
                         'local_addr must be a tuple of host and port')
 
                 f2 = self._getaddrinfo(local_addr[0], local_addr[1], family,
-                                       uv.SOCK_STREAM, 0, flags,
+                                       uv.SOCK_STREAM, proto, flags,
                                        0)  # 0 == don't unpack
                 fs.append(f2)
 
@@ -1615,6 +1615,129 @@ cdef class Loop:
 
         return True
 
+    @aio_coroutine
+    async def create_datagram_endpoint(self, protocol_factory,
+                                       local_addr=None, remote_addr=None, *,
+                                       family=0, proto=0, flags=0,
+                                       reuse_address=None, reuse_port=None,
+                                       allow_broadcast=None, sock=None):
+
+        cdef:
+            UVUDP udp = None
+            system.addrinfo * lai
+            system.addrinfo * rai
+
+        if sock is not None:
+            if (local_addr or remote_addr or
+                    family or proto or flags or
+                    reuse_address or reuse_port or allow_broadcast):
+                # show the problematic kwargs in exception msg
+                opts = dict(local_addr=local_addr, remote_addr=remote_addr,
+                            family=family, proto=proto, flags=flags,
+                            reuse_address=reuse_address, reuse_port=reuse_port,
+                            allow_broadcast=allow_broadcast)
+                problems = ', '.join(
+                    '{}={}'.format(k, v) for k, v in opts.items() if v)
+                raise ValueError(
+                    'socket modifier keyword arguments can not be used '
+                    'when sock is specified. ({})'.format(problems))
+            sock.setblocking(False)
+            udp = UVUDP.__new__(UVUDP)
+            udp._init(self, uv.AF_UNSPEC)
+            udp._open(sock.family, sock.fileno())
+            udp._attach_fileobj(sock)
+        else:
+            reuse_address = bool(reuse_address)
+
+            lads = None
+            if local_addr is not None:
+                if (not isinstance(local_addr, (tuple, list)) or
+                        len(local_addr) != 2):
+                    raise TypeError(
+                        'local_addr must be a tuple of (host, port)')
+                lads = await self._getaddrinfo(
+                    local_addr[0], local_addr[1],
+                    family, uv.SOCK_DGRAM, proto, flags,
+                    0)
+
+            rads = None
+            if remote_addr is not None:
+                if (not isinstance(remote_addr, (tuple, list)) or
+                        len(remote_addr) != 2):
+                    raise TypeError(
+                        'remote_addr must be a tuple of (host, port)')
+                rads = await self._getaddrinfo(
+                    remote_addr[0], remote_addr[1],
+                    family, uv.SOCK_DGRAM, proto, flags,
+                    0)
+
+            excs = []
+            if lads is None:
+                if rads is not None:
+                    udp = UVUDP.__new__(UVUDP)
+                    rai = (<AddrInfo>rads).data
+                    udp._init(self, rai.ai_family)
+                    udp._set_remote_address(rai.ai_addr[0])
+                else:
+                    if family not in (uv.AF_INET, uv.AF_INET6):
+                        raise ValueError('unexpected address family')
+                    udp = UVUDP.__new__(UVUDP)
+                    udp._init(self, family)
+
+                socket = udp._get_socket()
+                socket.bind(('0.0.0.0', 0))
+            else:
+                lai = (<AddrInfo>lads).data
+                while lai is not NULL:
+                    try:
+                        udp = UVUDP.__new__(UVUDP)
+                        udp._init(self, lai.ai_family)
+                        udp._bind(lai.ai_addr, reuse_address)
+                    except Exception as ex:
+                        lai = lai.ai_next
+                        excs.append(ex)
+                        continue
+                    else:
+                        break
+                else:
+                    ctx = None
+                    if len(excs):
+                        ctx = excs[0]
+                    raise OSError('could not bind to local_addr {}'.format(
+                        local_addr)) from ctx
+
+                if rads is not None:
+                    rai = (<AddrInfo>lads).data
+                    sock = udp._get_socket()
+                    while rai is not NULL:
+                        if rai.ai_family != lai.ai_family:
+                            rai = rai.ai_next
+                            continue
+                        if rai.ai_protocol != lai.ai_protocol:
+                            rai = rai.ai_next
+                            continue
+                        udp._set_remote_address(rai.ai_addr[0])
+                        break
+                    else:
+                        raise OSError(
+                            'could not bind to remote_addr {}'.format(
+                                remote_addr))
+
+                    udp._set_remote_address(rai.ai_addr[0])
+
+        if allow_broadcast:
+            udp._set_broadcast(1)
+
+        protocol = protocol_factory()
+        waiter = self._new_future()
+        assert udp is not None
+        udp._set_protocol(protocol)
+        udp._set_waiter(waiter)
+        udp._init_protocol()
+
+        await waiter
+        return udp, protocol
+
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
@@ -1654,6 +1777,8 @@ include "handles/process.pyx"
 
 include "request.pyx"
 include "dns.pyx"
+
+include "handles/udp.pyx"
 
 include "server.pyx"
 

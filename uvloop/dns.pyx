@@ -39,6 +39,62 @@ cdef __convert_sockaddr_to_pyaddr(system.sockaddr* addr):
     raise RuntimeError("cannot convert sockaddr into Python object")
 
 
+cdef __convert_pyaddr_to_sockaddr(int family, object addr,
+                                  system.sockaddr* res):
+    cdef:
+        int err
+        int port
+        int addr_len
+        int scope_id = 0
+        int flowinfo = 0
+
+    if family == uv.AF_INET:
+        if not isinstance(addr, tuple):
+            raise TypeError('AF_INET address must be tuple')
+        if len(addr) != 2:
+            raise ValueError('AF_INET address must be tuple of (host, port)')
+        host, port = addr
+        if isinstance(host, str):
+            host = host.encode()
+        if not isinstance(host, (bytes, bytearray)):
+            raise TypeError('host must be a string or bytes object')
+
+        err = uv.uv_ip4_addr(host, port, <system.sockaddr_in*>res)
+        if err < 0:
+            raise convert_error(err)
+
+    elif family == uv.AF_INET6:
+        if not isinstance(addr, tuple):
+            raise TypeError('AF_INET6 address must be tuple')
+
+        addr_len = len(addr)
+        if addr_len < 2 or addr_len > 4:
+            raise ValueError(
+                'AF_INET6 must be a tuple of 2-4 parameters: '
+                '(host, port, flowinfo?, scope_id?)')
+
+        host = addr[0]
+        if isinstance(host, str):
+            host = host.encode()
+
+        port = addr[1]
+        if addr_len > 2:
+            flowinfo = addr[2]
+        if addr_len > 3:
+            scope_id = addr[3]
+
+        err = uv.uv_ip6_addr(host, port, <system.sockaddr_in6*>res)
+        if err < 0:
+            raise convert_error(err)
+
+        (<system.sockaddr_in6*>res).sin6_flowinfo = flowinfo
+        (<system.sockaddr_in6*>res).sin6_scope_id = scope_id
+
+    else:
+        raise ValueError(
+            'epected AF_INET or AF_INET6 family, got {}'.format(family))
+
+
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class AddrInfo:
     cdef:
@@ -58,6 +114,7 @@ cdef class AddrInfo:
     cdef unpack(self):
         cdef:
             list result = []
+            system.addrinfo *ptr
 
         if self.data is NULL:
             raise RuntimeError('AddrInfo.data is NULL')
