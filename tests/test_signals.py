@@ -97,7 +97,12 @@ async def worker():
 loop = """ + self.NEW_LOOP + """
 asyncio.set_event_loop(loop)
 loop.create_task(worker())
-loop.run_forever()
+try:
+    loop.run_forever()
+finally:
+    srv.close()
+    loop.run_until_complete(srv.wait_closed())
+    loop.close()
 """
 
             proc = await asyncio.create_subprocess_exec(
@@ -141,7 +146,12 @@ loop.add_signal_handler(signal.SIGINT, handler_sig, '!s-int!')
 loop.add_signal_handler(signal.SIGHUP, handler_hup, '!s-hup!')
 asyncio.set_event_loop(loop)
 loop.create_task(worker())
-loop.run_forever()
+try:
+    loop.run_forever()
+finally:
+    srv.close()
+    loop.run_until_complete(srv.wait_closed())
+    loop.close()
 """
 
             proc = await asyncio.create_subprocess_exec(
@@ -193,7 +203,13 @@ loop.add_signal_handler(signal.SIGUSR1, handler1)
 loop.add_signal_handler(signal.SIGUSR2, handler2)
 loop.add_signal_handler(signal.SIGHUP, handler_hup)
 loop.create_task(worker())
-loop.run_forever()
+try:
+    loop.run_forever()
+finally:
+    srv.close()
+    loop.run_until_complete(srv.wait_closed())
+    loop.close()
+
 """
 
             proc = await asyncio.create_subprocess_exec(
@@ -261,7 +277,12 @@ loop = """ + self.NEW_LOOP + """
 loop.add_signal_handler(signal.SIGUSR1, aio_handler)
 asyncio.set_event_loop(loop)
 loop.create_task(worker())
-loop.run_forever()
+try:
+    loop.run_forever()
+finally:
+    srv.close()
+    loop.run_until_complete(srv.wait_closed())
+    loop.close()
 print('step3', flush=True)
 print(input(), flush=True)
 """
