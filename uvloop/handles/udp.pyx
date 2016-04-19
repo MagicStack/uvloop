@@ -9,7 +9,7 @@ cdef class _UDPSendContext:
         uv.uv_buf_t     uv_buf
         Py_buffer       py_buf
 
-        UVUDP           udp
+        UDPTransport    udp
 
         bint            closed
 
@@ -26,7 +26,7 @@ cdef class _UDPSendContext:
         self.udp = None
 
     @staticmethod
-    cdef _UDPSendContext new(UVUDP udp, object data):
+    cdef _UDPSendContext new(UDPTransport udp, object data):
         cdef _UDPSendContext ctx
         ctx = _UDPSendContext.__new__(_UDPSendContext)
         ctx.udp = None
@@ -51,7 +51,7 @@ cdef class _UDPSendContext:
 
 
 @cython.no_gc_clear
-cdef class UVUDP(UVBaseTransport):
+cdef class UDPTransport(UVBaseTransport):
     def __cinit__(self):
         self._family = uv.AF_UNSPEC
         self._address_set = 0
@@ -150,7 +150,7 @@ cdef class UVUDP(UVBaseTransport):
             self._fatal_error(exc, True)
             return
         else:
-            # UVUDP must live until the read callback is called
+            # UDPTransport must live until the read callback is called
             self.__receiving_started()
 
     cdef _stop_reading(self):
@@ -184,7 +184,7 @@ cdef class UVUDP(UVBaseTransport):
     cdef _new_socket(self):
         if self._family not in (uv.AF_INET, uv.AF_INET6):
             raise RuntimeError(
-                'UVUDP.family is undefined; cannot create python socket')
+                'UDPTransport.family is undefined; cannot create python socket')
 
         fileno = self._fileno()
         return socket_socket(self._family, uv.SOCK_STREAM, 0, fileno)
@@ -194,7 +194,7 @@ cdef class UVUDP(UVBaseTransport):
             _UDPSendContext ctx
 
         if self._family not in (uv.AF_INET, uv.AF_INET6):
-            raise RuntimeError('UVUDP.family is undefined; cannot send')
+            raise RuntimeError('UDPTransport.family is undefined; cannot send')
 
         if self._address_set and addr is not None:
             if self._cached_py_address is None:
@@ -275,11 +275,11 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
                               unsigned flags) with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle,
-                            "UVUDP receive callback") == 0:
+                            "UDPTransport receive callback") == 0:
         return
 
     cdef:
-        UVUDP udp = <UVUDP>handle.data
+        UDPTransport udp = <UDPTransport>handle.data
         Loop loop = udp._loop
         bytes data
         object pyaddr
@@ -344,7 +344,7 @@ cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) with gil:
     if req.data is NULL:
         # Shouldn't happen as:
         #    - _UDPSendContext does an extra INCREF in its 'init()'
-        #    - _UDPSendContext holds a ref to the relevant UVUDP
+        #    - _UDPSendContext holds a ref to the relevant UDPTransport
         aio_logger.error(
             'UVStream.write callback called with NULL req.data, status=%r',
             status)
@@ -352,7 +352,7 @@ cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) with gil:
 
     cdef:
         _UDPSendContext ctx = <_UDPSendContext> req.data
-        UVUDP udp = <UVUDP>ctx.udp
+        UDPTransport udp = <UDPTransport>ctx.udp
 
     ctx.close()
 

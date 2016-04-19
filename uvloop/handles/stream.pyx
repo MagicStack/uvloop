@@ -420,7 +420,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
         if sc.__read_error_close:
             # Used for getting notified when a pipe is closed.
-            # See UVWritePipeTransport for the explanation.
+            # See WriteUnixTransport for the explanation.
             sc._on_eof()
             return
 

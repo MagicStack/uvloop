@@ -1,4 +1,4 @@
-cdef class UVUDP(UVBaseTransport):
+cdef class UDPTransport(UVBaseTransport):
     cdef:
         bint __receiving
         int _family

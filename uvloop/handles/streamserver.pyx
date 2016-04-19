@@ -28,7 +28,7 @@ cdef class UVStreamServer(UVSocketHandle):
             raise RuntimeError('unable to listen(); no protocol_factory')
 
         if self.opened != 1:
-            raise RuntimeError('unopened UVTCPServer')
+            raise RuntimeError('unopened TCPServer')
 
         err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
                            backlog,

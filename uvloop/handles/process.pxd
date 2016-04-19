@@ -42,9 +42,9 @@ cdef class UVProcessTransport(UVProcess):
         object _protocol
         bint _finished
 
-        UVWritePipeTransport stdin
-        UVReadPipeTransport stdout
-        UVReadPipeTransport stderr
+        WriteUnixTransport stdin
+        ReadUnixTransport stdout
+        ReadUnixTransport stderr
 
         object stdin_proto
         object stdout_proto

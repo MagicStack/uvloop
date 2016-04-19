@@ -297,7 +297,7 @@ cdef class UVProcessTransport(UVProcess):
 
                 self.stdin_proto = WriteSubprocessPipeProto(self, 0)
                 waiter = self._loop._new_future()
-                self.stdin = UVWritePipeTransport.new(
+                self.stdin = WriteUnixTransport.new(
                     self._loop, self.stdin_proto, None, waiter)
                 self._init_futs.append(waiter)
                 self.stdin.open(w)
@@ -326,7 +326,7 @@ cdef class UVProcessTransport(UVProcess):
 
                 self.stdout_proto = ReadSubprocessPipeProto(self, 1)
                 waiter = self._loop._new_future()
-                self.stdout = UVReadPipeTransport.new(
+                self.stdout = ReadUnixTransport.new(
                     self._loop, self.stdout_proto, None, waiter)
                 self._init_futs.append(waiter)
                 self.stdout.open(r)
@@ -349,7 +349,7 @@ cdef class UVProcessTransport(UVProcess):
 
                 self.stderr_proto = ReadSubprocessPipeProto(self, 2)
                 waiter = self._loop._new_future()
-                self.stderr = UVReadPipeTransport.new(
+                self.stderr = ReadUnixTransport.new(
                     self._loop, self.stderr_proto, None, waiter)
                 self._init_futs.append(waiter)
                 self.stderr.open(r)

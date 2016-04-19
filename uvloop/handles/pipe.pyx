@@ -34,14 +34,14 @@ cdef __pipe_get_socket(UVSocketHandle handle):
 
 
 @cython.no_gc_clear
-cdef class UVPipeServer(UVStreamServer):
+cdef class UnixServer(UVStreamServer):
 
     @staticmethod
-    cdef UVPipeServer new(Loop loop, object protocol_factory, Server server,
+    cdef UnixServer new(Loop loop, object protocol_factory, Server server,
                           object ssl):
 
-        cdef UVPipeServer handle
-        handle = UVPipeServer.__new__(UVPipeServer)
+        cdef UnixServer handle
+        handle = UnixServer.__new__(UnixServer)
         handle._init(loop, protocol_factory, server, ssl)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
@@ -67,20 +67,20 @@ cdef class UVPipeServer(UVStreamServer):
         self._mark_as_open()
 
     cdef UVStream _make_new_transport(self, object protocol, object waiter):
-        cdef UVPipeTransport tr
-        tr = UVPipeTransport.new(self._loop, protocol, self._server, waiter)
+        cdef UnixTransport tr
+        tr = UnixTransport.new(self._loop, protocol, self._server, waiter)
         return <UVStream>tr
 
 
 @cython.no_gc_clear
-cdef class UVPipeTransport(UVStream):
+cdef class UnixTransport(UVStream):
 
     @staticmethod
-    cdef UVPipeTransport new(Loop loop, object protocol, Server server,
+    cdef UnixTransport new(Loop loop, object protocol, Server server,
                              object waiter):
 
-        cdef UVPipeTransport handle
-        handle = UVPipeTransport.__new__(UVPipeTransport)
+        cdef UnixTransport handle
+        handle = UnixTransport.__new__(UnixTransport)
         handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
@@ -98,13 +98,13 @@ cdef class UVPipeTransport(UVStream):
 
 
 @cython.no_gc_clear
-cdef class UVReadPipeTransport(UVStream):
+cdef class ReadUnixTransport(UVStream):
 
     @staticmethod
-    cdef UVReadPipeTransport new(Loop loop, object protocol, Server server,
+    cdef ReadUnixTransport new(Loop loop, object protocol, Server server,
                                  object waiter):
-        cdef UVReadPipeTransport handle
-        handle = UVReadPipeTransport.__new__(UVReadPipeTransport)
+        cdef ReadUnixTransport handle
+        handle = ReadUnixTransport.__new__(ReadUnixTransport)
         handle._init(loop, protocol, server, waiter)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
@@ -141,13 +141,13 @@ cdef class UVReadPipeTransport(UVStream):
 
 
 @cython.no_gc_clear
-cdef class UVWritePipeTransport(UVStream):
+cdef class WriteUnixTransport(UVStream):
 
     @staticmethod
-    cdef UVWritePipeTransport new(Loop loop, object protocol, Server server,
+    cdef WriteUnixTransport new(Loop loop, object protocol, Server server,
                                   object waiter):
-        cdef UVWritePipeTransport handle
-        handle = UVWritePipeTransport.__new__(UVWritePipeTransport)
+        cdef WriteUnixTransport handle
+        handle = WriteUnixTransport.__new__(WriteUnixTransport)
 
         # We listen for read events on write-end of the pipe. When
         # the read-end is close, the uv_stream_t.read callback will
@@ -174,7 +174,7 @@ cdef class UVWritePipeTransport(UVStream):
 
 cdef class _PipeConnectRequest(UVRequest):
     cdef:
-        UVPipeTransport transport
+        UnixTransport transport
 
     def __cinit__(self, loop, transport):
         self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
@@ -194,7 +194,7 @@ cdef class _PipeConnectRequest(UVRequest):
 cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
     cdef:
         _PipeConnectRequest wrapper
-        UVPipeTransport transport
+        UnixTransport transport
 
     wrapper = <_PipeConnectRequest> req.data
     transport = wrapper.transport

@@ -972,7 +972,7 @@ cdef class Loop:
                             reuse_port=None):    # ignored
 
         cdef:
-            UVTCPServer tcp
+            TCPServer tcp
             system.addrinfo *addrinfo
             Server server = Server(self)
 
@@ -1002,7 +1002,7 @@ cdef class Loop:
                 for info in infos:
                     addrinfo = (<AddrInfo>info).data
                     while addrinfo != NULL:
-                        tcp = UVTCPServer.new(
+                        tcp = TCPServer.new(
                             self, protocol_factory, server, ssl)
 
                         try:
@@ -1021,7 +1021,7 @@ cdef class Loop:
                 if not completed:
                     server.close()
         else:
-            tcp = UVTCPServer.new(self, protocol_factory, server, ssl)
+            tcp = TCPServer.new(self, protocol_factory, server, ssl)
             fileno = os_dup(sock.fileno())
             try:
                 tcp.open(fileno)
@@ -1044,7 +1044,7 @@ cdef class Loop:
             AddrInfo ai_remote
             system.addrinfo *rai
             system.addrinfo *lai
-            UVTCPTransport tr
+            TCPTransport tr
 
             object app_protocol
             object protocol
@@ -1105,7 +1105,7 @@ cdef class Loop:
                 tr = None
                 try:
                     waiter = self._new_future()
-                    tr = UVTCPTransport.new(self, protocol, None, waiter)
+                    tr = TCPTransport.new(self, protocol, None, waiter)
                     if ai_local is not None:
                         lai = ai_local.data
                         while lai is not NULL:
@@ -1156,7 +1156,7 @@ cdef class Loop:
 
             waiter = self._new_future()
             protocol = protocol_factory()
-            tr = UVTCPTransport.new(self, protocol, None, waiter)
+            tr = TCPTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
@@ -1179,13 +1179,13 @@ cdef class Loop:
                                  *, backlog=100, sock=None, ssl=None):
 
         cdef:
-            UVPipeServer pipe
+            UnixServer pipe
             Server server = Server(self)
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
 
-        pipe = UVPipeServer.new(self, protocol_factory, server, ssl)
+        pipe = UnixServer.new(self, protocol_factory, server, ssl)
 
         if path is not None:
             if sock is not None:
@@ -1231,7 +1231,7 @@ cdef class Loop:
                                      server_hostname=None):
 
         cdef:
-            UVPipeTransport tr
+            UnixTransport tr
             object app_protocol
             object protocol
             object ssl_waiter
@@ -1261,7 +1261,7 @@ cdef class Loop:
                     'path and sock can not be specified at the same time')
 
             waiter = self._new_future()
-            tr = UVPipeTransport.new(self, protocol, None, waiter)
+            tr = UnixTransport.new(self, protocol, None, waiter)
             tr.connect(path)
             try:
                 await waiter
@@ -1278,7 +1278,7 @@ cdef class Loop:
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
             waiter = self._new_future()
-            tr = UVPipeTransport.new(self, protocol, None, waiter)
+            tr = UnixTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
@@ -1520,12 +1520,12 @@ cdef class Loop:
     @aio_coroutine
     async def connect_read_pipe(self, proto_factory, pipe):
         cdef:
-            UVReadPipeTransport transp
+            ReadUnixTransport transp
             int fileno = os_dup(pipe.fileno())
 
         waiter = self._new_future()
         proto = proto_factory()
-        transp = UVReadPipeTransport.new(self, proto, None, waiter)
+        transp = ReadUnixTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
@@ -1540,12 +1540,12 @@ cdef class Loop:
     @aio_coroutine
     async def connect_write_pipe(self, proto_factory, pipe):
         cdef:
-            UVWritePipeTransport transp
+            WriteUnixTransport transp
             int fileno = os_dup(pipe.fileno())
 
         waiter = self._new_future()
         proto = proto_factory()
-        transp = UVWritePipeTransport.new(self, proto, None, waiter)
+        transp = WriteUnixTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
@@ -1623,7 +1623,7 @@ cdef class Loop:
                                        allow_broadcast=None, sock=None):
 
         cdef:
-            UVUDP udp = None
+            UDPTransport udp = None
             system.addrinfo * lai
             system.addrinfo * rai
 
@@ -1642,7 +1642,7 @@ cdef class Loop:
                     'socket modifier keyword arguments can not be used '
                     'when sock is specified. ({})'.format(problems))
             sock.setblocking(False)
-            udp = UVUDP.__new__(UVUDP)
+            udp = UDPTransport.__new__(UDPTransport)
             udp._init(self, uv.AF_UNSPEC)
             udp._open(sock.family, sock.fileno())
             udp._attach_fileobj(sock)
@@ -1674,14 +1674,14 @@ cdef class Loop:
             excs = []
             if lads is None:
                 if rads is not None:
-                    udp = UVUDP.__new__(UVUDP)
+                    udp = UDPTransport.__new__(UDPTransport)
                     rai = (<AddrInfo>rads).data
                     udp._init(self, rai.ai_family)
                     udp._set_remote_address(rai.ai_addr[0])
                 else:
                     if family not in (uv.AF_INET, uv.AF_INET6):
                         raise ValueError('unexpected address family')
-                    udp = UVUDP.__new__(UVUDP)
+                    udp = UDPTransport.__new__(UDPTransport)
                     udp._init(self, family)
 
                 socket = udp._get_socket()
@@ -1690,7 +1690,7 @@ cdef class Loop:
                 lai = (<AddrInfo>lads).data
                 while lai is not NULL:
                     try:
-                        udp = UVUDP.__new__(UVUDP)
+                        udp = UDPTransport.__new__(UDPTransport)
                         udp._init(self, lai.ai_family)
                         udp._bind(lai.ai_addr, reuse_address)
                     except Exception as ex:

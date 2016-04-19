@@ -52,14 +52,14 @@ cdef __tcp_get_socket(UVSocketHandle handle):
 
 
 @cython.no_gc_clear
-cdef class UVTCPServer(UVStreamServer):
+cdef class TCPServer(UVStreamServer):
 
     @staticmethod
-    cdef UVTCPServer new(Loop loop, object protocol_factory, Server server,
+    cdef TCPServer new(Loop loop, object protocol_factory, Server server,
                          object ssl):
 
-        cdef UVTCPServer handle
-        handle = UVTCPServer.__new__(UVTCPServer)
+        cdef TCPServer handle
+        handle = TCPServer.__new__(TCPServer)
         handle._init(loop, protocol_factory, server, ssl)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
@@ -86,20 +86,20 @@ cdef class UVTCPServer(UVStreamServer):
             self._mark_as_open()
 
     cdef UVStream _make_new_transport(self, object protocol, object waiter):
-        cdef UVTCPTransport tr
-        tr = UVTCPTransport.new(self._loop, protocol, self._server, waiter)
+        cdef TCPTransport tr
+        tr = TCPTransport.new(self._loop, protocol, self._server, waiter)
         return <UVStream>tr
 
 
 @cython.no_gc_clear
-cdef class UVTCPTransport(UVStream):
+cdef class TCPTransport(UVStream):
 
     @staticmethod
-    cdef UVTCPTransport new(Loop loop, object protocol, Server server,
+    cdef TCPTransport new(Loop loop, object protocol, Server server,
                             object waiter):
 
-        cdef UVTCPTransport handle
-        handle = UVTCPTransport.__new__(UVTCPTransport)
+        cdef TCPTransport handle
+        handle = TCPTransport.__new__(TCPTransport)
         handle._init(loop, protocol, server, waiter)
         __tcp_init_uv_handle(<UVStream>handle, loop)
         return handle
@@ -123,7 +123,7 @@ cdef class UVTCPTransport(UVStream):
 
 cdef class _TCPConnectRequest(UVRequest):
     cdef:
-        UVTCPTransport transport
+        TCPTransport transport
 
     def __cinit__(self, loop, transport):
         self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
@@ -148,7 +148,7 @@ cdef class _TCPConnectRequest(UVRequest):
 cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
     cdef:
         _TCPConnectRequest wrapper
-        UVTCPTransport transport
+        TCPTransport transport
 
     wrapper = <_TCPConnectRequest> req.data
     transport = wrapper.transport
