@@ -46,7 +46,9 @@ class BaseTestDNS:
                 self.loop.getnameinfo(*args, **kwargs))
         except Exception as ex:
             if err is not None:
-                self.assertEqual(ex.__class__, err.__class__)
+                if ex.__class__ is not err.__class__:
+                    print(ex, err)
+                self.assertIs(ex.__class__, err.__class__)
                 self.assertEqual(ex.args, err.args)
             else:
                 raise
@@ -68,6 +70,12 @@ class BaseTestDNS:
 
     def test_getaddrinfo_4(self):
         self._test_getaddrinfo(_HOST, _PORT, family=-1)
+
+    def test_getaddrinfo_5(self):
+        self._test_getaddrinfo(_HOST, str(_PORT))
+
+    def test_getaddrinfo_6(self):
+        self._test_getaddrinfo(_HOST.encode(), str(_PORT).encode())
 
     ######
 

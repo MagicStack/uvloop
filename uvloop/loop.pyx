@@ -489,10 +489,21 @@ cdef class Loop:
             self._polls_gc[fd] = poll
         return result
 
-    cdef _getaddrinfo(self, str host, int port,
+    cdef _getaddrinfo(self, object host, object port,
                       int family, int type,
                       int proto, int flags,
                       int unpack):
+
+        if isinstance(port, str):
+            port = port.encode()
+        elif isinstance(port, int):
+            port = str(port).encode()
+        if not isinstance(port, bytes):
+            raise TypeError('port must be a str, bytes or int')
+        if isinstance(host, str):
+            host = host.encode()
+        if not isinstance(host, bytes):
+            raise TypeError('host must be a str or bytes')
 
         fut = self._new_future()
 
@@ -895,7 +906,7 @@ cdef class Loop:
 
         return future.result()
 
-    def getaddrinfo(self, str host, int port, *,
+    def getaddrinfo(self, object host, object port, *,
                     int family=0, int type=0, int proto=0, int flags=0):
 
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
@@ -915,14 +926,6 @@ cdef class Loop:
         if sl < 2 or sl > 4:
             raise ValueError('sockaddr must be a tuple of 2, 3 or 4 values')
 
-        host = sockaddr[0]
-        if not isinstance(host, str):
-            raise TypeError('host must be a string')
-
-        port = sockaddr[1]
-        if not isinstance(port, int):
-            raise TypeError('port must be an int')
-
         if sl > 2:
             flowinfo = sockaddr[2]
             if flowinfo < 0 or flowinfo > 0xfffff:
@@ -940,7 +943,7 @@ cdef class Loop:
             scope_id = 0
 
         ai_cnt = await self._getaddrinfo(
-            host, port,
+            sockaddr[0], sockaddr[1],
             uv.AF_UNSPEC,         # family
             uv.SOCK_DGRAM,        # type
             0,                    # proto

@@ -43,7 +43,6 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
                                   system.sockaddr* res):
     cdef:
         int err
-        int port
         int addr_len
         int scope_id = 0
         int flowinfo = 0
@@ -58,8 +57,12 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
             host = host.encode()
         if not isinstance(host, (bytes, bytearray)):
             raise TypeError('host must be a string or bytes object')
+        if isinstance(port, bytes):
+            port = port.decode()
+        if isinstance(port, str):
+            port = int(port)
 
-        err = uv.uv_ip4_addr(host, port, <system.sockaddr_in*>res)
+        err = uv.uv_ip4_addr(host, <int>port, <system.sockaddr_in*>res)
         if err < 0:
             raise convert_error(err)
 
@@ -146,7 +149,7 @@ cdef class AddrInfoRequest(UVRequest):
         object callback
 
     def __cinit__(self, Loop loop,
-                  str host, int port,
+                  bytes host, bytes port,
                   int family, int type, int proto, int flags,
                   object callback):
 
@@ -170,8 +173,8 @@ cdef class AddrInfoRequest(UVRequest):
         err = uv.uv_getaddrinfo(loop.uvloop,
                                 <uv.uv_getaddrinfo_t*>self.request,
                                 __on_addrinfo_resolved,
-                                host.encode('utf-8'),
-                                str(port).encode('latin-1'),
+                                host,
+                                port,
                                 &self.hints)
 
         if err < 0:

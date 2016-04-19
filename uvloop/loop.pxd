@@ -136,7 +136,7 @@ cdef class Loop:
     cdef inline _check_closed(self)
     cdef inline _check_thread(self)
 
-    cdef _getaddrinfo(self, str host, int port,
+    cdef _getaddrinfo(self, object host, object port,
                       int family, int type,
                       int proto, int flags,
                       int unpack)
