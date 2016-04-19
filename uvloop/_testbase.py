@@ -68,6 +68,23 @@ def _cert_fullname(name):
     return fullname
 
 
+@contextlib.contextmanager
+def silence_long_exec_warning():
+
+    class Filter(logging.Filter):
+        def filter(self, record):
+            return not (record.msg.startswith('Executing') and
+                        record.msg.endswith('seconds'))
+
+    logger = logging.getLogger('asyncio')
+    filter = Filter()
+    logger.addFilter(filter)
+    try:
+        yield
+    finally:
+        logger.removeFilter(filter)
+
+
 class SSLTestCase:
 
     ONLYCERT = _cert_fullname('ssl_cert.pem')
