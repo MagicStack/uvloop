@@ -35,6 +35,8 @@ cdef class Loop:
     cdef:
         uv.uv_loop_t *uvloop
 
+        bint _coroutine_wrapper_set
+
         readonly bint _closed
         bint _debug
         bint _running
@@ -155,6 +157,8 @@ cdef class Loop:
 
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
+
+    cdef _set_coroutine_wrapper(self, bint enabled)
 
 
 include "cbhandles.pxd"

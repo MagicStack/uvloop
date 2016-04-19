@@ -149,6 +149,8 @@ cdef class Loop:
 
         uv.uv_disable_stdio_inheritance()
 
+        self._coroutine_wrapper_set = False
+
     def __init__(self):
         self.set_debug((not sys_ignore_environment
                         and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
@@ -684,6 +686,33 @@ cdef class Loop:
         else:
             fut.set_result(None)
 
+    cdef _set_coroutine_wrapper(self, bint enabled):
+        enabled = bool(enabled)
+        if self._coroutine_wrapper_set == enabled:
+            return
+
+        wrapper = aio_debug_wrapper
+        current_wrapper = sys_get_coroutine_wrapper()
+
+        if enabled:
+            if current_wrapper not in (None, wrapper):
+                warnings.warn(
+                    "loop.set_debug(True): cannot set debug coroutine "
+                    "wrapper; another wrapper is already set %r" %
+                    current_wrapper, RuntimeWarning)
+            else:
+                sys_set_coroutine_wrapper(wrapper)
+                self._coroutine_wrapper_set = True
+        else:
+            if current_wrapper not in (None, wrapper):
+                warnings.warn(
+                    "loop.set_debug(False): cannot unset debug coroutine "
+                    "wrapper; another wrapper was set %r" %
+                    current_wrapper, RuntimeWarning)
+            else:
+                sys_set_coroutine_wrapper(None)
+                self._coroutine_wrapper_set = False
+
     IF DEBUG:
         def print_debug_info(self):
             cdef:
@@ -833,7 +862,11 @@ cdef class Loop:
             # loop.stop() was called right before loop.run_forever().
             # This is how asyncio loop behaves.
             mode = uv.UV_RUN_NOWAIT
-        self._run(mode)
+        self._set_coroutine_wrapper(self._debug)
+        try:
+            self._run(mode)
+        finally:
+            self._set_coroutine_wrapper(0)
 
     def close(self):
         self._close()
@@ -849,6 +882,9 @@ cdef class Loop:
             self._debug = 1
         else:
             self._debug = 0
+
+        if self.is_running():
+            self._set_coroutine_wrapper(bool(enabled))
 
     def is_running(self):
         if self._running == 0:

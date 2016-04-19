@@ -1,4 +1,5 @@
-import asyncio, asyncio.log, asyncio.base_events, asyncio.sslproto
+import asyncio, asyncio.log, asyncio.base_events, \
+       asyncio.sslproto, asyncio.coroutines
 import collections
 import concurrent.futures
 import functools
@@ -30,6 +31,7 @@ cdef aio_wrap_future = asyncio.wrap_future
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
 cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
+cdef aio_debug_wrapper = asyncio.coroutines.debug_wrapper
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
@@ -78,6 +80,8 @@ cdef os_O_RDWR = os.O_RDWR
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
+cdef sys_set_coroutine_wrapper = sys.set_coroutine_wrapper
+cdef sys_get_coroutine_wrapper = sys.get_coroutine_wrapper
 
 cdef ssl_SSLContext = ssl.SSLContext
 
