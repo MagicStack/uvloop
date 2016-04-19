@@ -8,6 +8,7 @@ python:
 
 install:
     - "pip install --no-binary=:all: cython"
+    - "pip install --no-binary=:all: aiohttp"
     - make
 
 script:
