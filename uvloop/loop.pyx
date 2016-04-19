@@ -872,31 +872,18 @@ cdef class Loop:
         self._close()
 
     def get_debug(self):
-        if self._debug == 1:
-            return True
-        else:
-            return False
+        return bool(self._debug)
 
     def set_debug(self, enabled):
-        if enabled:
-            self._debug = 1
-        else:
-            self._debug = 0
-
+        self._debug = bool(enabled)
         if self.is_running():
-            self._set_coroutine_wrapper(bool(enabled))
+            self._set_coroutine_wrapper(self._debug)
 
     def is_running(self):
-        if self._running == 0:
-            return False
-        else:
-            return True
+        return bool(self._running)
 
     def is_closed(self):
-        if self._closed == 0:
-            return False
-        else:
-            return True
+        return bool(self._closed)
 
     def create_task(self, coro):
         self._check_closed()
