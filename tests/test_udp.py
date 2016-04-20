@@ -112,12 +112,18 @@ class _TestUDP:
             assert False, 'Can not create socket.'
 
         with sock:
-            f = self.loop.create_datagram_endpoint(
-                lambda: MyDatagramProto(loop=self.loop), sock=sock)
-            tr, pr = self.loop.run_until_complete(f)
-            self.assertIsInstance(pr, MyDatagramProto)
-            tr.close()
-            self.loop.run_until_complete(pr.done)
+            try:
+                f = self.loop.create_datagram_endpoint(
+                    lambda: MyDatagramProto(loop=self.loop), sock=sock)
+            except TypeError as ex:
+                # asyncio in 3.5.0 doesn't have the 'sock' argument
+                if 'got an unexpected keyword argument' not in ex.args[0]:
+                    raise
+            else:
+                tr, pr = self.loop.run_until_complete(f)
+                self.assertIsInstance(pr, MyDatagramProto)
+                tr.close()
+                self.loop.run_until_complete(pr.done)
 
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
