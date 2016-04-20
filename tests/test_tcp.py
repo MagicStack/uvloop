@@ -362,13 +362,14 @@ class _TestTCP:
             self.assertFalse(t._paused)
 
             sock = t.get_extra_info('socket')
+            sockname = sock.getsockname()
+            peername = sock.getpeername()
+
             self.assertTrue(isinstance(sock, socket.socket))
-
             self.assertEqual(t.get_extra_info('sockname'),
-                             sock.getsockname())
-
+                             sockname)
             self.assertEqual(t.get_extra_info('peername'),
-                             sock.getpeername())
+                             peername)
 
             t.write(b'OK')  # We want server to fail.
 
@@ -377,6 +378,13 @@ class _TestTCP:
             self.assertTrue(t._closing)
 
             await fut
+
+            # Test that peername and sockname are available after
+            # the transport is closed.
+            self.assertEqual(t.get_extra_info('peername'),
+                             peername)
+            self.assertEqual(t.get_extra_info('sockname'),
+                             sockname)
 
         async def start_server():
             srv = await asyncio.start_server(

@@ -102,7 +102,52 @@ cdef class TCPTransport(UVStream):
         handle = TCPTransport.__new__(TCPTransport)
         handle._init(loop, protocol, server, waiter)
         __tcp_init_uv_handle(<UVStream>handle, loop)
+        handle.__peername_set = 0
+        handle.__sockname_set = 0
         return handle
+
+    cdef _call_connection_made(self):
+        # asyncio saves peername & sockname when transports are instantiated,
+        # so that they're accessible even after the transport is closed.
+        # We are doing the same thing here, except that we create Python
+        # objects lazily, on request in get_extra_info()
+
+        cdef:
+            int err
+            int buf_len
+
+        buf_len = sizeof(system.sockaddr_storage)
+        err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>self._handle,
+                                    <system.sockaddr*>&self.__sockname,
+                                    &buf_len)
+        if err >= 0:
+            # Ignore errors, this is an optional thing.
+            # If something serious is going on, the transport
+            # will crash later (in roughly the same way how
+            # an asyncio transport would.)
+            self.__sockname_set = 1
+
+        buf_len = sizeof(system.sockaddr_storage)
+        err = uv.uv_tcp_getpeername(<uv.uv_tcp_t*>self._handle,
+                                    <system.sockaddr*>&self.__peername,
+                                    &buf_len)
+        if err >= 0:
+            # Same as few lines above -- we don't really care
+            # about error case here.
+            self.__peername_set = 1
+
+        UVBaseTransport._call_connection_made(self)
+
+    def get_extra_info(self, name, default=None):
+        if name == 'sockname':
+            if self.__sockname_set:
+                return __convert_sockaddr_to_pyaddr(
+                    <system.sockaddr*>&self.__sockname)
+        elif name == 'peername':
+            if self.__peername_set:
+                return __convert_sockaddr_to_pyaddr(
+                    <system.sockaddr*>&self.__peername)
+        return super().get_extra_info(name, default)
 
     cdef _new_socket(self):
         return __tcp_get_socket(<UVSocketHandle>self)

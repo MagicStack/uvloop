@@ -328,6 +328,8 @@ cdef extern from "../vendor/libuv/include/uv.h" nogil:
 
     int uv_tcp_getsockname(const uv_tcp_t* handle, system.sockaddr* name,
                            int* namelen)
+    int uv_tcp_getpeername(const uv_tcp_t* handle, system.sockaddr* name,
+                           int* namelen)
 
     int uv_tcp_connect(uv_connect_t* req, uv_tcp_t* handle,
                        const system.sockaddr* addr, uv_connect_cb cb)

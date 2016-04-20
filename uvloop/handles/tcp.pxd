@@ -8,6 +8,12 @@ cdef class TCPServer(UVStreamServer):
 
 
 cdef class TCPTransport(UVStream):
+    cdef:
+        bint __peername_set
+        bint __sockname_set
+        system.sockaddr_storage __peername
+        system.sockaddr_storage __sockname
+
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
     cdef open(self, int sockfd)
     cdef connect(self, system.sockaddr* addr)

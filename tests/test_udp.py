@@ -112,7 +112,7 @@ class _TestUDP:
             assert False, 'Can not create socket.'
 
         with sock:
-            f = self.loop.create_connection(
+            f = self.loop.create_datagram_endpoint(
                 lambda: MyDatagramProto(loop=self.loop), sock=sock)
             tr, pr = self.loop.run_until_complete(f)
             self.assertIsInstance(pr, MyDatagramProto)
