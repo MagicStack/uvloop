@@ -198,7 +198,6 @@ cdef extern from "../vendor/libuv/include/uv.h" nogil:
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
 
-    # no "with gil" for uv_walk_cb, as uv_walk doesn't release GIL
     ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg) with gil
 
     ctypedef void (*uv_close_cb)(uv_handle_t* handle) with gil
