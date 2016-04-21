@@ -996,7 +996,7 @@ cdef class Loop:
                             int flags=uv.AI_PASSIVE,
                             sock=None,
                             int backlog=100,
-                            ssl=None,            # not implemented
+                            ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
                             reuse_port=None):    # ignored
 
