@@ -56,6 +56,17 @@ async def echo_client_streams(reader, writer):
     writer.close()
 
 
+class EchoProtocol(asyncio.Protocol):
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def connection_lost(self, exc):
+        self.transport = None
+
+    def data_received(self, data):
+        self.transport.write(data)
+
+
 async def print_debug(loop):
     while True:
         print(chr(27) + "[2J")  # clear screen
@@ -67,6 +78,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--uvloop', default=False, action='store_true')
     parser.add_argument('--streams', default=False, action='store_true')
+    parser.add_argument('--proto', default=False, action='store_true')
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str)
     parser.add_argument('--print', default=False, action='store_true')
     args = parser.parse_args()
@@ -100,6 +112,10 @@ if __name__ == '__main__':
     print('serving on: {}'.format(addr))
 
     if args.streams:
+        if args.proto:
+            print('cannot use --stream and --proto simultaneously')
+            exit(1)
+
         print('using asyncio/streams')
         if unix:
             coro = asyncio.start_unix_server(echo_client_streams,
@@ -107,6 +123,17 @@ if __name__ == '__main__':
         else:
             coro = asyncio.start_server(echo_client_streams,
                                         *addr, loop=loop)
+        srv = loop.run_until_complete(coro)
+    elif args.proto:
+        if args.streams:
+            print('cannot use --stream and --proto simultaneously')
+            exit(1)
+
+        print('using simple protocol')
+        if unix:
+            coro = loop.create_unix_server(EchoProtocol, addr)
+        else:
+            coro = loop.create_server(EchoProtocol, *addr)
         srv = loop.run_until_complete(coro)
     else:
         print('using sock_recv/sock_sendall')
