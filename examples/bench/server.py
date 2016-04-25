@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import gc
 import uvloop
+import socket as socket_module
 
 from socket import *
 
@@ -41,14 +42,15 @@ async def echo_client(loop, client):
 
 async def echo_client_streams(reader, writer):
     sock = writer.get_extra_info('socket')
+    if hasattr(socket_module, 'TCP_NODELAY'):
+        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
     if PRINT:
         print('Connection from', sock.getpeername())
     while True:
-         data = await reader.read(10000)
+         data = await reader.read(100000)
          if not data:
              break
          writer.write(data)
-         await writer.drain()
     if PRINT:
         print('Connection closed')
     writer.close()
