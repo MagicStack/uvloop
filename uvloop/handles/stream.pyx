@@ -75,8 +75,6 @@ cdef class UVStream(UVBaseTransport):
         cdef int err
 
         if self.__shutting_down:
-            IF DEBUG:
-                raise RuntimeError('UVStream: second shutdown call')
             return
         self.__shutting_down = 1
 
