@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import gc
 import uvloop
+import os.path
 import socket as socket_module
 
 from socket import *
@@ -102,6 +103,8 @@ if __name__ == '__main__':
     if args.addr.startswith('file:'):
         unix = True
         addr = args.addr[5:]
+        if os.path.exists(addr):
+            os.remove(addr)
     else:
         addr = args.addr.split(':')
         addr[1] = int(addr[1])
