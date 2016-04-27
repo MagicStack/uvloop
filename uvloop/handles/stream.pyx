@@ -279,19 +279,16 @@ cdef class UVStream(UVBaseTransport):
         self._maybe_pause_protocol()
 
     def writelines(self, bufs):
-        self._ensure_alive()
-
-        if self._eof:
-            raise RuntimeError('Cannot call writelines() after write_eof()')
-        if self._conn_lost:
-            self._conn_lost += 1
-            return
-
-        for buf in bufs:
-            if buf:
-                self._write(buf)
-
-        self._maybe_pause_protocol()
+        # Instead of flattening the buffers into one bytes object,
+        # we could simply call `self._write` multiple times.  That
+        # would be more efficient, as we wouldn't be copying data
+        # (and thus allocating more memory).
+        # On the other hand, uvloop would behave differently from
+        # asyncio: where asyncio does one send op, uvloop would do
+        # many send ops.  If the program uses TCP_NODELAY sock opt,
+        # this different behavior may result in uvloop being slower
+        # than asyncio.
+        self.write(b''.join(bufs))
 
     def write_eof(self):
         self._ensure_alive()
