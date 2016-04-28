@@ -189,8 +189,6 @@ cdef class UVStream(UVBaseTransport):
             int err
             _StreamWriteContext ctx
 
-        self._ensure_alive()
-
         if not self._get_write_buffer_size():
             # Try to write without polling only when there is
             # no data in write buffers.
