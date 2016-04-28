@@ -97,6 +97,7 @@ cdef class Loop:
             readonly uint64_t _debug_stream_read_eof_cb_errors_total
             readonly uint64_t _debug_stream_read_errors_total
 
+            readonly uint64_t _debug_stream_write_tries
             readonly uint64_t _debug_stream_write_errors_total
             readonly uint64_t _debug_stream_write_ctx_total
             readonly uint64_t _debug_stream_write_ctx_cnt

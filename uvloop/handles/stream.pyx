@@ -158,17 +158,10 @@ cdef class UVStream(UVBaseTransport):
             self.__reading_stopped()
 
     cdef inline _try_write(self, object data):
-        if self._get_write_buffer_size():
-            # Don't try to write anything as we already have some
-            # data in the write buffers.
-            return
-
         cdef:
             ssize_t written
             int fd
             Py_buffer py_buf
-
-        # Let's try to send the data right away.
 
         fd = self._fileno()
         PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
@@ -185,21 +178,27 @@ cdef class UVStream(UVBaseTransport):
                 exc = convert_error(-errno.errno)
                 self._fatal_error(exc, True)
 
+        IF DEBUG:
+            if written > 0:
+                self._loop._debug_stream_write_tries += 1
+
         return written
 
     cdef inline _write(self, object data):
         cdef:
             int err
-            int sent
             _StreamWriteContext ctx
 
         self._ensure_alive()
 
-        sent = self._try_write(data)
-        if sent > 0:
-            if sent == len(data):
-                return
-            data = data[sent:]
+        if not self._get_write_buffer_size():
+            # Try to write without polling only when there is
+            # no data in write buffers.
+            sent = self._try_write(data)
+            if sent > 0:
+                if sent == len(data):
+                    return
+                data = data[sent:]
 
         ctx = _StreamWriteContext.new(self, data)
 

@@ -97,6 +97,7 @@ cdef class Loop:
             self._debug_stream_shutdown_errors_total = 0
             self._debug_stream_listen_errors_total = 0
 
+            self._debug_stream_write_tries = 0
             self._debug_stream_write_errors_total = 0
             self._debug_stream_write_ctx_total = 0
             self._debug_stream_write_ctx_cnt = 0
@@ -759,6 +760,8 @@ cdef class Loop:
             print('--- Streams debug info: ---')
             print('Write errors:              {}'.format(
                 self._debug_stream_write_errors_total))
+            print('Write without poll:        {}'.format(
+                self._debug_stream_write_tries))
             print('Write contexts:            {: <8} | {}'.format(
                 self._debug_stream_write_ctx_cnt,
                 self._debug_stream_write_ctx_total))
