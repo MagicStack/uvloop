@@ -40,3 +40,19 @@ cdef extern from "sys/socket.h" nogil:
     const char *gai_strerror(int errcode)
 
     int socketpair(int domain, int type, int protocol, int socket_vector[2])
+
+    ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+
+
+cdef extern from "errno.h" nogil:
+
+    cdef:
+        # cython.errno doesn't have EWOULDBLOCK defined.
+        int EINTR
+        int EAGAIN
+        int EWOULDBLOCK
+        int EINPROGRESS
+        int EALREADY
+        int ENOTSOCK
+        int EBADF
+        int ENOSYS

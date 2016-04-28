@@ -20,6 +20,7 @@ cdef class UVStream(UVBaseTransport):
     cdef inline __reading_stopped(self)
 
     cdef inline _write(self, object data)
+    cdef inline _try_write(self, object data)
 
     cdef _close(self)
 
