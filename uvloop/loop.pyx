@@ -993,7 +993,7 @@ cdef class Loop:
         return await self._getnameinfo(ai.ai_addr, flags)
 
     @aio_coroutine
-    async def create_server(self, protocol_factory, host, port,
+    async def create_server(self, protocol_factory, host=None, port=None,
                             *,
                             int family=uv.AF_UNSPEC,
                             int flags=uv.AI_PASSIVE,
@@ -1053,6 +1053,8 @@ cdef class Loop:
                 if not completed:
                     server.close()
         else:
+            if sock is None:
+                raise ValueError('Neither host/port nor sock were specified')
             tcp = TCPServer.new(self, protocol_factory, server, ssl)
             fileno = os_dup(sock.fileno())
             try:

@@ -127,6 +127,10 @@ class _TestTCP:
         self.loop.run_until_complete(start_server_sock())
         self.assertEqual(CNT, TOTAL_CNT)
 
+    def test_create_server_2(self):
+        with self.assertRaisesRegex(ValueError, 'nor sock were specified'):
+            self.loop.run_until_complete(self.loop.create_server(object))
+
     def test_create_connection_1(self):
         CNT = 0
         TOTAL_CNT = 100
