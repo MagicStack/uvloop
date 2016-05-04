@@ -35,14 +35,14 @@ manually, using::
 Development of uvloop
 ---------------------
 
-To build uvloop, you'll need `Cython` and Python 3.5.  The best way
-is to create a virtual env, so that you'll have `cython` and `python`
-commands pointing to the correct tools.
+To build uvloop, you'll need ``Cython`` and Python 3.5.  The best way
+is to create a virtual env, so that you'll have ``cython`` and
+``python`` commands pointing to the correct tools.
 
-1. `git clone --recursive git@github.com:MagicStack/uvloop.git`
+1. ``git clone --recursive git@github.com:MagicStack/uvloop.git``
 
-2. `cd uvloop`
+2. ``cd uvloop``
 
-3. `make`
+3. ``make``
 
-4. `make test`
+4. ``make test``
