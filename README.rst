@@ -1,6 +1,9 @@
 .. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
     :target: https://travis-ci.org/MagicStack/uvloop
 
+.. image:: https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic
+    :target: https://pypi.python.org/pypi/uvloop
+
 
 uvloop is a fast, drop-in replacement of the built-in asyncio
 event loop.  uvloop is implemented in Cython and uses libuv
