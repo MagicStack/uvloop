@@ -9,6 +9,9 @@ uvloop is a fast, drop-in replacement of the built-in asyncio
 event loop.  uvloop is implemented in Cython and uses libuv
 under the hood.
 
+Read more about uvloop here:
+http://magic.io/blog/uvloop-blazing-fast-python-networking/
+
 
 Installation
 ------------
