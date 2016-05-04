@@ -497,6 +497,8 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
+        if port is None:
+            port = 0
         if isinstance(port, str):
             port = port.encode()
         elif isinstance(port, int):
