@@ -131,6 +131,32 @@ class _TestTCP:
         with self.assertRaisesRegex(ValueError, 'nor sock were specified'):
             self.loop.run_until_complete(self.loop.create_server(object))
 
+    def test_create_server_3(self):
+        ''' check ephemeral port can be used '''
+
+        async def start_server_ephemeral_ports():
+
+            for port_sentinel in [0, None]:
+                srv = await self.loop.create_server(
+                    asyncio.Protocol,
+                    '127.0.0.1', port_sentinel,
+                    family=socket.AF_INET)
+
+                srv_socks = srv.sockets
+                self.assertTrue(srv_socks)
+
+                host, port = srv_socks[0].getsockname()
+                self.assertNotEqual(0, port)
+
+                self.loop.call_soon(srv.close)
+                await srv.wait_closed()
+
+                # Check that the server cleaned-up proxy-sockets
+                for srv_sock in srv_socks:
+                    self.assertEqual(srv_sock.fileno(), -1)
+
+        self.loop.run_until_complete(start_server_ephemeral_ports())
+
     def test_create_connection_1(self):
         CNT = 0
         TOTAL_CNT = 100
