@@ -32,8 +32,10 @@ class BaseTestDNS:
             ex.__context__ = err
             raise ex
         else:
-            if err is None:
-                self.assertEqual(a1, a2)
+            if err is not None:
+                raise err
+
+            self.assertEqual(a1, a2)
 
     def _test_getnameinfo(self, *args, **kwargs):
         err = None

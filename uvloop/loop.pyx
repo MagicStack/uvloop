@@ -509,8 +509,6 @@ cdef class Loop:
         if host is not None:
             if not isinstance(host, bytes):
                 raise TypeError('host must be a str or bytes')
-            if host == b'':
-                host = None
 
         fut = self._new_future()
 
