@@ -153,7 +153,27 @@ cdef class AddrInfoRequest(UVRequest):
                   int family, int type, int proto, int flags,
                   object callback):
 
-        cdef int err
+        cdef:
+            int err
+            char *chost
+            char *cport
+
+        if host is None:
+            chost = NULL
+        else:
+            chost = <char*>host
+
+        if port is None:
+            cport = NULL
+        else:
+            cport = <char*>port
+
+        if cport is NULL and chost is NULL:
+            self.on_done()
+            msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
+            ex = socket_gaierror(socket_EAI_NONAME, msg)
+            callback(ex)
+            return
 
         memset(&self.hints, 0, sizeof(system.addrinfo))
         self.hints.ai_flags = flags
@@ -173,8 +193,8 @@ cdef class AddrInfoRequest(UVRequest):
         err = uv.uv_getaddrinfo(loop.uvloop,
                                 <uv.uv_getaddrinfo_t*>self.request,
                                 __on_addrinfo_resolved,
-                                host,
-                                port,
+                                chost,
+                                cport,
                                 &self.hints)
 
         if err < 0:

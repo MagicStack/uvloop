@@ -497,18 +497,20 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
-        if port is None:
-            port = 0
         if isinstance(port, str):
             port = port.encode()
         elif isinstance(port, int):
             port = str(port).encode()
-        if not isinstance(port, bytes):
+        if port is not None and not isinstance(port, bytes):
             raise TypeError('port must be a str, bytes or int')
+
         if isinstance(host, str):
             host = host.encode()
-        if not isinstance(host, bytes):
-            raise TypeError('host must be a str or bytes')
+        if host is not None:
+            if not isinstance(host, bytes):
+                raise TypeError('host must be a str or bytes')
+            if host == b'':
+                host = None
 
         fut = self._new_future()
 

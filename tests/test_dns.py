@@ -26,13 +26,14 @@ class BaseTestDNS:
             if err is not None:
                 self.assertEqual(ex.args, err.args)
             else:
-                raise
+                ex.__context__ = err
+                raise ex
+        except OSError as ex:
+            ex.__context__ = err
+            raise ex
         else:
-            if err is not None:
-                self.fail(
-                    'uv failed, but blocking getaddrinfo run without error')
-
-            self.assertEqual(a1, a2)
+            if err is None:
+                self.assertEqual(a1, a2)
 
     def _test_getnameinfo(self, *args, **kwargs):
         err = None
@@ -54,8 +55,7 @@ class BaseTestDNS:
                 raise
         else:
             if err is not None:
-                self.fail(
-                    'uv failed, but blocking getnameinfo run without error')
+                raise err
 
             self.assertEqual(a1, a2)
 
@@ -75,6 +75,24 @@ class BaseTestDNS:
         self._test_getaddrinfo(_HOST, str(_PORT))
 
     def test_getaddrinfo_6(self):
+        self._test_getaddrinfo(_HOST.encode(), str(_PORT).encode())
+
+    def test_getaddrinfo_7(self):
+        self._test_getaddrinfo(None, 0)
+
+    def test_getaddrinfo_8(self):
+        self._test_getaddrinfo('', 0)
+
+    def test_getaddrinfo_9(self):
+        self._test_getaddrinfo(b'', 0)
+
+    def test_getaddrinfo_10(self):
+        self._test_getaddrinfo(None, None)
+
+    def test_getaddrinfo_11(self):
+        self._test_getaddrinfo(_HOST.encode(), str(_PORT))
+
+    def test_getaddrinfo_12(self):
         self._test_getaddrinfo(_HOST.encode(), str(_PORT).encode())
 
     ######
@@ -117,3 +135,5 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
     pass
+    def test_getaddrinfo_11(self):
+        self._test_getaddrinfo(_HOST.encode(), str(_PORT))
