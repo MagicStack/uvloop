@@ -1,5 +1,8 @@
 recursive-include examples *.py
 recursive-include tests *.py *.pem
 recursive-include uvloop *.pyx *.pxd *.pxi *.py
-recursive-include vendor/libuv *.c *.h LICENSE *.sh *.am *.ac *.m4 *.pc.in
+recursive-include vendor/libuv *
+recursive-exclude vendor/libuv/.git *
+recursive-exclude vendor/libuv/docs *
+recursive-exclude vendor/libuv/img *
 include LICENSE README.rst Makefile

@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test debug sdist clean-libuv sdist-upload
+.PHONY: compile clean all distclean test debug sdist clean-libuv sdist-upload sdist-libuv
 
 
 all: clean compile
@@ -13,6 +13,10 @@ clean:
 
 clean-libuv:
 	git -C vendor/libuv clean -dfX
+
+
+sdist-libuv: clean-libuv
+	/bin/sh vendor/libuv/autogen.sh
 
 
 distclean: clean clean-libuv
@@ -35,9 +39,9 @@ test:
 	python -m unittest discover -s tests
 
 
-sdist: clean compile test clean-libuv
+sdist: clean compile test sdist-libuv
 	python setup.py sdist
 
 
-sdist-upload: clean compile test clean-libuv
+sdist-upload: clean compile test sdist-libuv
 	python setup.py sdist upload

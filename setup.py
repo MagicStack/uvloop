@@ -27,8 +27,10 @@ class libuv_build_ext(build_ext):
 
         j_flag = '-j{}'.format(os.cpu_count() or 1)
 
-        subprocess.run(['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env,
-                       check=True)
+        if not os.path.exists(os.path.join(LIBUV_DIR, 'configure')):
+            subprocess.run(['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env,
+                           check=True)
+
         subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env, check=True)
         subprocess.run(['make', j_flag], cwd=LIBUV_DIR, env=env, check=True)
 
