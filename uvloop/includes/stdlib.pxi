@@ -46,6 +46,7 @@ cdef iter_chain = itertools.chain
 cdef int has_AF_INET6 = hasattr(socket, 'AF_INET6')
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int has_IPPROTO_IPV6 = hasattr(socket, 'IPPROTO_IPV6')
+cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
 
 cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error

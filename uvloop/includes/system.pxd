@@ -43,6 +43,9 @@ cdef extern from "sys/socket.h" nogil:
 
     ssize_t send(int sockfd, const void *buf, size_t len, int flags);
 
+    int setsockopt(int socket, int level, int option_name,
+                   const void *option_value, int option_len)
+
 
 cdef extern from "errno.h" nogil:
 

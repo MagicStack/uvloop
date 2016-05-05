@@ -689,6 +689,21 @@ cdef class Loop:
         else:
             fut.set_result(None)
 
+    cdef _sock_set_reuseport(self, int fd):
+        cdef:
+            int err
+            int reuseport_flag = 1
+
+        err = system.setsockopt(
+            fd,
+            uv.SOL_SOCKET,
+            SO_REUSEPORT,
+            <char*>&reuseport_flag,
+            sizeof(reuseport_flag))
+
+        if err < 0:
+            raise convert_error(-errno.errno)
+
     cdef _set_coroutine_wrapper(self, bint enabled):
         enabled = bool(enabled)
         if self._coroutine_wrapper_set == enabled:
@@ -1003,7 +1018,7 @@ cdef class Loop:
                             int backlog=100,
                             ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
-                            reuse_port=None):    # ignored
+                            reuse_port=None):
 
         cdef:
             TCPServer tcp
@@ -1017,6 +1032,11 @@ cdef class Loop:
             if sock is not None:
                 raise ValueError(
                     'host/port and sock can not be specified at the same time')
+
+            reuse_port = bool(reuse_port)
+            if reuse_port and not has_SO_REUSEPORT:
+                raise ValueError(
+                    'reuse_port not supported by socket module')
 
             if host == '':
                 hosts = [None]
@@ -1036,8 +1056,15 @@ cdef class Loop:
                 for info in infos:
                     addrinfo = (<AddrInfo>info).data
                     while addrinfo != NULL:
+                        if addrinfo.ai_family == uv.AF_UNSPEC:
+                            raise RuntimeError('AF_UNSPEC in DNS results')
+
                         tcp = TCPServer.new(
-                            self, protocol_factory, server, ssl)
+                            self, protocol_factory, server, ssl,
+                            addrinfo.ai_family)
+
+                        if reuse_port:
+                            self._sock_set_reuseport(tcp._fileno())
 
                         try:
                             tcp.bind(addrinfo.ai_addr)
@@ -1057,7 +1084,8 @@ cdef class Loop:
         else:
             if sock is None:
                 raise ValueError('Neither host/port nor sock were specified')
-            tcp = TCPServer.new(self, protocol_factory, server, ssl)
+            tcp = TCPServer.new(self, protocol_factory, server, ssl,
+                                uv.AF_UNSPEC)
             fileno = os_dup(sock.fileno())
             try:
                 tcp.open(fileno)
@@ -1684,6 +1712,10 @@ cdef class Loop:
             udp._attach_fileobj(sock)
         else:
             reuse_address = bool(reuse_address)
+            reuse_port = bool(reuse_port)
+            if reuse_port and not has_SO_REUSEPORT:
+                raise ValueError(
+                    'reuse_port not supported by socket module')
 
             lads = None
             if local_addr is not None:
@@ -1720,6 +1752,9 @@ cdef class Loop:
                     udp = UDPTransport.__new__(UDPTransport)
                     udp._init(self, family)
 
+                if reuse_port:
+                    self._sock_set_reuseport(udp._fileno())
+
                 socket = udp._get_socket()
                 socket.bind(('0.0.0.0', 0))
             else:
@@ -1728,6 +1763,8 @@ cdef class Loop:
                     try:
                         udp = UDPTransport.__new__(UDPTransport)
                         udp._init(self, lai.ai_family)
+                        if reuse_port:
+                            self._sock_set_reuseport(udp._fileno())
                         udp._bind(lai.ai_addr, reuse_address)
                     except Exception as ex:
                         lai = lai.ai_next

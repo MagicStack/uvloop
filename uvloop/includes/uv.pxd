@@ -319,7 +319,7 @@ cdef extern from "../vendor/libuv/include/uv.h" nogil:
 
     # TCP
 
-    int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle)
+    int uv_tcp_init_ex(uv_loop_t*, uv_tcp_t* handle, unsigned int flags)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)

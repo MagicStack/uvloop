@@ -68,6 +68,7 @@ class _TestUDP:
                 coro = self.loop.create_datagram_endpoint(
                     lambda: MyDatagramProto(loop=self.loop),
                     family=socket.AF_INET,
+                    reuse_port=getattr(socket, 'SO_REUSEPORT', None),
                     remote_addr=None if lc is None else (host, port))
                 transport, client = self.loop.run_until_complete(coro)
 

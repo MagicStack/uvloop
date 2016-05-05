@@ -159,6 +159,8 @@ cdef class Loop:
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
 
+    cdef _sock_set_reuseport(self, int fd)
+
     cdef _set_coroutine_wrapper(self, bint enabled)
 
 

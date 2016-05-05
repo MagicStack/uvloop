@@ -4,7 +4,7 @@ cdef class TCPServer(UVStreamServer):
 
     @staticmethod
     cdef TCPServer new(Loop loop, object protocol_factory, Server server,
-                       object ssl)
+                       object ssl, unsigned int flags)
 
 
 cdef class TCPTransport(UVStream):

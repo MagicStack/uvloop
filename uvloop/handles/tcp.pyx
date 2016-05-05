@@ -1,4 +1,4 @@
-cdef __tcp_init_uv_handle(UVStream handle, Loop loop):
+cdef __tcp_init_uv_handle(UVStream handle, Loop loop, unsigned int flags):
     cdef int err
 
     handle._handle = <uv.uv_handle_t*> \
@@ -7,7 +7,9 @@ cdef __tcp_init_uv_handle(UVStream handle, Loop loop):
         handle._abort_init()
         raise MemoryError()
 
-    err = uv.uv_tcp_init(handle._loop.uvloop, <uv.uv_tcp_t*>handle._handle)
+    err = uv.uv_tcp_init_ex(handle._loop.uvloop,
+                            <uv.uv_tcp_t*>handle._handle,
+                            flags)
     if err < 0:
         handle._abort_init()
         raise convert_error(err)
@@ -56,12 +58,12 @@ cdef class TCPServer(UVStreamServer):
 
     @staticmethod
     cdef TCPServer new(Loop loop, object protocol_factory, Server server,
-                         object ssl):
+                       object ssl, unsigned int flags):
 
         cdef TCPServer handle
         handle = TCPServer.__new__(TCPServer)
         handle._init(loop, protocol_factory, server, ssl)
-        __tcp_init_uv_handle(<UVStream>handle, loop)
+        __tcp_init_uv_handle(<UVStream>handle, loop, flags)
         return handle
 
     cdef _new_socket(self):
@@ -101,7 +103,7 @@ cdef class TCPTransport(UVStream):
         cdef TCPTransport handle
         handle = TCPTransport.__new__(TCPTransport)
         handle._init(loop, protocol, server, waiter)
-        __tcp_init_uv_handle(<UVStream>handle, loop)
+        __tcp_init_uv_handle(<UVStream>handle, loop, uv.AF_UNSPEC)
         handle.__peername_set = 0
         handle.__sockname_set = 0
         return handle

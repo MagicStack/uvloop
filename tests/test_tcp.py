@@ -66,6 +66,7 @@ class _TestTCP:
             srv = await asyncio.start_server(
                 handle_client,
                 addrs, 0,
+                reuse_port=getattr(socket, 'SO_REUSEPORT', None),
                 family=socket.AF_INET,
                 loop=self.loop)
 
