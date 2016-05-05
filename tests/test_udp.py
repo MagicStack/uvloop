@@ -3,6 +3,7 @@ import logging
 import socket
 import uvloop
 import ssl
+import sys
 import warnings
 
 from asyncio import test_utils
@@ -65,11 +66,16 @@ class _TestUDP:
                 self.assertEqual('INITIALIZED', server.state)
                 self.assertIs(server.transport, s_transport)
 
+                extra = {}
+                if hasattr(socket, 'SO_REUSEPORT') and \
+                        sys.version_info[:3] >= (3, 5, 1):
+                    extra['reuse_port'] = True
+
                 coro = self.loop.create_datagram_endpoint(
                     lambda: MyDatagramProto(loop=self.loop),
                     family=socket.AF_INET,
-                    reuse_port=getattr(socket, 'SO_REUSEPORT', None),
-                    remote_addr=None if lc is None else (host, port))
+                    remote_addr=None if lc is None else (host, port),
+                    **extra)
                 transport, client = self.loop.run_until_complete(coro)
 
                 self.assertIsInstance(client, MyDatagramProto)

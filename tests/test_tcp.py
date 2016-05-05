@@ -3,6 +3,7 @@ import logging
 import socket
 import uvloop
 import ssl
+import sys
 import warnings
 
 from uvloop import _testbase as tb
@@ -63,12 +64,17 @@ class _TestTCP:
                 # (asyncio doesn't support multiple hosts in 3.5.0)
                 addrs = '127.0.0.1'
 
+            extra = {}
+            if hasattr(socket, 'SO_REUSEPORT') and \
+                    sys.version_info[:3] >= (3, 5, 1):
+                extra['reuse_port'] = True
+
             srv = await asyncio.start_server(
                 handle_client,
                 addrs, 0,
-                reuse_port=getattr(socket, 'SO_REUSEPORT', None),
                 family=socket.AF_INET,
-                loop=self.loop)
+                loop=self.loop,
+                **extra)
 
             srv_socks = srv.sockets
             self.assertTrue(srv_socks)
