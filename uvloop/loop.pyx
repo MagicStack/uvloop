@@ -505,7 +505,7 @@ cdef class Loop:
             raise TypeError('port must be a str, bytes or int')
 
         if isinstance(host, str):
-            host = host.encode()
+            host = host.encode('idna')
         if host is not None:
             if not isinstance(host, bytes):
                 raise TypeError('host must be a str or bytes')
