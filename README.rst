@@ -16,7 +16,8 @@ http://magic.io/blog/uvloop-blazing-fast-python-networking/
 Installation
 ------------
 
-uvloop is available on PyPI, so you can simply use pip::
+uvloop requires Python 3.5 and is available on PyPI.
+Use pip to install it::
 
     $ pip install uvloop
 
