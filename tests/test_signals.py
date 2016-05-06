@@ -262,6 +262,18 @@ finally:
 
         self.loop.run_until_complete(runner())
 
+    def test_signals_invalid_signal(self):
+        with self.assertRaisesRegex(RuntimeError,
+                                    'sig {} cannot be caught'.format(
+                                        signal.SIGKILL)):
+
+            self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
+
+    def test_signals_coro_callback(self):
+        async def coro(): pass
+        with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
+            self.loop.add_signal_handler(signal.SIGHUP, coro)
+
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'

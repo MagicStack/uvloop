@@ -1657,7 +1657,14 @@ cdef class Loop:
             # any signals installed by user
             return
 
-        uvs.start()
+        try:
+            uvs.start()
+        except OSError as exc:
+            del self._signal_handlers[sig]
+            if exc.errno == errno.EINVAL:
+                raise RuntimeError('sig {} cannot be caught'.format(sig))
+            else:
+                raise
 
     def remove_signal_handler(self, sig):
         cdef:
