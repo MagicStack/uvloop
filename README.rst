@@ -25,14 +25,18 @@ Using uvloop
 ------------
 
 To make asyncio use uvloop, you can install the uvloop event
-loop policy::
+loop policy:
+
+.. code:: python
 
     import asyncio
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 Or, alternatively, you can create an instance of the loop
-manually, using::
+manually, using:
+
+.. code:: python
 
     loop = uvloop.new_event_loop()
     asyncio.set_event_loop(loop)
