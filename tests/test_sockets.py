@@ -82,6 +82,23 @@ class _TestSockets:
 
         self.loop.run_until_complete(run())
 
+    def test_socket_blocking_error(self):
+        self.loop.set_debug(True)
+        sock = socket.socket()
+
+        with sock:
+            with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
+                self.loop.sock_recv(sock, 0)
+
+            with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
+                self.loop.sock_sendall(sock, b'')
+
+            with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
+                self.loop.sock_accept(sock)
+
+            with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
+                self.loop.sock_connect(sock, (b'', 0))
+
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
     pass
