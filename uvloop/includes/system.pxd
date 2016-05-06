@@ -59,4 +59,3 @@ cdef extern from "errno.h" nogil:
         int ENOTSOCK
         int EBADF
         int ENOSYS
-        int EINVAL
