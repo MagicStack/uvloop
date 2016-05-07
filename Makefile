@@ -1,11 +1,12 @@
-.PHONY: compile clean all distclean test debug sdist clean-libuv sdist-upload sdist-libuv
+.PHONY: compile clean all distclean test debug sdist clean-libuv \
+	sdist-upload sdist-libuv docs
 
 
 all: clean compile
 
 
 clean:
-	rm -fr dist/
+	rm -fr dist/ doc/_build/
 	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so build *.egg-info
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
@@ -32,6 +33,10 @@ debug: clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
 	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
 	python setup.py build_ext --inplace
+
+
+docs:
+	@make -C docs html
 
 
 test:

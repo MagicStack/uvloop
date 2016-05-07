@@ -1,4 +1,5 @@
 recursive-include examples *.py
+recursive-include docs *
 recursive-include tests *.py *.pem
 recursive-include uvloop *.pyx *.pxd *.pxi *.py
 recursive-include vendor/libuv *
