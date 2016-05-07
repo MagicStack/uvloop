@@ -55,7 +55,7 @@ class libuv_build_ext(build_ext):
 setup(
     name='uvloop',
     description='Fast implementation of asyncio event loop on top of libuv',
-    version='0.4.13',
+    version='0.4.14',
     packages=['uvloop'],
     cmdclass={'build_ext': libuv_build_ext},
     ext_modules=[
