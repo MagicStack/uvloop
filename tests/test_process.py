@@ -1,15 +1,12 @@
 import asyncio
 import contextlib
 import signal
-import socket
 import subprocess
 import sys
 import tempfile
-import uvloop
 
 from asyncio import test_utils
 from uvloop import _testbase as tb
-from test import support
 
 
 class _TestProcess:
@@ -276,12 +273,12 @@ class _AsyncioTests:
         def len_message(message):
             code = 'import sys; data = sys.stdin.read(); print(len(data))'
             proc = yield from asyncio.create_subprocess_exec(
-                                          sys.executable, '-c', code,
-                                          stdin=asyncio.subprocess.PIPE,
-                                          stdout=asyncio.subprocess.PIPE,
-                                          stderr=asyncio.subprocess.PIPE,
-                                          close_fds=False,
-                                          loop=self.loop)
+                sys.executable, '-c', code,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                close_fds=False,
+                loop=self.loop)
             stdout, stderr = yield from proc.communicate(message)
             exitcode = yield from proc.wait()
             return (stdout, exitcode)
@@ -296,10 +293,10 @@ class _AsyncioTests:
         @asyncio.coroutine
         def run(data):
             proc = yield from asyncio.create_subprocess_exec(
-                                          *args,
-                                          stdin=subprocess.PIPE,
-                                          stdout=subprocess.PIPE,
-                                          loop=self.loop)
+                *args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                loop=self.loop)
 
             # feed data
             proc.stdin.write(data)
@@ -323,10 +320,10 @@ class _AsyncioTests:
         @asyncio.coroutine
         def run(data):
             proc = yield from asyncio.create_subprocess_exec(
-                                          *args,
-                                          stdin=subprocess.PIPE,
-                                          stdout=subprocess.PIPE,
-                                          loop=self.loop)
+                *args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                loop=self.loop)
             stdout, stderr = yield from proc.communicate(data)
             return proc.returncode, stdout
 
@@ -389,35 +386,14 @@ class _AsyncioTests:
         returncode = self.loop.run_until_complete(send_signal(proc))
         self.assertEqual(-signal.SIGHUP, returncode)
 
-    def test_stdin_not_inheritable(self):
-        # asyncio issue #209: stdin must not be inheritable, otherwise
-        # the Process.communicate() hangs
-        @asyncio.coroutine
-        def len_message(message):
-            code = 'import sys; data = sys.stdin.read(); print(len(data))'
-            proc = yield from asyncio.create_subprocess_exec(
-                                          sys.executable, '-c', code,
-                                          stdin=asyncio.subprocess.PIPE,
-                                          stdout=asyncio.subprocess.PIPE,
-                                          stderr=asyncio.subprocess.PIPE,
-                                          close_fds=False,
-                                          loop=self.loop)
-            stdout, stderr = yield from proc.communicate(message)
-            exitcode = yield from proc.wait()
-            return (stdout, exitcode)
-
-        output, exitcode = self.loop.run_until_complete(len_message(b'abc'))
-        self.assertEqual(output.rstrip(), b'3')
-        self.assertEqual(exitcode, 0)
-
     def test_cancel_process_wait(self):
         # Issue #23140: cancel Process.wait()
 
         @asyncio.coroutine
         def cancel_wait():
             proc = yield from asyncio.create_subprocess_exec(
-                                          *self.PROGRAM_BLOCKED,
-                                          loop=self.loop)
+                *self.PROGRAM_BLOCKED,
+                loop=self.loop)
 
             # Create an internal future waiting on the process exit
             task = self.loop.create_task(proc.wait())

@@ -147,6 +147,7 @@ class _BasePipeTest:
         transport.write(b'1')
 
         data = bytearray()
+
         def reader(data):
             chunk = os.read(rpipe, 1024)
             data += chunk
@@ -205,6 +206,7 @@ class _BasePipeTest:
         transport.write(b'1')
 
         data = bytearray()
+
         def reader(data):
             chunk = os.read(master, 1024)
             data += chunk

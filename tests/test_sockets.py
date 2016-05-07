@@ -1,6 +1,4 @@
-import asyncio
 import socket
-import uvloop
 
 from uvloop import _testbase as tb
 

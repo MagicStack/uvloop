@@ -131,8 +131,8 @@ class _TestBase:
 
             loop.set_debug(debug)
             if debug:
-                msg = ("Non-thread-safe operation invoked on an event loop other "
-                      "than the current one")
+                msg = ("Non-thread-safe operation invoked on an "
+                       "event loop other than the current one")
                 with self.assertRaisesRegex(RuntimeError, msg):
                     loop.call_soon(cb)
                 with self.assertRaisesRegex(RuntimeError, msg):
@@ -189,6 +189,7 @@ class _TestBase:
 
     def test_run_once_in_executor_plain(self):
         called = []
+
         def cb(arg):
             called.append(arg)
 
@@ -206,18 +207,17 @@ class _TestBase:
         self.assertFalse(self.loop.get_debug())
 
     def test_run_until_complete_type_error(self):
-        self.assertRaises(TypeError,
-            self.loop.run_until_complete, 'blah')
+        self.assertRaises(
+            TypeError, self.loop.run_until_complete, 'blah')
 
     def test_run_until_complete_loop(self):
         task = asyncio.Future(loop=self.loop)
         other_loop = self.new_loop()
         self.addCleanup(other_loop.close)
-        self.assertRaises(ValueError,
-            other_loop.run_until_complete, task)
+        self.assertRaises(
+            ValueError, other_loop.run_until_complete, task)
 
     def test_run_until_complete_error(self):
-        task = asyncio.Future(loop=self.loop)
         async def foo():
             raise ValueError('aaa')
         with self.assertRaisesRegex(ValueError, 'aaa'):
@@ -228,7 +228,7 @@ class _TestBase:
 
         def zero_error(fut):
             fut.set_result(True)
-            1/0
+            1 / 0
 
         logger = logging.getLogger('asyncio')
 
@@ -258,11 +258,12 @@ class _TestBase:
         def run_loop():
             def zero_error():
                 self.loop.stop()
-                1/0
+                1 / 0
             self.loop.call_soon(zero_error)
             self.loop.run_forever()
 
         errors = []
+
         def handler(loop, exc):
             errors.append(exc)
 
@@ -278,8 +279,8 @@ class _TestBase:
         with mock.patch.object(logger, 'error') as log:
             run_loop()
             log.assert_called_with(
-                        self.mock_pattern('Exception in callback.*zero'),
-                        exc_info=mock.ANY)
+                self.mock_pattern('Exception in callback.*zero'),
+                exc_info=mock.ANY)
 
         self.assertEqual(len(errors), 1)
 
@@ -289,7 +290,7 @@ class _TestBase:
         def run_loop():
             def zero_error():
                 self.loop.stop()
-                1/0
+                1 / 0
             self.loop.call_soon(zero_error)
             self.loop.run_forever()
 
@@ -328,7 +329,7 @@ class _TestBase:
         def run_loop():
             def zero_error():
                 loop.stop()
-                1/0
+                1 / 0
             loop.call_soon(zero_error)
             loop.run_forever()
 
@@ -358,7 +359,8 @@ class _TestBase:
 
     def test_set_task_factory_invalid(self):
         with self.assertRaisesRegex(
-            TypeError, 'task factory must be a callable or None'):
+                TypeError,
+                'task factory must be a callable or None'):
 
             self.loop.set_task_factory(1)
 

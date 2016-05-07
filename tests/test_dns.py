@@ -1,6 +1,4 @@
-import asyncio
 import socket
-import uvloop
 import unittest
 
 from uvloop import _testbase as tb
@@ -136,6 +134,6 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
-    pass
+
     def test_getaddrinfo_11(self):
         self._test_getaddrinfo(_HOST.encode(), str(_PORT))
