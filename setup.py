@@ -55,6 +55,11 @@ class libuv_build_ext(build_ext):
 setup(
     name='uvloop',
     description='Fast implementation of asyncio event loop on top of libuv',
+    url='http://github.com/MagicStack/uvloop',
+    license='MIT',
+    author='Yury Selivanov',
+    author_email='yury@magic.io',
+    platforms=['*nix'],
     version='0.4.14',
     packages=['uvloop'],
     cmdclass={'build_ext': libuv_build_ext},
