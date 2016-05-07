@@ -110,7 +110,6 @@ cdef class Handle:
         self._cancel()
 
 
-@cython.internal
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class TimerHandle:
