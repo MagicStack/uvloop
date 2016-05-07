@@ -1,10 +1,7 @@
 import asyncio
-import logging
 import socket
 import uvloop
-import ssl
 import sys
-import warnings
 
 from asyncio import test_utils
 from uvloop import _testbase as tb

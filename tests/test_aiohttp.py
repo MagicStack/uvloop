@@ -6,8 +6,6 @@ except ImportError:
 else:
     skip_tests = False
 
-import asyncio
-import uvloop
 import unittest
 
 from uvloop import _testbase as tb

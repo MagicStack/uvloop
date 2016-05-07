@@ -2,8 +2,6 @@ import asyncio
 import os
 import socket
 import tempfile
-import uvloop
-import unittest.mock
 
 from uvloop import _testbase as tb
 
@@ -113,7 +111,6 @@ class _TestUnix:
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
-
 
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
@@ -246,7 +243,8 @@ class _TestUnix:
             for _ in range(TOTAL_CNT):
                 tasks.append(coro(srv.addr))
 
-            self.loop.run_until_complete(asyncio.gather(*tasks, loop=self.loop))
+            self.loop.run_until_complete(
+                asyncio.gather(*tasks, loop=self.loop))
             srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
@@ -293,7 +291,7 @@ class _TestUnix:
 
         self.assertEqual(len(excs), 1)
         self.assertIn(excs[0].__class__,
-            (BrokenPipeError, ConnectionResetError))
+                      (BrokenPipeError, ConnectionResetError))
 
     def test_transport_fromsock_get_extra_info(self):
         async def test(sock):

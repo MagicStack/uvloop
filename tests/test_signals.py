@@ -3,7 +3,6 @@ import signal
 import subprocess
 import sys
 import time
-import uvloop
 
 from uvloop import _testbase as tb
 
