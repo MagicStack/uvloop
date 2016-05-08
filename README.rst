@@ -1,8 +1,18 @@
-.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
-    :target: https://travis-ci.org/MagicStack/uvloop
+
+.. image:: https://img.shields.io/pypi/v/uvloop.svg
+   :target: https://pypi.python.org/pypi/uvloop
 
 .. image:: https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic
     :target: https://pypi.python.org/pypi/uvloop
+
+.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
+    :target: https://travis-ci.org/MagicStack/uvloop
+
+.. image:: https://img.shields.io/pypi/dm/uvloop.svg
+   :target: https://pypi.python.org/pypi/uvloop
+
+.. image:: https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat
+   :target: http://uvloop.readthedocs.org/en/latest/
 
 
 uvloop is a fast, drop-in replacement of the built-in asyncio

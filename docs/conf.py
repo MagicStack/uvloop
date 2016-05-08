@@ -34,7 +34,6 @@ sys.path.insert(0, os.path.abspath('..'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-#     'sphinx.ext.viewcode',
     'alabaster',
 ]
 
@@ -125,10 +124,6 @@ html_theme_options = {
     # 'logo_name': 'uvloop',
     'description': 'uvloop is an ultra fast implementation of the '
                    'asyncio event loop on top of libuv.',
-    # 'github_button': True,
-    # 'github_user': 'MagicStack',
-    # 'github_repo': 'uvloop',
-    # 'travis_button': True,
     'show_powered_by': False,
 }
 
