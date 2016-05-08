@@ -12,6 +12,8 @@ under the hood.
 Read more about uvloop here:
 http://magic.io/blog/uvloop-blazing-fast-python-networking/
 
+uvloop project documentation can be found `here <http://uvloop.readthedocs.org/>`_
+
 
 Installation
 ------------
