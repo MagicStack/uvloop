@@ -3,7 +3,7 @@ import socket
 import uvloop
 import sys
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 class _TestTCP:

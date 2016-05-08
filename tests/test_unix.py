@@ -3,7 +3,7 @@ import os
 import socket
 import tempfile
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 class _TestUnix:

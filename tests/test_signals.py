@@ -1,12 +1,22 @@
 import asyncio
+import os
 import signal
 import subprocess
 import sys
 import time
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 DELAY = 0.1
+
+# Explicitly set the current working directory for the subprocesses
+# to ensure they work when run from test entry point location (e.g.
+# via `make test` or from within the tests directory using using
+# `unittest`.
+TESTS_DIR = os.path.dirname(__file__)
+
+_PYTHONPATH = '{}:{}'.format(
+    os.path.dirname(TESTS_DIR), os.environ.get('PYTHONPATH', ''))
 
 
 class _TestSignal:
@@ -20,7 +30,7 @@ import asyncio
 import uvloop
 import time
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 async def worker():
     print('READY', flush=True)
@@ -37,11 +47,15 @@ def run():
 
 run()
 """
-
+            # explicitly define cwd and env to ensure that
+            # the developmental uvloop is used and that the
+            # tests run from anywhere.
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                cwd=TESTS_DIR,
+                env={'PYTHONPATH': _PYTHONPATH},
                 loop=self.loop)
 
             await proc.stdout.readline()
@@ -61,7 +75,7 @@ import asyncio
 import uvloop
 import time
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 async def worker():
     print('READY', flush=True)
@@ -83,11 +97,15 @@ def run():
 
 run()
 """
-
+            # explicitly define cwd and env to ensure that
+            # the developmental uvloop is used and that the
+            # tests run from anywhere.
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                cwd=TESTS_DIR,
+                env={'PYTHONPATH': _PYTHONPATH},
                 loop=self.loop)
 
             await proc.stdout.readline()

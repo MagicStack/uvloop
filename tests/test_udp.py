@@ -4,7 +4,7 @@ import uvloop
 import sys
 
 from asyncio import test_utils
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 class MyDatagramProto(asyncio.DatagramProtocol):

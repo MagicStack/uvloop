@@ -6,7 +6,7 @@ import sys
 import tempfile
 
 from asyncio import test_utils
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 class _TestProcess:
