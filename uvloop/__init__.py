@@ -19,15 +19,17 @@ def new_event_loop():
 
 
 class EventLoopPolicy(__BasePolicy):
-    """Event loop policy.
+    """ The uvloop event loop policy creates uvloop event loops.
 
     The preferred way to make your application use uvloop:
 
-    >>> import asyncio
-    >>> import uvloop
-    >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    >>> asyncio.get_event_loop()
-    <uvloop._Loop running=False closed=False debug=False>
+    .. code-block:: python
+
+        >>> import asyncio
+        >>> import uvloop
+        >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        >>> asyncio.get_event_loop()
+        <uvloop._Loop running=False closed=False debug=False>
     """
 
     def _loop_factory(self):
