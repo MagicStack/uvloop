@@ -121,13 +121,14 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'logo': 'logo-128.png',
-    'description': 'An ultra fast implementation of the asyncio '
-                   'event loop on top of libuv.',
-    'github_button': True,
-    'github_user': 'MagicStack',
-    'github_repo': 'uvloop',
-    'travis_button': True,
+    # 'logo': 'logo-128.png',
+    # 'logo_name': 'uvloop',
+    'description': 'uvloop is an ultra fast implementation of the '
+                   'asyncio event loop on top of libuv.',
+    # 'github_button': True,
+    # 'github_user': 'MagicStack',
+    # 'github_repo': 'uvloop',
+    # 'travis_button': True,
     'show_powered_by': False,
 }
 
@@ -148,7 +149,7 @@ html_short_title = 'uvloop'
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-html_favicon = '_static/favicon.ico'
+# html_favicon = '_static/favicon.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

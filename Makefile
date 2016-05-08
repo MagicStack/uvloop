@@ -1,5 +1,5 @@
-.PHONY: compile clean all distclean test debug sdist clean-libuv \
-	sdist-upload sdist-libuv docs
+.PHONY: compile clean all distclean test debug sdist clean-libuv
+.PHONY:	sdist-upload sdist-libuv docs
 
 
 all: clean compile

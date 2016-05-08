@@ -8,18 +8,13 @@ uvloop as well as how to use uvloop.
 Installation
 ------------
 
-`uvloop` is available from PyPI. It requires Python 3.5 and Cython.
+`uvloop` is available from PyPI. It requires Python 3.5.
 
 Use pip to install it.
 
 .. code-block:: console
 
     $ pip install uvloop
-
-.. note::
-
-    Use the latest version of Cython to minimise the potential for build
-    issues.
 
 
 Using uvloop

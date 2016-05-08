@@ -6,8 +6,6 @@
         <img src="https://img.shields.io/pypi/v/uvloop.svg" />
         <img src="https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic" />
         <img src="https://img.shields.io/travis/MagicStack/uvloop/master.svg" />
-        <img src="https://img.shields.io/pypi/dm/uvloop.svg" />
-        <img src="https://readthedocs.org/projects/uvloop/badge/?version=latest&style=flat" />
         <br />
         <br />
       </center>
@@ -26,6 +24,7 @@ makes it easier than ever to write high-performance networking code in Python.
 gevent, as well as any other Python asynchronous framework. The performance of
 uvloop-based asyncio is close to that of Go programs.
 
+You can read more about uvloop in this `blog post <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_.
 
 Architecture
 ------------

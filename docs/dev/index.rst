@@ -5,6 +5,10 @@ The project is hosted on `GitHub <https://github.com/MagicStack/uvloop>`_.
 and uses `Travis <https://travis-ci.org/MagicStack/uvloop>`_ for
 Continuous Integration.
 
+A goal for the `uvloop` project is to provide a drop in replacement for the
+`asyncio` event loop. Any deviation from the behavior of the reference
+`asyncio` event loop is considered a bug.
+
 If you have found a bug or have an idea for an enhancement that would
 improve the library, use the `bug tracker <https://github.com/MagicStack/uvloop/issues>`_.
 
@@ -38,7 +42,14 @@ To build `uvloop`, you'll need `Cython` and Python 3.5.
         $ source bin/activate
         $ cd ..
 
-To build `uvloop` run the ``make`` rule from the top level directory.
+Install Cython if not already present.
+
+.. code-block:: console
+
+    $ pip install Cython
+
+
+Build `uvloop` by running the ``make`` rule from the top level directory.
 
 .. code-block:: console
 
@@ -77,26 +88,51 @@ Individual Tests
 Running a specific unittest or even a specific test method is useful for
 developer productivity by facilitating faster development iteration.
 
-Individual unit tests can be run from the ``tests`` directory.
+Individual unit tests can be run using the standard library ``unittest``
+or ``pytest``.
 
-During development you are not working with an installed package so to ensure
-that the `uvloop` package can be resolved you must specify the ``PYTHONPATH``.
+During development you are not working with an installed package. With either
+approach you need to ensure that the `uvloop` package can be resolved. To do
+this you must specify the ``PYTHONPATH`` before launching Python.
 
-The following example shows how to run the tests within the ``test_tcp.py``
-file.
+
+unittest
+^^^^^^^^
+
+The following example shows how to use ``unittest`` to run all the tests
+within a specific test file.
 
 .. code-block:: console
 
     $ cd uvloop/tests
     $ PYTHONPATH=$PWD/.. python -m unittest test_tcp
 
-To run a specific test method you need to provide the full module path to the
-test.
+You can also run a specific test method too:
 
 .. code-block:: console
 
     $ cd uvloop/tests
     PYTHONPATH=$PWD/.. python -m unittest test_tcp.Test_UV_TCP.test_create_server_1
+
+
+pytest
+^^^^^^
+
+The same can be achived with ``pytest`` if you prefer to use that.
+
+Individual tests can be run from the top level directory:
+
+.. code-block:: console
+
+    $ cd uvloop
+    $ PYTHONPATH=. py.test -k test_signals_sigint_uvcode
+
+Or from within the tests directory:
+
+.. code-block:: console
+
+    $ cd uvloop/tests
+    $ PYTHONPATH=$PWD/.. py.test -k test_signals_sigint_uvcode
 
 
 Documentation
