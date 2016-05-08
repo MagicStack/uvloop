@@ -7,7 +7,7 @@ import uvloop
 import unittest
 
 from unittest import mock
-from uvloop._testbase import UVTestCase, AIOTestCase
+from _testbase import UVTestCase, AIOTestCase
 
 
 class _TestBase:

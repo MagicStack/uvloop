@@ -62,8 +62,8 @@ class BaseTestCase(unittest.TestCase):
 
 def _cert_fullname(name):
     fullname = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'tests', 'certs', name)
+        os.path.dirname(__file__),
+        'certs', name)
     assert os.path.isfile(fullname)
     return fullname
 

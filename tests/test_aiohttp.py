@@ -8,7 +8,7 @@ else:
 
 import unittest
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 class _TestAioHTTP:

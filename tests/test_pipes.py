@@ -3,7 +3,7 @@ import io
 import os
 
 from asyncio import test_utils
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 # All tests are copied from asyncio (mostly as-is)

@@ -1,7 +1,7 @@
 import socket
 import unittest
 
-from uvloop import _testbase as tb
+import _testbase as tb
 
 
 _HOST, _PORT = ('example.com', 80)
