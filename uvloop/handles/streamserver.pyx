@@ -65,9 +65,14 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef _fatal_error(self, exc, throw, reason=None):
         # Overload UVHandle._fatal_error
 
+        self._close()
+
         if not isinstance(exc, (BrokenPipeError,
                                 ConnectionResetError,
                                 ConnectionAbortedError)):
+
+            if throw or self._loop is None:
+                raise exc
 
             msg = 'Fatal error on server {}'.format(
                     self.__class__.__name__)
@@ -78,8 +83,6 @@ cdef class UVStreamServer(UVSocketHandle):
                 'message': msg,
                 'exception': exc,
             })
-
-        self._close()
 
     cdef inline _mark_as_open(self):
         self.opened = 1

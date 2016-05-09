@@ -39,9 +39,14 @@ cdef class UVBaseTransport(UVSocketHandle):
     cdef _fatal_error(self, exc, throw, reason=None):
         # Overload UVHandle._fatal_error
 
+        self._force_close(exc)
+
         if not isinstance(exc, (BrokenPipeError,
                                 ConnectionResetError,
                                 ConnectionAbortedError)):
+
+            if throw or self._loop is None:
+                raise exc
 
             msg = 'Fatal error on transport {}'.format(
                     self.__class__.__name__)
@@ -54,8 +59,6 @@ cdef class UVBaseTransport(UVSocketHandle):
                 'transport': self,
                 'protocol': self._protocol,
             })
-
-        self._force_close(exc)
 
     cdef inline _set_write_buffer_limits(self, int high=-1, int low=-1):
         if high == -1:
