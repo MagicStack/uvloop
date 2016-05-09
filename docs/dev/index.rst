@@ -10,7 +10,8 @@ A goal for the `uvloop` project is to provide a drop in replacement for the
 `asyncio` event loop is considered a bug.
 
 If you have found a bug or have an idea for an enhancement that would
-improve the library, use the `bug tracker <https://github.com/MagicStack/uvloop/issues>`_.
+improve the library, use the
+`bug tracker <https://github.com/MagicStack/uvloop/issues>`_.
 
 
 Get the source

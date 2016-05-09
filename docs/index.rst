@@ -1,12 +1,8 @@
+.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
+    :target: https://travis-ci.org/MagicStack/uvloop
 
-.. raw:: html
-
-    <div>
-        <img src="https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic" />
-        <img src="https://img.shields.io/travis/MagicStack/uvloop/master.svg" />
-        <br />
-        <br />
-    </div>
+.. image:: https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic
+    :target: https://pypi.python.org/pypi/uvloop
 
 uvloop
 ======
@@ -21,7 +17,8 @@ makes it easier than ever to write high-performance networking code in Python.
 gevent, as well as any other Python asynchronous framework. The performance of
 uvloop-based asyncio is close to that of Go programs.
 
-You can read more about uvloop in this `blog post <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_.
+You can read more about uvloop in this
+`blog post <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_.
 
 Architecture
 ------------
