@@ -1069,9 +1069,12 @@ cdef class Loop:
                         try:
                             tcp.bind(addrinfo.ai_addr)
                             tcp.listen(backlog)
-                        except:
-                            tcp._close()
-                            raise
+                        except OSError as err:
+                            pyaddr = __convert_sockaddr_to_pyaddr(
+                                <system.sockaddr*>addrinfo.ai_addr)
+                            raise OSError(err.errno, 'error while attempting '
+                                          'to bind on address %r: %s'
+                                          % (pyaddr, err.strerror.lower()))
 
                         server._add_server(tcp)
 

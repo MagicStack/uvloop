@@ -161,6 +161,20 @@ class _TestTCP:
 
         self.loop.run_until_complete(start_server_ephemeral_ports())
 
+    def test_create_server_4(self):
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+
+        with sock:
+            addr = sock.getsockname()
+
+            with self.assertRaisesRegex(OSError,
+                                        "error while attempting.*\('127.*: "
+                                        "address already in use"):
+
+                self.loop.run_until_complete(
+                    self.loop.create_server(object, *addr))
+
     def test_create_connection_1(self):
         CNT = 0
         TOTAL_CNT = 100
