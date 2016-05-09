@@ -36,7 +36,7 @@ debug: clean
 
 
 docs: compile
-	cd docs && sphinx-build -b html . _build/html
+	cd docs && python -m sphinx -b html . _build/html
 
 
 test:
