@@ -2,13 +2,10 @@
 .. raw:: html
 
     <div>
-      <center>
-        <img src="https://img.shields.io/pypi/v/uvloop.svg" />
         <img src="https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic" />
         <img src="https://img.shields.io/travis/MagicStack/uvloop/master.svg" />
         <br />
         <br />
-      </center>
     </div>
 
 uvloop

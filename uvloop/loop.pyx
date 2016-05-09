@@ -832,15 +832,6 @@ cdef class Loop:
                     self.get_debug())
 
     def call_soon(self, callback, *args):
-        """Arrange for a callback to be called as soon as possible.
-
-        This operates as a FIFO queue: callbacks are called in the
-        order in which they are registered.  Each callback will be
-        called exactly once.
-
-        Any positional arguments after the callback will be passed to
-        the callback when it is called.
-        """
         if self._debug == 1:
             self._check_thread()
         if args:
@@ -849,7 +840,6 @@ cdef class Loop:
             return self._call_soon(callback, None)
 
     def call_soon_threadsafe(self, callback, *args):
-        """Like call_soon(), but thread-safe."""
         if not args:
             args = None
         handle = self._call_soon(callback, args)
@@ -857,21 +847,6 @@ cdef class Loop:
         return handle
 
     def call_later(self, delay, callback, *args):
-        """Arrange for a callback to be called at a given time.
-
-        Return a Handle: an opaque object with a cancel() method that
-        can be used to cancel the call.
-
-        The delay can be an int or float, expressed in seconds.  It is
-        always relative to the current time.
-
-        Each callback will be called exactly once.  If two callbacks
-        are scheduled for exactly the same time, it undefined which
-        will be called first.
-
-        Any positional arguments after the callback will be passed to
-        the callback when it is called.
-        """
         self._check_closed()
         if self._debug == 1:
             self._check_thread()
@@ -886,27 +861,12 @@ cdef class Loop:
             return self._call_later(when, callback, args)
 
     def call_at(self, when, callback, *args):
-        """Like call_later(), but uses an absolute time.
-
-        Absolute time corresponds to the event loop's time() method.
-        """
         return self.call_later(when - self.time(), callback, *args)
 
     def time(self):
-        """Return the time according to the event loop's clock.
-
-        This is a float expressed in seconds since an epoch, but the
-        epoch, precision, accuracy and drift are unspecified and may
-        differ per event loop.
-        """
         return self._time() / 1000
 
     def stop(self):
-        """Stop running the event loop.
-
-        Every callback already scheduled will still run.  This simply informs
-        run_forever to stop looping after a complete iteration.
-        """
         self._call_soon_handle(
             new_MethodHandle1(
                 self,
@@ -916,7 +876,6 @@ cdef class Loop:
                 None))
 
     def run_forever(self):
-        """Run the event loop until stop() is called."""
         self._check_closed()
         mode = uv.UV_RUN_DEFAULT
         if self._stopping:
@@ -930,14 +889,6 @@ cdef class Loop:
             self._set_coroutine_wrapper(0)
 
     def close(self):
-        """Close the event loop.
-
-        The event loop must not be running.
-
-        This is idempotent and irreversible.
-
-        No other methods should be called after this one.
-        """
         self._close()
 
     def get_debug(self):
@@ -949,18 +900,12 @@ cdef class Loop:
             self._set_coroutine_wrapper(self._debug)
 
     def is_running(self):
-        """Return whether the event loop is currently running."""
         return bool(self._running)
 
     def is_closed(self):
-        """Returns True if the event loop was closed."""
         return bool(self._closed)
 
     def create_task(self, coro):
-        """Schedule a coroutine object.
-
-        Return a task object.
-        """
         self._check_closed()
         if self._task_factory is None:
             task = aio_Task(coro, loop=self)
@@ -969,34 +914,14 @@ cdef class Loop:
         return task
 
     def set_task_factory(self, factory):
-        """Set a task factory that will be used by loop.create_task().
-
-        If factory is None the default task factory will be set.
-
-        If factory is a callable, it should have a signature matching
-        '(loop, coro)', where 'loop' will be a reference to the active
-        event loop, 'coro' will be a coroutine object.  The callable
-        must return a Future.
-        """
         if factory is not None and not callable(factory):
             raise TypeError('task factory must be a callable or None')
         self._task_factory = factory
 
     def get_task_factory(self):
-        """Return a task factory, or None if the default one is in use."""
         return self._task_factory
 
     def run_until_complete(self, future):
-        """Run until the Future is done.
-
-        If the argument is a coroutine, it is wrapped in a Task.
-
-        WARNING: It would be disastrous to call run_until_complete()
-        with the same coroutine twice -- it would wrap it in two
-        different Tasks and that can't be good.
-
-        Return the Future's result, or raise its exception.
-        """
         self._check_closed()
 
         new_task = not isinstance(future, aio_Future)
@@ -1094,41 +1019,7 @@ cdef class Loop:
                             ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
                             reuse_port=None):
-        """A coroutine which creates a TCP server bound to host and port.
 
-        The return value is a Server object which can be used to stop
-        the service.
-
-        If host is an empty string or None all interfaces are assumed
-        and a list of multiple sockets will be returned (most likely
-        one for IPv4 and another one for IPv6). The host parameter can also be a
-        sequence (e.g. list) of hosts to bind to.
-
-        family can be set to either AF_INET or AF_INET6 to force the
-        socket to use IPv4 or IPv6. If not set it will be determined
-        from host (defaults to AF_UNSPEC).
-
-        flags is a bitmask for getaddrinfo().
-
-        sock can optionally be specified in order to use a preexisting
-        socket object.
-
-        backlog is the maximum number of queued connections passed to
-        listen() (defaults to 100).
-
-        ssl can be set to an SSLContext to enable SSL over the
-        accepted connections.
-
-        reuse_address tells the kernel to reuse a local socket in
-        TIME_WAIT state, without waiting for its natural timeout to
-        expire. If not specified will automatically be set to True on
-        UNIX.
-
-        reuse_port tells the kernel to allow this endpoint to be bound to
-        the same port as other existing endpoints are bound to, so long as
-        they all set this flag when being created. This option is not
-        supported on Windows.
-        """
         cdef:
             TCPServer tcp
             system.addrinfo *addrinfo
@@ -1214,17 +1105,7 @@ cdef class Loop:
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
                                 local_addr=None, server_hostname=None):
-        """Connect to a TCP server.
 
-        Create a streaming transport connection to a given Internet host and
-        port: socket family AF_INET or socket.AF_INET6 depending on host (or
-        family if specified), socket type SOCK_STREAM. protocol_factory must be
-        a callable returning a protocol instance.
-
-        This method is a coroutine which will try to establish the connection
-        in the background.  When successful, the coroutine returns a
-        (transport, protocol) pair.
-        """
         cdef:
             AddrInfo ai_local = None
             AddrInfo ai_remote
@@ -1363,23 +1244,7 @@ cdef class Loop:
     @aio_coroutine
     async def create_unix_server(self, protocol_factory, str path=None,
                                  *, backlog=100, sock=None, ssl=None):
-        """A coroutine which creates a UNIX Domain Socket server.
 
-        The return value is a Server object, which can be used to stop
-        the service.
-
-        path is a str, representing a file systsem path to bind the
-        server socket to.
-
-        sock can optionally be specified in order to use a preexisting
-        socket object.
-
-        backlog is the maximum number of queued connections passed to
-        listen() (defaults to 100).
-
-        ssl can be set to an SSLContext to enable SSL over the
-        accepted connections.
-        """
         cdef:
             UnixServer pipe
             Server server = Server(self)
@@ -1499,15 +1364,6 @@ cdef class Loop:
             return tr, protocol
 
     def default_exception_handler(self, context):
-        """Default exception handler.
-
-        This is called when an exception occurs and no exception
-        handler is set, and can be called by a custom exception
-        handler that wants to defer to the default behavior.
-
-        The context parameter has the same meaning as in
-        `call_exception_handler()`.
-        """
         message = context.get('message')
         if not message:
             message = 'Unhandled exception in event loop'
@@ -1529,41 +1385,12 @@ cdef class Loop:
         aio_logger.error('\n'.join(log_lines), exc_info=exc_info)
 
     def set_exception_handler(self, handler):
-        """Set handler as the new event loop exception handler.
-
-        If handler is None, the default exception handler will
-        be set.
-
-        If handler is a callable object, it should have a
-        signature matching '(loop, context)', where 'loop'
-        will be a reference to the active event loop, 'context'
-        will be a dict object (see `call_exception_handler()`
-        documentation for details about context).
-        """
         if handler is not None and not callable(handler):
             raise TypeError('A callable object or None is expected, '
                             'got {!r}'.format(handler))
         self._exception_handler = handler
 
     def call_exception_handler(self, context):
-        """Call the current event loop's exception handler.
-
-        The context argument is a dict containing the following keys:
-
-        - 'message': Error message;
-        - 'exception' (optional): Exception object;
-        - 'future' (optional): Future instance;
-        - 'handle' (optional): Handle instance;
-        - 'protocol' (optional): Protocol instance;
-        - 'transport' (optional): Transport instance;
-        - 'socket' (optional): Socket instance.
-
-        New keys maybe introduced in the future.
-
-        Note: do not overload this method in an event loop subclass.
-        For custom exception handling, use the
-        `set_exception_handler()` method.
-        """
         IF DEBUG:
             self._debug_exception_handler_cnt += 1
 
@@ -1597,34 +1424,22 @@ cdef class Loop:
                                      exc_info=True)
 
     def add_reader(self, fd, callback, *args):
-        """Add a reader callback."""
         if len(args) == 0:
             args = None
         self._add_reader(fd, new_Handle(self, callback, args))
 
     def remove_reader(self, fd):
-        """Remove a reader callback."""
         self._remove_reader(fd)
 
     def add_writer(self, fd, callback, *args):
-        """Add a writer callback.."""
         if len(args) == 0:
             args = None
         self._add_writer(fd, new_Handle(self, callback, args))
 
     def remove_writer(self, fd):
-        """Remove a writer callback."""
         self._remove_writer(fd)
 
     def sock_recv(self, sock, n):
-        """Receive data from the socket.
-
-        The return value is a bytes object representing the data received.
-        The maximum amount of data to be received at once is specified by
-        nbytes.
-
-        This method is a coroutine.
-        """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = self._new_future()
@@ -1632,16 +1447,6 @@ cdef class Loop:
         return fut
 
     def sock_sendall(self, sock, data):
-        """Send data to the socket.
-
-        The socket must be connected to a remote socket. This method continues
-        to send data from data until either all data has been sent or an
-        error occurs. None is returned on success. On error, an exception is
-        raised, and there is no way to determine how much data, if any, was
-        successfully processed by the receiving end of the connection.
-
-        This method is a coroutine.
-        """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = self._new_future()
@@ -1652,15 +1457,6 @@ cdef class Loop:
         return fut
 
     def sock_accept(self, sock):
-        """Accept a connection.
-
-        The socket must be bound to an address and listening for connections.
-        The return value is a pair (conn, address) where conn is a new socket
-        object usable to send and receive data on the connection, and address
-        is the address bound to the socket on the other end of the connection.
-
-        This method is a coroutine.
-        """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = self._new_future()
@@ -1668,16 +1464,6 @@ cdef class Loop:
         return fut
 
     def sock_connect(self, sock, address):
-        """Connect to a remote socket at address.
-
-        The address must be already resolved to avoid the trap of hanging the
-        entire event loop when the address requires doing a DNS lookup. For
-        example, it must be an IP address, not a hostname, for AF_INET and
-        AF_INET6 address families. Use getaddrinfo() to resolve the hostname
-        asynchronously.
-
-        This method is a coroutine.
-        """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = self._new_future()
@@ -1800,12 +1586,6 @@ cdef class Loop:
 
     @aio_coroutine
     async def connect_read_pipe(self, proto_factory, pipe):
-        """Register read pipe in event loop. Set the pipe to non-blocking mode.
-
-        protocol_factory should instantiate object with Protocol interface.
-        pipe is a file-like object.
-        Return pair (transport, protocol), where transport supports the
-        ReadTransport interface."""
         cdef:
             ReadUnixTransport transp
             int fileno = os_dup(pipe.fileno())
@@ -1826,12 +1606,6 @@ cdef class Loop:
 
     @aio_coroutine
     async def connect_write_pipe(self, proto_factory, pipe):
-        """Register write pipe in event loop.
-
-        protocol_factory should instantiate object with BaseProtocol interface.
-        Pipe is file-like object already switched to nonblocking.
-        Return pair (transport, protocol), where transport support
-        WriteTransport interface."""
         cdef:
             WriteUnixTransport transp
             int fileno = os_dup(pipe.fileno())
@@ -1851,11 +1625,6 @@ cdef class Loop:
         return transp, proto
 
     def add_signal_handler(self, sig, callback, *args):
-        """Add a handler for a signal.  UNIX only.
-
-        Raise ValueError if the signal number is invalid or uncatchable.
-        Raise RuntimeError if there is a problem setting up the handler.
-        """
         cdef:
             Handle h
             UVSignal uvs
@@ -1901,10 +1670,6 @@ cdef class Loop:
                 raise
 
     def remove_signal_handler(self, sig):
-        """Remove a handler for a signal.  UNIX only.
-
-        Return True if a signal handler was removed, False if not.
-        """
         cdef:
             UVSignal uvs
 
@@ -1930,34 +1695,7 @@ cdef class Loop:
                                        family=0, proto=0, flags=0,
                                        reuse_address=None, reuse_port=None,
                                        allow_broadcast=None, sock=None):
-        """A coroutine which creates a datagram endpoint.
 
-        This method will try to establish the endpoint in the background.
-        When successful, the coroutine returns a (transport, protocol) pair.
-
-        protocol_factory must be a callable returning a protocol instance.
-
-        socket family AF_INET or socket.AF_INET6 depending on host (or
-        family if specified), socket type SOCK_DGRAM.
-
-        reuse_address tells the kernel to reuse a local socket in
-        TIME_WAIT state, without waiting for its natural timeout to
-        expire. If not specified it will automatically be set to True on
-        UNIX.
-
-        reuse_port tells the kernel to allow this endpoint to be bound to
-        the same port as other existing endpoints are bound to, so long as
-        they all set this flag when being created. This option is not
-        supported on Windows and some UNIX's. If the
-        :py:data:`~socket.SO_REUSEPORT` constant is not defined then this
-        capability is unsupported.
-
-        allow_broadcast tells the kernel to allow this endpoint to send
-        messages to the broadcast address.
-
-        sock can optionally be specified in order to use a preexisting
-        socket object.
-        """
         cdef:
             UDPTransport udp = None
             system.addrinfo * lai

@@ -1,2 +1,2 @@
-Cython
-sphinx
+Cython>=0.24
+Sphinx>=1.4.1

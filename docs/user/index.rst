@@ -1,8 +1,8 @@
 User Guide
 ==========
 
-This section of the documentation provides information about how to install
-uvloop as well as how to use uvloop.
+This section of the documentation provides information about how to use
+uvloop.
 
 
 Installation
