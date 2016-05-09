@@ -4,7 +4,7 @@ from posix.types cimport gid_t, uid_t
 from . cimport system
 
 
-cdef extern from "../vendor/libuv/include/uv.h" nogil:
+cdef extern from "uv.h" nogil:
     cdef int UV_EACCES
     cdef int UV_EAGAIN
     cdef int UV_EALREADY

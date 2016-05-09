@@ -17,6 +17,17 @@ LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 
 
 class libuv_build_ext(build_ext):
+    build_ext.user_options.extend([
+        ("use-system-libuv", None,
+         "Use the system provided libuv, instead of the bundled one")
+    ])
+
+    build_ext.boolean_options.extend(["use-system-libuv"])
+
+    def initialize_options(self):
+        build_ext.initialize_options(self)
+        self.use_system_libuv = 0
+
     def build_libuv(self):
         env = os.environ.copy()
 
@@ -35,14 +46,22 @@ class libuv_build_ext(build_ext):
         subprocess.run(['make', j_flag], cwd=LIBUV_DIR, env=env, check=True)
 
     def build_extensions(self):
-        libuv_lib = os.path.join(LIBUV_DIR, '.libs', 'libuv.a')
-        if not os.path.exists(libuv_lib):
-            self.build_libuv()
-        if not os.path.exists(libuv_lib):
-            raise RuntimeError('failed to build libuv')
+        if self.use_system_libuv:
+            self.compiler.add_library('uv')
 
-        self.extensions[-1].extra_objects.extend([libuv_lib])
-        self.compiler.add_include_dir(os.path.join(LIBUV_DIR, 'include'))
+            if sys.platform == 'darwin' and \
+                    os.path.exists('/opt/local/include'):
+                # Support macports on Mac OS X.
+                self.compiler.add_include_dir('/opt/local/include')
+        else:
+            libuv_lib = os.path.join(LIBUV_DIR, '.libs', 'libuv.a')
+            if not os.path.exists(libuv_lib):
+                self.build_libuv()
+            if not os.path.exists(libuv_lib):
+                raise RuntimeError('failed to build libuv')
+
+            self.extensions[-1].extra_objects.extend([libuv_lib])
+            self.compiler.add_include_dir(os.path.join(LIBUV_DIR, 'include'))
 
         if sys.platform.startswith('linux'):
             self.compiler.add_library('rt')
