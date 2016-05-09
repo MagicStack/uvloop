@@ -9,13 +9,13 @@ from .loop import Loop as __BaseLoop
 __all__ = ('new_event_loop', 'EventLoopPolicy')
 
 
-class _Loop(__BaseLoop, asyncio.AbstractEventLoop):
+class Loop(__BaseLoop, asyncio.AbstractEventLoop):
     pass
 
 
 def new_event_loop():
     """Return a new event loop."""
-    return _Loop()
+    return Loop()
 
 
 class EventLoopPolicy(__BasePolicy):
@@ -27,7 +27,7 @@ class EventLoopPolicy(__BasePolicy):
     >>> import uvloop
     >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     >>> asyncio.get_event_loop()
-    <uvloop._Loop running=False closed=False debug=False>
+    <uvloop.Loop running=False closed=False debug=False>
     """
 
     def _loop_factory(self):

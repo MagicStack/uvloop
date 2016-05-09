@@ -311,7 +311,7 @@ class _TestBase:
         logger = logging.getLogger('asyncio')
         _context = None
 
-        class Loop(uvloop._Loop):
+        class Loop(uvloop.Loop):
 
             _selector = mock.Mock()
             _process_events = mock.Mock()
@@ -410,7 +410,7 @@ class TestPolicy(unittest.TestCase):
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
             loop = asyncio.new_event_loop()
             try:
-                self.assertIsInstance(loop, uvloop._Loop)
+                self.assertIsInstance(loop, uvloop.Loop)
             finally:
                 loop.close()
         finally:

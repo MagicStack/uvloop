@@ -47,7 +47,7 @@ class _TestUDP:
                 self.transport.sendto(b'resp:' + data, addr)
 
         for lc in (('127.0.0.1', 0), None):
-            if lc is None and not isinstance(self.loop, uvloop._Loop):
+            if lc is None and not isinstance(self.loop, uvloop.Loop):
                 # TODO This looks like a bug in asyncio -- if no local_addr
                 # and no remote_addr are specified, the connection
                 # that asyncio creates is not bound anywhere.

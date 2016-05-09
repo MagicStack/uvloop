@@ -56,7 +56,7 @@ class _TestTCP:
             CNT = 0
 
             addrs = ('127.0.0.1', 'localhost')
-            if not isinstance(self.loop, uvloop._Loop):
+            if not isinstance(self.loop, uvloop.Loop):
                 # Hack to let tests run on Python 3.5.0
                 # (asyncio doesn't support multiple hosts in 3.5.0)
                 addrs = '127.0.0.1'
