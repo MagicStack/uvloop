@@ -1,4 +1,4 @@
-.PHONY: compile clean all distclean test debug sdist clean-libuv sdist-upload sdist-libuv
+.PHONY: compile clean all distclean test debug sdist clean-libuv release sdist-libuv
 
 
 all: clean compile
@@ -43,5 +43,5 @@ sdist: clean compile test sdist-libuv
 	python setup.py sdist
 
 
-sdist-upload: clean compile test sdist-libuv
+release: clean compile test sdist-libuv
 	python setup.py sdist upload
