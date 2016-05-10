@@ -5,6 +5,7 @@
     :target: https://pypi.python.org/pypi/uvloop
 
 .. image:: https://img.shields.io/github/stars/magicstack/uvloop.svg?style=social&label=Star
+    :target: https://github.com/MagicStack/uvloop
 
 
 uvloop
