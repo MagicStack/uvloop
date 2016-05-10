@@ -4,6 +4,9 @@
 .. image:: https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic
     :target: https://pypi.python.org/pypi/uvloop
 
+.. image:: https://img.shields.io/github/stars/magicstack/uvloop.svg?style=social&label=Star
+
+
 uvloop
 ======
 
