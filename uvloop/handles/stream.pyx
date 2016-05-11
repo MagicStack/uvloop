@@ -184,9 +184,20 @@ cdef class UVStream(UVBaseTransport):
             Py_buffer py_buf
 
         fd = self._fileno()
-        PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
-        written = system.send(fd, <char*>py_buf.buf, py_buf.len, 0)
-        PyBuffer_Release(&py_buf)
+
+        if PyBytes_CheckExact(data):
+            written = system.send(fd, PyBytes_AS_STRING(data),
+                                  Py_SIZE(data), 0)
+
+        elif PyByteArray_CheckExact(data):
+            written = system.send(fd, PyByteArray_AS_STRING(data),
+                                  Py_SIZE(data), 0)
+
+        else:
+            PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
+            written = system.send(fd, <char*>py_buf.buf, py_buf.len, 0)
+            PyBuffer_Release(&py_buf)
+
         if written < 0:
             if errno.errno not in (system.EINTR, system.EAGAIN,
                                    system.EWOULDBLOCK, system.EINPROGRESS,
