@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import unittest
 
 
 if sys.platform in ('win32', 'cygwin', 'cli'):
@@ -14,6 +15,12 @@ from setuptools.command.build_ext import build_ext
 
 
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
+
+
+def discover_tests():
+    test_loader = unittest.TestLoader()
+    test_suite = test_loader.discover('tests', pattern='test_*.py')
+    return test_suite
 
 
 class libuv_build_ext(build_ext):
@@ -97,5 +104,6 @@ setup(
         'Intended Audience :: Developers',
     ],
     provides=['uvloop'],
-    include_package_data=True
+    include_package_data=True,
+    test_suite='setup.discover_tests'
 )
