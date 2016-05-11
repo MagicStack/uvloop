@@ -87,7 +87,7 @@ setup(
     author='Yury Selivanov',
     author_email='yury@magic.io',
     platforms=['*nix'],
-    version='0.4.18',
+    version='0.4.19',
     packages=['uvloop'],
     cmdclass={'build_ext': libuv_build_ext},
     ext_modules=[
