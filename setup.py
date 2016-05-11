@@ -33,7 +33,8 @@ class libuv_build_ext(build_ext):
 
     def initialize_options(self):
         build_ext.initialize_options(self)
-        self.use_system_libuv = 0
+        if getattr(self, 'use_system_libuv', None) is None:
+            self.use_system_libuv = 0
 
     def build_libuv(self):
         env = os.environ.copy()
