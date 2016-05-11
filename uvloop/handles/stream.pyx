@@ -12,6 +12,9 @@ cdef class _StreamWriteContext:
         uv.uv_buf_t     uv_buf
         Py_buffer       py_buf
 
+        bint            used_buf
+        object          data
+
         UVStream        stream
 
         bint            closed
@@ -21,8 +24,10 @@ cdef class _StreamWriteContext:
             return
 
         self.closed = 1
-        PyBuffer_Release(&self.py_buf)  # void
+        if self.used_buf:
+            PyBuffer_Release(&self.py_buf)  # void
         self.req.data = NULL
+        self.data = None
         IF not DEBUG:
             self.stream = None
         Py_DECREF(self)
@@ -33,11 +38,26 @@ cdef class _StreamWriteContext:
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
         ctx.stream = None
         ctx.closed = 1
+        ctx.used_buf = 0
 
         ctx.req.data = <void*> ctx
 
-        PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
-        ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
+        if PyBytes_CheckExact(data):
+            ctx.data = data
+            ctx.uv_buf.base = PyBytes_AS_STRING(data)
+            ctx.uv_buf.len = Py_SIZE(data)
+
+        elif PyByteArray_CheckExact(data):
+            ctx.data = data
+            ctx.uv_buf.base = PyByteArray_AS_STRING(data)
+            ctx.uv_buf.len = Py_SIZE(data)
+
+        else:
+            PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
+            ctx.used_buf = 1
+            ctx.uv_buf.base = <char*>ctx.py_buf.buf
+            ctx.uv_buf.len = ctx.py_buf.len
+
         ctx.stream = stream
 
         IF DEBUG:

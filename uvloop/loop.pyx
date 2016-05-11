@@ -11,7 +11,9 @@ from .includes cimport system
 from .includes.python cimport PyMem_Malloc, PyMem_Free, \
                               PyMem_Calloc, PyMem_Realloc, \
                               PyUnicode_EncodeFSDefault, \
-                              PyErr_SetInterrupt
+                              PyErr_SetInterrupt, \
+                              PyByteArray_AS_STRING, \
+                              PyByteArray_CheckExact
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror
@@ -22,7 +24,9 @@ from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
-                     Py_buffer, PyBytes_AsString
+                     Py_buffer, PyBytes_AsString, PyBytes_CheckExact, \
+                     Py_SIZE, PyBytes_AS_STRING
+
 from cpython cimport PyErr_CheckSignals
 
 

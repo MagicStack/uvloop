@@ -24,7 +24,9 @@ class _TestTCP:
 
             data = await reader.readexactly(len(B_DATA))
             self.assertEqual(data, B_DATA)
-            writer.writelines([b'SP', bytearray(b'A'), memoryview(b'M')])
+            writer.writelines([b'S', b'P'])
+            writer.write(bytearray(b'A'))
+            writer.write(memoryview(b'M'))
 
             await writer.drain()
             writer.close()
