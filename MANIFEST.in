@@ -1,6 +1,6 @@
 recursive-include examples *.py
 recursive-include tests *.py *.pem
-recursive-include uvloop *.pyx *.pxd *.pxi *.py
+recursive-include uvloop *.pyx *.pxd *.pxi *.py *.c *.h
 recursive-include vendor/libuv *
 recursive-exclude vendor/libuv/.git *
 recursive-exclude vendor/libuv/docs *

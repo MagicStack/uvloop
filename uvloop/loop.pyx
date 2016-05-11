@@ -43,7 +43,6 @@ cdef Loop __main_loop__ = None
 cdef class Loop:
     def __cinit__(self):
         cdef int err
-
         # Install PyMem* memory allocators if they aren't installed yet.
         __install_pymem()
 
