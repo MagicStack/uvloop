@@ -50,6 +50,12 @@ class libuv_build_ext(build_ext):
             subprocess.run(['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env,
                            check=True)
 
+        # Sometimes pip fails to preserve the timestamps correctly,
+        # in which case, make will try to run autotools again.
+        subprocess.run(['touch', 'configure.ac', 'aclocal.m4',
+                        'configure', 'Makefile.am', 'Makefile.in'],
+                       cwd=LIBUV_DIR, env=env, check=True)
+
         subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env, check=True)
 
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
