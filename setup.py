@@ -51,7 +51,10 @@ class libuv_build_ext(build_ext):
                            check=True)
 
         subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env, check=True)
-        subprocess.run(['make', j_flag], cwd=LIBUV_DIR, env=env, check=True)
+
+        c_flag = "CFLAGS={}".format(env['CFLAGS'])
+        subprocess.run(['make', j_flag, c_flag],
+                       cwd=LIBUV_DIR, env=env, check=True)
 
     def build_extensions(self):
         if self.use_system_libuv:
