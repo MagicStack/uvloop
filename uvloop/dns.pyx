@@ -1,4 +1,4 @@
-cdef __convert_sockaddr_to_pyaddr(system.sockaddr* addr):
+cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
     # Converts sockaddr structs into what Python socket
     # module can understand:
     #   - for IPv4 a tuple of (host, port)
