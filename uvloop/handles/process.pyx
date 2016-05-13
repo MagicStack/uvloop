@@ -11,8 +11,8 @@ cdef class UVProcess(UVHandle):
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
-               stdin, stdout, stderr, pass_fds,
-               debug_flags):
+               _stdin, _stdout, _stderr,  # std* can be defined as macros in C
+               pass_fds, debug_flags):
 
         cdef int err
 
@@ -31,7 +31,7 @@ cdef class UVProcess(UVHandle):
 
         try:
             self._init_options(args, env, cwd, start_new_session,
-                               stdin, stdout, stderr)
+                               _stdin, _stdout, _stderr)
 
             restore_inheritable = set()
             if pass_fds:
@@ -111,7 +111,7 @@ cdef class UVProcess(UVHandle):
         return ret
 
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
-                       stdin, stdout, stderr):
+                       _stdin, _stdout, _stderr):
 
         memset(&self.options, 0, sizeof(uv.uv_process_options_t))
 
@@ -135,7 +135,7 @@ cdef class UVProcess(UVHandle):
 
         self.options.exit_cb = &__uvprocess_on_exit_callback
 
-        self._init_files(stdin, stdout, stderr)
+        self._init_files(_stdin, _stdout, _stderr)
 
     cdef _init_args(self, list args):
         cdef:
@@ -181,7 +181,7 @@ cdef class UVProcess(UVHandle):
         else:
             self.__env = None
 
-    cdef _init_files(self, stdin, stdout, stderr):
+    cdef _init_files(self, _stdin, _stdout, _stderr):
         self.options.stdio_count = 0
 
     cdef _kill(self, int signum):
@@ -219,7 +219,7 @@ cdef class UVProcessTransport(UVProcess):
         self._pending_calls = []
         self._stdio_ready = 0
 
-        self.stdin = self.stdout = self.stderr = None
+        self._stdin = self._stdout = self._stderr = None
         self.stdin_proto = self.stdout_proto = self.stderr_proto = None
 
         self._finished = 0
@@ -280,41 +280,41 @@ cdef class UVProcessTransport(UVProcess):
         self._close_after_spawn(r)
         return r, w
 
-    cdef _init_files(self, stdin, stdout, stderr):
+    cdef _init_files(self, _stdin, _stdout, _stderr):
         cdef uv.uv_stdio_container_t *iocnt
 
-        UVProcess._init_files(self, stdin, stdout, stderr)
+        UVProcess._init_files(self, _stdin, _stdout, _stderr)
 
         io = [None, None, None]
 
         self.options.stdio_count = 3
         self.options.stdio = self.iocnt
 
-        if stdin is not None:
-            if stdin == subprocess_PIPE:
+        if _stdin is not None:
+            if _stdin == subprocess_PIPE:
                 r, w  = self._file_inpipe()
                 io[0] = r
 
                 self.stdin_proto = WriteSubprocessPipeProto(self, 0)
                 waiter = self._loop._new_future()
-                self.stdin = WriteUnixTransport.new(
+                self._stdin = WriteUnixTransport.new(
                     self._loop, self.stdin_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self.stdin.open(w)
-                self.stdin._init_protocol()
-            elif stdin == subprocess_DEVNULL:
+                self._stdin.open(w)
+                self._stdin._init_protocol()
+            elif _stdin == subprocess_DEVNULL:
                 io[0] = self._file_devnull()
-            elif stdout == subprocess_STDOUT:
+            elif _stdout == subprocess_STDOUT:
                 raise ValueError(
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 raise ValueError(
-                    'invalid stdin argument value {!r}'.format(stdin))
+                    'invalid stdin argument value {!r}'.format(_stdin))
         else:
             io[0] = self._file_redirect_stdio(sys.stdin.fileno())
 
-        if stdout is not None:
-            if stdout == subprocess_PIPE:
+        if _stdout is not None:
+            if _stdout == subprocess_PIPE:
                 # We can't use UV_CREATE_PIPE here, since 'stderr' might be
                 # set to 'subprocess.STDOUT', and there is no way to
                 # emulate that functionality with libuv high-level
@@ -326,35 +326,35 @@ cdef class UVProcessTransport(UVProcess):
 
                 self.stdout_proto = ReadSubprocessPipeProto(self, 1)
                 waiter = self._loop._new_future()
-                self.stdout = ReadUnixTransport.new(
+                self._stdout = ReadUnixTransport.new(
                     self._loop, self.stdout_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self.stdout.open(r)
-                self.stdout._init_protocol()
-            elif stdout == subprocess_DEVNULL:
+                self._stdout.open(r)
+                self._stdout._init_protocol()
+            elif _stdout == subprocess_DEVNULL:
                 io[1] = self._file_devnull()
-            elif stdout == subprocess_STDOUT:
+            elif _stdout == subprocess_STDOUT:
                 raise ValueError(
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 raise ValueError(
-                    'invalid stdout argument value {!r}'.format(stdin))
+                    'invalid stdout argument value {!r}'.format(_stdout))
         else:
             io[1] = self._file_redirect_stdio(sys.stdout.fileno())
 
-        if stderr is not None:
-            if stderr == subprocess_PIPE:
+        if _stderr is not None:
+            if _stderr == subprocess_PIPE:
                 r, w  = self._file_outpipe()
                 io[2] = w
 
                 self.stderr_proto = ReadSubprocessPipeProto(self, 2)
                 waiter = self._loop._new_future()
-                self.stderr = ReadUnixTransport.new(
+                self._stderr = ReadUnixTransport.new(
                     self._loop, self.stderr_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self.stderr.open(r)
-                self.stderr._init_protocol()
-            elif stderr == subprocess_STDOUT:
+                self._stderr.open(r)
+                self._stderr._init_protocol()
+            elif _stderr == subprocess_STDOUT:
                 if io[1] is None:
                     # shouldn't ever happen
                     raise RuntimeError('cannot apply subprocess.STDOUT')
@@ -363,11 +363,11 @@ cdef class UVProcessTransport(UVProcess):
                 os_set_inheritable(newfd, True)
                 self._close_after_spawn(newfd)
                 io[2] = newfd
-            elif stdout == subprocess_DEVNULL:
+            elif _stderr == subprocess_DEVNULL:
                 io[2] = self._file_devnull()
             else:
                 raise ValueError(
-                    'invalid stderr argument value {!r}'.format(stdin))
+                    'invalid stderr argument value {!r}'.format(_stderr))
         else:
             io[2] = self._file_redirect_stdio(sys.stderr.fileno())
 
@@ -436,7 +436,7 @@ cdef class UVProcessTransport(UVProcess):
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
                                 cwd, start_new_session,
-                                stdin, stdout, stderr, pass_fds,
+                                _stdin, _stdout, _stderr, pass_fds,
                                 waiter,
                                 debug_flags):
 
@@ -444,9 +444,9 @@ cdef class UVProcessTransport(UVProcess):
         handle = UVProcessTransport.__new__(UVProcessTransport)
         handle._protocol = protocol
         handle._init(loop, args, env, cwd, start_new_session,
-                     __process_convert_fileno(stdin),
-                     __process_convert_fileno(stdout),
-                     __process_convert_fileno(stderr),
+                     __process_convert_fileno(_stdin),
+                     __process_convert_fileno(_stdout),
+                     __process_convert_fileno(_stderr),
                      pass_fds,
                      debug_flags)
 
@@ -473,11 +473,11 @@ cdef class UVProcessTransport(UVProcess):
 
     def get_pipe_transport(self, fd):
         if fd == 0:
-            return self.stdin
+            return self._stdin
         elif fd == 1:
-            return self.stdout
+            return self._stdout
         elif fd == 2:
-            return self.stderr
+            return self._stderr
 
     def terminate(self):
         self._check_proc()
@@ -498,12 +498,12 @@ cdef class UVProcessTransport(UVProcess):
         if self._returncode is None:
             self._kill(uv.SIGKILL)
 
-        if self.stdin is not None:
-            self.stdin.close()
-        if self.stdout is not None:
-            self.stdout.close()
-        if self.stderr is not None:
-            self.stderr.close()
+        if self._stdin is not None:
+            self._stdin.close()
+        if self._stdout is not None:
+            self._stdout.close()
+        if self._stderr is not None:
+            self._stderr.close()
 
         self._close()
 
