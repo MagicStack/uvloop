@@ -318,6 +318,8 @@ cdef extern from "uv.h" nogil:
     int uv_write(uv_write_t* req, uv_stream_t* handle,
                  uv_buf_t bufs[], unsigned int nbufs, uv_write_cb cb)
 
+    int uv_try_write(uv_stream_t* handle, uv_buf_t bufs[], unsigned int nbufs)
+
     int uv_shutdown(uv_shutdown_t* req, uv_stream_t* handle, uv_shutdown_cb cb)
 
     int uv_is_readable(const uv_stream_t* handle)

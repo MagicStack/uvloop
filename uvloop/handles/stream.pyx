@@ -179,39 +179,44 @@ cdef class UVStream(UVBaseTransport):
 
     cdef inline _try_write(self, object data):
         cdef:
-            ssize_t written
-            int fd
+            int written
+            bint used_buf = 0
             Py_buffer py_buf
-
-        fd = self._fileno()
+            uv.uv_buf_t uv_buf
 
         if PyBytes_CheckExact(data):
-            written = system.send(fd, PyBytes_AS_STRING(data),
-                                  Py_SIZE(data), 0)
-
+            uv_buf.base = PyBytes_AS_STRING(data)
+            uv_buf.len = Py_SIZE(data)
         elif PyByteArray_CheckExact(data):
-            written = system.send(fd, PyByteArray_AS_STRING(data),
-                                  Py_SIZE(data), 0)
-
+            uv_buf.base = PyByteArray_AS_STRING(data)
+            uv_buf.len = Py_SIZE(data)
         else:
             PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
-            written = system.send(fd, <char*>py_buf.buf, py_buf.len, 0)
+            used_buf = 1
+            uv_buf.base = <char*>py_buf.buf
+            uv_buf.len = py_buf.len
+
+        written = uv.uv_try_write(
+            <uv.uv_stream_t*>self._handle,
+            &uv_buf, 1)
+
+        if used_buf:
             PyBuffer_Release(&py_buf)
 
         if written < 0:
-            if errno.errno not in (system.EINTR, system.EAGAIN,
-                                   system.EWOULDBLOCK, system.EINPROGRESS,
-                                   system.EALREADY,
-                                   # If it's a wrong type of FD - let libuv
-                                   # handle it, ignore the error:
-                                   system.ENOTSOCK, system.EBADF,
-                                   system.ENOSYS):
-                exc = convert_error(-errno.errno)
+            if written == uv.UV_EAGAIN:
+                return -1
+            else:
+                exc = convert_error(written)
                 self._fatal_error(exc, True)
+                return
 
         IF DEBUG:
             if written > 0:
                 self._loop._debug_stream_write_tries += 1
+
+        if written == uv_buf.len:
+            return 0
 
         return written
 
@@ -224,9 +229,16 @@ cdef class UVStream(UVBaseTransport):
             # Try to write without polling only when there is
             # no data in write buffers.
             sent = self._try_write(data)
+            if sent == 0:
+                # All data was successfully written.
+                return
             if sent > 0:
-                if sent == len(data):
-                    return
+                IF DEBUG:
+                    if sent == len(data):
+                        raise RuntimeError(
+                            '_try_write sent all data and returned non-zero')
+                if not isinstance(data, memoryview):
+                    data = memoryview(data)
                 data = data[sent:]
 
         ctx = _StreamWriteContext.new(self, data)
