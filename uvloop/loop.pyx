@@ -555,13 +555,9 @@ cdef class Loop:
             Handle handle
 
         fd = sock.fileno()
-        if registered:
-            # Remove the callback early.  It should be rare that the
-            # selector says the fd is ready but the call still returns
-            # EAGAIN, and I am willing to take a hit in that case in
-            # order to simplify the common case.
-            self._remove_reader(fd)
         if fut.cancelled():
+            if registered:
+                self._remove_reader(fd)
             return
         try:
             data = sock.recv(n)
@@ -576,11 +572,15 @@ cdef class Loop:
             self._add_reader(fd, handle)
         except Exception as exc:
             fut.set_exception(exc)
+            if registered:
+                self._remove_reader(fd)
         else:
             IF DEBUG:
                 if not registered:
                     self._sock_try_read_total += 1
             fut.set_result(data)
+            if registered:
+                self._remove_reader(fd)
 
     cdef _sock_sendall(self, fut, int registered, sock, data):
         cdef:
@@ -588,9 +588,9 @@ cdef class Loop:
 
         fd = sock.fileno()
 
-        if registered:
-            self._remove_writer(fd)
         if fut.cancelled():
+            if registered:
+                self._remove_writer(fd)
             return
 
         try:
@@ -599,6 +599,8 @@ cdef class Loop:
             n = 0
         except Exception as exc:
             fut.set_exception(exc)
+            if registered:
+                self._remove_writer(fd)
             return
         else:
             IF DEBUG:
@@ -609,6 +611,8 @@ cdef class Loop:
 
         if n == len(data):
             fut.set_result(None)
+            if registered:
+                self._remove_writer(fd)
         else:
             if n:
                 if not isinstance(data, memoryview):
