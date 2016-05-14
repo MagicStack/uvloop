@@ -611,6 +611,8 @@ cdef class Loop:
             fut.set_result(None)
         else:
             if n:
+                if not isinstance(data, memoryview):
+                    data = memoryview(data)
                 data = data[n:]
 
             handle = new_MethodHandle4(
