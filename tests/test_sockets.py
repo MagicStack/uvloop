@@ -90,16 +90,20 @@ class _TestSockets:
 
         with sock:
             with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
-                self.loop.sock_recv(sock, 0)
+                self.loop.run_until_complete(
+                    self.loop.sock_recv(sock, 0))
 
             with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
-                self.loop.sock_sendall(sock, b'')
+                self.loop.run_until_complete(
+                    self.loop.sock_sendall(sock, b''))
 
             with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
-                self.loop.sock_accept(sock)
+                self.loop.run_until_complete(
+                    self.loop.sock_accept(sock))
 
             with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
-                self.loop.sock_connect(sock, (b'', 0))
+                self.loop.run_until_complete(
+                    self.loop.sock_connect(sock, (b'', 0)))
 
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):

@@ -1616,7 +1616,7 @@ cdef class Loop:
         """Remove a writer callback."""
         self._remove_writer(fd)
 
-    def sock_recv(self, sock, n):
+    async def sock_recv(self, sock, n):
         """Receive data from the socket.
 
         The return value is a bytes object representing the data received.
@@ -1627,11 +1627,21 @@ cdef class Loop:
         """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
+        try:
+            data = sock.recv(n)
+        except (BlockingIOError, InterruptedError):
+            pass
+        else:
+            IF DEBUG:
+                self._sock_try_read_total += 1
+            return data
+
         fut = self._new_future()
         self._sock_recv(fut, 0, sock, n)
-        return fut
+        return await fut
 
-    def sock_sendall(self, sock, data):
+    async def sock_sendall(self, sock, data):
         """Send data to the socket.
 
         The socket must be connected to a remote socket. This method continues
@@ -1644,12 +1654,29 @@ cdef class Loop:
         """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-        fut = self._new_future()
-        if data:
-            self._sock_sendall(fut, 0, sock, data)
+
+        if not data:
+            return
+
+        try:
+            n = sock.send(data)
+        except (BlockingIOError, InterruptedError):
+            pass
         else:
-            fut.set_result(None)
-        return fut
+            IF DEBUG:
+                # This can be a partial success, i.e. only part
+                # of the data was sent
+                self._sock_try_write_total += 1
+
+            if n == len(data):
+                return
+            if not isinstance(data, memoryview):
+                data = memoryview(data)
+            data = data[n:]
+
+        fut = self._new_future()
+        self._sock_sendall(fut, 0, sock, data)
+        return await fut
 
     def sock_accept(self, sock):
         """Accept a connection.
