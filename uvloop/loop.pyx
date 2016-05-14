@@ -1508,7 +1508,10 @@ cdef class Loop:
             if key in {'message', 'exception'}:
                 continue
             value = context[key]
-            value = repr(value)
+            try:
+                value = repr(value)
+            except Exception as ex:
+                value = 'Exception in __repr__ {!r}'.format(ex)
             log_lines.append('{}: {}'.format(key, value))
 
         aio_logger.error('\n'.join(log_lines), exc_info=exc_info)
