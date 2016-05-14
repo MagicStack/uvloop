@@ -26,12 +26,14 @@ distclean: clean clean-libuv
 compile: clean
 	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
 	cython -3 uvloop/loop.pyx; rm uvloop/__debug.*
+	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
 	python setup.py build_ext --inplace
 
 
 debug: clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
 	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
+	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
 	python setup.py build_ext --inplace
 
 
@@ -50,3 +52,39 @@ sdist: clean compile test sdist-libuv
 
 release: clean compile test sdist-libuv
 	python setup.py sdist upload
+
+
+# Script to patch Cython 'async def' coroutines to have a 'tp_iter' slot,
+# which makes them compatible with 'yield from' without the
+# `asyncio.coroutine` decorator.
+define UVLOOP_BUILD_PATCH_SCRIPT
+import re
+
+with open('uvloop/loop.c', 'rt') as f:
+    src = f.read()
+
+src = re.sub(
+    r'''
+    \s* offsetof\(__pyx_CoroutineObject,\s*gi_weakreflist\),
+    \s* 0,
+    \s* 0,
+    \s* __pyx_Coroutine_methods,
+    \s* __pyx_Coroutine_memberlist,
+    \s* __pyx_Coroutine_getsets,
+    ''',
+
+    r'''
+    offsetof(__pyx_CoroutineObject, gi_weakreflist),
+    __Pyx_Coroutine_await, /* tp_iter */
+    0,
+    __pyx_Coroutine_methods,
+    __pyx_Coroutine_memberlist,
+    __pyx_Coroutine_getsets,
+    ''',
+
+    src, flags=re.X)
+
+with open('uvloop/loop.c', 'wt') as f:
+    f.write(src)
+endef
+export UVLOOP_BUILD_PATCH_SCRIPT

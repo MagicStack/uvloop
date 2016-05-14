@@ -23,7 +23,6 @@ cdef aio_ensure_future = asyncio.ensure_future
 cdef aio_gather = asyncio.gather
 cdef aio_wait = asyncio.wait
 cdef aio_logger = asyncio.log.logger
-cdef aio_coroutine = asyncio.coroutine
 cdef aio__check_resolved_address = asyncio.base_events._check_resolved_address
 cdef aio_iscoroutine = asyncio.iscoroutine
 cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction

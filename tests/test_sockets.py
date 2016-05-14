@@ -1,3 +1,4 @@
+import asyncio
 import socket
 
 from uvloop import _testbase as tb
@@ -22,12 +23,15 @@ class _TestSockets:
             yield tb.write(b'O')
             yield tb.write(b'K')
 
-        async def client(sock, addr):
-            await self.loop.sock_connect(sock, addr)
-            data = await self.recv_all(sock, 4)
+        # We use @asyncio.coroutine & `yield from` to test
+        # the compatibility of Cython's 'async def' coroutines.
+        @asyncio.coroutine
+        def client(sock, addr):
+            yield from self.loop.sock_connect(sock, addr)
+            data = yield from self.recv_all(sock, 4)
             self.assertEqual(data, b'helo')
-            await self.loop.sock_sendall(sock, b'ehlo' * _SIZE)
-            data = await self.recv_all(sock, 2)
+            yield from self.loop.sock_sendall(sock, b'ehlo' * _SIZE)
+            data = yield from self.recv_all(sock, 2)
             self.assertEqual(data, b'OK')
 
         with tb.tcp_server(srv_gen) as srv:

@@ -1034,7 +1034,6 @@ cdef class Loop:
 
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
-    @aio_coroutine
     async def getnameinfo(self, sockaddr, int flags=0):
         cdef:
             AddrInfo ai_cnt
@@ -1089,7 +1088,6 @@ cdef class Loop:
 
         return await self._getnameinfo(ai.ai_addr, flags)
 
-    @aio_coroutine
     async def create_server(self, protocol_factory, host=None, port=None,
                             *,
                             int family=uv.AF_UNSPEC,
@@ -1215,7 +1213,6 @@ cdef class Loop:
 
         return server
 
-    @aio_coroutine
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
                                 local_addr=None, server_hostname=None):
@@ -1365,7 +1362,6 @@ cdef class Loop:
         else:
             return tr, protocol
 
-    @aio_coroutine
     async def create_unix_server(self, protocol_factory, str path=None,
                                  *, backlog=100, sock=None, ssl=None):
         """A coroutine which creates a UNIX Domain Socket server.
@@ -1432,7 +1428,6 @@ cdef class Loop:
         server._add_server(pipe)
         return server
 
-    @aio_coroutine
     async def create_unix_connection(self, protocol_factory, path, *,
                                      ssl=None, sock=None,
                                      server_hostname=None):
@@ -1712,7 +1707,6 @@ cdef class Loop:
     def set_default_executor(self, executor):
         self._default_executor = executor
 
-    @aio_coroutine
     async def __subprocess_run(self, protocol_factory, args,
                                stdin=subprocess_PIPE,
                                stdout=subprocess_PIPE,
@@ -1803,7 +1797,6 @@ cdef class Loop:
         return self.__subprocess_run(protocol_factory, args, shell=False,
                                      **kwargs)
 
-    @aio_coroutine
     async def connect_read_pipe(self, proto_factory, pipe):
         """Register read pipe in event loop. Set the pipe to non-blocking mode.
 
@@ -1829,7 +1822,6 @@ cdef class Loop:
             raise
         return transp, proto
 
-    @aio_coroutine
     async def connect_write_pipe(self, proto_factory, pipe):
         """Register write pipe in event loop.
 
@@ -1929,7 +1921,6 @@ cdef class Loop:
 
         return True
 
-    @aio_coroutine
     async def create_datagram_endpoint(self, protocol_factory,
                                        local_addr=None, remote_addr=None, *,
                                        family=0, proto=0, flags=0,

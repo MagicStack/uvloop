@@ -32,7 +32,6 @@ cdef class Server:
     def __repr__(self):
         return '<%s sockets=%r>' % (self.__class__.__name__, self.sockets)
 
-    @aio_coroutine
     async def wait_closed(self):
         if self._servers is None or self._waiters is None:
             return
