@@ -396,7 +396,18 @@ class _TestBase:
 
 
 class TestBaseUV(_TestBase, UVTestCase):
-    pass
+
+    def test_cython_coro_is_coroutine(self):
+        coro = self.loop.create_server(object)
+        self.assertTrue(asyncio.iscoroutine(coro))
+        fut = asyncio.ensure_future(coro, loop=self.loop)
+        self.assertTrue(isinstance(fut, asyncio.Future))
+        fut.cancel()
+        try:
+            self.loop.run_until_complete(fut)
+        except asyncio.CancelledError:
+            pass
+        coro.close()
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):
