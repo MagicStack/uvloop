@@ -1620,7 +1620,7 @@ cdef class Loop:
         """Remove a writer callback."""
         self._remove_writer(fd)
 
-    async def sock_recv(self, sock, n):
+    def sock_recv(self, sock, n):
         """Receive data from the socket.
 
         The return value is a bytes object representing the data received.
@@ -1631,19 +1631,9 @@ cdef class Loop:
         """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
-
-        try:
-            data = sock.recv(n)
-        except (BlockingIOError, InterruptedError):
-            pass
-        else:
-            IF DEBUG:
-                self._sock_try_read_total += 1
-            return data
-
         fut = self._new_future()
         self._sock_recv(fut, 0, sock, n)
-        return await fut
+        return fut
 
     async def sock_sendall(self, sock, data):
         """Send data to the socket.
