@@ -399,6 +399,10 @@ class TestBaseUV(_TestBase, UVTestCase):
 
     def test_cython_coro_is_coroutine(self):
         coro = self.loop.create_server(object)
+        self.assertEqual(self.loop.create_server.__qualname__,
+                         'Loop.create_server')
+        self.assertEqual(self.loop.create_server.__name__,
+                         'create_server')
         self.assertTrue(asyncio.iscoroutine(coro))
         fut = asyncio.ensure_future(coro, loop=self.loop)
         self.assertTrue(isinstance(fut, asyncio.Future))
