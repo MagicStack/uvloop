@@ -24,16 +24,21 @@ async def echo_server(loop, address, unix):
         print('Server listening at', address)
     with sock:
         while True:
-             client, addr = await loop.sock_accept(sock)
-             if PRINT:
+            client, addr = await loop.sock_accept(sock)
+            if PRINT:
                 print('Connection from', addr)
-             loop.create_task(echo_client(loop, client))
+            loop.create_task(echo_client(loop, client))
 
 
 async def echo_client(loop, client):
+    try:
+        client.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+    except (OSError, NameError):
+        pass
+
     with client:
         while True:
-            data = await loop.sock_recv(client, 10000)
+            data = await loop.sock_recv(client, 1000000)
             if not data:
                 break
             await loop.sock_sendall(client, data)
@@ -42,14 +47,18 @@ async def echo_client(loop, client):
 
 
 async def echo_client_streams(reader, writer):
+    sock = writer.get_extra_info('socket')
+    try:
+        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+    except (OSError, NameError):
+        pass
     if PRINT:
-        sock = writer.get_extra_info('socket')
         print('Connection from', sock.getpeername())
     while True:
-         data = await reader.read(100000)
-         if not data:
-             break
-         writer.write(data)
+        data = await reader.read(1000000)
+        if not data:
+            break
+        writer.write(data)
     if PRINT:
         print('Connection closed')
     writer.close()
