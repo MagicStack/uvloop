@@ -84,6 +84,23 @@ src = re.sub(
 
     src, flags=re.X)
 
+# Fix a segfault in Cython.
+src = re.sub(
+    r'''
+    \s* __Pyx_Coroutine_get_qualname\(__pyx_CoroutineObject\s+\*self\)
+    \s* {
+    \s* Py_INCREF\(self->gi_qualname\);
+    ''',
+
+    r'''
+    __Pyx_Coroutine_get_qualname(__pyx_CoroutineObject *self)
+    {
+        if (self->gi_qualname == NULL) { return __pyx_empty_unicode; }
+        Py_INCREF(self->gi_qualname);
+    ''',
+
+    src, flags=re.X)
+
 with open('uvloop/loop.c', 'wt') as f:
     f.write(src)
 endef
