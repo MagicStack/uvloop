@@ -101,6 +101,22 @@ src = re.sub(
 
     src, flags=re.X)
 
+src = re.sub(
+    r'''
+    \s* __Pyx_Coroutine_get_name\(__pyx_CoroutineObject\s+\*self\)
+    \s* {
+    \s* Py_INCREF\(self->gi_name\);
+    ''',
+
+    r'''
+    __Pyx_Coroutine_get_name(__pyx_CoroutineObject *self)
+    {
+        if (self->gi_name == NULL) { return __pyx_empty_unicode; }
+        Py_INCREF(self->gi_name);
+    ''',
+
+    src, flags=re.X)
+
 with open('uvloop/loop.c', 'wt') as f:
     f.write(src)
 endef
