@@ -6,7 +6,7 @@ cdef class Handle:
         str meth_name
         int cb_type
         void *callback
-        object arg1, arg2, arg3, arg4, arg5
+        object arg1, arg2, arg3, arg4
 
         object __weakref__
 

@@ -28,7 +28,6 @@ ctypedef object (*method_t)(object)
 ctypedef object (*method1_t)(object, object)
 ctypedef object (*method2_t)(object, object, object)
 ctypedef object (*method3_t)(object, object, object, object)
-ctypedef object (*method4_t)(object, object, object, object, object)
 
 
 cdef class Loop:
