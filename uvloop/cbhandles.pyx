@@ -240,8 +240,6 @@ cdef new_MethodHandle1(Loop loop, str name, method1_t *callback,
 
     return handle
 
-# The below code is currently unused.
-'''
 cdef new_MethodHandle2(Loop loop, str name, method2_t *callback, object ctx,
                        object arg1, object arg2):
 
@@ -258,7 +256,6 @@ cdef new_MethodHandle2(Loop loop, str name, method2_t *callback, object ctx,
     handle.arg3 = arg2
 
     return handle
-'''
 
 cdef new_MethodHandle3(Loop loop, str name, method3_t *callback, object ctx,
                        object arg1, object arg2, object arg3):

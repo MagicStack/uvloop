@@ -108,7 +108,6 @@ cdef class Loop:
             readonly uint64_t _poll_write_events_total
             readonly uint64_t _poll_write_cb_errors_total
 
-            readonly uint64_t _sock_try_read_total
             readonly uint64_t _sock_try_write_total
 
             readonly uint64_t _debug_exception_handler_cnt
@@ -152,9 +151,9 @@ cdef class Loop:
     cdef _add_writer(self, fd, Handle handle)
     cdef _remove_writer(self, fd)
 
-    cdef _sock_recv(self, fut, int registered, sock, n)
-    cdef _sock_sendall(self, fut, int registered, sock, data)
-    cdef _sock_accept(self, fut, int registered, sock)
+    cdef _sock_recv(self, fut, sock, n)
+    cdef _sock_sendall(self, fut, sock, data)
+    cdef _sock_accept(self, fut, sock)
 
     cdef _sock_connect(self, fut, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)

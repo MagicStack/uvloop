@@ -117,7 +117,6 @@ cdef class Loop:
             self._poll_write_events_total = 0
             self._poll_write_cb_errors_total = 0
 
-            self._sock_try_read_total = 0
             self._sock_try_write_total = 0
 
             self._debug_exception_handler_cnt = 0
@@ -548,49 +547,43 @@ cdef class Loop:
         nr.query(addr, flags)
         return fut
 
-    cdef _sock_recv(self, fut, int registered, sock, n):
-        # _sock_recv() can add itself as an I/O callback if the operation can't
-        # be done immediately. Don't use it directly, call sock_recv().
+    cdef _sock_recv(self, fut, sock, n):
         cdef:
             Handle handle
+            int fd
 
         fd = sock.fileno()
         if fut.cancelled():
-            if registered:
-                self._remove_reader(fd)
+            self._remove_reader(fd)
             return
+
         try:
             data = sock.recv(n)
         except (BlockingIOError, InterruptedError):
-            handle = new_MethodHandle4(
+            handle = new_MethodHandle3(
                 self,
                 "Loop._sock_recv",
-                <method4_t*>&self._sock_recv,
+                <method3_t*>&self._sock_recv,
                 self,
-                fut, 1, sock, n)
-
+                fut, sock, n)
             self._add_reader(fd, handle)
         except Exception as exc:
             fut.set_exception(exc)
-            if registered:
-                self._remove_reader(fd)
+            self._remove_reader(fd)
         else:
-            IF DEBUG:
-                if not registered:
-                    self._sock_try_read_total += 1
             fut.set_result(data)
-            if registered:
-                self._remove_reader(fd)
+            self._remove_reader(fd)
 
-    cdef _sock_sendall(self, fut, int registered, sock, data):
+    cdef _sock_sendall(self, fut, sock, data):
         cdef:
             Handle handle
+            int n
+            int fd
 
         fd = sock.fileno()
 
         if fut.cancelled():
-            if registered:
-                self._remove_writer(fd)
+            self._remove_writer(fd)
             return
 
         try:
@@ -599,60 +592,50 @@ cdef class Loop:
             n = 0
         except Exception as exc:
             fut.set_exception(exc)
-            if registered:
-                self._remove_writer(fd)
+            self._remove_writer(fd)
             return
-        else:
-            IF DEBUG:
-                if not registered:
-                    # This can be a partial success, i.e. only part
-                    # of the data was sent
-                    self._sock_try_write_total += 1
 
         if n == len(data):
             fut.set_result(None)
-            if registered:
-                self._remove_writer(fd)
+            self._remove_writer(fd)
         else:
             if n:
                 if not isinstance(data, memoryview):
                     data = memoryview(data)
                 data = data[n:]
 
-            handle = new_MethodHandle4(
+            handle = new_MethodHandle3(
                 self,
                 "Loop._sock_sendall",
-                <method4_t*>&self._sock_sendall,
+                <method3_t*>&self._sock_sendall,
                 self,
-                fut, 1, sock, data)
+                fut, sock, data)
 
             self._add_writer(fd, handle)
 
-    cdef _sock_accept(self, fut, int registered, sock):
+    cdef _sock_accept(self, fut, sock):
         cdef:
             Handle handle
 
         fd = sock.fileno()
-        if registered:
-            self._remove_reader(fd)
+
         if fut.cancelled():
+            self._remove_reader(fd)
             return
+
         try:
             conn, address = sock.accept()
             conn.setblocking(False)
         except (BlockingIOError, InterruptedError):
-            handle = new_MethodHandle3(
-                self,
-                "Loop._sock_accept",
-                <method3_t*>&self._sock_accept,
-                self,
-                fut, 1, sock)
-
-            self._add_reader(fd, handle)
+            # There is an active reader for _sock_accept, so
+            # do nothing, it will be called again.
+            pass
         except Exception as exc:
             fut.set_exception(exc)
+            self._remove_reader(fd)
         else:
             fut.set_result((conn, address))
+            self._remove_reader(fd)
 
     cdef _sock_connect(self, fut, sock, address):
         cdef:
@@ -823,8 +806,6 @@ cdef class Loop:
             print()
 
             print('--- Sock ops successfull on 1st try: ---')
-            print('Socket try-reads:          {}'.format(
-                self._sock_try_read_total))
             print('Socket try-writes:         {}'.format(
                 self._sock_try_write_total))
 
@@ -1629,10 +1610,23 @@ cdef class Loop:
 
         This method is a coroutine.
         """
+        cdef:
+            Handle handle
+            int fd
+
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
         fut = self._new_future()
-        self._sock_recv(fut, 0, sock, n)
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_recv",
+            <method3_t*>&self._sock_recv,
+            self,
+            fut, sock, n)
+
+        fd = sock.fileno()
+        self._add_reader(fd, handle)
         return fut
 
     async def sock_sendall(self, sock, data):
@@ -1646,6 +1640,11 @@ cdef class Loop:
 
         This method is a coroutine.
         """
+        cdef:
+            Handle handle
+            int n
+            int fd
+
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
@@ -1669,7 +1668,15 @@ cdef class Loop:
             data = data[n:]
 
         fut = self._new_future()
-        self._sock_sendall(fut, 0, sock, data)
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_sendall",
+            <method3_t*>&self._sock_sendall,
+            self,
+            fut, sock, data)
+
+        fd = sock.fileno()
+        self._add_writer(fd, handle)
         return await fut
 
     def sock_accept(self, sock):
@@ -1682,10 +1689,23 @@ cdef class Loop:
 
         This method is a coroutine.
         """
+        cdef:
+            Handle handle
+            int fd
+
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
         fut = self._new_future()
-        self._sock_accept(fut, 0, sock)
+        handle = new_MethodHandle2(
+            self,
+            "Loop._sock_accept",
+            <method2_t*>&self._sock_accept,
+            self,
+            fut, sock)
+
+        fd = sock.fileno()
+        self._add_reader(fd, handle)
         return fut
 
     def sock_connect(self, sock, address):
