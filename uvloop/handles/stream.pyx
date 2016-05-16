@@ -215,7 +215,7 @@ cdef class UVStream(UVBaseTransport):
             if written > 0:
                 self._loop._debug_stream_write_tries += 1
 
-        if written == uv_buf.len:
+        if written == <int>uv_buf.len:
             return 0
 
         return written
