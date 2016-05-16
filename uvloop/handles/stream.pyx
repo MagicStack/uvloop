@@ -362,7 +362,8 @@ cdef class UVStream(UVBaseTransport):
         # (and thus allocating more memory).
         # On the other hand, uvloop would behave differently from
         # asyncio: where asyncio does one send op, uvloop would do
-        # many send ops.  If the program uses TCP_NODELAY sock opt,
+        # many send ops.  If the program doesn't use the TCP_NODELAY
+        # sock opt (and by default asyncio programs do not set it),
         # this different behavior may result in uvloop being slower
         # than asyncio.
         self.write(b''.join(bufs))
