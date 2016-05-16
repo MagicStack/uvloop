@@ -51,7 +51,7 @@ sdist: clean compile test sdist-libuv
 
 
 release: clean compile test sdist-libuv
-	python setup.py sdist upload
+	python setup.py sdist bdist_wheel upload
 
 
 # Script to patch Cython 'async def' coroutines to have a 'tp_iter' slot,
