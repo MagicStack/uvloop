@@ -1,5 +1,6 @@
 import asyncio
 import socket
+import unittest
 import uvloop
 import sys
 
@@ -188,11 +189,13 @@ class _TestTCP:
 
     def test_create_server_6(self):
         if not hasattr(socket, 'SO_REUSEPORT'):
-            return unittest.skip('The system does not support SO_REUSEPORT')
+            raise unittest.SkipTest(
+                'The system does not support SO_REUSEPORT')
 
         if sys.version_info[:3] < (3, 5, 1):
-            return unittest.skip('asyncio in CPython 3.5.0 does not have the '
-                                 'reuse_port argument')
+            raise unittest.SkipTest(
+                'asyncio in CPython 3.5.0 does not have the '
+                'reuse_port argument')
 
         port = tb.find_free_port()
 
