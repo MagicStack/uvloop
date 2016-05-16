@@ -63,17 +63,11 @@ class _TestTCP:
                 # (asyncio doesn't support multiple hosts in 3.5.0)
                 addrs = '127.0.0.1'
 
-            extra = {}
-            if hasattr(socket, 'SO_REUSEPORT') and \
-                    sys.version_info[:3] >= (3, 5, 1):
-                extra['reuse_port'] = True
-
             srv = await asyncio.start_server(
                 handle_client,
                 addrs, 0,
                 family=socket.AF_INET,
-                loop=self.loop,
-                **extra)
+                loop=self.loop)
 
             srv_socks = srv.sockets
             self.assertTrue(srv_socks)
@@ -189,6 +183,32 @@ class _TestTCP:
                 asyncio.Protocol,
                 None, port)
             srv.close()
+
+        self.loop.run_until_complete(runner())
+
+    def test_create_server_6(self):
+        if not hasattr(socket, 'SO_REUSEPORT'):
+            return unittest.skip('The system does not support SO_REUSEPORT')
+
+        if sys.version_info[:3] < (3, 5, 1):
+            return unittest.skip('asyncio in CPython 3.5.0 does not have the '
+                                 'reuse_port argument')
+
+        port = tb.find_free_port()
+
+        async def runner():
+            srv1 = await self.loop.create_server(
+                asyncio.Protocol,
+                None, port,
+                reuse_port=True)
+
+            srv2 = await self.loop.create_server(
+                asyncio.Protocol,
+                None, port,
+                reuse_port=True)
+
+            srv1.close()
+            srv2.close()
 
         self.loop.run_until_complete(runner())
 
