@@ -85,6 +85,19 @@ def silence_long_exec_warning():
         logger.removeFilter(filter)
 
 
+def find_free_port(start_from=50000):
+    for port in range(start_from, start_from + 500):
+        sock = socket.socket()
+        with sock:
+            try:
+                sock.bind(('', port))
+            except socket.error:
+                continue
+            else:
+                return port
+    raise RuntimeError('could not find a free port')
+
+
 class SSLTestCase:
 
     ONLYCERT = _cert_fullname('ssl_cert.pem')

@@ -11,6 +11,8 @@ cdef extern from "includes/compat.h":
 
 
 cdef extern from "uv.h" nogil:
+    cdef int UV_TCP_IPV6ONLY
+
     cdef int UV_EACCES
     cdef int UV_EAGAIN
     cdef int UV_EALREADY
@@ -57,7 +59,6 @@ cdef extern from "uv.h" nogil:
     cdef int AI_PASSIVE
     cdef int AI_NUMERICHOST
     cdef int INET6_ADDRSTRLEN
-    cdef int IPV6_V6ONLY
     cdef int IPPROTO_IPV6
     cdef int SOCK_STREAM
     cdef int SOCK_DGRAM

@@ -177,6 +177,17 @@ class _TestTCP:
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr))
 
+    def test_create_server_5(self):
+        port = tb.find_free_port()
+
+        async def runner():
+            srv = await self.loop.create_server(
+                asyncio.Protocol,
+                None, port)
+            srv.close()
+
+        self.loop.run_until_complete(runner())
+
     def test_create_connection_1(self):
         CNT = 0
         TOTAL_CNT = 100

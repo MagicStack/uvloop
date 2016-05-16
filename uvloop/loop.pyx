@@ -1121,6 +1121,7 @@ cdef class Loop:
             TCPServer tcp
             system.addrinfo *addrinfo
             Server server = Server(self)
+            int bind_flags
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
@@ -1163,8 +1164,13 @@ cdef class Loop:
                         if reuse_port:
                             self._sock_set_reuseport(tcp._fileno())
 
+                        if addrinfo.ai_family == uv.AF_INET6:
+                            bind_flags = uv.UV_TCP_IPV6ONLY
+                        else:
+                            bind_flags = 0
+
                         try:
-                            tcp.bind(addrinfo.ai_addr)
+                            tcp.bind(addrinfo.ai_addr, bind_flags)
                             tcp.listen(backlog)
                         except OSError as err:
                             pyaddr = __convert_sockaddr_to_pyaddr(
