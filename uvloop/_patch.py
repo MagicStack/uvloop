@@ -4,10 +4,23 @@ from asyncio import coroutines
 
 
 def _format_coroutine(coro):
-    if asyncio.iscoroutine(coro) and not hasattr(coro, 'cr_code'):
+    if asyncio.iscoroutine(coro) \
+            and not hasattr(coro, 'cr_code') \
+            and not hasattr(coro, 'gi_code'):
+
         # Most likely a Cython coroutine
         coro_name = '{}()'.format(coro.__qualname__ or coro.__name__)
-        if coro.cr_running:
+
+        running = False
+        try:
+            running = coro.cr_running
+        except AttributeError:
+            try:
+                running = coro.gi_running
+            except AttributeError:
+                pass
+
+        if running:
             return '{} running'.format(coro_name)
         else:
             return coro_name
