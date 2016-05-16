@@ -1165,6 +1165,9 @@ cdef class Loop:
                             self._sock_set_reuseport(tcp._fileno())
 
                         if addrinfo.ai_family == uv.AF_INET6:
+                            # Disable IPv4/IPv6 dual stack support (enabled by
+                            # default on Linux) which makes a single socket
+                            # listen on both address families.
                             bind_flags = uv.UV_TCP_IPV6ONLY
                         else:
                             bind_flags = 0
