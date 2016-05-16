@@ -117,6 +117,7 @@ class _TestTCP:
                 TIMEOUT, loop=self.loop)
 
             srv.close()
+            await srv.wait_closed()
 
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
@@ -183,7 +184,9 @@ class _TestTCP:
             srv = await self.loop.create_server(
                 asyncio.Protocol,
                 None, port)
+
             srv.close()
+            await srv.wait_closed()
 
         self.loop.run_until_complete(runner())
 
@@ -212,6 +215,9 @@ class _TestTCP:
 
             srv1.close()
             srv2.close()
+
+            await srv1.wait_closed()
+            await srv2.wait_closed()
 
         self.loop.run_until_complete(runner())
 
