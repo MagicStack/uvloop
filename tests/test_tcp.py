@@ -178,6 +178,10 @@ class _TestTCP:
                     self.loop.create_server(object, *addr))
 
     def test_create_server_5(self):
+        # Test that create_server sets the TCP_IPV6ONLY flag,
+        # so it can bind to ipv4 and ipv6 addresses
+        # simultaneously.
+
         port = tb.find_free_port()
 
         async def runner():
