@@ -269,7 +269,12 @@ class _TestBase:
 
         self.loop.set_debug(True)
 
+        if hasattr(self.loop, 'get_exception_handler'):
+            # Available since Python 3.5.2
+            self.assertIsNone(self.loop.get_exception_handler())
         self.loop.set_exception_handler(handler)
+        if hasattr(self.loop, 'get_exception_handler'):
+            self.assertIs(self.loop.get_exception_handler(), handler)
         run_loop()
         self.assertEqual(len(errors), 1)
         self.assertRegex(errors[-1]['message'],

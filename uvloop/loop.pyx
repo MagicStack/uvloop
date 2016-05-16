@@ -1525,6 +1525,11 @@ cdef class Loop:
 
         aio_logger.error('\n'.join(log_lines), exc_info=exc_info)
 
+    def get_exception_handler(self):
+        """Return an exception handler, or None if the default one is in use.
+        """
+        return self._exception_handler
+
     def set_exception_handler(self, handler):
         """Set handler as the new event loop exception handler.
 
