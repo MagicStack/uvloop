@@ -426,6 +426,12 @@ class TestBaseUV(_TestBase, UVTestCase):
         _format_coroutine(coro)  # This line checks against Cython segfault
         coro.close()
 
+    def test_loop_create_future(self):
+        fut = self.loop.create_future()
+        self.assertTrue(isinstance(fut, asyncio.Future))
+        self.assertIs(fut._loop, self.loop)
+        fut.cancel()
+
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass

@@ -946,6 +946,10 @@ cdef class Loop:
         """Returns True if the event loop was closed."""
         return bool(self._closed)
 
+    def create_future(self):
+        """Create a Future object attached to the loop."""
+        return self._new_future()
+
     def create_task(self, coro):
         """Schedule a coroutine object.
 
