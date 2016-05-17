@@ -43,3 +43,14 @@ cdef extern from "sys/socket.h" nogil:
 
     int setsockopt(int socket, int level, int option_name,
                    const void *option_value, int option_len)
+
+
+cdef extern from "unistd.h" nogil:
+
+    ssize_t write(int fd, const void *buf, size_t count)
+
+
+cdef extern from "includes/compat.h" nogil:
+
+    cdef int EWOULDBLOCK
+    cdef int PLATFORM_IS_APPLE

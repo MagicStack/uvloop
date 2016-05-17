@@ -179,43 +179,62 @@ cdef class UVStream(UVBaseTransport):
 
     cdef inline _try_write(self, object data):
         cdef:
-            int written
+            ssize_t written
             bint used_buf = 0
             Py_buffer py_buf
-            uv.uv_buf_t uv_buf
+            void* buf
+            size_t blen
+            int saved_errno
+            int fd
 
         if PyBytes_CheckExact(data):
-            uv_buf.base = PyBytes_AS_STRING(data)
-            uv_buf.len = Py_SIZE(data)
+            buf = <void*>PyBytes_AS_STRING(data)
+            blen = Py_SIZE(data)
         elif PyByteArray_CheckExact(data):
-            uv_buf.base = PyByteArray_AS_STRING(data)
-            uv_buf.len = Py_SIZE(data)
+            buf = <void*>PyByteArray_AS_STRING(data)
+            blen = Py_SIZE(data)
         else:
             PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
             used_buf = 1
-            uv_buf.base = <char*>py_buf.buf
-            uv_buf.len = py_buf.len
+            buf = py_buf.buf
+            blen = py_buf.len
 
-        written = uv.uv_try_write(
-            <uv.uv_stream_t*>self._handle,
-            &uv_buf, 1)
+        if blen == 0:
+            # Empty data, do nothing.
+            return 0
+
+        fd = self._fileno()
+        # Use `unistd.h/write` directly, it's faster than
+        # uv_try_write -- less layers of code.  The error
+        # checking logic is copied from libuv.
+        written = system.write(fd, buf, blen)
+        while written == -1 and (errno.errno == errno.EINTR or
+                                 (system.PLATFORM_IS_APPLE and
+                                    errno.errno == errno.EPROTOTYPE)):
+            # From libuv code (unix/stream.c):
+            #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
+            #   EPROTOTYPE can be returned while trying to write to a socket
+            #   that is shutting down. If we retry the write, we should get
+            #   the expected EPIPE instead.
+            written = system.write(fd, buf, blen)
+        saved_errno = errno.errno
 
         if used_buf:
             PyBuffer_Release(&py_buf)
 
         if written < 0:
-            if written == uv.UV_EAGAIN:
+            if saved_errno == errno.EAGAIN or \
+                    saved_errno == system.EWOULDBLOCK:
                 return -1
             else:
-                exc = convert_error(written)
+                exc = convert_error(-saved_errno)
                 self._fatal_error(exc, True)
                 return
 
         IF DEBUG:
-            if written > 0:
-                self._loop._debug_stream_write_tries += 1
+            self._loop._debug_stream_write_tries += 1
 
-        if written == <int>uv_buf.len:
+        if <size_t>written == blen:
             return 0
 
         return written
@@ -229,6 +248,11 @@ cdef class UVStream(UVBaseTransport):
             # Try to write without polling only when there is
             # no data in write buffers.
             sent = self._try_write(data)
+            if sent is None:
+                # A `self._fatal_error` was called.
+                # It might not raise an exception under some
+                # conditions.
+                return
             if sent == 0:
                 # All data was successfully written.
                 return
