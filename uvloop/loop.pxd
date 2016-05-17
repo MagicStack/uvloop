@@ -53,6 +53,7 @@ cdef class Loop:
         object _exception_handler
         object _default_executor
         object _ready
+        set _queued_streams
         Py_ssize_t _ready_len
 
         set _timers
@@ -64,6 +65,7 @@ cdef class Loop:
 
         UVAsync handler_async
         UVIdle handler_idle
+        UVCheck handler_check__exec_writes
         UVSignal handler_sigint
         UVSignal handler_sighup
 
@@ -125,6 +127,9 @@ cdef class Loop:
     cdef _stop(self, exc)
     cdef uint64_t _time(self)
 
+    cdef inline _queue_write(self, UVStream stream)
+    cdef _exec_queued_writes(self)
+
     cdef inline _call_soon(self, object callback, object args)
     cdef inline _call_soon_handle(self, Handle handle)
 
@@ -167,6 +172,7 @@ include "cbhandles.pxd"
 include "handles/handle.pxd"
 include "handles/async_.pxd"
 include "handles/idle.pxd"
+include "handles/check.pxd"
 include "handles/timer.pxd"
 include "handles/signal.pxd"
 include "handles/poll.pxd"

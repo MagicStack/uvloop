@@ -127,6 +127,7 @@ cdef class Loop:
         self._exception_handler = None
         self._default_executor = None
 
+        self._queued_streams = set()
         self._ready = col_deque()
         self._ready_len = 0
 
@@ -149,6 +150,12 @@ cdef class Loop:
             new_MethodHandle(
                 self, "loop._on_sighup", <method_t*>&self._on_sighup, self),
             uv.SIGHUP)
+
+        self.handler_check__exec_writes = UVCheck.new(
+            self,
+            new_MethodHandle(
+                self, "loop._exec_queued_writes",
+                <method_t*>&self._exec_queued_writes, self))
 
         uv.uv_disable_stdio_inheritance()
 
@@ -223,6 +230,8 @@ cdef class Loop:
                     self._stop(ex)
                     return
 
+        self._exec_queued_writes()
+
         if len(self._polls_gc):
             for fd in tuple(self._polls_gc):
                 poll = <UVPoll> self._polls_gc[fd]
@@ -290,12 +299,14 @@ cdef class Loop:
         self._sigint_check = 0
         self._running = 1
 
+        self.handler_check__exec_writes.start()
         self.handler_idle.start()
         self.handler_sigint.start()
         self.handler_sighup.start()
 
         self.__run(mode)
 
+        self.handler_check__exec_writes.stop()
         self.handler_idle.stop()
         self.handler_sigint.stop()
         self.handler_sighup.stop()
@@ -344,6 +355,7 @@ cdef class Loop:
         # Close all remaining handles
         self.handler_async._close()
         self.handler_idle._close()
+        self.handler_check__exec_writes._close()
         self.handler_sigint._close()
         self.handler_sighup._close()
         __close_all_handles(self)
@@ -372,6 +384,7 @@ cdef class Loop:
 
         self.handler_async = None
         self.handler_idle = None
+        self.handler_check__exec_writes = None
         self.handler_sigint = None
         self.handler_sighup = None
 
@@ -382,6 +395,32 @@ cdef class Loop:
 
     cdef uint64_t _time(self):
         return uv.uv_now(self.uvloop)
+
+    cdef inline _queue_write(self, UVStream stream):
+        self._queued_streams.add(stream)
+        if not self.handler_check__exec_writes.running:
+            self.handler_check__exec_writes.start()
+
+    cdef _exec_queued_writes(self):
+        if len(self._queued_streams) == 0:
+            if self.handler_check__exec_writes.running:
+                self.handler_check__exec_writes.stop()
+            return
+
+        cdef:
+            set queued
+            UVStream stream
+
+        queued = self._queued_streams
+        self._queued_streams = set()
+
+        for pystream in queued:
+            stream = <UVStream>pystream
+            stream._exec_write()
+
+        if len(self._queued_streams) == 0:
+            if self.handler_check__exec_writes.running:
+                self.handler_check__exec_writes.stop()
 
     cdef inline _call_soon(self, object callback, object args):
         cdef Handle handle
@@ -2168,6 +2207,7 @@ include "cbhandles.pyx"
 include "handles/handle.pyx"
 include "handles/async_.pyx"
 include "handles/idle.pyx"
+include "handles/check.pyx"
 include "handles/timer.pyx"
 include "handles/signal.pyx"
 include "handles/poll.pyx"

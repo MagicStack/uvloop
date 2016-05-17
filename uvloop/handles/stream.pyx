@@ -4,16 +4,13 @@ cdef class _StreamWriteContext:
     # used to hold additional write request information for uv_write
 
     cdef:
-        uv.uv_write_t   req     # uv_cancel doesn't support uv_write_t,
-                                # hence we don't use UVRequest here,
-                                # and just work with the request directly.
-                                # libuv will initialize `req`.
+        uv.uv_write_t   req
 
-        uv.uv_buf_t     uv_buf
-        Py_buffer       py_buf
+        list            buffers
 
-        bint            used_buf
-        object          data
+        uv.uv_buf_t*    uv_bufs
+        Py_buffer*      py_bufs
+        ssize_t         py_bufs_len
 
         UVStream        stream
 
@@ -24,62 +21,112 @@ cdef class _StreamWriteContext:
             return
 
         self.closed = 1
-        if self.used_buf:
-            PyBuffer_Release(&self.py_buf)  # void
-        self.req.data = NULL
-        self.data = None
-        IF not DEBUG:
-            self.stream = None
+
+        if self.uv_bufs is not NULL:
+            PyMem_Free(self.uv_bufs)
+            self.uv_bufs = NULL
+
+        if self.py_bufs is not NULL:
+            for i in range(self.py_bufs_len):
+                PyBuffer_Release(&self.py_bufs[i])
+            PyMem_Free(self.py_bufs)
+            self.py_bufs = NULL
+
+        self.py_bufs_len = 0
+        self.buffers = None
+
         Py_DECREF(self)
 
     @staticmethod
-    cdef _StreamWriteContext new(UVStream stream, object data):
-        cdef _StreamWriteContext ctx
+    cdef _StreamWriteContext new(UVStream stream, list buffers):
+        cdef:
+            _StreamWriteContext ctx
+            int py_bufs_idx = 0
+            int uv_bufs_idx = 0
+
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
         ctx.stream = None
         ctx.closed = 1
-        ctx.used_buf = 0
+        ctx.py_bufs_len = 0
+        ctx.uv_bufs = NULL
+        ctx.py_bufs = NULL
+        ctx.buffers = buffers
+        ctx.stream = stream
+
+        for buf in buffers:
+            if not PyBytes_CheckExact(buf) and \
+                    not PyByteArray_CheckExact(buf):
+                ctx.py_bufs_len += 1
+
+        if ctx.py_bufs_len > 0:
+            ctx.py_bufs = <Py_buffer*>PyMem_Malloc(
+                ctx.py_bufs_len * sizeof(Py_buffer))
+            if ctx.py_bufs is NULL:
+                raise MemoryError()
+
+        ctx.uv_bufs = <uv.uv_buf_t*>PyMem_Malloc(
+            len(buffers) * sizeof(uv.uv_buf_t))
+        if ctx.uv_bufs is NULL:
+            raise MemoryError()
+
+        for buf in buffers:
+            if PyBytes_CheckExact(buf):
+                ctx.uv_bufs[uv_bufs_idx].base = PyBytes_AS_STRING(buf)
+                ctx.uv_bufs[uv_bufs_idx].len = Py_SIZE(buf)
+
+            elif PyByteArray_CheckExact(buf):
+                ctx.uv_bufs[uv_bufs_idx].base = PyByteArray_AS_STRING(buf)
+                ctx.uv_bufs[uv_bufs_idx].len = Py_SIZE(buf)
+
+            else:
+                try:
+                    PyObject_GetBuffer(
+                        buf, &ctx.py_bufs[py_bufs_idx], PyBUF_SIMPLE)
+                except:
+                    PyMem_Free(ctx.uv_bufs)
+                    ctx.uv_bufs = NULL
+                    for i in range(py_bufs_idx):
+                        PyBuffer_Release(&ctx.py_bufs[i])
+                    PyMem_Free(ctx.py_bufs)
+                    ctx.py_bufs = NULL
+                    ctx.py_bufs_len = 0
+                    raise
+
+                ctx.uv_bufs[uv_bufs_idx].base = \
+                    <char*>ctx.py_bufs[py_bufs_idx].buf
+
+                ctx.uv_bufs[uv_bufs_idx].len = \
+                    ctx.py_bufs[py_bufs_idx].len
+
+                py_bufs_idx += 1
+
+            uv_bufs_idx += 1
 
         ctx.req.data = <void*> ctx
-
-        if PyBytes_CheckExact(data):
-            ctx.data = data
-            ctx.uv_buf.base = PyBytes_AS_STRING(data)
-            ctx.uv_buf.len = Py_SIZE(data)
-
-        elif PyByteArray_CheckExact(data):
-            ctx.data = data
-            ctx.uv_buf.base = PyByteArray_AS_STRING(data)
-            ctx.uv_buf.len = Py_SIZE(data)
-
-        else:
-            PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
-            ctx.used_buf = 1
-            ctx.uv_buf.base = <char*>ctx.py_buf.buf
-            ctx.uv_buf.len = ctx.py_buf.len
-
-        ctx.stream = stream
 
         IF DEBUG:
             stream._loop._debug_stream_write_ctx_total += 1
             stream._loop._debug_stream_write_ctx_cnt += 1
 
-        # Do incref after everything else is done
-        # (PyObject_GetBuffer for instance may fail with exception)
+        # Do incref after everything else is done.
+        # Under no circumstances we want `ctx` to be GCed while
+        # libuv is still working with `ctx.uv_bufs`.
         Py_INCREF(ctx)
         ctx.closed = 0
         return ctx
 
     IF DEBUG:
         def __dealloc__(self):
+            # Because we do an INCREF in _StreamWriteContext.new,
+            # __dealloc__ shouldn't ever happen with `self.closed == 0`
+
             if not self.closed:
                 raise RuntimeError(
                     'open _StreamWriteContext is being deallocated')
 
-            IF DEBUG:
-                if self.stream is not None:
-                    self.stream._loop._debug_stream_write_ctx_cnt -= 1
-                    self.stream = None
+            if self.stream is not None:
+                self.stream._loop._debug_stream_write_ctx_cnt -= 1
+                self.stream = None
 
 
 @cython.no_gc_clear
@@ -90,6 +137,8 @@ cdef class UVStream(UVBaseTransport):
         self.__reading = 0
         self.__read_error_close = 0
         self._eof = 0
+        self._buffer = []
+        self._buffer_size = 0
 
     cdef inline _shutdown(self):
         cdef int err
@@ -240,9 +289,7 @@ cdef class UVStream(UVBaseTransport):
         return written
 
     cdef inline _write(self, object data):
-        cdef:
-            int err
-            _StreamWriteContext ctx
+        cdef int dlen
 
         if not self._get_write_buffer_size():
             # Try to write without polling only when there is
@@ -265,13 +312,41 @@ cdef class UVStream(UVBaseTransport):
                     data = memoryview(data)
                 data = data[sent:]
 
-        ctx = _StreamWriteContext.new(self, data)
+                dlen = len(data)
+                if dlen:
+                    self._buffer_size += dlen
+                    self._buffer.append(data)
+                    self._loop._queue_write(self)
+                return
+
+        if not PyBytes_CheckExact(data) and not PyByteArray_CheckExact(data):
+            data = memoryview(data).cast('b')
+
+        dlen = len(data)
+        if not dlen:
+            return
+
+        self._buffer_size += dlen
+        self._buffer.append(data)
+        self._loop._queue_write(self)
+
+        self._maybe_pause_protocol()
+
+    cdef inline _exec_write(self):
+        cdef:
+            int err
+            _StreamWriteContext ctx
+
+        ctx = _StreamWriteContext.new(self, self._buffer)
 
         err = uv.uv_write(&ctx.req,
                           <uv.uv_stream_t*>self._handle,
-                          &ctx.uv_buf,
-                          1,
+                          ctx.uv_bufs,
+                          len(self._buffer),
                           __uv_stream_on_write)
+
+        self._buffer_size = 0
+        self._buffer = []
 
         if err < 0:
             # close write context
@@ -279,13 +354,15 @@ cdef class UVStream(UVBaseTransport):
 
             exc = convert_error(err)
             self._fatal_error(exc, True)
+            return
 
         self._maybe_pause_protocol()
 
     cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
             return 0
-        return (<uv.uv_stream_t*>self._handle).write_queue_size
+        return ((<uv.uv_stream_t*>self._handle).write_queue_size +
+                self._buffer_size)
 
     cdef _close(self):
         try:
@@ -583,14 +660,12 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
-    if req.data is NULL:
-        # Shouldn't happen as:
-        #    - _StreamWriteContext does an extra INCREF in its 'init()'
-        #    - _StreamWriteContext holds a ref to the relevant UVStream
-        aio_logger.error(
-            'UVStream.write callback called with NULL req.data, status=%r',
-            status)
-        return
+    IF DEBUG:
+        if req.data is NULL:
+            aio_logger.error(
+                'UVStream.write callback called with NULL req.data, status=%r',
+                status)
+            return
 
     cdef:
         Loop loop = <UVStream>(<_StreamWriteContext> req.data).stream._loop

@@ -5,11 +5,15 @@ cdef class UVStream(UVBaseTransport):
         bint __reading
         bint __read_error_close
         bint _eof
+        list _buffer
+        size_t _buffer_size
 
     # All "inline" methods are final
 
     cdef inline _init(self, Loop loop, object protocol, Server server,
                       object waiter)
+
+    cdef inline _exec_write(self)
 
     cdef inline _shutdown(self)
     cdef inline _accept(self, UVStream server)

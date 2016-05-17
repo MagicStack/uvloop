@@ -497,7 +497,57 @@ class _TestTCP:
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
-    pass
+
+    def test_many_small_writes(self):
+        N = 10000
+        TOTAL = 0
+
+        fut = self.loop.create_future()
+
+        async def server(reader, writer):
+            nonlocal TOTAL
+            while True:
+                d = await reader.read(10000)
+                if not d:
+                    break
+                TOTAL += len(d)
+            fut.set_result(True)
+            writer.close()
+
+        async def run():
+            srv = await asyncio.start_server(
+                server,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop)
+
+            addr = srv.sockets[0].getsockname()
+            r, w = await asyncio.open_connection(*addr, loop=self.loop)
+
+            DATA = b'x' * 102400
+
+            for _ in range(N):
+                w.write(DATA)
+
+                try:
+                    w.write('a')
+                except TypeError:
+                    pass
+
+            await w.drain()
+            for _ in range(N):
+                w.write(DATA)
+                await w.drain()
+
+            w.close()
+            await fut
+
+            srv.close()
+            await srv.wait_closed()
+
+            self.assertEqual(TOTAL, N * 2 * len(DATA))
+
+        self.loop.run_until_complete(run())
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):

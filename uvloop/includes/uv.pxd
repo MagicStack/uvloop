@@ -90,6 +90,11 @@ cdef extern from "uv.h" nogil:
         uv_loop_t* loop
         # ...
 
+    ctypedef struct uv_check_t:
+        void* data
+        uv_loop_t* loop
+        # ...
+
     ctypedef struct uv_signal_t:
         void* data
         uv_loop_t* loop
@@ -209,6 +214,7 @@ cdef extern from "uv.h" nogil:
 
     ctypedef void (*uv_close_cb)(uv_handle_t* handle) with gil
     ctypedef void (*uv_idle_cb)(uv_idle_t* handle) with gil
+    ctypedef void (*uv_check_cb)(uv_check_t* handle) with gil
     ctypedef void (*uv_signal_cb)(uv_signal_t* handle, int signum) with gil
     ctypedef void (*uv_async_cb)(uv_async_t* handle) with gil
     ctypedef void (*uv_timer_cb)(uv_timer_t* handle) with gil
@@ -267,6 +273,11 @@ cdef extern from "uv.h" nogil:
     int uv_idle_init(uv_loop_t*, uv_idle_t* idle)
     int uv_idle_start(uv_idle_t* idle, uv_idle_cb cb)
     int uv_idle_stop(uv_idle_t* idle)
+
+    # Check handler
+    int uv_check_init(uv_loop_t*, uv_check_t* idle)
+    int uv_check_start(uv_check_t* check, uv_check_cb cb)
+    int uv_check_stop(uv_check_t* check)
 
     # Signal handler
     int uv_signal_init(uv_loop_t* loop, uv_signal_t* handle)
