@@ -429,16 +429,9 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
         return
 
 
-cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
-                              ssize_t nread,
-                              const uv.uv_buf_t* buf) with gil:
-
-    # callback for uv_read_start
-
-    if __ensure_handle_data(<uv.uv_handle_t*>stream,
-                            "UVStream read callback") == 0:
-        return
-
+cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
+                                          ssize_t nread,
+                                          const uv.uv_buf_t* buf):
     cdef:
         UVStream sc = <UVStream>stream.data
         Loop loop = sc._loop
@@ -514,18 +507,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
         sc._error(exc, False)
 
 
-cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
-    # callback for uv_write
-
-    if req.data is NULL:
-        # Shouldn't happen as:
-        #    - _StreamWriteContext does an extra INCREF in its 'init()'
-        #    - _StreamWriteContext holds a ref to the relevant UVStream
-        aio_logger.error(
-            'UVStream.write callback called with NULL req.data, status=%r',
-            status)
-        return
-
+cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
     cdef:
         _StreamWriteContext ctx = <_StreamWriteContext> req.data
         UVStream stream = <UVStream>ctx.stream
@@ -554,3 +536,44 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
             stream._loop._debug_stream_write_cb_errors_total += 1
 
         stream._error(exc, False)
+
+
+cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
+                              ssize_t nread,
+                              const uv.uv_buf_t* buf) with gil:
+
+    if __ensure_handle_data(<uv.uv_handle_t*>stream,
+                            "UVStream read callback") == 0:
+        return
+
+    cdef:
+        Loop loop = <Loop>stream.loop.data
+        bint old_exec_py_code
+
+    old_exec_py_code = loop._executing_py_code
+    loop._executing_py_code = 1
+    # Don't need try-finally, __uv_stream_on_read_impl is void
+    __uv_stream_on_read_impl(stream, nread, buf)
+    loop._executing_py_code = old_exec_py_code
+
+
+cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
+
+    if req.data is NULL:
+        # Shouldn't happen as:
+        #    - _StreamWriteContext does an extra INCREF in its 'init()'
+        #    - _StreamWriteContext holds a ref to the relevant UVStream
+        aio_logger.error(
+            'UVStream.write callback called with NULL req.data, status=%r',
+            status)
+        return
+
+    cdef:
+        Loop loop = <UVStream>(<_StreamWriteContext> req.data).stream._loop
+        bint old_exec_py_code
+
+    old_exec_py_code = loop._executing_py_code
+    loop._executing_py_code = 1
+    # Don't need try-finally, __uv_stream_on_write_impl is void
+    __uv_stream_on_write_impl(req, status)
+    loop._executing_py_code = old_exec_py_code
