@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -39,10 +40,11 @@ class libuv_build_ext(build_ext):
     def build_libuv(self):
         env = os.environ.copy()
 
-        env['CFLAGS'] = ('-fPIC ' +
-                         env.get('CFLAGS', '-O2') +
-                         ' ' +
-                         env.get('ARCHFLAGS', ''))
+        cur_cflags = env.get('CFLAGS', '')
+        if not re.search('-O\d', cur_cflags):
+            cur_cflags += ' -O2'
+
+        env['CFLAGS'] = (cur_cflags + ' -fPIC' + env.get('ARCHFLAGS', ''))
 
         j_flag = '-j{}'.format(os.cpu_count() or 1)
 
