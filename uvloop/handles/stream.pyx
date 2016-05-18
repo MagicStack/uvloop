@@ -18,35 +18,78 @@ cdef class _StreamWriteContext:
         Py_buffer*      py_bufs
         ssize_t         py_bufs_len
 
+        uv.uv_buf_t*    uv_bufs_start
+        ssize_t         uv_bufs_len
+
         UVStream        stream
 
         bint            closed
 
-    cdef close(self):
-        if self.closed:
-            return
-
-        self.closed = 1
-
-        if self.py_bufs_sml_inuse:
-            for i in range(self.py_bufs_len):
-                PyBuffer_Release(&self.py_bufs_sml[i])
-            self.py_bufs_sml_inuse = 0
-
+    cdef free_bufs(self):
         if self.uv_bufs is not NULL:
             PyMem_Free(self.uv_bufs)
             self.uv_bufs = NULL
+            IF DEBUG:
+                if self.py_bufs_sml_inuse:
+                    raise RuntimeError(
+                        '_StreamWriteContext.close: uv_bufs != NULL and '
+                        'py_bufs_sml_inuse is True')
 
         if self.py_bufs is not NULL:
-            for i in range(self.py_bufs_len):
+            for i from 0 <= i < self.py_bufs_len:
                 PyBuffer_Release(&self.py_bufs[i])
             PyMem_Free(self.py_bufs)
             self.py_bufs = NULL
+            IF DEBUG:
+                if self.py_bufs_sml_inuse:
+                    raise RuntimeError(
+                        '_StreamWriteContext.close: py_bufs != NULL and '
+                        'py_bufs_sml_inuse is True')
+
+        if self.py_bufs_sml_inuse:
+            for i from 0 <= i < self.py_bufs_len:
+                PyBuffer_Release(&self.py_bufs_sml[i])
+            self.py_bufs_sml_inuse = 0
 
         self.py_bufs_len = 0
         self.buffers = None
 
+    cdef close(self):
+        if self.closed:
+            return
+        self.closed = 1
+        self.free_bufs()
         Py_DECREF(self)
+
+    cdef advance_uv_buf(self, int sent):
+        # Advance the pointer to first uv_buf and the
+        # pointer to first byte in that buffer.
+        #
+        # We do this after a "uv_try_write" call, which
+        # sometimes sends only a portion of data.
+        # We then call "advance_uv_buf" on the write
+        # context, and reuse it in a "uv_write" call.
+
+        cdef:
+            uv.uv_buf_t* buf
+            int idx
+
+        for idx from 0 <= idx < self.uv_bufs_len:
+            buf = &self.uv_bufs_start[idx]
+            if buf.len > sent:
+                buf.len -= sent
+                buf.base = buf.base + sent
+                self.uv_bufs_start = buf
+                self.uv_bufs_len -= idx
+                return
+            else:
+                sent -= self.uv_bufs_start[idx].len
+
+            IF DEBUG:
+                if sent < 0:
+                    raise RuntimeError('fatal: sent < 0 in advance_uv_buf')
+
+        raise RuntimeError('fatal: Could not advance _StreamWriteContext')
 
     @staticmethod
     cdef _StreamWriteContext new(UVStream stream, list buffers):
@@ -54,6 +97,7 @@ cdef class _StreamWriteContext:
             _StreamWriteContext ctx
             int uv_bufs_idx = 0
             int py_bufs_len = 0
+            int i
 
             Py_buffer* p_pybufs
             uv.uv_buf_t* p_uvbufs
@@ -77,8 +121,14 @@ cdef class _StreamWriteContext:
 
         else:
             for buf in buffers:
-                if not PyBytes_CheckExact(buf) and \
-                        not PyByteArray_CheckExact(buf):
+                IF DEBUG:
+                    if not isinstance(buf, (bytes, bytearray, memoryview)):
+                        raise RuntimeError(
+                            'invalid data in writebuf: an instance of '
+                            'bytes, bytearray or memoryview was expected, '
+                            'got {}'.format(type(buf)))
+
+                if not PyBytes_CheckExact(buf):
                     py_bufs_len += 1
 
             if py_bufs_len > 0:
@@ -98,11 +148,10 @@ cdef class _StreamWriteContext:
         py_bufs_len = 0
         for buf in buffers:
             if PyBytes_CheckExact(buf):
+                # We can only use this hack for bytes since it's
+                # immutable.  For everything else it is only safe to
+                # use buffer protocol.
                 p_uvbufs[uv_bufs_idx].base = PyBytes_AS_STRING(buf)
-                p_uvbufs[uv_bufs_idx].len = Py_SIZE(buf)
-
-            elif PyByteArray_CheckExact(buf):
-                p_uvbufs[uv_bufs_idx].base = PyByteArray_AS_STRING(buf)
                 p_uvbufs[uv_bufs_idx].len = Py_SIZE(buf)
 
             else:
@@ -110,24 +159,10 @@ cdef class _StreamWriteContext:
                     PyObject_GetBuffer(
                         buf, &p_pybufs[py_bufs_len], PyBUF_SIMPLE)
                 except:
-                    # This shouldn't ever happen, since UVStream._write
-                    # casts non-bytes and non-bytearrays to memoryviews.
-
-                    if ctx.py_bufs_sml_inuse:
-                        for i in range(py_bufs_len):
-                            PyBuffer_Release(&ctx.py_bufs_sml[i])
-                        ctx.py_bufs_sml_inuse = 0
-
-                    if ctx.uv_bufs is not NULL:
-                        PyMem_Free(ctx.uv_bufs)
-                        ctx.uv_bufs = NULL
-
-                    if ctx.py_bufs is not NULL:
-                        for i in range(py_bufs_len):
-                            PyBuffer_Release(&ctx.py_bufs[i])
-                        PyMem_Free(ctx.py_bufs)
-                        ctx.py_bufs = NULL
-
+                    # This shouldn't ever happen, as `UVStream._write`
+                    # casts non-bytes objects to `memoryviews`.
+                    ctx.py_bufs_len = py_bufs_len
+                    ctx.free_bufs()
                     raise
 
                 p_uvbufs[uv_bufs_idx].base = <char*>p_pybufs[py_bufs_len].buf
@@ -136,6 +171,9 @@ cdef class _StreamWriteContext:
                 py_bufs_len += 1
 
             uv_bufs_idx += 1
+
+        ctx.uv_bufs_start = p_uvbufs
+        ctx.uv_bufs_len = uv_bufs_idx
 
         ctx.py_bufs_len = py_bufs_len
         ctx.req.data = <void*> ctx
@@ -272,11 +310,15 @@ cdef class UVStream(UVBaseTransport):
             int saved_errno
             int fd
 
+        if (<uv.uv_stream_t*>self._handle).write_queue_size != 0:
+            raise RuntimeError(
+                'UVStream._try_write called with data in uv buffers')
+
         if PyBytes_CheckExact(data):
+            # We can only use this hack for bytes since it's
+            # immutable.  For everything else it is only safe to
+            # use buffer protocol.
             buf = <void*>PyBytes_AS_STRING(data)
-            blen = Py_SIZE(data)
-        elif PyByteArray_CheckExact(data):
-            buf = <void*>PyByteArray_AS_STRING(data)
             blen = Py_SIZE(data)
         else:
             PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
@@ -327,35 +369,7 @@ cdef class UVStream(UVBaseTransport):
     cdef inline _write(self, object data):
         cdef int dlen
 
-        if not self._get_write_buffer_size():
-            # Try to write without polling only when there is
-            # no data in write buffers.
-            sent = self._try_write(data)
-            if sent is None:
-                # A `self._fatal_error` was called.
-                # It might not raise an exception under some
-                # conditions.
-                return
-            if sent == 0:
-                # All data was successfully written.
-                return
-            if sent > 0:
-                IF DEBUG:
-                    if sent == len(data):
-                        raise RuntimeError(
-                            '_try_write sent all data and returned non-zero')
-                if not isinstance(data, memoryview):
-                    data = memoryview(data)
-                data = data[sent:]
-
-                dlen = len(data)
-                if dlen:
-                    self._buffer_size += dlen
-                    self._buffer.append(data)
-                    self._loop._queue_write(self)
-                return
-
-        if not PyBytes_CheckExact(data) and not PyByteArray_CheckExact(data):
+        if not PyBytes_CheckExact(data):
             data = memoryview(data).cast('b')
 
         dlen = len(data)
@@ -364,36 +378,153 @@ cdef class UVStream(UVBaseTransport):
 
         self._buffer_size += dlen
         self._buffer.append(data)
-        self._loop._queue_write(self)
+
+        if (not self._protocol_paused and
+                (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
+                self._buffer_size > self._high_water):
+            # Fast-path.  If:
+            #   - the protocol isn't yet paused,
+            #   - there is no data in libuv buffers for this stream,
+            #   - the protocol will be paused if we continue to buffer data
+            #
+            # Then:
+            #   - Try to write all buffered data right now.
+            all_sent = self._exec_write()
+            IF DEBUG:
+                if self._buffer_size != 0 or self._buffer != []:
+                    raise RuntimeError(
+                        '_buffer_size is not 0 after a successful _exec_write')
+
+            # There is no need to call `_queue_write` anymore,
+            # as `uv_write` should be called already.
+
+            if not all_sent:
+                # If not all of the data was sent successfully,
+                # we might need to pause the protocol.
+                self._maybe_pause_protocol()
+            return
 
         self._maybe_pause_protocol()
+        self._loop._queue_write(self)
 
     cdef inline _exec_write(self):
         cdef:
             int err
-            _StreamWriteContext ctx
+            int buf_len
+            _StreamWriteContext ctx = None
 
         if self._closed:
             # If the handle is closed, just return, it's too
             # late to do anything.
             return
 
-        ctx = _StreamWriteContext.new(self, self._buffer)
+        buf_len = len(self._buffer)
+        if not buf_len:
+            return
 
-        if ctx.py_bufs_sml_inuse:
-            err = uv.uv_write(&ctx.req,
-                              <uv.uv_stream_t*>self._handle,
-                              ctx.uv_bufs_sml,
-                              len(self._buffer),
-                              __uv_stream_on_write)
-        else:
-            err = uv.uv_write(&ctx.req,
-                              <uv.uv_stream_t*>self._handle,
-                              ctx.uv_bufs,
-                              len(self._buffer),
-                              __uv_stream_on_write)
+        if (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
+            # libuv internal write buffers for this stream are empty.
+            if buf_len == 1:
+                # If we only have one piece of data to send, let's
+                # use our fast implementation of try_write.
+                data = self._buffer[0]
+                sent = self._try_write(data)
+
+                if sent is None:
+                    # A `self._fatal_error` was called.
+                    # It might not raise an exception under some
+                    # conditions.
+                    self._buffer_size = 0
+                    self._buffer.clear()
+                    if not self._closing:
+                        # This should never happen.
+                        raise RuntimeError(
+                            'stream is open after UVStream._try_write '
+                            'returned None')
+                    return
+
+                if sent == 0:
+                    # All data was successfully written.
+                    self._buffer_size = 0
+                    self._buffer.clear()
+                    # on_write will call "maybe_resume_protocol".
+                    self._on_write()
+                    return True
+
+                if sent > 0:
+                    IF DEBUG:
+                        if sent == len(data):
+                            raise RuntimeError(
+                                '_try_write sent all data and returned '
+                                'non-zero')
+
+                    if PyBytes_CheckExact(data):
+                        # Cast bytes to memoryview to avoid copying
+                        # data that wasn't sent.
+                        data = memoryview(data)
+                    data = data[sent:]
+
+                    self._buffer_size -= sent
+                    self._buffer[0] = data
+                    self._maybe_resume_protocol()
+
+                # At this point it's either data was sent partially,
+                # or an EAGAIN has happened.
+
+            else:
+                ctx = _StreamWriteContext.new(self, self._buffer)
+
+                err = uv.uv_try_write(<uv.uv_stream_t*>self._handle,
+                                      ctx.uv_bufs_start,
+                                      ctx.uv_bufs_len)
+
+                if err > 0:
+                    # Some data was successfully sent.
+
+                    if err == self._buffer_size:
+                        # Everything was sent.
+                        ctx.close()
+                        self._buffer.clear()
+                        self._buffer_size = 0
+                        # on_write will call "maybe_resume_protocol".
+                        self._on_write()
+                        return True
+
+                    try:
+                        # Advance pointers to uv_bufs in `ctx`,
+                        # we will reuse it soon for a uv_write
+                        # call.
+                        ctx.advance_uv_buf(err)
+                    except Exception as ex:  # This should never happen.
+                        # Let's try to close the `ctx` anyways.
+                        ctx.close()
+                        self._fatal_error(ex, True)
+                        self._buffer.clear()
+                        self._buffer_size = 0
+                        return
+
+                elif err != uv.UV_EAGAIN:
+                    ctx.close()
+                    exc = convert_error(err)
+                    self._fatal_error(exc, True)
+                    self._buffer.clear()
+                    self._buffer_size = 0
+                    return
+
+                # fall through
+
+        if ctx is None:
+            ctx = _StreamWriteContext.new(self, self._buffer)
+
+        err = uv.uv_write(&ctx.req,
+                          <uv.uv_stream_t*>self._handle,
+                          ctx.uv_bufs_start,
+                          ctx.uv_bufs_len,
+                          __uv_stream_on_write)
 
         self._buffer_size = 0
+        # Can't use `_buffer.clear()` here: `ctx` holds a reference to
+        # the `_buffer`.
         self._buffer = []
 
         if err < 0:
@@ -404,7 +535,7 @@ cdef class UVStream(UVBaseTransport):
             self._fatal_error(exc, True)
             return
 
-        self._maybe_pause_protocol()
+        self._maybe_resume_protocol()
 
     cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
@@ -502,20 +633,17 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
         self._write(buf)
-        self._maybe_pause_protocol()
 
     def writelines(self, bufs):
-        # Instead of flattening the buffers into one bytes object,
-        # we could simply call `self._write` multiple times.  That
-        # would be more efficient, as we wouldn't be copying data
-        # (and thus allocating more memory).
-        # On the other hand, uvloop would behave differently from
-        # asyncio: where asyncio does one send op, uvloop would do
-        # many send ops.  If the program doesn't use the TCP_NODELAY
-        # sock opt (and by default asyncio programs do not set it),
-        # this different behavior may result in uvloop being slower
-        # than asyncio.
-        self.write(b''.join(bufs))
+        self._ensure_alive()
+
+        if self._eof:
+            raise RuntimeError('Cannot call writelines() after write_eof()')
+        if self._conn_lost:
+            self._conn_lost += 1
+            return
+        for buf in bufs:
+            self._write(buf)
 
     def write_eof(self):
         self._ensure_alive()

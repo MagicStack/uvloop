@@ -135,6 +135,7 @@ class _BasePipeTest:
 
     def test_write_pipe(self):
         rpipe, wpipe = os.pipe()
+        os.set_blocking(rpipe, False)
         pipeobj = io.open(wpipe, 'wb', 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
@@ -149,7 +150,10 @@ class _BasePipeTest:
         data = bytearray()
 
         def reader(data):
-            chunk = os.read(rpipe, 1024)
+            try:
+                chunk = os.read(rpipe, 1024)
+            except BlockingIOError:
+                return len(data)
             data += chunk
             return len(data)
 
@@ -174,6 +178,7 @@ class _BasePipeTest:
     def test_write_pipe_disconnect_on_close(self):
         rsock, wsock = test_utils.socketpair()
         rsock.setblocking(False)
+
         pipeobj = io.open(wsock.detach(), 'wb', 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
@@ -194,6 +199,8 @@ class _BasePipeTest:
 
     def test_write_pty(self):
         master, slave = os.openpty()
+        os.set_blocking(master, False)
+
         slave_write_obj = io.open(slave, 'wb', 0)
 
         proto = MyWritePipeProto(loop=self.loop)
@@ -208,7 +215,10 @@ class _BasePipeTest:
         data = bytearray()
 
         def reader(data):
-            chunk = os.read(master, 1024)
+            try:
+                chunk = os.read(master, 1024)
+            except BlockingIOError:
+                return len(data)
             data += chunk
             return len(data)
 

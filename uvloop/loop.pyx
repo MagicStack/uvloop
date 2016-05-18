@@ -11,9 +11,7 @@ from .includes cimport system
 from .includes.python cimport PyMem_Malloc, PyMem_Free, \
                               PyMem_Calloc, PyMem_Realloc, \
                               PyUnicode_EncodeFSDefault, \
-                              PyErr_SetInterrupt, \
-                              PyByteArray_AS_STRING, \
-                              PyByteArray_CheckExact
+                              PyErr_SetInterrupt
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror
@@ -151,6 +149,8 @@ cdef class Loop:
                 self, "loop._on_sighup", <method_t*>&self._on_sighup, self),
             uv.SIGHUP)
 
+        # Needed to call `UVStream._exec_write` for writes scheduled
+        # during `Protocol.data_received`.
         self.handler_check__exec_writes = UVCheck.new(
             self,
             new_MethodHandle(
@@ -230,7 +230,8 @@ cdef class Loop:
                     self._stop(ex)
                     return
 
-        self._exec_queued_writes()
+        if len(self._queued_streams):
+            self._exec_queued_writes()
 
         if len(self._polls_gc):
             for fd in tuple(self._polls_gc):
@@ -407,20 +408,26 @@ cdef class Loop:
                 self.handler_check__exec_writes.stop()
             return
 
-        cdef:
-            set queued
-            UVStream stream
+        cdef UVStream stream
 
-        queued = self._queued_streams
-        self._queued_streams = set()
+        IF DEBUG:
+            cdef int queued_len
+            queued_len = len(self._queued_streams)
 
-        for pystream in queued:
+        for pystream in self._queued_streams:
             stream = <UVStream>pystream
             stream._exec_write()
 
-        if len(self._queued_streams) == 0:
-            if self.handler_check__exec_writes.running:
-                self.handler_check__exec_writes.stop()
+        IF DEBUG:
+            if len(self._queued_streams) != queued_len:
+                raise RuntimeError(
+                    'loop._queued_streams are not empty after '
+                    '_exec_queued_writes')
+
+        self._queued_streams.clear()
+
+        if self.handler_check__exec_writes.running:
+            self.handler_check__exec_writes.stop()
 
     cdef inline _call_soon(self, object callback, object args):
         cdef Handle handle
