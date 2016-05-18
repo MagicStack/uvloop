@@ -1,3 +1,5 @@
+DEF __PREALLOCED_BUFS = 4
+
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class _StreamWriteContext:
@@ -7,6 +9,10 @@ cdef class _StreamWriteContext:
         uv.uv_write_t   req
 
         list            buffers
+
+        uv.uv_buf_t     uv_bufs_sml[__PREALLOCED_BUFS]
+        Py_buffer       py_bufs_sml[__PREALLOCED_BUFS]
+        bint            py_bufs_sml_inuse
 
         uv.uv_buf_t*    uv_bufs
         Py_buffer*      py_bufs
@@ -21,6 +27,11 @@ cdef class _StreamWriteContext:
             return
 
         self.closed = 1
+
+        if self.py_bufs_sml_inuse:
+            for i in range(self.py_bufs_len):
+                PyBuffer_Release(&self.py_bufs_sml[i])
+            self.py_bufs_sml_inuse = 0
 
         if self.uv_bufs is not NULL:
             PyMem_Free(self.uv_bufs)
@@ -41,67 +52,92 @@ cdef class _StreamWriteContext:
     cdef _StreamWriteContext new(UVStream stream, list buffers):
         cdef:
             _StreamWriteContext ctx
-            int py_bufs_idx = 0
             int uv_bufs_idx = 0
+            int py_bufs_len = 0
+
+            Py_buffer* p_pybufs
+            uv.uv_buf_t* p_uvbufs
 
         ctx = _StreamWriteContext.__new__(_StreamWriteContext)
         ctx.stream = None
         ctx.closed = 1
         ctx.py_bufs_len = 0
+        ctx.py_bufs_sml_inuse = 0
         ctx.uv_bufs = NULL
         ctx.py_bufs = NULL
         ctx.buffers = buffers
         ctx.stream = stream
 
-        for buf in buffers:
-            if not PyBytes_CheckExact(buf) and \
-                    not PyByteArray_CheckExact(buf):
-                ctx.py_bufs_len += 1
+        if len(buffers) <= __PREALLOCED_BUFS:
+            # We've got a small number of buffers to write, don't
+            # need to use malloc.
+            ctx.py_bufs_sml_inuse = 1
+            p_pybufs = <Py_buffer*>&ctx.py_bufs_sml
+            p_uvbufs = <uv.uv_buf_t*>&ctx.uv_bufs_sml
 
-        if ctx.py_bufs_len > 0:
-            ctx.py_bufs = <Py_buffer*>PyMem_Malloc(
-                ctx.py_bufs_len * sizeof(Py_buffer))
-            if ctx.py_bufs is NULL:
+        else:
+            for buf in buffers:
+                if not PyBytes_CheckExact(buf) and \
+                        not PyByteArray_CheckExact(buf):
+                    py_bufs_len += 1
+
+            if py_bufs_len > 0:
+                ctx.py_bufs = <Py_buffer*>PyMem_Malloc(
+                    py_bufs_len * sizeof(Py_buffer))
+                if ctx.py_bufs is NULL:
+                    raise MemoryError()
+
+            ctx.uv_bufs = <uv.uv_buf_t*>PyMem_Malloc(
+                len(buffers) * sizeof(uv.uv_buf_t))
+            if ctx.uv_bufs is NULL:
                 raise MemoryError()
 
-        ctx.uv_bufs = <uv.uv_buf_t*>PyMem_Malloc(
-            len(buffers) * sizeof(uv.uv_buf_t))
-        if ctx.uv_bufs is NULL:
-            raise MemoryError()
+            p_pybufs = ctx.py_bufs
+            p_uvbufs = ctx.uv_bufs
 
+        py_bufs_len = 0
         for buf in buffers:
             if PyBytes_CheckExact(buf):
-                ctx.uv_bufs[uv_bufs_idx].base = PyBytes_AS_STRING(buf)
-                ctx.uv_bufs[uv_bufs_idx].len = Py_SIZE(buf)
+                p_uvbufs[uv_bufs_idx].base = PyBytes_AS_STRING(buf)
+                p_uvbufs[uv_bufs_idx].len = Py_SIZE(buf)
 
             elif PyByteArray_CheckExact(buf):
-                ctx.uv_bufs[uv_bufs_idx].base = PyByteArray_AS_STRING(buf)
-                ctx.uv_bufs[uv_bufs_idx].len = Py_SIZE(buf)
+                p_uvbufs[uv_bufs_idx].base = PyByteArray_AS_STRING(buf)
+                p_uvbufs[uv_bufs_idx].len = Py_SIZE(buf)
 
             else:
                 try:
                     PyObject_GetBuffer(
-                        buf, &ctx.py_bufs[py_bufs_idx], PyBUF_SIMPLE)
+                        buf, &p_pybufs[py_bufs_len], PyBUF_SIMPLE)
                 except:
-                    PyMem_Free(ctx.uv_bufs)
-                    ctx.uv_bufs = NULL
-                    for i in range(py_bufs_idx):
-                        PyBuffer_Release(&ctx.py_bufs[i])
-                    PyMem_Free(ctx.py_bufs)
-                    ctx.py_bufs = NULL
-                    ctx.py_bufs_len = 0
+                    # This shouldn't ever happen, since UVStream._write
+                    # casts non-bytes and non-bytearrays to memoryviews.
+
+                    if ctx.py_bufs_sml_inuse:
+                        for i in range(py_bufs_len):
+                            PyBuffer_Release(&ctx.py_bufs_sml[i])
+                        ctx.py_bufs_sml_inuse = 0
+
+                    if ctx.uv_bufs is not NULL:
+                        PyMem_Free(ctx.uv_bufs)
+                        ctx.uv_bufs = NULL
+
+                    if ctx.py_bufs is not NULL:
+                        for i in range(py_bufs_len):
+                            PyBuffer_Release(&ctx.py_bufs[i])
+                        PyMem_Free(ctx.py_bufs)
+                        ctx.py_bufs = NULL
+
                     raise
 
-                ctx.uv_bufs[uv_bufs_idx].base = \
-                    <char*>ctx.py_bufs[py_bufs_idx].buf
+                p_uvbufs[uv_bufs_idx].base = <char*>p_pybufs[py_bufs_len].buf
+                p_uvbufs[uv_bufs_idx].len = p_pybufs[py_bufs_len].len
 
-                ctx.uv_bufs[uv_bufs_idx].len = \
-                    ctx.py_bufs[py_bufs_idx].len
-
-                py_bufs_idx += 1
+                py_bufs_len += 1
 
             uv_bufs_idx += 1
 
+        ctx.py_bufs_len = py_bufs_len
         ctx.req.data = <void*> ctx
 
         IF DEBUG:
@@ -339,11 +375,18 @@ cdef class UVStream(UVBaseTransport):
 
         ctx = _StreamWriteContext.new(self, self._buffer)
 
-        err = uv.uv_write(&ctx.req,
-                          <uv.uv_stream_t*>self._handle,
-                          ctx.uv_bufs,
-                          len(self._buffer),
-                          __uv_stream_on_write)
+        if ctx.py_bufs_sml_inuse:
+            err = uv.uv_write(&ctx.req,
+                              <uv.uv_stream_t*>self._handle,
+                              ctx.uv_bufs_sml,
+                              len(self._buffer),
+                              __uv_stream_on_write)
+        else:
+            err = uv.uv_write(&ctx.req,
+                              <uv.uv_stream_t*>self._handle,
+                              ctx.uv_bufs,
+                              len(self._buffer),
+                              __uv_stream_on_write)
 
         self._buffer_size = 0
         self._buffer = []

@@ -526,6 +526,16 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
             DATA = b'x' * 102400
 
+            # Test _StreamWriteContext with short sequences of writes
+            w.write(DATA)
+            await w.drain()
+            for _ in range(3):
+                w.write(DATA)
+            await w.drain()
+            for _ in range(10):
+                w.write(DATA)
+            await w.drain()
+
             for _ in range(N):
                 w.write(DATA)
 
@@ -545,7 +555,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             srv.close()
             await srv.wait_closed()
 
-            self.assertEqual(TOTAL, N * 2 * len(DATA))
+            self.assertEqual(TOTAL, N * 2 * len(DATA) + 14 * len(DATA))
 
         self.loop.run_until_complete(run())
 
