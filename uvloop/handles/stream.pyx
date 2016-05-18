@@ -16,16 +16,18 @@ cdef class _StreamWriteContext:
 
         uv.uv_buf_t*    uv_bufs
         Py_buffer*      py_bufs
-        ssize_t         py_bufs_len
+        size_t          py_bufs_len
 
         uv.uv_buf_t*    uv_bufs_start
-        ssize_t         uv_bufs_len
+        size_t          uv_bufs_len
 
         UVStream        stream
 
         bint            closed
 
     cdef free_bufs(self):
+        cdef size_t i
+
         if self.uv_bufs is not NULL:
             PyMem_Free(self.uv_bufs)
             self.uv_bufs = NULL
@@ -61,7 +63,7 @@ cdef class _StreamWriteContext:
         self.free_bufs()
         Py_DECREF(self)
 
-    cdef advance_uv_buf(self, int sent):
+    cdef advance_uv_buf(self, size_t sent):
         # Advance the pointer to first uv_buf and the
         # pointer to first byte in that buffer.
         #
@@ -72,7 +74,7 @@ cdef class _StreamWriteContext:
 
         cdef:
             uv.uv_buf_t* buf
-            int idx
+            size_t idx
 
         for idx from 0 <= idx < self.uv_bufs_len:
             buf = &self.uv_bufs_start[idx]
@@ -96,7 +98,7 @@ cdef class _StreamWriteContext:
         cdef:
             _StreamWriteContext ctx
             int uv_bufs_idx = 0
-            int py_bufs_len = 0
+            size_t py_bufs_len = 0
             int i
 
             Py_buffer* p_pybufs
@@ -481,7 +483,7 @@ cdef class UVStream(UVBaseTransport):
                 if err > 0:
                     # Some data was successfully sent.
 
-                    if err == self._buffer_size:
+                    if <size_t>err == self._buffer_size:
                         # Everything was sent.
                         ctx.close()
                         self._buffer.clear()
@@ -494,7 +496,7 @@ cdef class UVStream(UVBaseTransport):
                         # Advance pointers to uv_bufs in `ctx`,
                         # we will reuse it soon for a uv_write
                         # call.
-                        ctx.advance_uv_buf(err)
+                        ctx.advance_uv_buf(<ssize_t>err)
                     except Exception as ex:  # This should never happen.
                         # Let's try to close the `ctx` anyways.
                         ctx.close()
