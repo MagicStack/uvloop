@@ -106,7 +106,8 @@ setup(
             "uvloop.loop",
             sources=[
                 "uvloop/loop.c",
-            ]
+            ],
+            extra_compile_args=['-O2']
         ),
     ],
     classifiers=[
