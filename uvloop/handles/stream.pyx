@@ -373,6 +373,11 @@ cdef class UVStream(UVBaseTransport):
             int err
             _StreamWriteContext ctx
 
+        if self._closed:
+            # If the handle is closed, just return, it's too
+            # late to do anything.
+            return
+
         ctx = _StreamWriteContext.new(self, self._buffer)
 
         if ctx.py_bufs_sml_inuse:
