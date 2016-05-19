@@ -468,7 +468,6 @@ cdef class UVStream(UVBaseTransport):
 
                     self._buffer_size -= sent
                     self._buffer[0] = data
-                    self._maybe_resume_protocol()
 
                 # At this point it's either data was sent partially,
                 # or an EAGAIN has happened.
