@@ -7,7 +7,7 @@ from uvloop import _testbase as tb
 
 
 class _TestUnix:
-    def test_create_server_1(self):
+    def test_create_unix_server_1(self):
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 100   # total number of clients that test will create
         TIMEOUT = 5.0     # timeout for this test
@@ -72,11 +72,15 @@ class _TestUnix:
                         TIMEOUT, loop=self.loop)
 
                 finally:
-                    srv.close()
+                    self.loop.call_soon(srv.close)
+                    await srv.wait_closed()
 
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
+
+                # asyncio doesn't cleanup the sock file
+                self.assertTrue(os.path.exists(sock_name))
 
         async def start_server_sock():
             nonlocal CNT
@@ -106,17 +110,34 @@ class _TestUnix:
                         TIMEOUT, loop=self.loop)
 
                 finally:
-                    srv.close()
+                    self.loop.call_soon(srv.close)
+                    await srv.wait_closed()
 
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
+
+                # asyncio doesn't cleanup the sock file
+                self.assertTrue(os.path.exists(sock_name))
 
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
 
         self.loop.run_until_complete(start_server_sock())
         self.assertEqual(CNT, TOTAL_CNT)
+
+    def test_create_unix_server_2(self):
+        with tempfile.TemporaryDirectory() as td:
+            sock_name = os.path.join(td, 'sock')
+            with open(sock_name, 'wt') as f:
+                f.write('x')
+
+            with self.assertRaisesRegex(
+                    OSError, "Address '{}' is already in use".format(
+                        sock_name)):
+
+                self.loop.run_until_complete(
+                    self.loop.create_unix_server(object, sock_name))
 
     def test_create_unix_connection_1(self):
         CNT = 0

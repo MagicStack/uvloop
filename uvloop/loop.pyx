@@ -1441,10 +1441,27 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
+            # We use Python sockets to create a UNIX server socket because
+            # when UNIX sockets are created by libuv, libuv removes the path
+            # they were bound to.  This is different from asyncio, which
+            # doesn't cleanup the socket path.
+            sock = socket_socket(uv.AF_UNIX)
+
             try:
-                pipe.bind(path)
+                sock.bind(path)
+            except OSError as exc:
+                pipe._close()
+                sock.close()
+                if exc.errno == errno.EADDRINUSE:
+                    # Let's improve the error message by adding
+                    # with what exact address it occurs.
+                    msg = 'Address {!r} is already in use'.format(path)
+                    raise OSError(errno.EADDRINUSE, msg) from None
+                else:
+                    raise
             except:
                 pipe._close()
+                sock.close()
                 raise
 
         else:
@@ -1456,14 +1473,15 @@ cdef class Loop:
                 raise ValueError(
                     'A UNIX Domain Socket was expected, got {!r}'.format(sock))
 
-            try:
-                fileno = os_dup(sock.fileno())
-                pipe.open(sock.fileno())
-            except:
-                pipe._close()
-                raise
+        try:
+            fileno = os_dup(sock.fileno())
+            pipe.open(fileno)
+        except:
+            pipe._close()
+            sock.close()
+            raise
 
-            pipe._attach_fileobj(sock)
+        pipe._attach_fileobj(sock)
 
         try:
             pipe.listen(backlog)
