@@ -1,4 +1,5 @@
-# Copied from asyncio 3.5.2
+# Copied from asyncio 3.5.2.  Remove this file when we don't need
+# to support earlier versions.
 
 cdef _set_concurrent_future_state(concurrent, source):
     """Copy state from a future to a concurrent.futures.Future."""
@@ -86,3 +87,23 @@ cdef _chain_future(source, destination):
 
     destination.add_done_callback(_call_check_cancel)
     source.add_done_callback(_call_set_state)
+
+
+def _wrap_future(future, *, loop=None):
+    # Don't use this function -- it's here for tests purposes only
+    # and can be removed in future versions of uvloop.
+
+    if isinstance(future, aio_Future):
+        return future
+    assert isinstance(future, cc_Future), \
+        'concurrent.futures.Future is expected, got {!r}'.format(future)
+    if loop is None:
+        loop = aio_get_event_loop()
+    try:
+        create_future = loop.create_future
+    except AttributeError:
+        new_future = aio_Future(loop=loop)
+    else:
+        new_future = create_future()
+    _chain_future(future, new_future)
+    return new_future

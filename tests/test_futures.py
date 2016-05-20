@@ -317,12 +317,43 @@ class _TestFutures:
     def test_future_exception_never_retrieved_debug(self):
         self.check_future_exception_never_retrieved(True)
 
-    def test_future_set_result_unless_cancelled(self):
-        from asyncio import futures
-        fut = self.create_future()
-        fut.cancel()
-        futures._set_result_unless_cancelled(fut, 2)
-        self.assertTrue(fut.cancelled())
+    def test_future_wrap_future(self):
+        from uvloop.loop import _wrap_future
+        def run(arg):
+            return (arg, threading.get_ident())
+        ex = concurrent.futures.ThreadPoolExecutor(1)
+        f1 = ex.submit(run, 'oi')
+        f2 = _wrap_future(f1, loop=self.loop)
+        res, ident = self.loop.run_until_complete(f2)
+        self.assertIsInstance(f2, asyncio.Future)
+        self.assertEqual(res, 'oi')
+        self.assertNotEqual(ident, threading.get_ident())
+
+    def test_future_wrap_future_future(self):
+        from uvloop.loop import _wrap_future
+        f1 = self.create_future()
+        f2 = _wrap_future(f1)
+        self.assertIs(f1, f2)
+
+    def test_future_wrap_future_cancel(self):
+        from uvloop.loop import _wrap_future
+        f1 = concurrent.futures.Future()
+        f2 = _wrap_future(f1, loop=self.loop)
+        f2.cancel()
+        test_utils.run_briefly(self.loop)
+        self.assertTrue(f1.cancelled())
+        self.assertTrue(f2.cancelled())
+
+    def test_future_wrap_future_cancel2(self):
+        from uvloop.loop import _wrap_future
+        f1 = concurrent.futures.Future()
+        f2 = _wrap_future(f1, loop=self.loop)
+        f1.set_result(42)
+        f2.cancel()
+        test_utils.run_briefly(self.loop)
+        self.assertFalse(f1.cancelled())
+        self.assertEqual(f1.result(), 42)
+        self.assertTrue(f2.cancelled())
 
 
 class _TestFuturesDoneCallbacks:
