@@ -1,3 +1,5 @@
+# LICENSE: PSF.
+
 cdef class BaseTask(BaseFuture):
     cdef:
         readonly object _coro

@@ -1,3 +1,5 @@
+# LICENSE: PSF.
+
 # Copied from asyncio 3.5.2.  Remove this file when we don't need
 # to support earlier versions.
 

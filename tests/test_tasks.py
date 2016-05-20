@@ -1,3 +1,5 @@
+# LICENSE: PSF.
+
 import asyncio
 
 from asyncio import test_utils

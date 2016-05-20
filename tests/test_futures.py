@@ -1,3 +1,5 @@
+# LICENSE: PSF.
+
 import asyncio
 import concurrent.futures
 import re
