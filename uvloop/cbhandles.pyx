@@ -4,12 +4,15 @@ cdef class Handle:
     def __cinit__(self):
         self.cancelled = 0
         self.cb_type = 0
+        self._source_traceback = None
 
     cdef inline _set_loop(self, Loop loop):
         self.loop = loop
         IF DEBUG:
             loop._debug_cb_handles_total += 1
             loop._debug_cb_handles_count += 1
+        if loop._debug:
+            self._source_traceback = tb_extract_stack(sys_getframe(0))
 
     IF DEBUG:
         def __dealloc__(self):
@@ -78,10 +81,16 @@ cdef class Handle:
             else:
                 msg = 'Exception in callback {}'.format(self.meth_name)
 
-            self.loop.call_exception_handler({
+            context = {
                 'message': msg,
-                'exception': ex
-            })
+                'exception': ex,
+                'handle': self,
+            }
+
+            if self._source_traceback is not None:
+                context['source_traceback'] = self._source_traceback
+
+            self.loop.call_exception_handler(context)
 
         finally:
             self.loop._executing_py_code = old_exec_py_code
@@ -116,6 +125,9 @@ cdef class TimerHandle:
         self.callback = callback
         self.args = args
         self.closed = 0
+
+        if loop._debug:
+            self._source_traceback = tb_extract_stack(sys_getframe(0))
 
         self.timer = UVTimer.new(
             loop, <method_t*>&self._run, self, delay)
@@ -173,10 +185,16 @@ cdef class TimerHandle:
             else:
                 callback()
         except Exception as ex:
-            self.loop.call_exception_handler({
+            context = {
                 'message': 'Exception in callback {}'.format(callback),
-                'exception': ex
-            })
+                'exception': ex,
+                'handle': self,
+            }
+
+            if self._source_traceback is not None:
+                context['source_traceback'] = self._source_traceback
+
+            self.loop.call_exception_handler(context)
         finally:
             self.loop._executing_py_code = old_exec_py_code
             Py_DECREF(self)

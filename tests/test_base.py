@@ -64,6 +64,44 @@ class _TestBase:
 
         self.assertFalse(self.loop.is_closed())
 
+    def test_calls_debug_reporting(self):
+        def run_test(debug, meth, stack_adj):
+            context = None
+
+            def handler(loop, ctx):
+                nonlocal context
+                context = ctx
+
+            self.loop.set_debug(debug)
+            self.loop.set_exception_handler(handler)
+
+            def cb():
+                1 / 0
+
+            meth(cb)
+            self.assertIsNone(context)
+            self.loop.run_until_complete(asyncio.sleep(0.05, loop=self.loop))
+
+            self.assertIs(type(context['exception']), ZeroDivisionError)
+            self.assertTrue(context['message'].startswith(
+                'Exception in callback'))
+
+            if debug:
+                tb = context['source_traceback']
+                self.assertEqual(tb[-1 + stack_adj].name, 'run_test')
+            else:
+                self.assertFalse('source_traceback' in context)
+
+        for flag in (True, False):
+            for meth_name, meth, stack_adj in (
+                ('call_soon',
+                    self.loop.call_soon, 0),
+                ('call_later',  # `-1` accounts for lambda
+                    lambda *args: self.loop.call_later(0.01, *args), -1)
+            ):
+                with self.subTest(debug=flag, meth_name=meth_name):
+                    run_test(flag, meth, stack_adj)
+
     def test_now_update(self):
         async def run():
             st = self.loop.time()

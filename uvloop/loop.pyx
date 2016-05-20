@@ -1587,10 +1587,16 @@ cdef class Loop:
             if key in {'message', 'exception'}:
                 continue
             value = context[key]
-            try:
-                value = repr(value)
-            except Exception as ex:
-                value = 'Exception in __repr__ {!r}'.format(ex)
+            if key == 'source_traceback':
+                tb = ''.join(tb_format_list(value))
+                value = 'Object created at (most recent call last):\n'
+                value += tb.rstrip()
+            else:
+                try:
+                    value = repr(value)
+                except Exception as ex:
+                    value = ('Exception in __repr__ {!r}; '
+                             'value type: {!r}'.format(ex, type(value)))
             log_lines.append('{}: {}'.format(key, value))
 
         aio_logger.error('\n'.join(log_lines), exc_info=exc_info)

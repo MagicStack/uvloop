@@ -10,6 +10,8 @@ cdef class Handle:
 
         object __weakref__
 
+        readonly _source_traceback
+
     cdef inline _set_loop(self, Loop loop)
     cdef inline _run(self)
     cdef _cancel(self)
@@ -22,6 +24,8 @@ cdef class TimerHandle:
         UVTimer timer
         Loop loop
         object __weakref__
+
+        readonly _source_traceback
 
     cdef _run(self)
     cdef _cancel(self)
