@@ -2,9 +2,9 @@ import asyncio
 import logging
 import threading
 import time
-
 import uvloop
 import unittest
+import weakref
 
 from unittest import mock
 from uvloop._testbase import UVTestCase, AIOTestCase
@@ -27,6 +27,11 @@ class _TestBase:
         f = asyncio.Future(loop=self.loop)
         self.assertRaises(RuntimeError, self.loop.run_forever)
         self.assertRaises(RuntimeError, self.loop.run_until_complete, f)
+
+    def test_handle_weakref(self):
+        wd = weakref.WeakValueDictionary()
+        h = self.loop.call_soon(lambda: None)
+        wd['h'] = h  # Would fail without __weakref__ slot.
 
     def test_call_soon(self):
         calls = []
