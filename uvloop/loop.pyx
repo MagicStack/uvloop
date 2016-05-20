@@ -478,7 +478,7 @@ cdef class Loop:
                 "than the current one")
 
     cdef inline _new_future(self):
-        return aio_Future(loop=self)
+        return uvloop_Future(self)
 
     cdef inline _add_reader(self, fd, Handle handle):
         cdef:
@@ -1005,7 +1005,7 @@ cdef class Loop:
         """
         self._check_closed()
         if self._task_factory is None:
-            task = aio_Task(coro, loop=self)
+            task = uvloop_Task(coro, self)
         else:
             task = self._task_factory(self, coro)
         return task
@@ -1836,7 +1836,9 @@ cdef class Loop:
                 executor = cc_ThreadPoolExecutor(MAX_THREADPOOL_WORKERS)
                 self._default_executor = executor
 
-        return aio_wrap_future(executor.submit(func, *args), loop=self)
+        new_fut = self._new_future()
+        aio_chain_future(executor.submit(func, *args), new_fut)
+        return new_fut
 
     def set_default_executor(self, executor):
         self._default_executor = executor
@@ -2259,6 +2261,9 @@ include "handles/udp.pyx"
 include "server.pyx"
 
 include "os_signal.pyx"
+
+include "future.pyx"
+include "task.pyx"
 
 
 # Install PyMem* memory allocators

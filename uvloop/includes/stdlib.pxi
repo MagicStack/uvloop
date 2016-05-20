@@ -1,8 +1,10 @@
 import asyncio, asyncio.log, asyncio.base_events, \
-       asyncio.sslproto, asyncio.coroutines
+       asyncio.sslproto, asyncio.coroutines, \
+       asyncio.futures
 import collections
 import concurrent.futures
 import functools
+import inspect
 import itertools
 import os
 import signal as std_signal
@@ -11,11 +13,15 @@ import subprocess
 import ssl
 import sys
 import threading
+import traceback
 import time
 import warnings
 
 
+cdef aio_chain_future = asyncio.futures._chain_future
+cdef aio_get_event_loop = asyncio.get_event_loop
 cdef aio_CancelledError = asyncio.CancelledError
+cdef aio_InvalidStateError = asyncio.InvalidStateError
 cdef aio_TimeoutError = asyncio.TimeoutError
 cdef aio_Future = asyncio.Future
 cdef aio_Task = asyncio.Task
@@ -41,6 +47,7 @@ cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef ft_partial = functools.partial
 
 cdef iter_chain = itertools.chain
+cdef inspect_isgenerator = inspect.isgenerator
 
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
@@ -80,6 +87,7 @@ cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
 cdef sys_set_coroutine_wrapper = sys.set_coroutine_wrapper
 cdef sys_get_coroutine_wrapper = sys.get_coroutine_wrapper
+cdef sys_getframe = sys._getframe
 
 cdef ssl_SSLContext = ssl.SSLContext
 
@@ -93,11 +101,15 @@ cdef int signal_NSIG = std_signal.NSIG
 
 cdef time_sleep = time.sleep
 
+cdef tb_extract_stack = traceback.extract_stack
+cdef tb_format_list = traceback.format_list
+
 cdef warnings_warn = warnings.warn
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections
-del functools, itertools, socket, os, threading, std_signal, subprocess, ssl
-del time, warnings
+del functools, inspect, itertools, socket, os, threading
+del std_signal, subprocess, ssl
+del time, traceback, warnings

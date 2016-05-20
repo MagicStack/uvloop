@@ -4,7 +4,7 @@ from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 
 from . import includes as __includes
 from . import _patch
-from .loop import Loop as __BaseLoop
+from .loop import Loop as __BaseLoop, Future
 
 
 __all__ = ('new_event_loop', 'EventLoopPolicy')
