@@ -1837,7 +1837,7 @@ cdef class Loop:
                 self._default_executor = executor
 
         new_fut = self._new_future()
-        aio_chain_future(executor.submit(func, *args), new_fut)
+        _chain_future(executor.submit(func, *args), new_fut)
         return new_fut
 
     def set_default_executor(self, executor):
@@ -2263,6 +2263,7 @@ include "server.pyx"
 include "os_signal.pyx"
 
 include "future.pyx"
+include "chain_futs.pyx"
 include "task.pyx"
 
 

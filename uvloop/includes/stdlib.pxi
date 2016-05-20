@@ -18,7 +18,6 @@ import time
 import warnings
 
 
-cdef aio_chain_future = asyncio.futures._chain_future
 cdef aio_get_event_loop = asyncio.get_event_loop
 cdef aio_CancelledError = asyncio.CancelledError
 cdef aio_InvalidStateError = asyncio.InvalidStateError
@@ -32,7 +31,6 @@ cdef aio_logger = asyncio.log.logger
 cdef aio__check_resolved_address = asyncio.base_events._check_resolved_address
 cdef aio_iscoroutine = asyncio.iscoroutine
 cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
-cdef aio_wrap_future = asyncio.wrap_future
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
 cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
@@ -43,6 +41,7 @@ cdef col_Iterable = collections.Iterable
 cdef col_Counter = collections.Counter
 
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
+cdef cc_Future = concurrent.futures.Future
 
 cdef ft_partial = functools.partial
 
