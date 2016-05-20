@@ -416,30 +416,6 @@ class _TestBase:
 
 class TestBaseUV(_TestBase, UVTestCase):
 
-    def test_cython_coro_is_coroutine(self):
-        from asyncio.coroutines import _format_coroutine
-
-        coro = self.loop.create_server(object)
-
-        self.assertEqual(_format_coroutine(coro),
-                         'Loop.create_server()')
-
-        self.assertEqual(self.loop.create_server.__qualname__,
-                         'Loop.create_server')
-        self.assertEqual(self.loop.create_server.__name__,
-                         'create_server')
-        self.assertTrue(asyncio.iscoroutine(coro))
-        fut = asyncio.ensure_future(coro, loop=self.loop)
-        self.assertTrue(isinstance(fut, asyncio.Future))
-        fut.cancel()
-        try:
-            self.loop.run_until_complete(fut)
-        except asyncio.CancelledError:
-            pass
-
-        _format_coroutine(coro)  # This line checks against Cython segfault
-        coro.close()
-
     def test_loop_create_future(self):
         fut = self.loop.create_future()
         self.assertTrue(isinstance(fut, asyncio.Future))

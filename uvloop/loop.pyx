@@ -2271,3 +2271,8 @@ cdef __install_pymem():
     if err < 0:
         __mem_installed = 0
         raise convert_error(err)
+
+########### Stuff for tests:
+
+async def _test_coroutine_1():
+    return 42
