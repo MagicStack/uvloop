@@ -59,6 +59,15 @@ class _TestBase:
 
         self.assertFalse(self.loop.is_closed())
 
+    def test_now_update(self):
+        async def run():
+            st = self.loop.time()
+            time.sleep(0.05)
+            return self.loop.time() - st
+
+        delta = self.loop.run_until_complete(run())
+        self.assertTrue(delta > 0.049 and delta < 0.6)
+
     def test_call_later(self):
         calls = []
 

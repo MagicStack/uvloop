@@ -395,6 +395,8 @@ cdef class Loop:
             executor.shutdown(wait=False)
 
     cdef uint64_t _time(self):
+        # asyncio doesn't have a time cache, neither should uvloop.
+        uv.uv_update_time(self.uvloop)  # void
         return uv.uv_now(self.uvloop)
 
     cdef inline _queue_write(self, UVStream stream):
