@@ -163,9 +163,8 @@ class _TestBase:
 
         at = self.loop.time() + 0.05
 
-        self.loop.call_at(at, cb, 10)
         self.loop.call_at(at, cb, 100).cancel()
-        self.loop.call_at(at, cb, 1)
+        self.loop.call_at(at, cb, 10)
 
         started = time.monotonic()
         self.loop.run_forever()
@@ -174,7 +173,7 @@ class _TestBase:
         self.assertLess(finished - started, 0.07)
         self.assertGreater(finished - started, 0.045)
 
-        self.assertEqual(i, 11)
+        self.assertEqual(i, 10)
 
     def test_check_thread(self):
         def check_thread(loop, debug):
