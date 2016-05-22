@@ -1,8 +1,8 @@
-.PHONY: compile clean all distclean test debug sdist clean-libuv
+.PHONY: check-env compile clean all distclean test debug sdist clean-libuv
 .PHONY: release sdist-libuv docs
 
 
-all: clean compile
+all: compile
 
 
 clean:
@@ -11,6 +11,9 @@ clean:
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
 
+
+check-env:
+	python -c "import cython; (cython.__version__ < '0.24') and exit(1)"
 
 clean-libuv:
 	git -C vendor/libuv clean -dfX
@@ -23,14 +26,14 @@ sdist-libuv: clean-libuv
 distclean: clean clean-libuv
 
 
-compile: clean
+compile: check-env clean
 	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
 	cython -3 uvloop/loop.pyx; rm uvloop/__debug.*
 	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
 	python setup.py build_ext --inplace
 
 
-debug: clean
+debug: check-env clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
 	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
 	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
