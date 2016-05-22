@@ -633,7 +633,8 @@ cdef class Loop:
         try:
             n = sock.send(data)
         except (BlockingIOError, InterruptedError):
-            n = 0
+            # Try next time.
+            return
         except Exception as exc:
             fut.set_exception(exc)
             self._remove_writer(fd)
