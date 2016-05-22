@@ -9,11 +9,25 @@ uvloop is a fast, drop-in replacement of the built-in asyncio
 event loop.  uvloop is implemented in Cython and uses libuv
 under the hood.
 
-Read more about uvloop here:
-http://magic.io/blog/uvloop-blazing-fast-python-networking/
-
 The project documentation can be found
 `here <http://uvloop.readthedocs.org/>`_.
+
+
+Performance
+-----------
+
+uvloop makes asyncio 2-4x times faster.
+
+.. image:: performance.png
+    :target: http://magic.io/blog/uvloop-blazing-fast-python-networking/
+
+The above chart shows the performance of an echo server with different
+message sizes.  The *sockets* benchmark uses ``loop.sock_recv()`` and
+``loop.sock_sendall()`` methods; the *streams* benchmark uses asyncio
+high-level streams, created by the ``asyncio.start_server()`` function;
+and the *protocol* benchmark uses ``loop.create_server()`` with a simple
+echo protocol.  Read more about uvloop performance
+`here <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_.
 
 
 Installation
