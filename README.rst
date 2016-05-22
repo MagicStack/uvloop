@@ -63,7 +63,7 @@ manually, using:
 Development of uvloop
 ---------------------
 
-To build uvloop, you'll need ``Cython`` and Python 3.5.  The best way
+To build uvloop, you'll need Cython and Python 3.5.  The best way
 is to create a virtual env, so that you'll have ``cython`` and
 ``python`` commands pointing to the correct tools.
 
