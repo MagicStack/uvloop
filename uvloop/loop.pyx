@@ -608,13 +608,9 @@ cdef class Loop:
         try:
             data = sock.recv(n)
         except (BlockingIOError, InterruptedError):
-            handle = new_MethodHandle3(
-                self,
-                "Loop._sock_recv",
-                <method3_t*>&self._sock_recv,
-                self,
-                fut, sock, n)
-            self._add_reader(fd, handle)
+            # No need to re-add the reader, let's just wait until
+            # the poll handler calls this callback again.
+            pass
         except Exception as exc:
             fut.set_exception(exc)
             self._remove_reader(fd)
