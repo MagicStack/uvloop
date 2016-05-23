@@ -123,8 +123,8 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'localhost', 'http', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_18(self):
-        self._test_getaddrinfo(b'localhost', 'http')
-        self._test_getaddrinfo(b'localhost', 'http', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('localhost', b'http')
+        self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
     ######
 
