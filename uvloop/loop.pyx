@@ -14,7 +14,7 @@ from .includes.python cimport PyMem_Malloc, PyMem_Free, \
                               PyErr_SetInterrupt
 
 from libc.stdint cimport uint64_t
-from libc.string cimport memset, strerror
+from libc.string cimport memset, strerror, memcpy
 from libc cimport errno
 
 from cpython cimport PyObject
@@ -1307,9 +1307,9 @@ cdef class Loop:
             system.addrinfo *lai_iter = NULL
 
             system.addrinfo rai_static
-            system.sockaddr rai_addr_static
+            system.sockaddr_storage rai_addr_static
             system.addrinfo lai_static
-            system.sockaddr lai_addr_static
+            system.sockaddr_storage lai_addr_static
 
             object app_protocol
             object protocol
@@ -1340,7 +1340,7 @@ cdef class Loop:
             try:
                 __static_getaddrinfo(
                     host, port, family, uv.SOCK_STREAM,
-                    proto, &rai_addr_static)
+                    proto, <system.sockaddr*>&rai_addr_static)
             except LookupError:
                 f1 = self._getaddrinfo(
                     host, port, family,
@@ -1349,7 +1349,7 @@ cdef class Loop:
 
                 fs.append(f1)
             else:
-                rai_static.ai_addr = &rai_addr_static
+                rai_static.ai_addr = <system.sockaddr*>&rai_addr_static
                 rai_static.ai_next = NULL
                 rai = &rai_static
 
@@ -1363,7 +1363,7 @@ cdef class Loop:
                     __static_getaddrinfo(
                         local_addr[0], local_addr[1],
                         family, uv.SOCK_STREAM,
-                        proto, &lai_addr_static)
+                        proto, <system.sockaddr*>&lai_addr_static)
                 except LookupError:
                     f2 = self._getaddrinfo(
                         local_addr[0], local_addr[1], family,
@@ -1372,7 +1372,7 @@ cdef class Loop:
 
                     fs.append(f2)
                 else:
-                    lai_static.ai_addr = &lai_addr_static
+                    lai_static.ai_addr = <system.sockaddr*>&lai_addr_static
                     lai_static.ai_next = NULL
                     lai = &rai_static
 
@@ -2209,7 +2209,7 @@ cdef class Loop:
                     udp = UDPTransport.__new__(UDPTransport)
                     rai = (<AddrInfo>rads).data
                     udp._init(self, rai.ai_family)
-                    udp._set_remote_address(rai.ai_addr[0])
+                    udp._set_remote_address(rai.ai_addr, rai.ai_addrlen)
                 else:
                     if family not in (uv.AF_INET, uv.AF_INET6):
                         raise ValueError('unexpected address family')
@@ -2253,14 +2253,14 @@ cdef class Loop:
                         if rai.ai_protocol != lai.ai_protocol:
                             rai = rai.ai_next
                             continue
-                        udp._set_remote_address(rai.ai_addr[0])
+                        udp._set_remote_address(rai.ai_addr, rai.ai_addrlen)
                         break
                     else:
                         raise OSError(
                             'could not bind to remote_addr {}'.format(
                                 remote_addr))
 
-                    udp._set_remote_address(rai.ai_addr[0])
+                    udp._set_remote_address(rai.ai_addr, rai.ai_addrlen)
 
         if allow_broadcast:
             udp._set_broadcast(1)

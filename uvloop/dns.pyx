@@ -160,16 +160,17 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
                                  int proto, int flags):
 
     cdef:
-        system.sockaddr addr
+        system.sockaddr_storage addr
 
     try:
-        (af, type, proto) = __static_getaddrinfo(host, port, family, type,
-                                                 proto, &addr)
+        (af, type, proto) = __static_getaddrinfo(
+            host, port, family, type,
+            proto, <system.sockaddr*>&addr)
     except LookupError:
         return
 
     try:
-        pyaddr = __convert_sockaddr_to_pyaddr(&addr)
+        pyaddr = __convert_sockaddr_to_pyaddr(<system.sockaddr*>&addr)
     except:
         return
 

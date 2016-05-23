@@ -13,7 +13,7 @@ cdef class _UDPSendContext:
 
         bint            closed
 
-        system.sockaddr addr
+        system.sockaddr_storage addr
 
     cdef close(self):
         if self.closed:
@@ -81,9 +81,10 @@ cdef class UDPTransport(UVBaseTransport):
 
         self._finish_init()
 
-    cdef _set_remote_address(self, system.sockaddr address):
+    cdef _set_remote_address(self, system.sockaddr* addr,
+                             size_t addr_len):
+        memcpy(&self._address, addr, addr_len)
         self._address_set = 1
-        self._address = address
 
     cdef _open(self, int family, int sockfd):
         if family in (uv.AF_INET, uv.AF_INET6):
@@ -199,7 +200,7 @@ cdef class UDPTransport(UVBaseTransport):
         if self._address_set and addr is not None:
             if self._cached_py_address is None:
                 self._cached_py_address = __convert_sockaddr_to_pyaddr(
-                    &self._address)
+                    <system.sockaddr*>&self._address)
 
             if self._cached_py_address != addr:
                 raise ValueError('Invalid address: must be None or %s' %
@@ -216,7 +217,8 @@ cdef class UDPTransport(UVBaseTransport):
                     raise RuntimeError(
                         'undable to perform send operation: no address')
             else:
-                __convert_pyaddr_to_sockaddr(self._family, addr, &ctx.addr)
+                __convert_pyaddr_to_sockaddr(self._family, addr,
+                                             <system.sockaddr*>&ctx.addr)
         except:
             ctx.close()
             raise
@@ -225,7 +227,7 @@ cdef class UDPTransport(UVBaseTransport):
                              <uv.uv_udp_t*>self._handle,
                              &ctx.uv_buf,
                              1,
-                             &ctx.addr,
+                             <system.sockaddr*>&ctx.addr,
                              __uv_udp_on_send)
 
         if err < 0:

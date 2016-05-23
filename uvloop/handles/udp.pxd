@@ -4,12 +4,13 @@ cdef class UDPTransport(UVBaseTransport):
         int _family
 
         bint _address_set
-        system.sockaddr _address
+        system.sockaddr_storage _address
         object _cached_py_address
 
     cdef _init(self, Loop loop, unsigned int family)
 
-    cdef _set_remote_address(self, system.sockaddr address)
+    cdef _set_remote_address(self, system.sockaddr* addr,
+                             size_t addr_len)
 
     cdef _bind(self, system.sockaddr* addr, bint reuse_addr)
     cdef _open(self, int family, int sockfd)
