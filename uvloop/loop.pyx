@@ -1105,6 +1105,13 @@ cdef class Loop:
     def getaddrinfo(self, object host, object port, *,
                     int family=0, int type=0, int proto=0, int flags=0):
 
+        addr = __static_getaddrinfo_pyaddr(host, port, family,
+                                           type, proto, flags)
+        if addr is not None:
+            fut = self._new_future()
+            fut.set_result([addr])
+            return fut
+
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
     async def getnameinfo(self, sockaddr, int flags=0):

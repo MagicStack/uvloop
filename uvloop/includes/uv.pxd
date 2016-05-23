@@ -62,6 +62,8 @@ cdef extern from "uv.h" nogil:
     cdef int IPPROTO_IPV6
     cdef int SOCK_STREAM
     cdef int SOCK_DGRAM
+    cdef int IPPROTO_TCP
+    cdef int IPPROTO_UDP
 
     cdef int SIGINT
     cdef int SIGHUP

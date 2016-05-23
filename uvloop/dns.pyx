@@ -1,3 +1,24 @@
+cdef __port_to_int(port, proto):
+    if port is None or port == '' or port == b'':
+        return 0
+
+    try:
+        return int(port)
+    except (ValueError, TypeError):
+        pass
+
+    if isinstance(port, bytes):
+        port = port.decode()
+
+    if isinstance(port, str) and proto is not None:
+        if proto == uv.IPPROTO_TCP:
+            return socket_getservbyname(port, 'tcp')
+        elif proto == uv.IPPROTO_UDP:
+            return socket_getservbyname(port, 'udp')
+
+    raise OSError('service/proto not found')
+
+
 cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
     # Converts sockaddr structs into what Python socket
     # module can understand:
@@ -54,13 +75,11 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
             raise ValueError('AF_INET address must be tuple of (host, port)')
         host, port = addr
         if isinstance(host, str):
-            host = host.encode()
+            host = host.encode('idna')
         if not isinstance(host, (bytes, bytearray)):
             raise TypeError('host must be a string or bytes object')
-        if isinstance(port, bytes):
-            port = port.decode()
-        if isinstance(port, str):
-            port = int(port)
+
+        port = __port_to_int(port, None)
 
         err = uv.uv_ip4_addr(host, <int>port, <system.sockaddr_in*>res)
         if err < 0:
@@ -78,9 +97,10 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
 
         host = addr[0]
         if isinstance(host, str):
-            host = host.encode()
+            host = host.encode('idna')
 
-        port = addr[1]
+        port = __port_to_int(addr[1], None)
+
         if addr_len > 2:
             flowinfo = addr[2]
         if addr_len > 3:
@@ -96,6 +116,64 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
     else:
         raise ValueError(
             'epected AF_INET or AF_INET6 family, got {}'.format(family))
+
+
+cdef __static_getaddrinfo(object host, object port,
+                          int family, int type,
+                          int proto,
+                          system.sockaddr *addr):
+
+    if proto not in {0, uv.IPPROTO_TCP, uv.IPPROTO_UDP}:
+        raise LookupError
+
+    type &= ~_SOCKET_TYPE_MASK
+    if type == uv.SOCK_STREAM:
+        proto = uv.IPPROTO_TCP
+    elif type == uv.SOCK_DGRAM:
+        proto = uv.IPPROTO_UDP
+    else:
+        raise LookupError
+
+    try:
+        port = __port_to_int(port, proto)
+    except:
+        raise LookupError
+
+    if family == uv.AF_UNSPEC:
+        afs = [uv.AF_INET, uv.AF_INET6]
+    else:
+        afs = [family]
+
+    for af in afs:
+        try:
+            __convert_pyaddr_to_sockaddr(af, (host, port), addr)
+        except:
+            continue
+        else:
+            return (af, type, proto)
+
+    raise LookupError
+
+
+cdef __static_getaddrinfo_pyaddr(object host, object port,
+                                 int family, int type,
+                                 int proto, int flags):
+
+    cdef:
+        system.sockaddr addr
+
+    try:
+        (af, type, proto) = __static_getaddrinfo(host, port, family, type,
+                                                 proto, &addr)
+    except LookupError:
+        return
+
+    try:
+        pyaddr = __convert_sockaddr_to_pyaddr(&addr)
+    except:
+        return
+
+    return af, type, proto, '', pyaddr
 
 
 @cython.freelist(DEFAULT_FREELIST_SIZE)

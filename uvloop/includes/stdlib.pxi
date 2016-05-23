@@ -55,6 +55,7 @@ cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error
 cdef socket_timeout = socket.timeout
 cdef socket_socket = socket.socket
+cdef socket_getservbyname = socket.getservbyname
 
 cdef int socket_EAI_ADDRFAMILY = getattr(socket, 'EAI_ADDRFAMILY', -1)
 cdef int socket_EAI_AGAIN      = getattr(socket, 'EAI_AGAIN', -1)
@@ -70,6 +71,13 @@ cdef int socket_EAI_OVERFLOW   = getattr(socket, 'EAI_OVERFLOW', -1)
 cdef int socket_EAI_PROTOCOL   = getattr(socket, 'EAI_PROTOCOL', -1)
 cdef int socket_EAI_SERVICE    = getattr(socket, 'EAI_SERVICE', -1)
 cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
+
+
+cdef int _SOCKET_TYPE_MASK = 0
+if hasattr(socket, 'SOCK_NONBLOCK'):
+    _SOCKET_TYPE_MASK |= socket.SOCK_NONBLOCK
+if hasattr(socket, 'SOCK_CLOEXEC'):
+    _SOCKET_TYPE_MASK |= socket.SOCK_CLOEXEC
 
 
 cdef str os_name = os.name
