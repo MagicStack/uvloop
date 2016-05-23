@@ -126,6 +126,10 @@ class BaseTestDNS:
         self._test_getaddrinfo('localhost', b'http')
         self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
+    def test_getaddrinfo_19(self):
+        self._test_getaddrinfo('::1', 80)
+        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM)
+
     ######
 
     def test_getnameinfo_1(self):
