@@ -2,6 +2,7 @@
 
 
 import asyncio
+import collections
 import contextlib
 import gc
 import inspect
@@ -21,7 +22,46 @@ class MockPattern(str):
         return bool(re.search(str(self), other, re.S))
 
 
-class BaseTestCase(unittest.TestCase):
+class TestCaseDict(collections.UserDict):
+
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def __setitem__(self, key, value):
+        if key in self.data:
+            raise RuntimeError('duplicate test {}.{}'.format(
+                self.name, key))
+        super().__setitem__(key, value)
+
+
+class BaseTestCaseMeta(type):
+
+    @classmethod
+    def __prepare__(mcls, name, bases):
+        return TestCaseDict(name)
+
+    def __new__(mcls, name, bases, dct):
+        tests = set()
+        for base in bases:
+            for meth in dir(base):
+                if meth.startswith('test_'):
+                    tests.add(meth)
+
+        for test_name in dct:
+            if not test_name.startswith('test_'):
+                continue
+            for base in bases:
+                if hasattr(base, test_name):
+                    raise RuntimeError(
+                        'duplicate test {}.{} (also defined in {} '
+                        'parent class)'.format(
+                            name, test_name, base.__name__))
+
+        return super().__new__(mcls, name, bases, dict(dct))
+
+
+class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
     def new_loop(self):
         raise NotImplementedError
