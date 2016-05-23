@@ -34,13 +34,15 @@ class _TestAioHTTP:
             '0.0.0.0', '0')
         srv = self.loop.run_until_complete(f)
 
-        addr = srv.sockets[0].getsockname()[:2]
+        port = srv.sockets[0].getsockname()[1]
 
         async def test():
-            with aiohttp.ClientSession() as client:
-                async with client.get('http://{}:{}'.format(*addr)) as resp:
-                    self.assertEqual(resp.status, 200)
-                    self.assertEqual(len(await resp.text()), len(PAYLOAD))
+            for addr in (('localhost', port),
+                         ('127.0.0.1', port)):
+                with aiohttp.ClientSession() as client:
+                    async with client.get('http://{}:{}'.format(*addr)) as r:
+                        self.assertEqual(r.status, 200)
+                        self.assertEqual(len(await r.text()), len(PAYLOAD))
 
         self.loop.run_until_complete(test())
         srv.close()

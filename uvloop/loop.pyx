@@ -1298,9 +1298,18 @@ cdef class Loop:
         cdef:
             AddrInfo ai_local = None
             AddrInfo ai_remote
-            system.addrinfo *rai
-            system.addrinfo *lai
             TCPTransport tr
+
+            system.addrinfo *rai = NULL
+            system.addrinfo *lai = NULL
+
+            system.addrinfo *rai_iter = NULL
+            system.addrinfo *lai_iter = NULL
+
+            system.addrinfo rai_static
+            system.sockaddr rai_addr_static
+            system.addrinfo lai_static
+            system.sockaddr lai_addr_static
 
             object app_protocol
             object protocol
@@ -1325,60 +1334,89 @@ cdef class Loop:
                 raise ValueError('server_hostname is only meaningful with ssl')
 
         if host is not None or port is not None:
-            f1 = self._getaddrinfo(host, port, family,
-                                   uv.SOCK_STREAM, proto, flags,
-                                   0)  # 0 == don't unpack
+            fs = []
+            f1 = f2 = None
 
-            fs = [f1]
+            try:
+                __static_getaddrinfo(
+                    host, port, family, uv.SOCK_STREAM,
+                    proto, &rai_addr_static)
+            except LookupError:
+                f1 = self._getaddrinfo(
+                    host, port, family,
+                    uv.SOCK_STREAM, proto, flags,
+                    0)  # 0 == don't unpack
 
-            f2 = None
+                fs.append(f1)
+            else:
+                rai_static.ai_addr = &rai_addr_static
+                rai_static.ai_next = NULL
+                rai = &rai_static
+
             if local_addr is not None:
                 if not isinstance(local_addr, (tuple, list)) or \
                         len(local_addr) != 2:
                     raise ValueError(
                         'local_addr must be a tuple of host and port')
 
-                f2 = self._getaddrinfo(local_addr[0], local_addr[1], family,
-                                       uv.SOCK_STREAM, proto, flags,
-                                       0)  # 0 == don't unpack
-                fs.append(f2)
+                try:
+                    __static_getaddrinfo(
+                        local_addr[0], local_addr[1],
+                        family, uv.SOCK_STREAM,
+                        proto, &lai_addr_static)
+                except LookupError:
+                    f2 = self._getaddrinfo(
+                        local_addr[0], local_addr[1], family,
+                        uv.SOCK_STREAM, proto, flags,
+                        0)  # 0 == don't unpack
 
-            await aio_wait(fs, loop=self)
+                    fs.append(f2)
+                else:
+                    lai_static.ai_addr = &lai_addr_static
+                    lai_static.ai_next = NULL
+                    lai = &rai_static
 
-            ai_remote = f1.result()
-            if ai_remote.data is NULL:
-                raise OSError('getaddrinfo() returned empty list')
+            if len(fs):
+                await aio_wait(fs, loop=self)
 
-            if f2 is not None:
+            if rai is NULL:
+                ai_remote = f1.result()
+                if ai_remote.data is NULL:
+                    raise OSError('getaddrinfo() returned empty list')
+                rai = ai_remote.data
+
+            if lai is NULL and f2 is not None:
                 ai_local = f2.result()
                 if ai_local.data is NULL:
                     raise OSError(
                         'getaddrinfo() returned empty list for local_addr')
+                lai = ai_local.data
 
             exceptions = []
-            rai = ai_remote.data
-            while rai is not NULL:
+            rai_iter = rai
+            while rai_iter is not NULL:
                 tr = None
                 try:
                     waiter = self._new_future()
                     tr = TCPTransport.new(self, protocol, None, waiter)
-                    if ai_local is not None:
-                        lai = ai_local.data
-                        while lai is not NULL:
+
+                    if lai is not NULL:
+                        lai_iter = lai
+                        while lai_iter is not NULL:
                             try:
-                                tr.bind(lai.ai_addr)
+                                tr.bind(lai_iter.ai_addr)
                                 break
                             except OSError as exc:
                                 exceptions.append(exc)
-                            lai = lai.ai_next
+                            lai_iter = lai_iter.ai_next
                         else:
                             tr._close()
                             tr = None
 
-                            rai = rai.ai_next
+                            rai_iter = rai_iter.ai_next
                             continue
 
-                    tr.connect(rai.ai_addr)
+                    tr.connect(rai_iter.ai_addr)
                     await waiter
 
                 except OSError as exc:
@@ -1394,7 +1432,7 @@ cdef class Loop:
                 else:
                     break
 
-                rai = rai.ai_next
+                rai_iter = rai_iter.ai_next
 
             else:
                 # If they all have the same str(), raise one.
