@@ -149,6 +149,13 @@ cdef class Loop:
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags)
 
+    cdef _create_server(self, system.sockaddr *addr,
+                        object protocol_factory,
+                        Server server,
+                        object ssl,
+                        bint reuse_port,
+                        object backlog)
+
     cdef _add_reader(self, fd, Handle handle)
     cdef _remove_reader(self, fd)
 

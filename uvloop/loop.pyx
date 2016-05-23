@@ -768,6 +768,45 @@ cdef class Loop:
                 sys_set_coroutine_wrapper(None)
                 self._coroutine_wrapper_set = False
 
+    cdef _create_server(self, system.sockaddr *addr,
+                        object protocol_factory,
+                        Server server,
+                        object ssl,
+                        bint reuse_port,
+                        object backlog):
+        cdef:
+            TCPServer tcp
+            int bind_flags
+
+        tcp = TCPServer.new(self, protocol_factory, server, ssl,
+                            addr.sa_family)
+
+        if reuse_port:
+            self._sock_set_reuseport(tcp._fileno())
+
+        if addr.sa_family== uv.AF_INET6:
+            # Disable IPv4/IPv6 dual stack support (enabled by
+            # default on Linux) which makes a single socket
+            # listen on both address families.
+            bind_flags = uv.UV_TCP_IPV6ONLY
+        else:
+            bind_flags = 0
+
+        try:
+            tcp.bind(addr, bind_flags)
+            tcp.listen(backlog)
+        except OSError as err:
+            pyaddr = __convert_sockaddr_to_pyaddr(addr)
+            tcp._close()
+            raise OSError(err.errno, 'error while attempting '
+                          'to bind on address %r: %s'
+                          % (pyaddr, err.strerror.lower()))
+        except:
+            tcp._close()
+            raise
+
+        return tcp
+
     IF DEBUG:
         def print_debug_info(self):
             cdef:
@@ -1170,7 +1209,6 @@ cdef class Loop:
             TCPServer tcp
             system.addrinfo *addrinfo
             Server server = Server(self)
-            int bind_flags
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
@@ -1206,36 +1244,11 @@ cdef class Loop:
                         if addrinfo.ai_family == uv.AF_UNSPEC:
                             raise RuntimeError('AF_UNSPEC in DNS results')
 
-                        tcp = TCPServer.new(
-                            self, protocol_factory, server, ssl,
-                            addrinfo.ai_family)
+                        tcp = self._create_server(
+                            addrinfo.ai_addr, protocol_factory, server,
+                            ssl, reuse_port, backlog)
 
-                        if reuse_port:
-                            self._sock_set_reuseport(tcp._fileno())
-
-                        if addrinfo.ai_family == uv.AF_INET6:
-                            # Disable IPv4/IPv6 dual stack support (enabled by
-                            # default on Linux) which makes a single socket
-                            # listen on both address families.
-                            bind_flags = uv.UV_TCP_IPV6ONLY
-                        else:
-                            bind_flags = 0
-
-                        try:
-                            tcp.bind(addrinfo.ai_addr, bind_flags)
-                            tcp.listen(backlog)
-                        except OSError as err:
-                            pyaddr = __convert_sockaddr_to_pyaddr(
-                                <system.sockaddr*>addrinfo.ai_addr)
-                            tcp._close()
-                            raise OSError(err.errno, 'error while attempting '
-                                          'to bind on address %r: %s'
-                                          % (pyaddr, err.strerror.lower()))
-                        except:
-                            tcp._close()
-                            raise
-
-                        server._add_server(tcp)
+                        server._add_server(<TCPServer>tcp)
 
                         addrinfo = addrinfo.ai_next
 
