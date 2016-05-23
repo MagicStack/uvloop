@@ -45,6 +45,9 @@ cdef class UVTimer(UVHandle):
         self._ensure_alive()
 
         if self.running == 0:
+            # Update libuv internal time.
+            uv.uv_update_time(self._loop.uvloop)  # void
+
             err = uv.uv_timer_start(<uv.uv_timer_t*>self._handle,
                                     __uvtimer_callback,
                                     self.timeout, 0)

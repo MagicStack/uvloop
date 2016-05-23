@@ -111,7 +111,7 @@ class _TestBase:
         delta = self.loop.run_until_complete(run())
         self.assertTrue(delta > 0.049 and delta < 0.6)
 
-    def test_call_later(self):
+    def test_call_later_1(self):
         calls = []
 
         def cb(inc=10, stop=False):
@@ -141,6 +141,20 @@ class _TestBase:
         self.assertEqual(calls, [10, 1])
 
         self.assertFalse(self.loop.is_running())
+
+    def test_call_later_2(self):
+        # Test that loop.call_later triggers an update of
+        # libuv cached time.
+
+        async def main():
+            await asyncio.sleep(0.001)
+            time.sleep(0.01)
+            await asyncio.sleep(0.01)
+
+        started = time.monotonic()
+        self.loop.run_until_complete(main())
+        delta = time.monotonic() - started
+        self.assertGreater(delta, 0.019)
 
     def test_call_later_negative(self):
         calls = []
