@@ -4,10 +4,6 @@ import unittest
 from uvloop import _testbase as tb
 
 
-_HOST, _PORT = ('example.com', 80)
-_NON_HOST, _NON_PORT = ('a' + '1' * 50 + '.wat', 800)
-
-
 class BaseTestDNS:
 
     def _test_getaddrinfo(self, *args, **kwargs):
@@ -60,22 +56,22 @@ class BaseTestDNS:
             self.assertEqual(a1, a2)
 
     def test_getaddrinfo_1(self):
-        self._test_getaddrinfo(_HOST, _PORT)
+        self._test_getaddrinfo('example.com', 80)
 
     def test_getaddrinfo_2(self):
-        self._test_getaddrinfo(_HOST, _PORT, flags=socket.AI_CANONNAME)
+        self._test_getaddrinfo('example.com', 80, flags=socket.AI_CANONNAME)
 
     def test_getaddrinfo_3(self):
-        self._test_getaddrinfo(_NON_HOST, _NON_PORT)
+        self._test_getaddrinfo('a' + '1' * 50 + '.wat', 800)
 
     def test_getaddrinfo_4(self):
-        self._test_getaddrinfo(_HOST, _PORT, family=-1)
+        self._test_getaddrinfo('example.com', 80, family=-1)
 
     def test_getaddrinfo_5(self):
-        self._test_getaddrinfo(_HOST, str(_PORT))
+        self._test_getaddrinfo('example.com', '80')
 
     def test_getaddrinfo_6(self):
-        self._test_getaddrinfo(_HOST.encode(), str(_PORT).encode())
+        self._test_getaddrinfo(b'example.com', '80'.encode())
 
     def test_getaddrinfo_7(self):
         self._test_getaddrinfo(None, 0)
@@ -90,10 +86,28 @@ class BaseTestDNS:
         self._test_getaddrinfo(None, None)
 
     def test_getaddrinfo_11(self):
-        self._test_getaddrinfo(_HOST.encode(), str(_PORT))
+        self._test_getaddrinfo(b'example.com', '80')
 
     def test_getaddrinfo_12(self):
-        self._test_getaddrinfo(_HOST.encode(), str(_PORT).encode())
+        self._test_getaddrinfo(b'example.com', b'80')
+
+    def test_getaddrinfo_13(self):
+        self._test_getaddrinfo('127.0.0.1', '80')
+
+    def test_getaddrinfo_14(self):
+        self._test_getaddrinfo(b'127.0.0.1', b'80')
+
+    def test_getaddrinfo_15(self):
+        self._test_getaddrinfo(b'127.0.0.1', b'http')
+
+    def test_getaddrinfo_16(self):
+        self._test_getaddrinfo('127.0.0.1', 'http', type=socket.SOCK_STREAM)
+
+    def test_getaddrinfo_17(self):
+        self._test_getaddrinfo('localhost', 'http')
+
+    def test_getaddrinfo_18(self):
+        self._test_getaddrinfo(b'localhost', 'http', type=socket.SOCK_STREAM)
 
     ######
 
@@ -116,14 +130,17 @@ class BaseTestDNS:
 class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
     def test_getaddrinfo_close_loop(self):
+        # Test that we can close the loop with a running
+        # DNS query.
+
         try:
             # Check that we have internet connection
-            socket.getaddrinfo(_HOST, _PORT)
+            socket.getaddrinfo('example.com', 80)
         except socket.error:
             raise unittest.SkipTest
 
         async def run():
-            fut = self.loop.getaddrinfo(_HOST, _PORT)
+            fut = self.loop.getaddrinfo('example.com', 80)
             fut.cancel()
             self.loop.stop()
 
@@ -134,6 +151,4 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
-
-    def test_getaddrinfo_11(self):
-        self._test_getaddrinfo(_HOST.encode(), str(_PORT))
+    pass
