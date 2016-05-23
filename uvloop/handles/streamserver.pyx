@@ -20,9 +20,14 @@ cdef class UVStreamServer(UVSocketHandle):
         self.protocol_factory = protocol_factory
         self._server = server
 
-    cdef inline listen(self, int backlog):
+    cdef inline listen(self, backlog):
         cdef int err
         self._ensure_alive()
+
+        if not isinstance(backlog, int):
+            # Don't allow floats
+            raise TypeError('integer argument expected, got {}'.format(
+                type(backlog).__name__))
 
         if self.protocol_factory is None:
             raise RuntimeError('unable to listen(); no protocol_factory')

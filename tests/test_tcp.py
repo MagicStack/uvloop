@@ -498,6 +498,19 @@ class _TestTCP:
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
+    def test_create_server_float_backlog(self):
+        # asyncio spits out a warning we cannot suppress
+
+        async def runner(bl):
+            await self.loop.create_server(
+                asyncio.Protocol,
+                None, 0, backlog=bl)
+
+        for bl in (1.1, '1'):
+            with self.subTest(backlog=bl):
+                with self.assertRaisesRegex(TypeError, 'integer'):
+                    self.loop.run_until_complete(runner(bl))
+
     def test_many_small_writes(self):
         N = 10000
         TOTAL = 0

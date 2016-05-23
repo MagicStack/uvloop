@@ -12,7 +12,7 @@ cdef class UVStreamServer(UVSocketHandle):
 
     cdef inline _mark_as_open(self)
 
-    cdef inline listen(self, int backlog)
+    cdef inline listen(self, backlog)
     cdef inline _on_listen(self)
 
     cdef UVStream _make_new_transport(self, object protocol, object waiter)

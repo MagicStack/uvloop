@@ -1127,7 +1127,7 @@ cdef class Loop:
                             int family=uv.AF_UNSPEC,
                             int flags=uv.AI_PASSIVE,
                             sock=None,
-                            int backlog=100,
+                            backlog=100,
                             ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
                             reuse_port=None):
@@ -1227,9 +1227,13 @@ cdef class Loop:
                         except OSError as err:
                             pyaddr = __convert_sockaddr_to_pyaddr(
                                 <system.sockaddr*>addrinfo.ai_addr)
+                            tcp._close()
                             raise OSError(err.errno, 'error while attempting '
                                           'to bind on address %r: %s'
                                           % (pyaddr, err.strerror.lower()))
+                        except:
+                            tcp._close()
+                            raise
 
                         server._add_server(tcp)
 
@@ -1249,10 +1253,11 @@ cdef class Loop:
                 tcp.open(fileno)
                 tcp._attach_fileobj(sock)
                 tcp.listen(backlog)
-                server._add_server(tcp)
             except:
                 tcp._close()
                 raise
+
+            server._add_server(tcp)
 
         return server
 
