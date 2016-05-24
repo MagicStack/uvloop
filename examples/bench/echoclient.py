@@ -1,12 +1,13 @@
 # Copied with minimal modifications from curio
 # https://github.com/dabeaz/curio
 
-from concurrent.futures import ProcessPoolExecutor
 
 import argparse
-from socket import *
 import time
-import sys
+
+from concurrent.futures import ProcessPoolExecutor
+from socket import *
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -34,7 +35,7 @@ if __name__ == '__main__':
 
     MSGSIZE = args.msize
 
-    msg = b'x'*MSGSIZE
+    msg = b'x'*(MSGSIZE - 1) + b'\n'
 
     def run_test(n):
         print('Sending', NMESSAGES, 'messages')
@@ -42,6 +43,12 @@ if __name__ == '__main__':
             sock = socket(AF_UNIX, SOCK_STREAM)
         else:
             sock = socket(AF_INET, SOCK_STREAM)
+
+        try:
+            sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        except (OSError, NameError):
+            pass
+
         sock.connect(addr)
         while n > 0:
             sock.sendall(msg)
