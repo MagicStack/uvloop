@@ -61,4 +61,3 @@ Contents
 
    user/index
    dev/index
-   api/index
