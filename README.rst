@@ -16,7 +16,7 @@ The project documentation can be found
 Performance
 -----------
 
-uvloop makes asyncio 2-4x times faster.
+uvloop makes asyncio 2-4x faster.
 
 .. image:: performance.png
     :target: http://magic.io/blog/uvloop-blazing-fast-python-networking/
@@ -51,7 +51,7 @@ loop policy:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-Or, alternatively, you can create an instance of the loop
+Alternatively, you can create an instance of the loop
 manually, using:
 
 .. code:: python
@@ -74,3 +74,9 @@ is to create a virtual env, so that you'll have ``cython`` and
 3. ``make``
 
 4. ``make test``
+
+
+License
+-------
+
+MIT.
