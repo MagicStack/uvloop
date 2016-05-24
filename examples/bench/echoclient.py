@@ -13,6 +13,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--msize', default=1000, type=int,
                         help='message size in bytes')
+    parser.add_argument('--mpr', default=1, type=int,
+                        help='messages per request')
     parser.add_argument('--num', default=200000, type=int,
                         help='number of messages')
     parser.add_argument('--times', default=1, type=int,
@@ -34,11 +36,17 @@ if __name__ == '__main__':
     print('will connect to: {}'.format(addr))
 
     MSGSIZE = args.msize
+    REQSIZE = MSGSIZE * args.mpr
 
     msg = b'x'*(MSGSIZE - 1) + b'\n'
+    if args.mpr:
+        msg *= args.mpr
 
     def run_test(n):
         print('Sending', NMESSAGES, 'messages')
+        if args.mpr:
+            n //= args.mpr
+
         if unix:
             sock = socket(AF_UNIX, SOCK_STREAM)
         else:
@@ -53,8 +61,8 @@ if __name__ == '__main__':
         while n > 0:
             sock.sendall(msg)
             nrecv = 0
-            while nrecv < MSGSIZE:
-                resp = sock.recv(MSGSIZE)
+            while nrecv < REQSIZE:
+                resp = sock.recv(REQSIZE)
                 if not resp:
                     raise SystemExit()
                 nrecv += len(resp)
