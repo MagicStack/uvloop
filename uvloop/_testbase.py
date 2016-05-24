@@ -42,12 +42,6 @@ class BaseTestCaseMeta(type):
         return TestCaseDict(name)
 
     def __new__(mcls, name, bases, dct):
-        tests = set()
-        for base in bases:
-            for meth in dir(base):
-                if meth.startswith('test_'):
-                    tests.add(meth)
-
         for test_name in dct:
             if not test_name.startswith('test_'):
                 continue
