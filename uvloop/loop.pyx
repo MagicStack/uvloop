@@ -1374,7 +1374,7 @@ cdef class Loop:
                 else:
                     lai_static.ai_addr = <system.sockaddr*>&lai_addr_static
                     lai_static.ai_next = NULL
-                    lai = &rai_static
+                    lai = &lai_static
 
             if len(fs):
                 await aio_wait(fs, loop=self)
