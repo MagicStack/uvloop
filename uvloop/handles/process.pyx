@@ -90,12 +90,13 @@ cdef class UVProcess(UVHandle):
 
             os_close(self._errpipe_write)
 
-            errpipe_data = bytearray()
-            while True:
-                part = os_read(self._errpipe_read, 50000)
-                errpipe_data += part
-                if not part or len(errpipe_data) > 50000:
-                    break
+            if preexec_fn is not None:
+                errpipe_data = bytearray()
+                while True:
+                    part = os_read(self._errpipe_read, 50000)
+                    errpipe_data += part
+                    if not part or len(errpipe_data) > 50000:
+                        break
 
         finally:
             os_close(self._errpipe_read)
@@ -121,7 +122,7 @@ cdef class UVProcess(UVHandle):
         if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
             time_sleep(1)
 
-        if errpipe_data:
+        if preexec_fn is not None and errpipe_data:
             # preexec_fn has raised an exception.  The child
             # process must be dead now.
             try:
