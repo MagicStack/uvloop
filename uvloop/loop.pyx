@@ -1861,28 +1861,23 @@ cdef class Loop:
         self._add_reader(fd, handle)
         return fut
 
-    def sock_connect(self, sock, address):
+    async def sock_connect(self, sock, address):
         """Connect to a remote socket at address.
-
-        The address must be already resolved to avoid the trap of hanging the
-        entire event loop when the address requires doing a DNS lookup. For
-        example, it must be an IP address, not a hostname, for AF_INET and
-        AF_INET6 address families. Use getaddrinfo() to resolve the hostname
-        asynchronously.
 
         This method is a coroutine.
         """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
         fut = self._new_future()
-        try:
-            if self._debug:
-                aio__check_resolved_address(sock, address)
-        except ValueError as err:
-            fut.set_exception(err)
-        else:
+        if sock.family == uv.AF_UNIX:
             self._sock_connect(fut, sock, address)
-        return fut
+            await fut
+            return
+
+        _, _, _, _, address = (await self.getaddrinfo(*address))[0]
+        self._sock_connect(fut, sock, address)
+        await fut
 
     def run_in_executor(self, executor, func, *args):
         if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
