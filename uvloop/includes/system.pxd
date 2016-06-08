@@ -48,6 +48,15 @@ cdef extern from "sys/socket.h" nogil:
 cdef extern from "unistd.h" nogil:
 
     ssize_t write(int fd, const void *buf, size_t count)
+    void _exit(int status)
+
+
+cdef extern from "pthread.h" nogil:
+
+    int pthread_atfork(
+        void (*prepare)() nogil,
+        void (*parent)() nogil,
+        void (*child)() nogil)
 
 
 cdef extern from "includes/compat.h" nogil:

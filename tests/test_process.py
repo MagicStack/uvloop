@@ -1,9 +1,11 @@
 import asyncio
 import contextlib
+import os
 import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 from asyncio import test_utils
 from uvloop import _testbase as tb
@@ -45,6 +47,59 @@ class _TestProcess:
             self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
+
+    def test_process_preexec_fn_1(self):
+        # Copied from CPython/test_suprocess.py
+
+        # DISCLAIMER: Setting environment variables is *not* a good use
+        # of a preexec_fn.  This is merely a test.
+
+        async def test():
+            cmd = sys.executable
+            proc = await asyncio.create_subprocess_exec(
+                cmd, '-c',
+                'import os,sys;sys.stdout.write(os.getenv("FRUIT"))',
+                stdout=subprocess.PIPE,
+                preexec_fn=lambda: os.putenv("FRUIT", "apple"),
+                loop=self.loop)
+
+            out, _ = await proc.communicate()
+            self.assertEqual(out, b'apple')
+            self.assertEqual(proc.returncode, 0)
+
+        self.loop.run_until_complete(test())
+
+    def test_process_preexec_fn_2(self):
+        # Copied from CPython/test_suprocess.py
+
+        def raise_it():
+            raise ValueError("spam")
+
+        async def test():
+            cmd = sys.executable
+            proc = await asyncio.create_subprocess_exec(
+                cmd, '-c', 'import time; time.sleep(10)',
+                preexec_fn=raise_it,
+                loop=self.loop)
+
+            await proc.communicate()
+
+        started = time.time()
+        try:
+            self.loop.run_until_complete(test())
+        except subprocess.SubprocessError as ex:
+            self.assertIn('preexec_fn', ex.args[0])
+            if ex.__cause__ is not None:
+                # uvloop will set __cause__
+                self.assertIs(type(ex.__cause__), ValueError)
+                self.assertEqual(ex.__cause__.args[0], 'spam')
+        else:
+            self.fail(
+                'exception in preexec_fn did not propagate to the parent')
+
+        if time.time() - started > 5:
+            self.fail(
+                'exception in preexec_fn did not kill the child process')
 
     def test_process_executable_1(self):
         async def test():

@@ -4,6 +4,7 @@ import asyncio, asyncio.log, asyncio.base_events, \
 import collections
 import concurrent.futures
 import functools
+import gc
 import inspect
 import itertools
 import os
@@ -43,6 +44,8 @@ cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
 cdef ft_partial = functools.partial
+
+cdef gc_disable = gc.disable
 
 cdef iter_chain = itertools.chain
 cdef inspect_isgenerator = inspect.isgenerator
@@ -88,6 +91,8 @@ cdef os_close = os.close
 cdef os_open = os.open
 cdef os_devnull = os.devnull
 cdef os_O_RDWR = os.O_RDWR
+cdef os_pipe = os.pipe
+cdef os_read = os.read
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
@@ -102,6 +107,7 @@ cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
+cdef subprocess_SubprocessError = subprocess.SubprocessError
 
 cdef int signal_NSIG = std_signal.NSIG
 

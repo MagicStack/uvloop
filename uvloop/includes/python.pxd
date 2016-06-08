@@ -6,3 +6,8 @@ cdef extern from "Python.h":
 
     object PyUnicode_EncodeFSDefault(object)
     void PyErr_SetInterrupt() nogil
+
+    void PyOS_AfterFork()
+    void _PyImport_AcquireLock()
+    int _PyImport_ReleaseLock()
+    void _Py_RestoreSignals()

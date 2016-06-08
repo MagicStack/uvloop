@@ -3,6 +3,11 @@ cdef class UVProcess(UVHandle):
         object _returncode
         object _pid
 
+        object _errpipe_read
+        object _errpipe_write
+        object _preexec_fn
+        bint _restore_signals
+
         set _fds_to_close
 
         # Attributes used to compose uv_process_options_t:
@@ -18,7 +23,9 @@ cdef class UVProcess(UVHandle):
     cdef _init(self, Loop loop, list args, dict env, cwd,
                start_new_session,
                _stdin, _stdout, _stderr, pass_fds,
-               debug_flags)
+               debug_flags, preexec_fn, restore_signals)
+
+    cdef _after_fork(self)
 
     cdef char** __to_cstring_array(self, list arr)
     cdef _init_args(self, list args)
@@ -67,4 +74,5 @@ cdef class UVProcessTransport(UVProcess):
                                 start_new_session,
                                 _stdin, _stdout, _stderr, pass_fds,
                                 waiter,
-                                debug_flags)
+                                debug_flags,
+                                preexec_fn, restore_signals)

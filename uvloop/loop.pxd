@@ -63,6 +63,8 @@ cdef class Loop:
         dict _signal_handlers
         bint _custom_sigint
 
+        UVProcess active_process_handler
+
         UVAsync handler_async
         UVIdle handler_idle
         UVCheck handler_check__exec_writes

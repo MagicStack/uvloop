@@ -11,7 +11,11 @@ from .includes cimport system
 from .includes.python cimport PyMem_Malloc, PyMem_Free, \
                               PyMem_Calloc, PyMem_Realloc, \
                               PyUnicode_EncodeFSDefault, \
-                              PyErr_SetInterrupt
+                              PyErr_SetInterrupt, \
+                              PyOS_AfterFork, \
+                              _PyImport_AcquireLock, \
+                              _PyImport_ReleaseLock, \
+                              _Py_RestoreSignals
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
@@ -41,8 +45,12 @@ cdef Loop __main_loop__ = None
 cdef class Loop:
     def __cinit__(self):
         cdef int err
+
         # Install PyMem* memory allocators if they aren't installed yet.
         __install_pymem()
+
+        # Install pthread_atfork handlers
+        __install_atfork()
 
         self.uvloop = <uv.uv_loop_t*> \
                             PyMem_Malloc(sizeof(uv.uv_loop_t))
@@ -118,6 +126,8 @@ cdef class Loop:
             self._sock_try_write_total = 0
 
             self._debug_exception_handler_cnt = 0
+
+        self.active_process_handler = None
 
         self._last_error = None
 
@@ -1920,22 +1930,16 @@ cdef class Loop:
                                __uvloop_sleep_after_fork=False
                             ):
 
-        # TODO: To implement close_fds, restore_signals, and preexec_fn --
-        # we'll likely need to add new functionality to libuv, mainly,
-        # an ability to run a callback before calling execvp in the
-        # child process.
+        # TODO: Implement close_fds (might not be very important in
+        # Python 3.5, since all FDs aren't inheritable by default.)
 
         cdef:
             int debug_flags = 0
 
-        if preexec_fn is not None:
-            raise ValueError('preexec_fn parameter is not supported')
         if universal_newlines:
             raise ValueError("universal_newlines must be False")
         if bufsize != 0:
             raise ValueError("bufsize must be 0")
-        if preexec_fn:
-            raise ValueError('preexec_fn is not supported')
         if startupinfo is not None:
             raise ValueError('startupinfo is not supported')
         if creationflags != 0:
@@ -1953,7 +1957,9 @@ cdef class Loop:
                                       args, env, cwd, start_new_session,
                                       stdin, stdout, stderr, pass_fds,
                                       waiter,
-                                      debug_flags)
+                                      debug_flags,
+                                      preexec_fn,
+                                      restore_signals)
 
         try:
             await waiter
@@ -2320,6 +2326,38 @@ include "os_signal.pyx"
 include "future.pyx"
 include "chain_futs.pyx"
 include "task.pyx"
+
+
+# Used in UVProcess
+cdef vint __atfork_installed = 0
+cdef vint __forking = 0
+cdef Loop __forking_loop = None
+
+
+cdef void __atfork_child() nogil:
+    # See CPython/posixmodule.c for details
+    global __forking
+
+    with gil:
+        if (__forking and
+                __forking_loop is not None and
+                __forking_loop.active_process_handler is not None):
+
+            __forking_loop.active_process_handler._after_fork()
+
+
+cdef __install_atfork():
+    global __atfork_installed
+    if __atfork_installed:
+        return
+    __atfork_installed = 1
+
+    cdef int err
+
+    err = system.pthread_atfork(NULL, NULL, &__atfork_child)
+    if err:
+        __atfork_installed = 0
+        raise convert_error(-err)
 
 
 # Install PyMem* memory allocators

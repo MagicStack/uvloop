@@ -8,11 +8,16 @@ cdef class UVProcess(UVHandle):
         self._returncode = None
         self._pid = None
         self._fds_to_close = set()
+        self._preexec_fn = None
+        self._restore_signals = True
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
                _stdin, _stdout, _stderr,  # std* can be defined as macros in C
-               pass_fds, debug_flags):
+               pass_fds, debug_flags, preexec_fn, restore_signals):
+
+        global __forking
+        global __forking_loop
 
         cdef int err
 
@@ -43,14 +48,62 @@ cdef class UVProcess(UVHandle):
             self._abort_init()
             raise
 
-        err = uv.uv_spawn(loop.uvloop,
-                          <uv.uv_process_t*>self._handle,
-                          &self.options)
-        if err < 0:
+        if __forking or loop.active_process_handler is not None:
+            # Our pthread_atfork handlers won't work correctly when
+            # another loop is forking in another thread (even though
+            # GIL should help us to avoid that.)
             self._abort_init()
-            raise convert_error(err)
+            raise RuntimeError(
+                'Racing with another loop to spawn a process.')
 
-        self._finish_init()
+        self._errpipe_read, self._errpipe_write = os_pipe()
+        try:
+            os_set_inheritable(self._errpipe_write, True)
+
+            self._preexec_fn = preexec_fn
+            self._restore_signals = restore_signals
+
+            loop.active_process_handler = self
+            __forking = 1
+            __forking_loop = loop
+
+            _PyImport_AcquireLock()
+
+            err = uv.uv_spawn(loop.uvloop,
+                              <uv.uv_process_t*>self._handle,
+                              &self.options)
+
+            __forking = 0
+            __forking_loop = None
+            loop.active_process_handler = None
+
+            if _PyImport_ReleaseLock() < 0:
+                # See CPython/posixmodule.c for details
+                self._abort_init()
+                raise RuntimeError('not holding the import lock')
+
+            if err < 0:
+                self._abort_init()
+                raise convert_error(err)
+
+            self._finish_init()
+
+            os_close(self._errpipe_write)
+
+            errpipe_data = bytearray()
+            while True:
+                part = os_read(self._errpipe_read, 50000)
+                errpipe_data += part
+                if not part or len(errpipe_data) > 50000:
+                    break
+
+        finally:
+            os_close(self._errpipe_read)
+            try:
+                os_close(self._errpipe_write)
+            except OSError:
+                # Might be already closed
+                pass
 
         # asyncio caches the PID in BaseSubprocessTransport,
         # so that the transport knows what the PID was even
@@ -67,6 +120,52 @@ cdef class UVProcess(UVHandle):
 
         if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
             time_sleep(1)
+
+        if errpipe_data:
+            # preexec_fn has raised an exception.  The child
+            # process must be dead now.
+            try:
+                exc_name, exc_msg = errpipe_data.split(b':', 1)
+                exc_name = exc_name.decode()
+                exc_msg = exc_msg.decode()
+            except:
+                self._close()
+                raise subprocess_SubprocessError(
+                    'Bad exception data from child: {!r}'.format(
+                        errpipe_data))
+            exc_cls = getattr(__builtins__, exc_name,
+                              subprocess_SubprocessError)
+
+            exc = subprocess_SubprocessError(
+                'Exception occurred in preexec_fn.')
+            exc.__cause__ = exc_cls(exc_msg)
+            self._close()
+            raise exc
+
+    cdef _after_fork(self):
+        # See CPython/_posixsubprocess.c for details
+
+        if self._restore_signals:
+            _Py_RestoreSignals()
+
+        if self._preexec_fn is not None:
+            PyOS_AfterFork()
+
+            try:
+                gc_disable()
+                self._preexec_fn()
+            except BaseException as ex:
+                try:
+                    with open(self._errpipe_write, 'wb') as f:
+                        f.write(str(ex.__class__.__name__).encode())
+                        f.write(b':')
+                        f.write(str(ex.args[0]).encode())
+                finally:
+                    system._exit(255)
+            else:
+                os_close(self._errpipe_write)
+        else:
+            os_close(self._errpipe_write)
 
     cdef _close_after_spawn(self, int fd):
         if self._fds_to_close is None:
@@ -438,7 +537,9 @@ cdef class UVProcessTransport(UVProcess):
                                 cwd, start_new_session,
                                 _stdin, _stdout, _stderr, pass_fds,
                                 waiter,
-                                debug_flags):
+                                debug_flags,
+                                preexec_fn,
+                                restore_signals):
 
         cdef UVProcessTransport handle
         handle = UVProcessTransport.__new__(UVProcessTransport)
@@ -448,7 +549,9 @@ cdef class UVProcessTransport(UVProcess):
                      __process_convert_fileno(_stdout),
                      __process_convert_fileno(_stderr),
                      pass_fds,
-                     debug_flags)
+                     debug_flags,
+                     preexec_fn,
+                     restore_signals)
 
         if handle._init_futs:
             handle._stdio_ready = 0
