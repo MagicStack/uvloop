@@ -93,6 +93,9 @@ cdef class UVProcess(UVHandle):
             if preexec_fn is not None:
                 errpipe_data = bytearray()
                 while True:
+                    # XXX: This is a blocking code that has to be
+                    # rewritten (using loop.connect_read_pipe() or
+                    # otherwise.)
                     part = os_read(self._errpipe_read, 50000)
                     errpipe_data += part
                     if not part or len(errpipe_data) > 50000:
