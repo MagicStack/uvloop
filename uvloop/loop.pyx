@@ -140,23 +140,23 @@ cdef class Loop:
         self._ready_len = 0
 
         self.handler_async = UVAsync.new(
-            self, <method_t*>&self._on_wake, self)
+            self, <method_t>self._on_wake, self)
 
         self.handler_idle = UVIdle.new(
             self,
             new_MethodHandle(
-                self, "loop._on_idle", <method_t*>&self._on_idle, self))
+                self, "loop._on_idle", <method_t>self._on_idle, self))
 
         self.handler_sigint = UVSignal.new(
             self,
             new_MethodHandle(
-                self, "loop._on_sigint", <method_t*>&self._on_sigint, self),
+                self, "loop._on_sigint", <method_t>self._on_sigint, self),
             uv.SIGINT)
 
         self.handler_sighup = UVSignal.new(
             self,
             new_MethodHandle(
-                self, "loop._on_sighup", <method_t*>&self._on_sighup, self),
+                self, "loop._on_sighup", <method_t>self._on_sighup, self),
             uv.SIGHUP)
 
         # Needed to call `UVStream._exec_write` for writes scheduled
@@ -165,7 +165,7 @@ cdef class Loop:
             self,
             new_MethodHandle(
                 self, "loop._exec_queued_writes",
-                <method_t*>&self._exec_queued_writes, self))
+                <method_t>self._exec_queued_writes, self))
 
         uv.uv_disable_stdio_inheritance()
 
@@ -662,7 +662,7 @@ cdef class Loop:
             handle = new_MethodHandle3(
                 self,
                 "Loop._sock_sendall",
-                <method3_t*>&self._sock_sendall,
+                <method3_t>self._sock_sendall,
                 self,
                 fut, sock, data)
 
@@ -709,7 +709,7 @@ cdef class Loop:
             handle = new_MethodHandle3(
                 self,
                 "Loop._sock_connect",
-                <method3_t*>&self._sock_connect_cb,
+                <method3_t>self._sock_connect_cb,
                 self,
                 fut, sock, address)
 
@@ -995,7 +995,7 @@ cdef class Loop:
             new_MethodHandle1(
                 self,
                 "Loop._stop",
-                <method1_t*>&self._stop,
+                <method1_t>self._stop,
                 self,
                 None))
 
@@ -1784,7 +1784,7 @@ cdef class Loop:
         handle = new_MethodHandle3(
             self,
             "Loop._sock_recv",
-            <method3_t*>&self._sock_recv,
+            <method3_t>self._sock_recv,
             self,
             fut, sock, n)
 
@@ -1834,7 +1834,7 @@ cdef class Loop:
         handle = new_MethodHandle3(
             self,
             "Loop._sock_sendall",
-            <method3_t*>&self._sock_sendall,
+            <method3_t>self._sock_sendall,
             self,
             fut, sock, data)
 
@@ -1863,7 +1863,7 @@ cdef class Loop:
         handle = new_MethodHandle2(
             self,
             "Loop._sock_accept",
-            <method2_t*>&self._sock_accept,
+            <method2_t>self._sock_accept,
             self,
             fut, sock)
 

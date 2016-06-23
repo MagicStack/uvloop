@@ -21,7 +21,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 None))
 
@@ -46,7 +46,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 ex))
 
@@ -58,7 +58,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 ex))
 
@@ -70,7 +70,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 ex))
 
@@ -80,7 +80,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 ex))
 
@@ -89,7 +89,7 @@ cdef class BaseTask(BaseFuture):
             new_MethodHandle1(
                 self._loop,
                 "Task._step",
-                <method1_t*>&self._fast_step,
+                <method1_t>self._fast_step,
                 self,
                 None))
 

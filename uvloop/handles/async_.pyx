@@ -1,6 +1,6 @@
 @cython.no_gc_clear
 cdef class UVAsync(UVHandle):
-    cdef _init(self, Loop loop, method_t* callback, object ctx):
+    cdef _init(self, Loop loop, method_t callback, object ctx):
         cdef int err
 
         self._start_init(loop)
@@ -35,7 +35,7 @@ cdef class UVAsync(UVHandle):
             return
 
     @staticmethod
-    cdef UVAsync new(Loop loop, method_t* callback, object ctx):
+    cdef UVAsync new(Loop loop, method_t callback, object ctx):
         cdef UVAsync handle
         handle = UVAsync.__new__(UVAsync)
         handle._init(loop, callback, ctx)
@@ -48,7 +48,7 @@ cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
 
     cdef:
         UVAsync async_ = <UVAsync> handle.data
-        method_t cb = async_.callback[0] # deref
+        method_t cb = async_.callback
     try:
         cb(async_.ctx)
     except BaseException as ex:

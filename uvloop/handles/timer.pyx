@@ -1,6 +1,6 @@
 @cython.no_gc_clear
 cdef class UVTimer(UVHandle):
-    cdef _init(self, Loop loop, method_t* callback, object ctx,
+    cdef _init(self, Loop loop, method_t callback, object ctx,
                uint64_t timeout):
 
         cdef int err
@@ -58,7 +58,7 @@ cdef class UVTimer(UVHandle):
             self.running = 1
 
     @staticmethod
-    cdef UVTimer new(Loop loop, method_t* callback, object ctx,
+    cdef UVTimer new(Loop loop, method_t callback, object ctx,
                      uint64_t timeout):
 
         cdef UVTimer handle
@@ -73,7 +73,7 @@ cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
 
     cdef:
         UVTimer timer = <UVTimer> handle.data
-        method_t cb = timer.callback[0] # deref
+        method_t cb = timer.callback
 
     timer.running = 0
     try:

@@ -57,18 +57,16 @@ cdef class Handle:
                     callback(*args)
 
             elif cb_type == 2:
-                ((<method_t*>self.callback)[0])(self.arg1)
+                (<method_t>self.callback)(self.arg1)
 
             elif cb_type == 3:
-                ((<method1_t*>self.callback)[0])(
-                    self.arg1, self.arg2)
+                (<method1_t>self.callback)(self.arg1, self.arg2)
 
             elif cb_type == 4:
-                ((<method2_t*>self.callback)[0])(
-                    self.arg1, self.arg2, self.arg3)
+                (<method2_t>self.callback)(self.arg1, self.arg2, self.arg3)
 
             elif cb_type == 5:
-                ((<method3_t*>self.callback)[0])(
+                (<method3_t>self.callback)(
                     self.arg1, self.arg2, self.arg3, self.arg4)
 
             else:
@@ -130,7 +128,7 @@ cdef class TimerHandle:
             self._source_traceback = tb_extract_stack(sys_getframe(0))
 
         self.timer = UVTimer.new(
-            loop, <method_t*>&self._run, self, delay)
+            loop, <method_t>self._run, self, delay)
 
         self.timer.start()
 
@@ -224,7 +222,7 @@ cdef new_Handle(Loop loop, object callback, object args):
     return handle
 
 
-cdef new_MethodHandle(Loop loop, str name, method_t *callback, object ctx):
+cdef new_MethodHandle(Loop loop, str name, method_t callback, object ctx):
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
@@ -238,7 +236,7 @@ cdef new_MethodHandle(Loop loop, str name, method_t *callback, object ctx):
     return handle
 
 
-cdef new_MethodHandle1(Loop loop, str name, method1_t *callback,
+cdef new_MethodHandle1(Loop loop, str name, method1_t callback,
                        object ctx, object arg):
 
     cdef Handle handle
@@ -254,7 +252,7 @@ cdef new_MethodHandle1(Loop loop, str name, method1_t *callback,
 
     return handle
 
-cdef new_MethodHandle2(Loop loop, str name, method2_t *callback, object ctx,
+cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object ctx,
                        object arg1, object arg2):
 
     cdef Handle handle
@@ -271,7 +269,7 @@ cdef new_MethodHandle2(Loop loop, str name, method2_t *callback, object ctx,
 
     return handle
 
-cdef new_MethodHandle3(Loop loop, str name, method3_t *callback, object ctx,
+cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
                        object arg1, object arg2, object arg3):
 
     cdef Handle handle

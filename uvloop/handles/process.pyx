@@ -533,7 +533,7 @@ cdef class UVProcessTransport(UVProcess):
             self._loop._call_soon_handle(
                 new_MethodHandle1(self._loop,
                                   "UVProcessTransport._call_connection_made",
-                                  <method1_t*>&self._call_connection_made,
+                                  <method1_t>self._call_connection_made,
                                   self, waiter))
 
     @staticmethod
@@ -567,7 +567,7 @@ cdef class UVProcessTransport(UVProcess):
             loop._call_soon_handle(
                 new_MethodHandle1(loop,
                                   "UVProcessTransport._call_connection_made",
-                                  <method1_t*>&handle._call_connection_made,
+                                  <method1_t>handle._call_connection_made,
                                   handle, waiter))
 
         return handle

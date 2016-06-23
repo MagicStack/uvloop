@@ -26,14 +26,14 @@ cdef class UVBaseTransport(UVSocketHandle):
         self._loop._call_soon_handle(
             new_MethodHandle(self._loop,
                              "UVTransport._call_connection_made",
-                             <method_t*>&self._call_connection_made,
+                             <method_t>self._call_connection_made,
                              self))
 
     cdef inline _schedule_call_connection_lost(self, exc):
         self._loop._call_soon_handle(
             new_MethodHandle1(self._loop,
                               "UVTransport._call_connection_lost",
-                              <method1_t*>&self._call_connection_lost,
+                              <method1_t>self._call_connection_lost,
                               self, exc))
 
     cdef _fatal_error(self, exc, throw, reason=None):
@@ -139,7 +139,7 @@ cdef class UVBaseTransport(UVSocketHandle):
             self._loop._call_soon_handle(
                 new_MethodHandle(self._loop,
                                  "UVTransport._start_reading",
-                                 <method_t*>&self._start_reading,
+                                 <method_t>self._start_reading,
                                  self))
 
         if self._waiter is not None:
