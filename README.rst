@@ -1,7 +1,7 @@
 .. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
     :target: https://travis-ci.org/MagicStack/uvloop
 
-.. image:: https://img.shields.io/pypi/status/uvloop.svg?maxAge=2592000?style=plastic
+.. image:: https://img.shields.io/pypi/v/uvloop.svg?maxAge=2592000?style=plastic
     :target: https://pypi.python.org/pypi/uvloop
 
 
