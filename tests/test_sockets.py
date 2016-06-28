@@ -1,5 +1,7 @@
 import asyncio
 import socket
+import sys
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -16,6 +18,10 @@ class _TestSockets:
         return buf
 
     def test_socket_connect_recv_send(self):
+        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 5, 2):
+            # See https://github.com/python/asyncio/pull/366 for details.
+            raise unittest.SkipTest()
+
         def srv_gen():
             yield tb.write(b'helo')
             data = yield tb.read(4 * _SIZE)

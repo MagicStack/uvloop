@@ -1,3 +1,4 @@
+import asyncio
 import sys
 
 
@@ -55,20 +56,15 @@ async def _wait_for_data(self, func_name):
         self._waiter = None
 
 
-if sys.version_info < (3, 5, 2):
-    # In Python 3.5.2 (see PEP 478 for 3.5 release schedule)
-    # we won't need to patch anything.
-
-    import asyncio
-
-    from asyncio import coroutines
-    from asyncio import streams
-
+if sys.version_info < (3, 5, 3):
     # This is needed to support Cython 'async def' coroutines.
+    from asyncio import coroutines
     _old_format_coroutine = coroutines._format_coroutine
     coroutines._format_coroutine = _format_coroutine
 
+if sys.version_info < (3, 5, 2):
     # Fix a possible deadlock, improve performance.
+    from asyncio import streams
     _old_wait_for_data = streams.StreamReader._wait_for_data
     _wait_for_data.__module__ = _old_wait_for_data.__module__
     streams.StreamReader._wait_for_data = _wait_for_data

@@ -9,6 +9,10 @@ from uvloop import _testbase as tb
 
 class _TestTCP:
     def test_create_server_1(self):
+        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 5, 2):
+            # See https://github.com/python/asyncio/pull/366 for details.
+            raise unittest.SkipTest()
+
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
         TIMEOUT = 5.0     # timeout for this test

@@ -63,6 +63,9 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def mock_pattern(self, str):
         return MockPattern(str)
 
+    def is_asyncio_loop(self):
+        return type(self.loop).__module__.startswith('asyncio.')
+
     def setUp(self):
         self.loop = self.new_loop()
         asyncio.set_event_loop(self.loop)
