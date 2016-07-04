@@ -112,6 +112,7 @@ cdef subprocess_SubprocessError = subprocess.SubprocessError
 cdef int signal_NSIG = std_signal.NSIG
 
 cdef time_sleep = time.sleep
+cdef time_monotonic = time.monotonic
 
 cdef tb_extract_stack = traceback.extract_stack
 cdef tb_format_list = traceback.format_list

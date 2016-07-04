@@ -36,6 +36,8 @@ cdef class Loop:
 
         bint _coroutine_wrapper_set
 
+        public slow_callback_duration
+
         readonly bint _closed
         bint _debug
         bint _running

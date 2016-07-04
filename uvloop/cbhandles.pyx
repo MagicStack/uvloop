@@ -97,17 +97,34 @@ cdef class Handle:
     cdef _cancel(self):
         self.cancelled = 1
         self.callback = NULL
-        self.arg1 = self.arg2 = self.arg3 = self.arg4 = None
+        self.arg2 = self.arg3 = self.arg4 = None
 
     # Public API
 
     def __repr__(self):
+        info = [self.__class__.__name__]
+
         if self.cancelled:
-            return '<Handle cancelled {:#x}>'.format(id(self))
+            info.append('cancelled')
+
+        if self.cb_type == 1:
+            func = self.arg1
+            if hasattr(func, '__qualname__'):
+                cb_name = getattr(func, '__qualname__')
+            elif hasattr(func, '__name__'):
+                cb_name = getattr(func, '__name__')
+            else:
+                cb_name = repr(func)
+
+            info.append(cb_name)
         else:
-            return '<Handle {!r} {:#x}>'.format(
-                self.arg1 if self.cb_type == 1 else self.meth_name,
-                id(self))
+            info.append(self.meth_name)
+
+        if self._source_traceback is not None:
+            frame = self._source_traceback[-1]
+            info.append('created at {}:{}'.format(frame[0], frame[1]))
+
+        return '<' + ' '.join(info) + '>'
 
     def cancel(self):
         self._cancel()
@@ -177,6 +194,8 @@ cdef class TimerHandle:
             if old_exec_py_code == 1:
                 raise RuntimeError('Python exec-mode before TimerHandle._run')
         self.loop._executing_py_code = 1
+        if self.loop._debug:
+            started = time_monotonic()
         try:
             if args is not None:
                 callback(*args)
@@ -193,6 +212,13 @@ cdef class TimerHandle:
                 context['source_traceback'] = self._source_traceback
 
             self.loop.call_exception_handler(context)
+        else:
+            if self.loop._debug:
+                delta = time_monotonic() - started
+                if delta > self.loop.slow_callback_duration:
+                    aio_logger.warning(
+                        'Executing %r took %.3f seconds',
+                        self, delta)
         finally:
             self.loop._executing_py_code = old_exec_py_code
             Py_DECREF(self)
@@ -200,10 +226,26 @@ cdef class TimerHandle:
     # Public API
 
     def __repr__(self):
+        info = [self.__class__.__name__]
+
         if self.closed:
-            return '<TimerHandle cancelled {:#x}>'.format(id(self))
+            info.append('cancelled')
+
+        func = self.callback
+        if hasattr(func, '__qualname__'):
+            cb_name = getattr(func, '__qualname__')
+        elif hasattr(func, '__name__'):
+            cb_name = getattr(func, '__name__')
         else:
-            return '<TimerHandle {!r} {:#x}>'.format(self.callback, id(self))
+            cb_name = repr(func)
+
+        info.append(cb_name)
+
+        if self._source_traceback is not None:
+            frame = self._source_traceback[-1]
+            info.append('created at {}:{}'.format(frame[0], frame[1]))
+
+        return '<' + ' '.join(info) + '>'
 
     def cancel(self):
         self._cancel()

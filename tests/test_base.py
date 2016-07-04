@@ -288,6 +288,38 @@ class _TestBase:
         with self.assertRaisesRegex(ValueError, 'aaa'):
             self.loop.run_until_complete(foo())
 
+    def test_debug_slow_callbacks(self):
+        logger = logging.getLogger('asyncio')
+        self.loop.set_debug(True)
+        self.loop.slow_callback_duration = 0.2
+        self.loop.call_soon(lambda: time.sleep(0.3))
+
+        with mock.patch.object(logger, 'warning') as log:
+            self.loop.run_until_complete(asyncio.sleep(0, loop=self.loop))
+
+        self.assertEqual(log.call_count, 1)
+        # format message
+        msg = log.call_args[0][0] % log.call_args[0][1:]
+
+        self.assertIn('Executing <Handle', msg)
+        self.assertIn('test_debug_slow_callbacks', msg)
+
+    def test_debug_slow_timer_callbacks(self):
+        logger = logging.getLogger('asyncio')
+        self.loop.set_debug(True)
+        self.loop.slow_callback_duration = 0.2
+        self.loop.call_later(0.01, lambda: time.sleep(0.3))
+
+        with mock.patch.object(logger, 'warning') as log:
+            self.loop.run_until_complete(asyncio.sleep(0.02, loop=self.loop))
+
+        self.assertEqual(log.call_count, 1)
+        # format message
+        msg = log.call_args[0][0] % log.call_args[0][1:]
+
+        # self.assertIn('Executing <Handle', msg)
+        # self.assertIn('test_debug_slow_callbacks', msg)
+
     def test_default_exc_handler_callback(self):
         self.loop._process_events = mock.Mock()
 

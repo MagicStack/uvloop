@@ -57,6 +57,8 @@ cdef class Loop:
         if self.uvloop is NULL:
             raise MemoryError()
 
+        self.slow_callback_duration = 0.1
+
         self._closed = 0
         self._debug = 0
         self._thread_is_main = 0
@@ -230,14 +232,32 @@ cdef class Loop:
             self._check_sigint()
 
         ntodo = len(self._ready)
-        for i from 0 <= i < ntodo:
-            handler = <Handle> popleft()
-            if handler.cancelled == 0:
-                try:
-                    handler._run()
-                except BaseException as ex:
-                    self._stop(ex)
-                    return
+        if self._debug:
+            for i from 0 <= i < ntodo:
+                handler = <Handle> popleft()
+                if handler.cancelled == 0:
+                    try:
+                        started = time_monotonic()
+                        handler._run()
+                    except BaseException as ex:
+                        self._stop(ex)
+                        return
+                    else:
+                        delta = time_monotonic() - started
+                        if delta > self.slow_callback_duration:
+                            aio_logger.warning(
+                                'Executing %r took %.3f seconds',
+                                handler, delta)
+
+        else:
+            for i from 0 <= i < ntodo:
+                handler = <Handle> popleft()
+                if handler.cancelled == 0:
+                    try:
+                        handler._run()
+                    except BaseException as ex:
+                        self._stop(ex)
+                        return
 
         if len(self._queued_streams):
             self._exec_queued_writes()
