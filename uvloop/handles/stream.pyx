@@ -608,7 +608,13 @@ cdef class UVStream(UVBaseTransport):
         if exc is None:
             self._init_protocol()
         else:
-            if self._waiter is None or self._waiter.done():
+            if self._waiter is None:
+                self._fatal_error(exc, False, "connect failed")
+            elif self._waiter.cancelled():
+                # Connect call was cancelled; just close the transport
+                # silently.
+                self._close()
+            elif self._waiter.done():
                 self._fatal_error(exc, False, "connect failed")
             else:
                 self._waiter.set_exception(exc)
