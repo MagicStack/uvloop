@@ -500,23 +500,6 @@ class _TestTCP:
 
         self.loop.run_until_complete(start_server())
 
-    def test_connect_silent_cancellation(self):
-        logger = logging.getLogger('asyncio')
-
-        srv_sock = socket.socket()
-        with srv_sock, unittest.mock.patch.object(logger, 'error') as log:
-            srv_sock.bind(('127.0.0.1', 0))
-
-            with self.assertRaises(asyncio.TimeoutError):
-                self.loop.run_until_complete(
-                    asyncio.wait_for(self.loop.create_connection(
-                        asyncio.Protocol, *srv_sock.getsockname()),
-                    loop=self.loop, timeout=0.1))
-
-            self.loop.run_until_complete(asyncio.sleep(0, loop=self.loop))
-
-            log.assert_not_called()
-
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
