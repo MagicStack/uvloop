@@ -58,7 +58,6 @@ cdef class Loop:
 
         set _timers
         dict _polls
-        dict _polls_gc
 
         dict _signal_handlers
         bint _custom_sigint

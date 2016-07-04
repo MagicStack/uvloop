@@ -70,7 +70,6 @@ cdef class Loop:
 
         self._timers = set()
         self._polls = dict()
-        self._polls_gc = dict()
 
         if MAIN_THREAD_ID == PyThread_get_thread_ident():  # XXX
             self.py_signals = SignalsStack()
@@ -243,14 +242,6 @@ cdef class Loop:
         if len(self._queued_streams):
             self._exec_queued_writes()
 
-        if len(self._polls_gc):
-            for fd in tuple(self._polls_gc):
-                poll = <UVPoll> self._polls_gc[fd]
-                if not poll.is_active():
-                    poll._close()
-                    self._polls.pop(fd)
-                self._polls_gc.pop(fd)
-
         self._ready_len = len(self._ready)
         if self._ready_len == 0 and self.handler_idle.running:
             self.handler_idle.stop()
@@ -353,7 +344,6 @@ cdef class Loop:
                 (<UVHandle>poll_handle)._close()
 
             self._polls.clear()
-            self._polls_gc.clear()
 
         if self._timers:
             for timer_cbhandle in tuple(self._timers):
@@ -518,7 +508,8 @@ cdef class Loop:
 
         result = poll.stop_reading()
         if not poll.is_active():
-            self._polls_gc[fd] = poll
+            del self._polls[fd]
+            poll._close()
         return result
 
     cdef inline _add_writer(self, fd, Handle handle):
@@ -549,7 +540,8 @@ cdef class Loop:
 
         result = poll.stop_writing()
         if not poll.is_active():
-            self._polls_gc[fd] = poll
+            del self._polls[fd]
+            poll._close()
         return result
 
     cdef _getaddrinfo(self, object host, object port,
