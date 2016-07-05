@@ -2,6 +2,9 @@
 .PHONY: release sdist-libuv docs
 
 
+PYTHON ?= python
+
+
 all: compile
 
 
@@ -13,7 +16,7 @@ clean:
 
 
 check-env:
-	python -c "import cython; (cython.__version__ < '0.24') and exit(1)"
+	$(PYTHON) -c "import cython; (cython.__version__ < '0.24') and exit(1)"
 
 
 clean-libuv:
@@ -30,32 +33,32 @@ distclean: clean clean-libuv
 compile: check-env clean
 	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
 	cython -3 uvloop/loop.pyx; rm uvloop/__debug.*
-	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
-	python setup.py build_ext --inplace
+	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | $(PYTHON)
+	$(PYTHON) setup.py build_ext --inplace
 
 
 debug: check-env clean
 	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
 	cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
-	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | python
-	python setup.py build_ext --inplace
+	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | $(PYTHON)
+	$(PYTHON) setup.py build_ext --inplace
 
 
 docs: compile
-	cd docs && python -m sphinx -a -b html . _build/html
+	cd docs && $(PYTHON) -m sphinx -a -b html . _build/html
 
 
 test:
-	PYTHONASYNCIODEBUG=1 python -m unittest discover -s tests
-	python -m unittest discover -s tests
+	$(PYTHON)ASYNCIODEBUG=1 $(PYTHON) -m unittest discover -s tests
+	$(PYTHON) -m unittest discover -s tests
 
 
 sdist: clean compile test sdist-libuv
-	python setup.py sdist
+	$(PYTHON) setup.py sdist
 
 
 release: clean compile test sdist-libuv
-	python setup.py sdist bdist_wheel upload
+	$(PYTHON) setup.py sdist bdist_wheel upload
 
 
 # Script to patch Cython 'async def' coroutines to have a 'tp_iter' slot,
