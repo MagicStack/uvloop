@@ -1,5 +1,6 @@
 cdef class UVIdle(UVHandle):
     cdef:
+        uv.uv_idle_t _handle_data
         Handle h
         bint running
 

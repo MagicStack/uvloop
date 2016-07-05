@@ -1,5 +1,6 @@
 cdef class UVPoll(UVHandle):
     cdef:
+        uv.uv_poll_t _handle_data
         int fd
         Handle reading_handle
         Handle writing_handle

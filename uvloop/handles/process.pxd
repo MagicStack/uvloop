@@ -1,5 +1,7 @@
 cdef class UVProcess(UVHandle):
     cdef:
+        uv.uv_process_t _handle_data
+
         object _returncode
         object _pid
 

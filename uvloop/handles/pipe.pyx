@@ -1,12 +1,6 @@
 cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
     cdef int err
 
-    handle._handle = <uv.uv_handle_t*> \
-                        PyMem_Malloc(sizeof(uv.uv_pipe_t))
-    if handle._handle is NULL:
-        handle._abort_init()
-        raise MemoryError()
-
     # Initialize pipe handle with ipc=0.
     # ipc=1 means that libuv will use recvmsg/sendmsg
     # instead of recv/send.
@@ -43,7 +37,10 @@ cdef class UnixServer(UVStreamServer):
         cdef UnixServer handle
         handle = UnixServer.__new__(UnixServer)
         handle._init(loop, protocol_factory, server, ssl)
+
+        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __pipe_init_uv_handle(<UVStream>handle, loop)
+
         return handle
 
     cdef _new_socket(self):
@@ -82,7 +79,10 @@ cdef class UnixTransport(UVStream):
         cdef UnixTransport handle
         handle = UnixTransport.__new__(UnixTransport)
         handle._init(loop, protocol, server, waiter)
+
+        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __pipe_init_uv_handle(<UVStream>handle, loop)
+
         return handle
 
     cdef _new_socket(self):
@@ -106,7 +106,10 @@ cdef class ReadUnixTransport(UVStream):
         cdef ReadUnixTransport handle
         handle = ReadUnixTransport.__new__(ReadUnixTransport)
         handle._init(loop, protocol, server, waiter)
+
+        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __pipe_init_uv_handle(<UVStream>handle, loop)
+
         return handle
 
     cdef _new_socket(self):
@@ -156,7 +159,10 @@ cdef class WriteUnixTransport(UVStream):
         handle._close_on_read_error()
 
         handle._init(loop, protocol, server, waiter)
+
+        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __pipe_init_uv_handle(<UVStream>handle, loop)
+
         return handle
 
     cdef _new_socket(self):
@@ -174,13 +180,11 @@ cdef class WriteUnixTransport(UVStream):
 
 cdef class _PipeConnectRequest(UVRequest):
     cdef:
+        uv.uv_connect_t _req_data
         UnixTransport transport
 
     def __cinit__(self, loop, transport):
-        self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
-        if self.request is NULL:
-            self.on_done()
-            raise MemoryError()
+        self.request = <uv.uv_req_t*>&self._req_data
         self.request.data = <void*>self
         self.transport = transport
 

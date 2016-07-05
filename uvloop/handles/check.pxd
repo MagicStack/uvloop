@@ -1,5 +1,6 @@
 cdef class UVCheck(UVHandle):
     cdef:
+        uv.uv_check_t _handle_data
         Handle h
         bint running
 

@@ -37,24 +37,17 @@ cdef class UVHandle:
                     '{} without @no_gc_clear; loop was set to None by GC'
                     .format(self.__class__.__name__))
 
-        if self._handle is NULL:
+        if self._handle is NULL or self._closed:
             return
 
         # -> When we're at this point, something is wrong <-
 
         if self._handle.loop is NULL:
             # The handle wasn't initialized with "uv_{handle}_init"
-            self._closed = 1
-            self._free()
+            self._handle = NULL
             raise RuntimeError(
                 '{} is open in __dealloc__ with loop set to NULL'
                 .format(self.__class__.__name__))
-
-        if self._closed == 1:
-            # So _handle is not NULL and self._closed == 1?
-            raise RuntimeError(
-                '{}.__dealloc__: _handle is NULL, _closed == 1'.format(
-                    self.__class__.__name__))
 
         # The handle is dealloced while open.  Let's try to close it.
         # Situations when this is possible include unhandled exceptions,
@@ -62,23 +55,14 @@ cdef class UVHandle:
         if self._inited:
             self._handle.data = <void*> __NOHANDLE__
             uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
-            self._handle = NULL
             warnings_warn("unclosed resource {!r}".format(self),
                 ResourceWarning)
-        else:
-            # The handle was allocated, but not initialized
-            self._closed = 1
-            self._free()
 
-
-    cdef _free(self):
-        PyMem_Free(self._handle)
+        # The handle was allocated, but not initialized
+        self._closed = 1
         self._handle = NULL
 
     cdef inline _abort_init(self):
-        if self._handle is not NULL:
-            self._free()
-
         IF DEBUG:
             name = self.__class__.__name__
             if self._inited:
@@ -292,28 +276,18 @@ cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
 cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
     cdef:
         UVHandle h
-        Loop loop
 
     if handle.data is NULL:
         # Shouldn't happen.
-        loop = <Loop>handle.loop.data
-        loop.call_exception_handler({
-            'message': 'uv_handle_t.data is NULL in close callback'
-        })
-        PyMem_Free(handle)
-        return
+        raise RuntimeError('uv_handle_t.data is NULL in close callback')
 
     if <object>handle.data is not __NOHANDLE__:
         h = <UVHandle>handle.data
-        h._handle = NULL
         IF DEBUG:
             h._loop._debug_handles_closed.update([
                 h.__class__.__name__])
-        h._free()
         Py_DECREF(h) # Was INCREFed in UVHandle._close
         return
-
-    PyMem_Free(handle)
 
 
 cdef void __close_all_handles(Loop loop):
