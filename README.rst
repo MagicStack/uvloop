@@ -79,4 +79,4 @@ is to create a virtual env, so that you'll have ``cython`` and
 License
 -------
 
-MIT.
+uvloop is dual-licensed under MIT and Apache 2.0 licenses.
