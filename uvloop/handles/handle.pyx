@@ -199,13 +199,13 @@ cdef class UVSocketHandle(UVHandle):
         raise NotImplementedError
 
     cdef inline _get_socket(self):
-        if self._fileobj:
-            return self._fileobj
-
         if self.__cached_socket is not None:
             return self.__cached_socket
 
         self.__cached_socket = self._new_socket()
+        if self.__cached_socket.fileno() == self._fileno():
+            raise RuntimeError('new socket shares fileno with the transport')
+
         return self.__cached_socket
 
     cdef inline _attach_fileobj(self, object file):
@@ -218,7 +218,7 @@ cdef class UVSocketHandle(UVHandle):
         try:
             if self.__cached_socket is not None:
                 try:
-                    self.__cached_socket.detach()
+                    self.__cached_socket.close()
                 except OSError:
                     pass
                 self.__cached_socket = None

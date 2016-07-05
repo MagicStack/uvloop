@@ -111,48 +111,6 @@ class _TestSockets:
                 self.loop.run_until_complete(
                     self.loop.sock_connect(sock, (b'', 0)))
 
-    def test_socket_handler_cleanup(self):
-        # This tests recreates a rare condition where we have a socket
-        # with an attached reader.  We then remove the reader, and close the
-        # socket.  If the libuv Poll handler is still cached when we open
-        # a new TCP connection, it might so happen that the new TCP connection
-        # will receive a fileno that our previous socket was registered on.
-        # In this case, when the cached Poll handle is finally closed,
-        # we have a failed assertion in uv_poll_stop.
-        # See also https://github.com/MagicStack/uvloop/issues/34
-        # for details.
-
-        srv_sock = socket.socket()
-        with srv_sock:
-            srv_sock.bind(('127.0.0.1', 0))
-            srv_sock.listen(100)
-
-            srv = self.loop.run_until_complete(
-                self.loop.create_server(
-                    lambda: None, host='127.0.0.1', port=0))
-            key_fileno = srv.sockets[0].fileno()
-            srv.close()
-            self.loop.run_until_complete(srv.wait_closed())
-
-            # Schedule create_connection task's callbacks
-            tsk = self.loop.create_task(
-                self.loop.create_connection(
-                    asyncio.Protocol, *srv_sock.getsockname()))
-
-            sock = socket.socket()
-            with sock:
-                # Add/remove readers
-                if sock.fileno() != key_fileno:
-                    raise unittest.SkipTest()
-                self.loop.add_reader(sock.fileno(), lambda: None)
-                self.loop.remove_reader(sock.fileno())
-
-            tr, pr = self.loop.run_until_complete(
-                asyncio.wait_for(tsk, loop=self.loop, timeout=0.1))
-            tr.close()
-            # Let the transport close
-            self.loop.run_until_complete(asyncio.sleep(0, loop=self.loop))
-
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
     pass

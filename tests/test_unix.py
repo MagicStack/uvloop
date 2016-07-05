@@ -321,7 +321,15 @@ class _TestUnix:
                 None,
                 sock=sock)
 
+            sock = t.get_extra_info('socket')
             self.assertIs(t.get_extra_info('socket'), sock)
+
+            # Test that adding a writer on the returned socket
+            # does not crash uvloop.  aiohttp does that to implement
+            # sendfile, for instance.
+            self.loop.add_writer(sock.fileno(), lambda: None)
+            self.loop.remove_writer(sock.fileno())
+
             t.close()
 
         s1, s2 = socket.socketpair(socket.AF_UNIX)
