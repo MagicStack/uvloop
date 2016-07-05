@@ -73,6 +73,11 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def tearDown(self):
         self.loop.close()
 
+        # GC to show any resource warnings as the test completes
+        gc.collect()
+        gc.collect()
+        gc.collect()
+
         if getattr(self.loop, '_debug_cc', False):
             gc.collect()
             gc.collect()
