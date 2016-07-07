@@ -806,7 +806,7 @@ cdef class Loop:
         if reuse_port:
             self._sock_set_reuseport(tcp._fileno())
 
-        if addr.sa_family== uv.AF_INET6:
+        if addr.sa_family == uv.AF_INET6:
             # Disable IPv4/IPv6 dual stack support (enabled by
             # default on Linux) which makes a single socket
             # listen on both address families.
