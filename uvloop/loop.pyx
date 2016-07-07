@@ -598,7 +598,8 @@ cdef class Loop:
                     if not fut.cancelled():
                         fut.set_result(data)
             else:
-                fut.set_exception(result)
+                if not fut.cancelled():
+                    fut.set_exception(result)
 
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
