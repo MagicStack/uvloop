@@ -1,4 +1,5 @@
 import asyncio
+import fcntl
 import logging
 import threading
 import time
@@ -504,6 +505,12 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertTrue(isinstance(fut, asyncio.Future))
         self.assertIs(fut._loop, self.loop)
         fut.cancel()
+
+    def test_loop_std_files_cloexec(self):
+        # See https://github.com/MagicStack/uvloop/issues/40 for details.
+        for fd in {0, 1, 2}:
+            flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+            self.assertFalse(flags & fcntl.FD_CLOEXEC)
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):
