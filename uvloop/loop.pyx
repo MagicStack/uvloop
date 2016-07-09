@@ -168,8 +168,6 @@ cdef class Loop:
                 self, "loop._exec_queued_writes",
                 <method_t>self._exec_queued_writes, self))
 
-        uv.uv_disable_stdio_inheritance()
-
         self._coroutine_wrapper_set = False
 
     def __init__(self):
