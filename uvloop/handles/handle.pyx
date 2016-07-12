@@ -17,6 +17,7 @@ cdef class UVHandle:
         self._inited = 0
         self._handle = NULL
         self._loop = None
+        self._source_traceback = None
 
     def __init__(self):
         raise TypeError(
@@ -60,8 +61,7 @@ cdef class UVHandle:
             self._handle.data = NULL
             uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
             self._handle = NULL
-            warnings_warn("unclosed resource {!r}".format(self),
-                ResourceWarning)
+            self._warn_unclosed()
         else:
             # The handle was allocated, but not initialized
             self._closed = 1
@@ -70,6 +70,16 @@ cdef class UVHandle:
     cdef inline _free(self):
         PyMem_Free(self._handle)
         self._handle = NULL
+
+    cdef _warn_unclosed(self):
+        if self._source_traceback is not None:
+            tb = ''.join(tb_format_list(self._source_traceback))
+            tb = 'object created at (most recent call last):\n{}'.format(
+                tb.rstrip())
+            msg = 'unclosed resource {!r}; {}'.format(self, tb)
+        else:
+            msg = 'unclosed resource {!r}'.format(self)
+        warnings_warn(msg, ResourceWarning)
 
     cdef inline _abort_init(self):
         if self._handle is not NULL:
@@ -89,6 +99,8 @@ cdef class UVHandle:
     cdef inline _finish_init(self):
         self._inited = 1
         self._handle.data = <void*>self
+        if self._loop._debug:
+            self._source_traceback = tb_extract_stack(sys_getframe(0))
 
     cdef inline _start_init(self, Loop loop):
         IF DEBUG:
@@ -322,5 +334,5 @@ cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg) with
 
     h = <UVHandle>handle.data
     if not h._closed:
-        warnings_warn("unclosed resource {!r}".format(h), ResourceWarning)
+        h._warn_unclosed()
         h._close()

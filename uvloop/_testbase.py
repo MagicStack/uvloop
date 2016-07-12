@@ -69,9 +69,13 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def setUp(self):
         self.loop = self.new_loop()
         asyncio.set_event_loop(self.loop)
+        self._check_unclosed_resources_in_debug = True
 
     def tearDown(self):
         self.loop.close()
+
+        if not self._check_unclosed_resources_in_debug:
+            return
 
         # GC to show any resource warnings as the test completes
         gc.collect()
@@ -83,24 +87,37 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             gc.collect()
             gc.collect()
 
-            self.assertEqual(self.loop._debug_cb_handles_count, 0)
-            self.assertEqual(self.loop._debug_cb_timer_handles_count, 0)
-            self.assertEqual(self.loop._debug_stream_write_ctx_cnt, 0)
+            self.assertEqual(
+                self.loop._debug_cb_handles_count, 0,
+                'not all callbacks (call_soon) are GCed')
+
+            self.assertEqual(
+                self.loop._debug_cb_timer_handles_count, 0,
+                'not all timer callbacks (call_later) are GCed')
+
+            self.assertEqual(
+                self.loop._debug_stream_write_ctx_cnt, 0,
+                'not all stream write contexts are GCed')
 
             for h_name, h_cnt in self.loop._debug_handles_current.items():
                 with self.subTest('Alive handle after test',
                                   handle_name=h_name):
-                    self.assertEqual(h_cnt, 0)
+                    self.assertEqual(
+                        h_cnt, 0,
+                        'alive {} after test'.format(h_name))
 
             for h_name, h_cnt in self.loop._debug_handles_total.items():
                 with self.subTest('Total/closed handles',
                                   handle_name=h_name):
                     self.assertEqual(
-                        h_cnt, self.loop._debug_handles_closed[h_name])
+                        h_cnt, self.loop._debug_handles_closed[h_name],
+                        'total != closed for {}'.format(h_name))
 
         asyncio.set_event_loop(None)
         self.loop = None
 
+    def skip_unclosed_handles_check(self):
+        self._check_unclosed_resources_in_debug = False
 
 def _cert_fullname(name):
     fullname = os.path.join(

@@ -1,5 +1,5 @@
 import asyncio
-import logging
+import gc
 import socket
 import unittest.mock
 import uvloop
@@ -583,6 +583,42 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             self.assertEqual(TOTAL, N * 2 * len(DATA) + 14 * len(DATA))
 
         self.loop.run_until_complete(run())
+
+    def test_tcp_handle_unclosed_gc(self):
+        fut = self.loop.create_future()
+
+        async def server(reader, writer):
+            writer.transport.abort()
+            fut.set_result(True)
+
+        async def run():
+            addr = srv.sockets[0].getsockname()
+            await asyncio.open_connection(*addr, loop=self.loop)
+            await fut
+            srv.close()
+            await srv.wait_closed()
+
+        srv = self.loop.run_until_complete(asyncio.start_server(
+            server,
+            '127.0.0.1', 0,
+            family=socket.AF_INET,
+            loop=self.loop))
+
+        if self.loop.get_debug():
+            rx = r'unclosed resource <TCP.*; ' \
+                 r'object created at(.|\n)*test_tcp_handle_unclosed_gc'
+        else:
+            rx = r'unclosed resource <TCP.*'
+
+        with self.assertWarnsRegex(ResourceWarning, rx):
+            self.loop.create_task(run())
+            self.loop.run_until_complete(srv.wait_closed())
+            gc.collect()
+            self.loop.run_until_complete(asyncio.sleep(0.1))
+
+        # Since one TCPTransport handle wasn't closed correctly,
+        # we need to disable this check:
+        self.skip_unclosed_handles_check()
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
