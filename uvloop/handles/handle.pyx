@@ -70,8 +70,7 @@ cdef class UVHandle:
             self._closed = 1
             self._free()
 
-
-    cdef _free(self):
+    cdef inline _free(self):
         PyMem_Free(self._handle)
         self._handle = NULL
 
@@ -303,17 +302,17 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         PyMem_Free(handle)
         return
 
-    if <object>handle.data is not __NOHANDLE__:
+    if <object>handle.data is __NOHANDLE__:
+        # The original UVHandle is long dead. Just free the mem of
+        # the uv_handle_t* handler.
+        PyMem_Free(handle)
+    else:
         h = <UVHandle>handle.data
-        h._handle = NULL
         IF DEBUG:
             h._loop._debug_handles_closed.update([
                 h.__class__.__name__])
         h._free()
         Py_DECREF(h) # Was INCREFed in UVHandle._close
-        return
-
-    PyMem_Free(handle)
 
 
 cdef void __close_all_handles(Loop loop):

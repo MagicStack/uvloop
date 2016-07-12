@@ -177,7 +177,7 @@ cdef class UVProcess(UVHandle):
                 'UVProcess._close_after_spawn called after uv_spawn')
         self._fds_to_close.add(fd)
 
-    cdef _free(self):
+    def __dealloc__(self):
         if self.uv_opt_env is not NULL:
             PyMem_Free(self.uv_opt_env)
             self.uv_opt_env = NULL
@@ -185,8 +185,6 @@ cdef class UVProcess(UVHandle):
         if self.uv_opt_args is not NULL:
             PyMem_Free(self.uv_opt_args)
             self.uv_opt_args = NULL
-
-        UVHandle._free(self)
 
     cdef char** __to_cstring_array(self, list arr):
         cdef:
