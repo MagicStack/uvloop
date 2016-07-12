@@ -93,15 +93,17 @@ class _TestBase:
             else:
                 self.assertFalse('source_traceback' in context)
 
-        for flag in (True, False):
+            del context
+
+        for debug in (True, False):
             for meth_name, meth, stack_adj in (
                 ('call_soon',
                     self.loop.call_soon, 0),
                 ('call_later',  # `-1` accounts for lambda
                     lambda *args: self.loop.call_later(0.01, *args), -1)
             ):
-                with self.subTest(debug=flag, meth_name=meth_name):
-                    run_test(flag, meth, stack_adj)
+                with self.subTest(debug=debug, meth_name=meth_name):
+                    run_test(debug, meth, stack_adj)
 
     def test_now_update(self):
         async def run():
