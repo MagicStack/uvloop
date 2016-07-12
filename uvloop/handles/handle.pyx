@@ -1,6 +1,3 @@
-cdef __NOHANDLE__ = object()
-
-
 @cython.no_gc_clear
 cdef class UVHandle:
     """A base class for all libuv handles.
@@ -60,7 +57,7 @@ cdef class UVHandle:
         # Situations when this is possible include unhandled exceptions,
         # errors during Handle.__cinit__/__init__ etc.
         if self._inited:
-            self._handle.data = <void*> __NOHANDLE__
+            self._handle.data = NULL
             uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
             self._handle = NULL
             warnings_warn("unclosed resource {!r}".format(self),
@@ -276,7 +273,7 @@ cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
         })
         return 0
 
-    if <object>handle.data is __NOHANDLE__:
+    if handle.data is NULL:
         # The underlying UVHandle object was GCed with an open uv_handle_t.
         loop = <Loop>handle.loop.data
         loop.call_exception_handler({
@@ -289,20 +286,9 @@ cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
 
 
 cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
-    cdef:
-        UVHandle h
-        Loop loop
+    cdef UVHandle h
 
     if handle.data is NULL:
-        # Shouldn't happen.
-        loop = <Loop>handle.loop.data
-        loop.call_exception_handler({
-            'message': 'uv_handle_t.data is NULL in close callback'
-        })
-        PyMem_Free(handle)
-        return
-
-    if <object>handle.data is __NOHANDLE__:
         # The original UVHandle is long dead. Just free the mem of
         # the uv_handle_t* handler.
         PyMem_Free(handle)
@@ -334,15 +320,14 @@ cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg) with
         })
         return
 
-    if <object>handle.data is __NOHANDLE__:
+    if handle.data is NULL:
         # And this shouldn't happen too.
         loop.call_exception_handler({
-            'message': "handle.data is __NOHANDLE__ yet it's not closing"
+            'message': "handle.data is NULL yet it's not closing"
         })
         return
 
     h = <UVHandle>handle.data
-
     if not h._closed:
         warnings_warn("unclosed resource {!r}".format(h), ResourceWarning)
         h._close()
