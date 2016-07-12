@@ -63,6 +63,8 @@ cdef class UVHandle:
         self._handle = NULL
 
     cdef inline _abort_init(self):
+        self._handle = NULL
+
         IF DEBUG:
             name = self.__class__.__name__
             if self._inited:
