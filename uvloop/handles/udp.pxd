@@ -1,6 +1,5 @@
 cdef class UDPTransport(UVBaseTransport):
     cdef:
-        uv.uv_udp_t _handle_data
         bint __receiving
         int _family
 

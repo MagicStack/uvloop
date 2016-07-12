@@ -1,6 +1,5 @@
 cdef class UVSignal(UVHandle):
     cdef:
-        uv.uv_signal_t _handle_data
         Handle h
         bint running
         int signum

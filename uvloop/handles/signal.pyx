@@ -5,7 +5,12 @@ cdef class UVSignal(UVHandle):
 
         self._start_init(loop)
 
-        self._handle = <uv.uv_handle_t*>&self._handle_data
+        self._handle = <uv.uv_handle_t*> \
+                            PyMem_Malloc(sizeof(uv.uv_signal_t))
+        if self._handle is NULL:
+            self._abort_init()
+            raise MemoryError()
+
         err = uv.uv_signal_init(self._loop.uvloop,
                                 <uv.uv_signal_t *>self._handle)
         if err < 0:

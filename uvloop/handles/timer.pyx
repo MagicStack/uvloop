@@ -7,7 +7,11 @@ cdef class UVTimer(UVHandle):
 
         self._start_init(loop)
 
-        self._handle = <uv.uv_handle_t*>&self._handle_data
+        self._handle = <uv.uv_handle_t*> PyMem_Malloc(sizeof(uv.uv_timer_t))
+        if self._handle is NULL:
+            self._abort_init()
+            raise MemoryError()
+
         err = uv.uv_timer_init(self._loop.uvloop, <uv.uv_timer_t*>self._handle)
         if err < 0:
             self._abort_init()

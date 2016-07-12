@@ -1,6 +1,5 @@
 cdef class UVAsync(UVHandle):
     cdef:
-        uv.uv_async_t _handle_data
         method_t callback
         object ctx
 

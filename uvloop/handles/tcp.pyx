@@ -1,6 +1,12 @@
 cdef __tcp_init_uv_handle(UVStream handle, Loop loop, unsigned int flags):
     cdef int err
 
+    handle._handle = <uv.uv_handle_t*> \
+                        PyMem_Malloc(sizeof(uv.uv_tcp_t))
+    if handle._handle is NULL:
+        handle._abort_init()
+        raise MemoryError()
+
     err = uv.uv_tcp_init_ex(handle._loop.uvloop,
                             <uv.uv_tcp_t*>handle._handle,
                             flags)
@@ -57,7 +63,6 @@ cdef class TCPServer(UVStreamServer):
         cdef TCPServer handle
         handle = TCPServer.__new__(TCPServer)
         handle._init(loop, protocol_factory, server, ssl)
-        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __tcp_init_uv_handle(<UVStream>handle, loop, flags)
         return handle
 
@@ -98,7 +103,6 @@ cdef class TCPTransport(UVStream):
         cdef TCPTransport handle
         handle = TCPTransport.__new__(TCPTransport)
         handle._init(loop, protocol, server, waiter)
-        handle._handle = <uv.uv_handle_t*>&handle._handle_data
         __tcp_init_uv_handle(<UVStream>handle, loop, uv.AF_UNSPEC)
         handle.__peername_set = 0
         handle.__sockname_set = 0
@@ -166,11 +170,13 @@ cdef class TCPTransport(UVStream):
 
 cdef class _TCPConnectRequest(UVRequest):
     cdef:
-        uv.uv_connect_t _req_data
         TCPTransport transport
 
     def __cinit__(self, loop, transport):
-        self.request = <uv.uv_req_t*>&self._req_data
+        self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
+        if self.request is NULL:
+            self.on_done()
+            raise MemoryError()
         self.request.data = <void*>self
         self.transport = transport
 

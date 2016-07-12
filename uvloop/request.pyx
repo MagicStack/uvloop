@@ -19,6 +19,7 @@ cdef class UVRequest:
                 raise RuntimeError(
                     'Unable to deallocate request for {!r} (not done)'
                     .format(self))
+            PyMem_Free(self.request)
             self.request = NULL
 
     cdef on_done(self):
