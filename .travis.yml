@@ -9,15 +9,10 @@ python:
 install:
     - "pip install cython"
     - "pip install aiohttp"
-    - make
 
 script:
-    - make test
-
-matrix:
-    include:
-      - make
-      - make debug
+    - make && make test
+    - make debug && make test
 
 before_deploy:
     - rm -rf dist
