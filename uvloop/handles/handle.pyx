@@ -320,13 +320,6 @@ cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg) with
         })
         return
 
-    if handle.data is NULL:
-        # And this shouldn't happen too.
-        loop.call_exception_handler({
-            'message': "handle.data is NULL yet it's not closing"
-        })
-        return
-
     h = <UVHandle>handle.data
     if not h._closed:
         warnings_warn("unclosed resource {!r}".format(h), ResourceWarning)
