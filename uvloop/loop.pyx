@@ -98,6 +98,9 @@ cdef class Loop:
             self._debug_handles_closed = col_Counter()
             self._debug_handles_total = col_Counter()
 
+            self._debug_uv_handles_total = 0
+            self._debug_uv_handles_freed = 0
+
             self._debug_stream_read_cb_total = 0
             self._debug_stream_read_eof_total = 0
             self._debug_stream_read_errors_total = 0
@@ -869,6 +872,12 @@ cdef class Loop:
                     self._debug_handles_current[name],
                     self._debug_handles_closed[name],
                     self._debug_handles_total[name]))
+            print()
+
+            print('uv_handle_t (current: {}; freed: {}; total: {})'.format(
+                self._debug_uv_handles_total - self._debug_uv_handles_freed,
+                self._debug_uv_handles_freed,
+                self._debug_uv_handles_total))
             print()
 
             print('--- Streams debug info: ---')

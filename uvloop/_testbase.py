@@ -88,6 +88,11 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             gc.collect()
 
             self.assertEqual(
+                self.loop._debug_uv_handles_total,
+                self.loop._debug_uv_handles_freed,
+                'not all uv_handle_t handles were freed')
+
+            self.assertEqual(
                 self.loop._debug_cb_handles_count, 0,
                 'not all callbacks (call_soon) are GCed')
 

@@ -68,6 +68,12 @@ cdef class UVHandle:
             self._free()
 
     cdef inline _free(self):
+        if self._handle == NULL:
+            return
+
+        IF DEBUG:
+            self._loop._debug_uv_handles_freed += 1
+
         PyMem_Free(self._handle)
         self._handle = NULL
 
@@ -101,6 +107,8 @@ cdef class UVHandle:
         self._handle.data = <void*>self
         if self._loop._debug:
             self._source_traceback = tb_extract_stack(sys_getframe(0))
+        IF DEBUG:
+            self._loop._debug_uv_handles_total += 1
 
     cdef inline _start_init(self, Loop loop):
         IF DEBUG:
@@ -303,6 +311,13 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
     if handle.data is NULL:
         # The original UVHandle is long dead. Just free the mem of
         # the uv_handle_t* handler.
+
+        IF DEBUG:
+            if handle.loop == NULL or handle.loop.data == NULL:
+                raise RuntimeError(
+                    '__uv_close_handle_cb: handle.loop is invalid')
+            (<Loop>handle.loop.data)._debug_uv_handles_freed += 1
+
         PyMem_Free(handle)
     else:
         h = <UVHandle>handle.data

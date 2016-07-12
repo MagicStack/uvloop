@@ -87,6 +87,9 @@ cdef class Loop:
             readonly object _debug_handles_closed
             readonly object _debug_handles_current
 
+            readonly uint64_t _debug_uv_handles_total
+            readonly uint64_t _debug_uv_handles_freed
+
             readonly uint64_t _debug_cb_handles_total
             readonly uint64_t _debug_cb_handles_count
             readonly uint64_t _debug_cb_timer_handles_total
