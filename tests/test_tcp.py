@@ -515,6 +515,7 @@ class _TestTCP:
         self.loop.set_exception_handler(lambda *args: None)
 
         fut = asyncio.Future(loop=self.loop)
+        connection_lost_called = asyncio.Future(loop=self.loop)
 
         async def server(reader, writer):
             try:
@@ -525,6 +526,9 @@ class _TestTCP:
         class Proto(asyncio.Protocol):
             def connection_made(self, tr):
                 1 / 0
+
+            def connection_lost(self, exc):
+                connection_lost_called.set_result(exc)
 
         srv = self.loop.run_until_complete(asyncio.start_server(
             server,
@@ -544,6 +548,9 @@ class _TestTCP:
         srv.close()
         self.loop.run_until_complete(srv.wait_closed())
         self.loop.run_until_complete(fut)
+
+        self.assertIsNone(
+            self.loop.run_until_complete(connection_lost_called))
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):

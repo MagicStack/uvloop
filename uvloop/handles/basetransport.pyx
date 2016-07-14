@@ -128,13 +128,16 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         _loop_ready_len = self._loop._ready_len
 
+        # Set _protocol_connected to 1 before calling "connection_made":
+        # if transport is aborted or closed, "connection_lost" will
+        # still be scheduled.
+        self._protocol_connected = 1
+
         try:
             self._protocol.connection_made(self)
         except:
             self._wakeup_waiter()
             raise
-
-        self._protocol_connected = 1
 
         if self._closing:
             # This might happen when "transport.abort()" is called
