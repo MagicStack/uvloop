@@ -221,6 +221,7 @@ cdef class UVSocketHandle(UVHandle):
             int fd
             int err
 
+        self._ensure_alive()
         err = uv.uv_fileno(self._handle, <uv.uv_os_fd_t*>&fd)
         if err < 0:
             raise convert_error(err)
@@ -233,6 +234,9 @@ cdef class UVSocketHandle(UVHandle):
     cdef inline _get_socket(self):
         if self.__cached_socket is not None:
             return self.__cached_socket
+
+        if not self._is_alive():
+            return None
 
         self.__cached_socket = self._new_socket()
         if self.__cached_socket.fileno() == self._fileno():

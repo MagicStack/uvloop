@@ -26,6 +26,7 @@ cdef class UVBaseTransport(UVSocketHandle):
     cdef inline _schedule_call_connection_made(self)
     cdef inline _schedule_call_connection_lost(self, exc)
 
+    cdef _wakeup_waiter(self)
     cdef _call_connection_made(self)
     cdef _call_connection_lost(self, exc)
 

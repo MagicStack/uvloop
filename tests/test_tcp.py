@@ -507,6 +507,44 @@ class _TestTCP:
 
         self.loop.run_until_complete(start_server())
 
+    def test_tcp_handle_exception_in_connection_made(self):
+        # Test that if connection_made raises an exception,
+        # 'create_connection' still returns.
+
+        # Silence error logging
+        self.loop.set_exception_handler(lambda *args: None)
+
+        fut = asyncio.Future(loop=self.loop)
+
+        async def server(reader, writer):
+            try:
+                await reader.read()
+            finally:
+                writer.close()
+
+        class Proto(asyncio.Protocol):
+            def connection_made(self, tr):
+                1 / 0
+
+        srv = self.loop.run_until_complete(asyncio.start_server(
+            server,
+            '127.0.0.1', 0,
+            family=socket.AF_INET,
+            loop=self.loop))
+
+        async def runner():
+            tr, pr = await asyncio.wait_for(
+                self.loop.create_connection(
+                    Proto, *srv.sockets[0].getsockname()),
+                timeout=1.0, loop=self.loop)
+            fut.set_result(None)
+            tr.close()
+
+        self.loop.run_until_complete(runner())
+        srv.close()
+        self.loop.run_until_complete(srv.wait_closed())
+        self.loop.run_until_complete(fut)
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
@@ -619,6 +657,40 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         # Since one TCPTransport handle wasn't closed correctly,
         # we need to disable this check:
         self.skip_unclosed_handles_check()
+
+    def test_tcp_handle_abort_in_connection_made(self):
+        async def server(reader, writer):
+            try:
+                await reader.read()
+            finally:
+                writer.close()
+
+        class Proto(asyncio.Protocol):
+            def connection_made(self, tr):
+                tr.abort()
+
+        srv = self.loop.run_until_complete(asyncio.start_server(
+            server,
+            '127.0.0.1', 0,
+            family=socket.AF_INET,
+            loop=self.loop))
+
+        async def runner():
+            tr, pr = await asyncio.wait_for(
+                self.loop.create_connection(
+                    Proto, *srv.sockets[0].getsockname()),
+                timeout=1.0, loop=self.loop)
+
+            # Asyncio would return a closed socket, which we
+            # can't do: the transport was aborted, hence there
+            # is no FD to attach a socket to (to make
+            # get_extra_info() work).
+            self.assertIsNone(tr.get_extra_info('socket'))
+            tr.close()
+
+        self.loop.run_until_complete(runner())
+        srv.close()
+        self.loop.run_until_complete(srv.wait_closed())
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):

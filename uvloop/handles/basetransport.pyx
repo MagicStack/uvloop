@@ -114,6 +114,12 @@ cdef class UVBaseTransport(UVSocketHandle):
                     'protocol': self._protocol,
                 })
 
+    cdef _wakeup_waiter(self):
+        if self._waiter is not None:
+            if not self._waiter.cancelled():
+                self._waiter.set_result(True)
+            self._waiter = None
+
     cdef _call_connection_made(self):
         cdef Py_ssize_t _loop_ready_len
         if self._protocol is None:
@@ -121,8 +127,20 @@ cdef class UVBaseTransport(UVSocketHandle):
                 'protocol is not set, cannot call connection_made()')
 
         _loop_ready_len = self._loop._ready_len
-        self._protocol.connection_made(self)
+
+        try:
+            self._protocol.connection_made(self)
+        except:
+            self._wakeup_waiter()
+            raise
+
         self._protocol_connected = 1
+
+        if self._closing:
+            # This might happen when "transport.abort()" is called
+            # from "Protocol.connection_made".
+            self._wakeup_waiter()
+            return
 
         if _loop_ready_len == self._loop._ready_len:
             # No new calls were scheduled by 'protocol.connection_made',
@@ -142,10 +160,7 @@ cdef class UVBaseTransport(UVSocketHandle):
                                  <method_t>self._start_reading,
                                  self))
 
-        if self._waiter is not None:
-            if not self._waiter.cancelled():
-                self._waiter.set_result(True)
-            self._waiter = None
+        self._wakeup_waiter()
 
     cdef _call_connection_lost(self, exc):
         if self._waiter is not None:
