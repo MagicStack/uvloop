@@ -10,7 +10,8 @@ event loop.  uvloop is implemented in Cython and uses libuv
 under the hood.
 
 The project documentation can be found
-`here <http://uvloop.readthedocs.org/>`_.
+`here <http://uvloop.readthedocs.org/>`_.  Please also check out the
+`wiki <https://github.com/MagicStack/uvloop/wiki>`_.
 
 
 Performance
