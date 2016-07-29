@@ -49,7 +49,7 @@ docs: compile
 
 
 test:
-	$(PYTHON)ASYNCIODEBUG=1 $(PYTHON) -m unittest discover -s tests
+	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest discover -s tests
 	$(PYTHON) -m unittest discover -s tests
 
 
