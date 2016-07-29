@@ -20,7 +20,7 @@ check-env:
 
 
 clean-libuv:
-	git -C vendor/libuv clean -dfX
+	(cd vendor/libuv; git clean -dfX)
 
 
 sdist-libuv: clean-libuv

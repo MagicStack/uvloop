@@ -1,0 +1,3 @@
+cython>=0.24
+aiohttp
+twine

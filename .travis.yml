@@ -1,31 +1,49 @@
-language: python
+language: generic
 
-os:
-    - linux
+sudo: required
 
-python:
-    - 3.5
+env:
+    global:
+        - PYMODULE=uvloop
+        - PYPI_USER=magicstack-ci
+        - secure: "uVBP1RmdqLS8iQKDZLP8k5ByHAkwDorOztk1HynEr3gSnMLZH3bhibvtXfVoz+bpdDI+JY3RF1uNhR14XdQX6KMmBqSyU1c/fcOVURBVhKBeMbaUXR0nUAuh7Ac9xIuEhVvO6S/4vAsDzgnR4CJ/99Ns5tyo9GYMjlpdKAI87bqmnpHI2YZ7qaQ+yab4LUrAQzd6QVByJaaHoH0WgCUWqZ3CJfPBk8ROB1Jj+oPWpOB1zw70fh+MSxYtuS/527DbGkHWWg/h7fzDEIUvYX02rNnmdC48ewXlA+yZx03W4cAK0v+RT0XT4+hgGGPl2G+DDYyXLVvwQlqV4GnbTRFKLX8DI+Gu2Lc1Cyni125lq7TormDWMh0kA2miUIMg35Mp/YaYCQORSY3cXZsNZH1QvfaP25GIsRc+KrzXdmksXb6osZLXTpDFNKjSRVh1Os4JlaPTeSo48f90dk662bcdQQIfiNqEpqA3Lf96bHvw62J1QkKxWyzz7BodhOBwB6y+KH4h3GwuCI58DKjX6VIZvw9W6B0yvP9Yu7a2InNMAmsQsiB0SIICN5zT+O9BR/9bHZBWXC/hL5estVz5p6Q/+fmYzCaYbiSjuOJzFJ42ku8NxMQBaJvjG1lAH8wGHTiE1ApufWQBL9VJR1nY+nFdG6n9QgLKKHVe1QtseTVgStg="
+
+matrix:
+    include:
+        - os: osx
+          osx_image: xcode7.1  # OS X 10.10
+          # Travis macOS env does not support Python yet,
+          # so we have to set things up manually in install.sh.
+          env: PYTHON_VERSION=3.5.2
+               PIP_USER=1
+
+        - os: linux
+          dist: trusty
+          language: python
+          python: "3.5"
+          services: [docker]
+
+cache:
+    pip
 
 install:
-    - "pip install cython"
-    - "pip install aiohttp"
+    - .ci/travis-install.sh
 
 script:
-    - make && make test
-    - make debug && make test
+    - if [ "$TRAVIS_OS_NAME" == "osx" ]; then eval "$(pyenv init -)"; fi
+    - make distclean && make && make test
+    - make distclean && make debug && make test
 
 before_deploy:
-    - rm -rf dist
-    - make sdist
-    - mv `find dist -name 'uvloop-*.tar.gz' | head -1` uvloop-release.tar.gz
+    - .ci/travis-build-and-upload.sh
 
 deploy:
-  provider: releases
-  skip_cleanup: true
-  api_key:
-    secure: Rf7uGIR9IH7wPXHKB7LcdjQN2i0P0l7zsOz1IDzT/aNla/tWkxDawIbWTFE1gqaRwAZNAQvLh3xjPAh4XWAtd3Q06NbOFrL3/2uhwzb7fOyRbtqTN3OWkxBDgaTyNee4zVG/guhuDAp2keMIOA6DAk3ZpbIx6QTWErjo8c5mubQqAFKPmFuRhvYTzqg0TZD+iAaen7neAOXa0LDa23T929J96rHE2JmFG21Wx6tPOV31c5/gQmd6fcmmNL524I6pSz7TeRFKveKX6RJzcQwxJtrCsQNMq1pLqm3bd7cd/2MaaPP1EyHt7FXejnXqB0FPSssCgG5TbRzCpatrzRugsWl86uqVxINK8pE/h5wA0T1EwsdJkTeYitZmpQL3mbndArNWkzS+5AuVNEByuzdSSfBMukCgq6vfQI8vUnfF74UIvuzYlGANvAyCTpI7g3g33pgL+BicG5qGOUGvFBG+j2gmiwqsmwC5OxT2JljhI2s6udOu56hNNa9M+MhEvrEya0mNOoReqrZrQruxM4M9WKEWd3y13VVN2aaPoyNh8BLXYnU+CZ+d+O/j0sXoUwx2NG1yU+xYirsoSR3NVURQu10ZvS+H8H3Uu8C6b+XJYfz3w7LXdyjXKSRIjtbsVNreda6dnRR7NfK9PCG9lgchmVkd9+Cc2DcDwfHOXjdy2qs=
-  file:
-    - uvloop-release.tar.gz
-  on:
-    repo: MagicStack/uvloop
-    tags: true
+    skip_cleanup: true
+    provider: pypi
+    user: magicstack-ci
+    password:
+        secure: F08sPDASx4iqS7q9vXbaeIR/lgAaCQVgXQoKB6kXT1I/hMjjev86XesNeGmrAnyhz/nj9VlU5axl0Pjf3nk3t6dwPgH4W7SCxkqLrwWSNUcalEmFMZW3FWNSZApevrK1Tj0naY96j+7xcoO5UwoWQI5N5lJAEGRFYYXkenfp2YHLPRT0imTL78Xydom9Ab+HFyUWGnrF95aizC+c+19KKvRQBySxbSztNinztJ1mHa66UY/kv1x8irJPhvS33SWG7SVEAqUTnD7vZa/OtT96MD6RZTNNFS++wFPSI3TEsIwLeIPS26I/vR6ta5Hga3xa9q+1XZw/fx44Q+aVvOd0sTrr9ZvbpPlKO4QJJQZ04+6Mi7zvCrq+6fq5TDQmU0K9l3vWWpQFSL4cWejyDEv8qjB+fok7fWLOWHqDlaoBIUKAYJu9KwWMWx7r81cpPUhZaZ5mULgcXhZiYMiI2dWzZNYKPvrzkXm1Mw8csotM+GXguLUGVbgSO0KzUk+L6yiVjWC5zYNJbLDALrU0Iw+FYYE6JssWm8meXHn0M9kS3FABi/EgHlITVwTHrfQrfhCPvcZU3NBtgUnPiEEQpsrLw4tWL5jgh8Y71WJAkFn5Lmhx2UCsBE5HVWuCPMPfeYr2PrhtyXz1WoapTk8EM/RA3IeA1PmZkaLuairMX4pw56o=
+    distributions: sdist
+    on:
+        tags: true
+        all_branches: true
