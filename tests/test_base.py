@@ -138,12 +138,11 @@ class _TestBase:
         self.loop.run_forever()
         finished = time.monotonic()
 
+        self.assertEqual(calls, [10, 1])
+        self.assertFalse(self.loop.is_running())
+
         self.assertLess(finished - started, 0.1)
         self.assertGreater(finished - started, 0.04)
-
-        self.assertEqual(calls, [10, 1])
-
-        self.assertFalse(self.loop.is_running())
 
     def test_call_later_2(self):
         # Test that loop.call_later triggers an update of
