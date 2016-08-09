@@ -1300,7 +1300,7 @@ cdef class Loop:
                                 uv.AF_UNSPEC)
             fileno = os_dup(sock.fileno())
             try:
-                tcp.open(fileno)
+                tcp._open(fileno)
                 tcp._attach_fileobj(sock)
                 tcp.listen(backlog)
             except:
@@ -1484,7 +1484,7 @@ cdef class Loop:
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
-                tr.open(fileno)
+                tr._open(fileno)
                 tr._attach_fileobj(sock)
                 tr._init_protocol()
                 await waiter
@@ -1565,7 +1565,7 @@ cdef class Loop:
 
         try:
             fileno = os_dup(sock.fileno())
-            pipe.open(fileno)
+            pipe._open(fileno)
         except:
             pipe._close()
             sock.close()
@@ -1638,7 +1638,7 @@ cdef class Loop:
             try:
                 # libuv will make socket non-blocking
                 fileno = os_dup(sock.fileno())
-                tr.open(fileno)
+                tr._open(fileno)
                 tr._attach_fileobj(sock)
                 tr._init_protocol()
                 await waiter
@@ -1909,6 +1909,63 @@ cdef class Loop:
         self._sock_connect(fut, sock, address)
         await fut
 
+    async def connect_accepted_socket(self, protocol_factory, sock, *,
+                                      ssl=None):
+        """Handle an accepted connection.
+
+        This is used by servers that accept connections outside of
+        asyncio but that use asyncio to handle connections.
+
+        This method is a coroutine.  When completed, the coroutine
+        returns a (transport, protocol) pair.
+        """
+
+        cdef:
+            UVStream transport = None
+
+        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
+            raise TypeError('ssl argument must be an SSLContext or None')
+
+        if sock.type != uv.SOCK_STREAM:
+            raise ValueError('invalid socket type, SOCK_STREAM expected')
+
+        fileno = sock.fileno()
+        protocol = protocol_factory()
+        waiter = self._new_future()
+
+        if ssl is None:
+            if sock.family == uv.AF_UNIX:
+                transport = <UVStream>UnixTransport.new(
+                    self, protocol, None, waiter)
+
+            elif sock.family in (uv.AF_INET, uv.AF_INET6):
+                transport = <UVStream>TCPTransport.new(
+                    self, protocol, None, waiter)
+
+        else:
+            ssl_protocol = aio_SSLProtocol(
+                self, protocol, ssl, waiter,
+                True,  # server_side
+                None)  # server_hostname
+
+            if sock.family == uv.AF_UNIX:
+                transport = <UVStream>UnixTransport.new(
+                    self, ssl_protocol, None, None)
+
+            elif sock.family in (uv.AF_INET, uv.AF_INET6):
+                transport = <UVStream>TCPTransport.new(
+                    self, ssl_protocol, None, None)
+
+        if transport is None:
+            raise ValueError(
+                'invalid socket family, expected AF_UNIX, AF_INET or AF_INET6')
+
+        transport._open(fileno)
+        transport._init_protocol()
+
+        await waiter
+        return transport, protocol
+
     def run_in_executor(self, executor, func, *args):
         if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
             raise TypeError("coroutines cannot be used with run_in_executor()")
@@ -2031,7 +2088,7 @@ cdef class Loop:
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
-            transp.open(fileno)
+            transp._open(fileno)
             transp._init_protocol()
             await waiter
         except:
@@ -2056,7 +2113,7 @@ cdef class Loop:
         transp._add_extra_info('pipe', pipe)
         transp._attach_fileobj(pipe)
         try:
-            transp.open(fileno)
+            transp._open(fileno)
             transp._init_protocol()
             await waiter
         except:
@@ -2193,7 +2250,7 @@ cdef class Loop:
             sock.setblocking(False)
             udp = UDPTransport.__new__(UDPTransport)
             udp._init(self, uv.AF_UNSPEC)
-            udp._open(sock.family, sock.fileno())
+            udp.open(sock.family, sock.fileno())
             udp._attach_fileobj(sock)
         else:
             reuse_address = bool(reuse_address)

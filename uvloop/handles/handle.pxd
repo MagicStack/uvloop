@@ -39,3 +39,5 @@ cdef class UVSocketHandle(UVHandle):
     cdef _new_socket(self)
     cdef inline _get_socket(self)
     cdef inline _attach_fileobj(self, object file)
+
+    cdef _open(self, int sockfd)

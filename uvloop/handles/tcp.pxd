@@ -1,5 +1,4 @@
 cdef class TCPServer(UVStreamServer):
-    cdef open(self, int sockfd)
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
 
     @staticmethod
@@ -15,7 +14,6 @@ cdef class TCPTransport(UVStream):
         system.sockaddr_storage __sockname
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=*)
-    cdef open(self, int sockfd)
     cdef connect(self, system.sockaddr* addr)
 
     @staticmethod

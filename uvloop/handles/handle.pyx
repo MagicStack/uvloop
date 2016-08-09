@@ -274,6 +274,9 @@ cdef class UVSocketHandle(UVHandle):
         finally:
             UVHandle._close(self)
 
+    cdef _open(self, int sockfd):
+        raise NotImplementedError
+
 
 cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
                                       const char* handle_ctx):

@@ -50,7 +50,7 @@ cdef class UnixServer(UVStreamServer):
     cdef _new_socket(self):
         return __pipe_get_socket(<UVSocketHandle>self)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         self._ensure_alive()
         __pipe_open(<UVStream>self, sockfd)
         self._mark_as_open()
@@ -89,7 +89,7 @@ cdef class UnixTransport(UVStream):
     cdef _new_socket(self):
         return __pipe_get_socket(<UVSocketHandle>self)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
     cdef connect(self, char* addr):
@@ -113,7 +113,7 @@ cdef class ReadUnixTransport(UVStream):
     cdef _new_socket(self):
         return __pipe_get_socket(<UVSocketHandle>self)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
     def get_write_buffer_limits(self):
@@ -163,7 +163,7 @@ cdef class WriteUnixTransport(UVStream):
     cdef _new_socket(self):
         return __pipe_get_socket(<UVSocketHandle>self)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
     def pause_reading(self):

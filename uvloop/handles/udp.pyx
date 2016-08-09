@@ -86,7 +86,7 @@ cdef class UDPTransport(UVBaseTransport):
         memcpy(&self._address, addr, addr_len)
         self._address_set = 1
 
-    cdef _open(self, int family, int sockfd):
+    cdef open(self, int family, int sockfd):
         if family in (uv.AF_INET, uv.AF_INET6):
             self._family = family
         else:

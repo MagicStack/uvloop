@@ -3,9 +3,45 @@ import gc
 import socket
 import unittest.mock
 import uvloop
+import ssl
 import sys
+import threading
 
 from uvloop import _testbase as tb
+
+
+class MyBaseProto(asyncio.Protocol):
+    connected = None
+    done = None
+
+    def __init__(self, loop=None):
+        self.transport = None
+        self.state = 'INITIAL'
+        self.nbytes = 0
+        if loop is not None:
+            self.connected = asyncio.Future(loop=loop)
+            self.done = asyncio.Future(loop=loop)
+
+    def connection_made(self, transport):
+        self.transport = transport
+        assert self.state == 'INITIAL', self.state
+        self.state = 'CONNECTED'
+        if self.connected:
+            self.connected.set_result(None)
+
+    def data_received(self, data):
+        assert self.state == 'CONNECTED', self.state
+        self.nbytes += len(data)
+
+    def eof_received(self):
+        assert self.state == 'CONNECTED', self.state
+        self.state = 'EOF'
+
+    def connection_lost(self, exc):
+        assert self.state in ('CONNECTED', 'EOF'), self.state
+        self.state = 'CLOSED'
+        if self.done:
+            self.done.set_result(None)
 
 
 class _TestTCP:
@@ -699,6 +735,62 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         srv.close()
         self.loop.run_until_complete(srv.wait_closed())
 
+    def test_connect_accepted_socket(self, server_ssl=None, client_ssl=None):
+        loop = self.loop
+
+        class MyProto(MyBaseProto):
+
+            def connection_lost(self, exc):
+                super().connection_lost(exc)
+                loop.call_soon(loop.stop)
+
+            def data_received(self, data):
+                super().data_received(data)
+                self.transport.write(expected_response)
+
+        lsock = socket.socket()
+        lsock.bind(('127.0.0.1', 0))
+        lsock.listen(1)
+        addr = lsock.getsockname()
+
+        message = b'test data'
+        response = None
+        expected_response = b'roger'
+
+        def client():
+            nonlocal response
+            try:
+                csock = socket.socket()
+                if client_ssl is not None:
+                    csock = client_ssl.wrap_socket(csock)
+                csock.connect(addr)
+                csock.sendall(message)
+                response = csock.recv(99)
+                csock.close()
+            except Exception as exc:
+                print(
+                    "Failure in client thread in test_connect_accepted_socket",
+                    exc)
+
+        thread = threading.Thread(target=client, daemon=True)
+        thread.start()
+
+        conn, _ = lsock.accept()
+        proto = MyProto(loop=loop)
+        proto.loop = loop
+        loop.create_task(
+            loop.connect_accepted_socket(
+                (lambda: proto), conn, ssl=server_ssl))
+        loop.run_forever()
+        conn.close()
+        lsock.close()
+
+        thread.join(1)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(proto.state, 'CLOSED')
+        self.assertEqual(proto.nbytes, len(message))
+        self.assertEqual(response, expected_response)
+
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
     pass
@@ -864,7 +956,22 @@ class _TestSSL(tb.SSLTestCase):
 
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
-    pass
+
+    def test_ssl_connect_accepted_socket(self):
+        server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
+        if hasattr(server_context, 'check_hostname'):
+            server_context.check_hostname = False
+        server_context.verify_mode = ssl.CERT_NONE
+
+        client_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(server_context, 'check_hostname'):
+            client_context.check_hostname = False
+        client_context.verify_mode = ssl.CERT_NONE
+
+        Test_UV_TCP.test_connect_accepted_socket(
+            self, server_context, client_context)
+
 
 
 class Test_AIO_TCPSSL(_TestSSL, tb.AIOTestCase):

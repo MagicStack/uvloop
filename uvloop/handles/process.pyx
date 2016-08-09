@@ -401,7 +401,7 @@ cdef class UVProcessTransport(UVProcess):
                 self._stdin = WriteUnixTransport.new(
                     self._loop, self.stdin_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self._stdin.open(w)
+                self._stdin._open(w)
                 self._stdin._init_protocol()
             elif _stdin == subprocess_DEVNULL:
                 io[0] = self._file_devnull()
@@ -430,7 +430,7 @@ cdef class UVProcessTransport(UVProcess):
                 self._stdout = ReadUnixTransport.new(
                     self._loop, self.stdout_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self._stdout.open(r)
+                self._stdout._open(r)
                 self._stdout._init_protocol()
             elif _stdout == subprocess_DEVNULL:
                 io[1] = self._file_devnull()
@@ -453,7 +453,7 @@ cdef class UVProcessTransport(UVProcess):
                 self._stderr = ReadUnixTransport.new(
                     self._loop, self.stderr_proto, None, waiter)
                 self._init_futs.append(waiter)
-                self._stderr.open(r)
+                self._stderr._open(r)
                 self._stderr._init_protocol()
             elif _stderr == subprocess_STDOUT:
                 if io[1] is None:

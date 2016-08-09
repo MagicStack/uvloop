@@ -69,7 +69,7 @@ cdef class TCPServer(UVStreamServer):
     cdef _new_socket(self):
         return __tcp_get_socket(<UVSocketHandle>self)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         self._ensure_alive()
         try:
             __tcp_open(<UVStream>self, sockfd)
@@ -158,7 +158,7 @@ cdef class TCPTransport(UVStream):
         self._ensure_alive()
         __tcp_bind(<UVStream>self, addr, flags)
 
-    cdef open(self, int sockfd):
+    cdef _open(self, int sockfd):
         self._ensure_alive()
         __tcp_open(<UVStream>self, sockfd)
 
