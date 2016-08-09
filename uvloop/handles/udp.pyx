@@ -215,7 +215,7 @@ cdef class UDPTransport(UVBaseTransport):
                     ctx.addr = self._address
                 else:
                     raise RuntimeError(
-                        'undable to perform send operation: no address')
+                        'unable to perform send operation: no address')
             else:
                 __convert_pyaddr_to_sockaddr(self._family, addr,
                                              <system.sockaddr*>&ctx.addr)
