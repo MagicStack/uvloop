@@ -1930,31 +1930,23 @@ cdef class Loop:
             raise ValueError('invalid socket type, SOCK_STREAM expected')
 
         fileno = sock.fileno()
-        protocol = protocol_factory()
+        app_protocol = protocol_factory()
         waiter = self._new_future()
 
         if ssl is None:
-            if sock.family == uv.AF_UNIX:
-                transport = <UVStream>UnixTransport.new(
-                    self, protocol, None, waiter)
-
-            elif sock.family in (uv.AF_INET, uv.AF_INET6):
-                transport = <UVStream>TCPTransport.new(
-                    self, protocol, None, waiter)
-
+            protocol = app_protocol
         else:
-            ssl_protocol = aio_SSLProtocol(
-                self, protocol, ssl, waiter,
+            protocol = aio_SSLProtocol(
+                self, app_protocol, ssl, waiter,
                 True,  # server_side
                 None)  # server_hostname
 
-            if sock.family == uv.AF_UNIX:
-                transport = <UVStream>UnixTransport.new(
-                    self, ssl_protocol, None, None)
-
-            elif sock.family in (uv.AF_INET, uv.AF_INET6):
-                transport = <UVStream>TCPTransport.new(
-                    self, ssl_protocol, None, None)
+        if sock.family == uv.AF_UNIX:
+            transport = <UVStream>UnixTransport.new(
+                self, protocol, None, waiter)
+        elif sock.family in (uv.AF_INET, uv.AF_INET6):
+            transport = <UVStream>TCPTransport.new(
+                self, protocol, None, waiter)
 
         if transport is None:
             raise ValueError(
