@@ -1932,21 +1932,24 @@ cdef class Loop:
         fileno = sock.fileno()
         app_protocol = protocol_factory()
         waiter = self._new_future()
+        transport_waiter = None
 
         if ssl is None:
             protocol = app_protocol
+            transport_waiter = waiter
         else:
             protocol = aio_SSLProtocol(
                 self, app_protocol, ssl, waiter,
                 True,  # server_side
                 None)  # server_hostname
+            transport_waiter = None
 
         if sock.family == uv.AF_UNIX:
             transport = <UVStream>UnixTransport.new(
-                self, protocol, None, waiter)
+                self, protocol, None, transport_waiter)
         elif sock.family in (uv.AF_INET, uv.AF_INET6):
             transport = <UVStream>TCPTransport.new(
-                self, protocol, None, waiter)
+                self, protocol, None, transport_waiter)
 
         if transport is None:
             raise ValueError(

@@ -778,7 +778,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         conn, _ = lsock.accept()
         proto = MyProto(loop=loop)
         proto.loop = loop
-        loop.create_task(
+        f = loop.create_task(
             loop.connect_accepted_socket(
                 (lambda: proto), conn, ssl=server_ssl))
         loop.run_forever()
@@ -790,6 +790,8 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         self.assertEqual(proto.state, 'CLOSED')
         self.assertEqual(proto.nbytes, len(message))
         self.assertEqual(response, expected_response)
+        tr, _ = f.result()
+        tr.close()
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
