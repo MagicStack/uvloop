@@ -935,6 +935,27 @@ class _TestSSL(tb.SSLTestCase):
 
             writer.close()
 
+        async def client_sock(addr):
+            sock = socket.socket()
+            sock.connect(addr)
+            reader, writer = await asyncio.open_connection(
+                sock=sock,
+                ssl=client_sslctx,
+                server_hostname='',
+                loop=self.loop)
+
+            writer.write(A_DATA)
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(B_DATA)
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+            sock.close()
+
         def run(coro):
             nonlocal CNT
             CNT = 0
@@ -955,6 +976,9 @@ class _TestSSL(tb.SSLTestCase):
 
         with self._silence_eof_received_warning():
             run(client)
+
+        with self._silence_eof_received_warning():
+            run(client_sock)
 
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):

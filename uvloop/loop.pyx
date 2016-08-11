@@ -1479,7 +1479,6 @@ cdef class Loop:
                     'host and port was not specified and no sock specified')
 
             waiter = self._new_future()
-            protocol = protocol_factory()
             tr = TCPTransport.new(self, protocol, None, waiter)
             try:
                 # libuv will make socket non-blocking
