@@ -2316,7 +2316,7 @@ cdef class Loop:
                         local_addr)) from ctx
 
                 if rads is not None:
-                    rai = (<AddrInfo>lads).data
+                    rai = (<AddrInfo>rads).data
                     sock = udp._get_socket()
                     while rai is not NULL:
                         if rai.ai_family != lai.ai_family:
