@@ -86,6 +86,8 @@ class libuv_build_ext(build_ext):
             self.compiler.add_library('rt')
         elif sys.platform.startswith('freebsd'):
             self.compiler.add_library('kvm')
+        elif sys.platform.startswith('sunos'):
+            self.compiler.add_library('kstat')
 
         super().build_extensions()
 
