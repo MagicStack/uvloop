@@ -5,6 +5,22 @@ DEF _FUT_CANCELLED = 2
 DEF _FUT_FINISHED = 3
 
 
+cdef inline _future_get_blocking(fut):
+    try:
+        return fut._asyncio_future_blocking
+    except AttributeError:
+        return fut._blocking
+
+
+cdef inline _future_set_blocking(fut, val):
+    try:
+        fut._asyncio_future_blocking
+    except AttributeError:
+        fut._blocking = val
+    else:
+        fut._asyncio_future_blocking = val
+
+
 cdef class BaseFuture:
     cdef:
         int _state
@@ -35,6 +51,13 @@ cdef class BaseFuture:
             self._source_traceback = tb_extract_stack(sys_getframe(0))
         else:
             self._source_traceback = None
+
+    property _asyncio_future_blocking:
+        def __get__(self):
+            return self._blocking
+
+        def __set__(self, value):
+            self._blocking = value
 
     cdef _schedule_callbacks(self):
         cdef:

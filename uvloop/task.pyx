@@ -156,8 +156,8 @@ cdef class BaseTask(BaseFuture):
                 # Yielded Future must come from Future.__iter__().
                 if result._loop is not self._loop:
                     self._raise_wrong_loop(result)
-                elif result._blocking:
-                    result._blocking = False
+                elif _future_get_blocking(result):
+                    _future_set_blocking(result, False)
                     result.add_done_callback(self._wakeup)
                     self._fut_waiter = result
                     if self._must_cancel:
