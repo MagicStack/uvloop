@@ -30,7 +30,6 @@ cdef class Handle:
         cdef:
             int cb_type
             object callback
-            bint old_exec_py_code
 
         if self.cancelled:
             return
@@ -40,12 +39,6 @@ cdef class Handle:
         Py_INCREF(self)   # Since _run is a cdef and there's no BoundMethod,
                           # we guard 'self' manually (since the callback
                           # might cause GC of the handle.)
-        old_exec_py_code = self.loop._executing_py_code
-        # old_exec_py_code might be 0 -- that means that this
-        # handle is run by libuv callback or something
-        # and it can be 1 -- that means that we're calling it
-        # from a UVHandle (for instance UVIdle) callback.
-        self.loop._executing_py_code = 1
         try:
             if cb_type == 1:
                 callback = self.arg1
@@ -91,7 +84,6 @@ cdef class Handle:
             self.loop.call_exception_handler(context)
 
         finally:
-            self.loop._executing_py_code = old_exec_py_code
             Py_DECREF(self)
 
     cdef _cancel(self):
@@ -177,9 +169,6 @@ cdef class TimerHandle:
             self.timer = None  # let it die asap
 
     cdef _run(self):
-        cdef:
-            bint old_exec_py_code
-
         if self.closed == 1:
             return
 
@@ -189,11 +178,6 @@ cdef class TimerHandle:
 
         Py_INCREF(self)  # Since _run is a cdef and there's no BoundMethod,
                          # we guard 'self' manually.
-        old_exec_py_code = self.loop._executing_py_code
-        IF DEBUG:
-            if old_exec_py_code == 1:
-                raise RuntimeError('Python exec-mode before TimerHandle._run')
-        self.loop._executing_py_code = 1
         if self.loop._debug:
             started = time_monotonic()
         try:
@@ -220,7 +204,6 @@ cdef class TimerHandle:
                         'Executing %r took %.3f seconds',
                         self, delta)
         finally:
-            self.loop._executing_py_code = old_exec_py_code
             Py_DECREF(self)
 
     # Public API

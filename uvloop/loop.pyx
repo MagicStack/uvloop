@@ -31,14 +31,13 @@ from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
 
 from cpython cimport PyErr_CheckSignals
 
+from . import _noop
+
 
 include "includes/consts.pxi"
 include "includes/stdlib.pxi"
 
 include "errors.pyx"
-
-
-cdef Loop __main_loop__ = None
 
 
 @cython.no_gc_clear
@@ -66,23 +65,8 @@ cdef class Loop:
         self._running = 0
         self._stopping = 0
 
-        self._custom_sigint = 0
-        self._sigint_check = 0
-        self._signal_handlers = dict()
-
         self._timers = set()
         self._polls = dict()
-
-        if MAIN_THREAD_ID == PyThread_get_thread_ident():  # XXX
-            self.py_signals = SignalsStack()
-            self.uv_signals = SignalsStack()
-
-            self.py_signals.save()
-        else:
-            self.py_signals = None
-            self.uv_signals = None
-
-        self._executing_py_code = 0
 
         self._recv_buffer_in_use = 0
 
@@ -151,18 +135,6 @@ cdef class Loop:
             new_MethodHandle(
                 self, "loop._on_idle", <method_t>self._on_idle, self))
 
-        self.handler_sigint = UVSignal.new(
-            self,
-            new_MethodHandle(
-                self, "loop._on_sigint", <method_t>self._on_sigint, self),
-            uv.SIGINT)
-
-        self.handler_sighup = UVSignal.new(
-            self,
-            new_MethodHandle(
-                self, "loop._on_sighup", <method_t>self._on_sighup, self),
-            uv.SIGHUP)
-
         # Needed to call `UVStream._exec_write` for writes scheduled
         # during `Protocol.data_received`.
         self.handler_check__exec_writes = UVCheck.new(
@@ -170,6 +142,9 @@ cdef class Loop:
             new_MethodHandle(
                 self, "loop._exec_queued_writes",
                 <method_t>self._exec_queued_writes, self))
+
+        self._ssock = self._csock = None
+        self._signal_handlers = None
 
         self._coroutine_wrapper_set = False
 
@@ -186,51 +161,86 @@ cdef class Loop:
         PyMem_Free(self.uvloop)
         self.uvloop = NULL
 
+    cdef _setup_signals(self):
+        self._ssock, self._csock = socket_socketpair()
+        self._ssock.setblocking(False)
+        self._csock.setblocking(False)
+        try:
+            signal_set_wakeup_fd(self._csock.fileno())
+        except ValueError:
+            # Not the main thread
+            self._ssock.close()
+            self._csock.close()
+            self._ssock = self._csock = None
+            return
+
+        self._add_reader(
+            self._ssock.fileno(),
+            new_MethodHandle(
+                self,
+                "Loop._read_from_self",
+                <method_t>self._read_from_self,
+                self))
+
+        self._signal_handlers = {}
+
+    cdef _shutdown_signals(self):
+        if self._signal_handlers is None:
+            return
+        for sig in list(self._signal_handlers):
+            self.remove_signal_handler(sig)
+        signal_set_wakeup_fd(-1)
+        self._remove_reader(self._ssock.fileno())
+        self._ssock.close()
+        self._csock.close()
+
+    cdef _read_from_self(self):
+        while True:
+            try:
+                data = self._ssock.recv(4096)
+                if not data:
+                    break
+                self._process_self_data(data)
+            except InterruptedError:
+                continue
+            except BlockingIOError:
+                break
+
+    cdef _process_self_data(self, data):
+        for signum in data:
+            if not signum:
+                # ignore null bytes written by _write_to_self()
+                continue
+            self._handle_signal(signum)
+
+    cdef _handle_signal(self, sig):
+        cdef Handle handle
+
+        try:
+            handle = <Handle>(self._signal_handlers[sig])
+        except KeyError:
+            # Some signal that we aren't listening through
+            # add_signal_handler.  Invoke CPython eval loop
+            # to let it being processed.
+            PyErr_CheckSignals()
+            _noop.noop()
+            return
+        if handle.cancelled:
+            self.remove_signal_handler(sig)  # Remove it properly.
+        else:
+            self._call_soon_handle(handle)
+            self.handler_async.send()
+
     cdef _on_wake(self):
         if (self._ready_len > 0 or self._stopping) \
                             and not self.handler_idle.running:
             self.handler_idle.start()
-
-    cdef _on_sigint(self):
-        try:
-            uvs = self._signal_handlers[uv.SIGINT]
-        except KeyError:
-            pass
-        else:
-            (<UVSignal>uvs).h._run()
-            return
-
-        try:
-            PyErr_CheckSignals()
-        except KeyboardInterrupt as ex:
-            self._stop(ex)
-        else:
-            self._stop(KeyboardInterrupt())
-
-    cdef _on_sighup(self):
-        try:
-            uvs = self._signal_handlers[uv.SIGHUP]
-        except KeyError:
-            pass
-        else:
-            (<UVSignal>uvs).h._run()
-            return
-
-        self._stop(SystemExit())
-
-    cdef _check_sigint(self):
-        self.uv_signals.save()
-        __signal_set_sigint()
 
     cdef _on_idle(self):
         cdef:
             int i, ntodo
             object popleft = self._ready.popleft
             Handle handler
-
-        if self._sigint_check == 0 and self._thread_is_main == 1:
-            self._sigint_check = 1
-            self._check_sigint()
 
         ntodo = len(self._ready)
         if self._debug:
@@ -280,13 +290,6 @@ cdef class Loop:
             self.handler_idle.start()
 
     cdef __run(self, uv.uv_run_mode mode):
-        global __main_loop__
-
-        if self.py_signals is not None:
-            # self.py_signals is not None only for the main thread
-            __main_loop__ = self
-
-        self._executing_py_code = 0
         # Although every UVHandle holds a reference to the loop,
         # we want to do everything to ensure that the loop will
         # never deallocate during the run -- so we do some
@@ -295,12 +298,6 @@ cdef class Loop:
         with nogil:
             err = uv.uv_run(self.uvloop, mode)
         Py_DECREF(self)
-        self._executing_py_code = 1
-
-        if self.py_signals is not None:
-            # self.py_signals is not None only for the main thread
-            self.py_signals.restore()
-            __main_loop__ = None
 
         if err < 0:
             raise convert_error(err)
@@ -314,27 +311,24 @@ cdef class Loop:
         if self._running == 1:
             raise RuntimeError('Event loop is running.')
 
+        if self._signal_handlers is None:
+            self._setup_signals()
+
         # reset _last_error
         self._last_error = None
 
         self._thread_id = PyThread_get_thread_ident()
         self._thread_is_main = MAIN_THREAD_ID == self._thread_id
-        self._sigint_check = 0
         self._running = 1
 
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
-        self.handler_sigint.start()
-        self.handler_sighup.start()
 
         self.__run(mode)
 
         self.handler_check__exec_writes.stop()
         self.handler_idle.stop()
-        self.handler_sigint.stop()
-        self.handler_sighup.stop()
 
-        self._sigint_check = 0
         self._thread_is_main = 0
         self._thread_id = 0
         self._running = 0
@@ -370,17 +364,12 @@ cdef class Loop:
             for timer_cbhandle in tuple(self._timers):
                 timer_cbhandle.cancel()
 
-        for sig_handle in self._signal_handlers.values():
-            (<UVSignal>sig_handle)._close()
-        self._signal_handlers.clear()
-
         # Close all remaining handles
         self.handler_async._close()
         self.handler_idle._close()
         self.handler_check__exec_writes._close()
-        self.handler_sigint._close()
-        self.handler_sighup._close()
         __close_all_handles(self)
+        self._shutdown_signals()
         # During this run there should be no open handles,
         # so it should finish right away
         self.__run(uv.UV_RUN_DEFAULT)
@@ -407,8 +396,6 @@ cdef class Loop:
         self.handler_async = None
         self.handler_idle = None
         self.handler_check__exec_writes = None
-        self.handler_sigint = None
-        self.handler_sighup = None
 
         executor = self._default_executor
         if executor is not None:
@@ -2123,7 +2110,11 @@ cdef class Loop:
         """
         cdef:
             Handle h
-            UVSignal uvs
+
+        if self._signal_handlers is None:
+            self._setup_signals()
+            if self._signal_handlers is None:
+                raise ValueError('set_wakeup_fd only works in main thread')
 
         if (aio_iscoroutine(callback)
                 or aio_iscoroutinefunction(callback)):
@@ -2133,34 +2124,23 @@ cdef class Loop:
         self._check_signal(sig)
         self._check_closed()
 
-        if sig in self._signal_handlers:
-            IF DEBUG:
-                assert isinstance(self._signal_handlers[sig], UVSignal)
-            uvs = self._signal_handlers[sig]
-            try:
-                uvs.stop()
-            finally:
-                uvs._close()
+        try:
+            # set_wakeup_fd() raises ValueError if this is not the
+            # main thread.  By calling it early we ensure that an
+            # event loop running in another thread cannot add a signal
+            # handler.
+            signal_set_wakeup_fd(self._csock.fileno())
+        except (ValueError, OSError) as exc:
+            raise RuntimeError(str(exc))
 
-        h = new_Handle(self, callback, args)
-        uvs = UVSignal.new(self, h, sig)
-
-        self._signal_handlers[sig] = uvs
-
-        if sig == uv.SIGINT:
-            # Needed for __signal_handler_sigint
-            self._custom_sigint = 1
-            return
-        if sig == uv.SIGHUP:
-            # loop._on_sigint and loop._on_sighup will handle
-            # any signals installed by user
-            return
+        h = new_Handle(self, callback, args or None)
+        self._signal_handlers[sig] = h
 
         try:
-            uvs.start()
+            signal_signal(sig, _sighandler_noop)
         except OSError as exc:
             del self._signal_handlers[sig]
-            if exc.errno == errno.EINVAL:
+            if exc.errno == errno_EINVAL:
                 raise RuntimeError('sig {} cannot be caught'.format(sig))
             else:
                 raise
@@ -2170,22 +2150,28 @@ cdef class Loop:
 
         Return True if a signal handler was removed, False if not.
         """
-        cdef:
-            UVSignal uvs
-
         self._check_signal(sig)
 
-        if sig not in self._signal_handlers:
+        if self._signal_handlers is None:
+            return False
+
+        try:
+            del self._signal_handlers[sig]
+        except KeyError:
             return False
 
         if sig == uv.SIGINT:
-            self._custom_sigint = 0
+            handler = signal_default_int_handler
+        else:
+            handler = signal_SIG_DFL
 
-        uvs = <UVSignal>(self._signal_handlers.pop(sig))
         try:
-            uvs.stop()
-        finally:
-            uvs._close()
+            signal_signal(sig, handler)
+        except OSError as exc:
+            if exc.errno == errno_EINVAL:
+                raise RuntimeError('sig {} cannot be caught'.format(sig))
+            else:
+                raise
 
         return True
 
@@ -2376,7 +2362,6 @@ include "handles/async_.pyx"
 include "handles/idle.pyx"
 include "handles/check.pyx"
 include "handles/timer.pyx"
-include "handles/signal.pyx"
 include "handles/poll.pyx"
 include "handles/basetransport.pyx"
 include "handles/stream.pyx"
@@ -2391,8 +2376,6 @@ include "dns.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
-
-include "os_signal.pyx"
 
 include "future.pyx"
 include "chain_futs.pyx"
@@ -2447,6 +2430,12 @@ cdef __install_pymem():
     if err < 0:
         __mem_installed = 0
         raise convert_error(err)
+
+
+def _sighandler_noop(signum, frame):
+    """Dummy signal handler."""
+    pass
+
 
 ########### Stuff for tests:
 

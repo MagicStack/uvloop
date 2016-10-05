@@ -21,7 +21,6 @@ cdef class UVHandle
 
 cdef class UVAsync(UVHandle)
 cdef class UVTimer(UVHandle)
-cdef class UVSignal(UVHandle)
 cdef class UVIdle(UVHandle)
 
 ctypedef object (*method_t)(object)
@@ -45,11 +44,6 @@ cdef class Loop:
 
         long _thread_id
         bint _thread_is_main
-        bint _sigint_check
-
-        SignalsStack py_signals
-        SignalsStack uv_signals
-        bint _executing_py_code
 
         object _task_factory
         object _exception_handler
@@ -58,19 +52,18 @@ cdef class Loop:
         set _queued_streams
         Py_ssize_t _ready_len
 
+        dict _signal_handlers
+        object _ssock
+        object _csock
+
         set _timers
         dict _polls
-
-        dict _signal_handlers
-        bint _custom_sigint
 
         UVProcess active_process_handler
 
         UVAsync handler_async
         UVIdle handler_idle
         UVCheck handler_check__exec_writes
-        UVSignal handler_sigint
-        UVSignal handler_sighup
 
         object _last_error
 
@@ -121,10 +114,6 @@ cdef class Loop:
 
     cdef _on_wake(self)
     cdef _on_idle(self)
-    cdef _on_sigint(self)
-    cdef _on_sighup(self)
-
-    cdef _check_sigint(self)
 
     cdef __run(self, uv.uv_run_mode)
     cdef _run(self, uv.uv_run_mode)
@@ -177,6 +166,12 @@ cdef class Loop:
 
     cdef _sock_set_reuseport(self, int fd)
 
+    cdef _setup_signals(self)
+    cdef _shutdown_signals(self)
+    cdef _handle_signal(self, sig)
+    cdef _read_from_self(self)
+    cdef _process_self_data(self, data)
+
     cdef _set_coroutine_wrapper(self, bint enabled)
 
 
@@ -187,7 +182,6 @@ include "handles/async_.pxd"
 include "handles/idle.pxd"
 include "handles/check.pxd"
 include "handles/timer.pxd"
-include "handles/signal.pxd"
 include "handles/poll.pxd"
 include "handles/basetransport.pxd"
 include "handles/stream.pxd"
@@ -201,5 +195,3 @@ include "request.pxd"
 include "handles/udp.pxd"
 
 include "server.pxd"
-
-include "os_signal.pxd"

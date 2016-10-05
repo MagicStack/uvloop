@@ -3,6 +3,7 @@ import asyncio, asyncio.log, asyncio.base_events, \
        asyncio.futures
 import collections
 import concurrent.futures
+import errno
 import functools
 import gc
 import inspect
@@ -43,6 +44,8 @@ cdef col_Counter = collections.Counter
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
+cdef errno_EINVAL = errno.EINVAL
+
 cdef ft_partial = functools.partial
 
 cdef gc_disable = gc.disable
@@ -57,6 +60,7 @@ cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error
 cdef socket_timeout = socket.timeout
 cdef socket_socket = socket.socket
+cdef socket_socketpair = socket.socketpair
 cdef socket_getservbyname = socket.getservbyname
 
 cdef int socket_EAI_ADDRFAMILY = getattr(socket, 'EAI_ADDRFAMILY', -1)
@@ -110,6 +114,10 @@ cdef int subprocess_DEVNULL = subprocess.DEVNULL
 cdef subprocess_SubprocessError = subprocess.SubprocessError
 
 cdef int signal_NSIG = std_signal.NSIG
+cdef signal_signal = std_signal.signal
+cdef signal_set_wakeup_fd = std_signal.set_wakeup_fd
+cdef signal_default_int_handler = std_signal.default_int_handler
+cdef signal_SIG_DFL = std_signal.SIG_DFL
 
 cdef time_sleep = time.sleep
 cdef time_monotonic = time.monotonic
@@ -122,7 +130,7 @@ cdef warnings_warn = warnings.warn
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
-del asyncio, concurrent, collections
+del asyncio, concurrent, collections, errno
 del functools, inspect, itertools, socket, os, threading
 del std_signal, subprocess, ssl
 del time, traceback, warnings

@@ -2,6 +2,7 @@
 import asyncio
 import collections
 import concurrent.futures
+import errno
 import functools
 import gc
 import inspect

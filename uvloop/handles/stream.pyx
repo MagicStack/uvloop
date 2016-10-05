@@ -832,13 +832,9 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
     cdef:
         Loop loop = <Loop>stream.loop.data
-        bint old_exec_py_code
 
-    old_exec_py_code = loop._executing_py_code
-    loop._executing_py_code = 1
     # Don't need try-finally, __uv_stream_on_read_impl is void
     __uv_stream_on_read_impl(stream, nread, buf)
-    loop._executing_py_code = old_exec_py_code
 
 
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
@@ -852,10 +848,6 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
     cdef:
         Loop loop = <UVStream>(<_StreamWriteContext> req.data).stream._loop
-        bint old_exec_py_code
 
-    old_exec_py_code = loop._executing_py_code
-    loop._executing_py_code = 1
     # Don't need try-finally, __uv_stream_on_write_impl is void
     __uv_stream_on_write_impl(req, status)
-    loop._executing_py_code = old_exec_py_code
