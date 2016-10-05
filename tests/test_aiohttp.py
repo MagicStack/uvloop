@@ -30,7 +30,7 @@ class _TestAioHTTP:
                 await response.write_eof()
 
         f = self.loop.create_server(
-            lambda: HttpRequestHandler(keep_alive=False),
+            lambda: HttpRequestHandler(keepalive_timeout=1),
             '0.0.0.0', '0')
         srv = self.loop.run_until_complete(f)
 
