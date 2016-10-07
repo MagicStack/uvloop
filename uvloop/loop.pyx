@@ -1545,9 +1545,10 @@ cdef class Loop:
                 raise ValueError(
                     'path was not specified, and no sock specified')
 
-            if sock.family != uv.AF_UNIX:
+            if sock.family != uv.AF_UNIX or sock.type != uv.SOCK_STREAM:
                 raise ValueError(
-                    'A UNIX Domain Socket was expected, got {!r}'.format(sock))
+                    'A UNIX Domain Stream Socket was expected, got {!r}'
+                    .format(sock))
 
         try:
             fileno = os_dup(sock.fileno())
@@ -1615,9 +1616,10 @@ cdef class Loop:
             if sock is None:
                 raise ValueError('no path and sock were specified')
 
-            if sock.family != uv.AF_UNIX:
+            if sock.family != uv.AF_UNIX or sock.type != uv.SOCK_STREAM:
                 raise ValueError(
-                    'A UNIX Domain Socket was expected, got {!r}'.format(sock))
+                    'A UNIX Domain Stream Socket was expected, got {!r}'
+                    .format(sock))
 
             waiter = self._new_future()
             tr = UnixTransport.new(self, protocol, None, waiter)
