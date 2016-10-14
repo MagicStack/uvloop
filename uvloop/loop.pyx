@@ -219,12 +219,16 @@ cdef class Loop:
         try:
             handle = <Handle>(self._signal_handlers[sig])
         except KeyError:
+            handle = None
+
+        if handle is None:
             # Some signal that we aren't listening through
             # add_signal_handler.  Invoke CPython eval loop
             # to let it being processed.
             PyErr_CheckSignals()
             _noop.noop()
             return
+
         if handle.cancelled:
             self.remove_signal_handler(sig)  # Remove it properly.
         else:
