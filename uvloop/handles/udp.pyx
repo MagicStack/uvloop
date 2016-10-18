@@ -64,7 +64,7 @@ cdef class UDPTransport(UVBaseTransport):
         self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
-                            PyMem_Malloc(sizeof(uv.uv_udp_t))
+                            PyMem_RawMalloc(sizeof(uv.uv_udp_t))
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()

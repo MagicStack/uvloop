@@ -74,7 +74,7 @@ cdef class UVHandle:
         IF DEBUG:
             self._loop._debug_uv_handles_freed += 1
 
-        PyMem_Free(self._handle)
+        PyMem_RawFree(self._handle)
         self._handle = NULL
 
     cdef _warn_unclosed(self):
@@ -325,7 +325,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
                     '__uv_close_handle_cb: handle.loop is invalid')
             (<Loop>handle.loop.data)._debug_uv_handles_freed += 1
 
-        PyMem_Free(handle)
+        PyMem_RawFree(handle)
     else:
         h = <UVHandle>handle.data
         IF DEBUG:

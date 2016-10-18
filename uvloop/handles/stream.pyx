@@ -29,7 +29,7 @@ cdef class _StreamWriteContext:
         cdef size_t i
 
         if self.uv_bufs is not NULL:
-            PyMem_Free(self.uv_bufs)
+            PyMem_RawFree(self.uv_bufs)
             self.uv_bufs = NULL
             IF DEBUG:
                 if self.py_bufs_sml_inuse:
@@ -40,7 +40,7 @@ cdef class _StreamWriteContext:
         if self.py_bufs is not NULL:
             for i from 0 <= i < self.py_bufs_len:
                 PyBuffer_Release(&self.py_bufs[i])
-            PyMem_Free(self.py_bufs)
+            PyMem_RawFree(self.py_bufs)
             self.py_bufs = NULL
             IF DEBUG:
                 if self.py_bufs_sml_inuse:
@@ -134,12 +134,12 @@ cdef class _StreamWriteContext:
                     py_bufs_len += 1
 
             if py_bufs_len > 0:
-                ctx.py_bufs = <Py_buffer*>PyMem_Malloc(
+                ctx.py_bufs = <Py_buffer*>PyMem_RawMalloc(
                     py_bufs_len * sizeof(Py_buffer))
                 if ctx.py_bufs is NULL:
                     raise MemoryError()
 
-            ctx.uv_bufs = <uv.uv_buf_t*>PyMem_Malloc(
+            ctx.uv_bufs = <uv.uv_buf_t*>PyMem_RawMalloc(
                 len(buffers) * sizeof(uv.uv_buf_t))
             if ctx.uv_bufs is NULL:
                 raise MemoryError()

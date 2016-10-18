@@ -2,7 +2,7 @@ cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
     cdef int err
 
     handle._handle = <uv.uv_handle_t*> \
-                        PyMem_Malloc(sizeof(uv.uv_pipe_t))
+                        PyMem_RawMalloc(sizeof(uv.uv_pipe_t))
     if handle._handle is NULL:
         handle._abort_init()
         raise MemoryError()
@@ -178,7 +178,7 @@ cdef class _PipeConnectRequest(UVRequest):
         UnixTransport transport
 
     def __cinit__(self, loop, transport):
-        self.request = <uv.uv_req_t*> PyMem_Malloc(sizeof(uv.uv_connect_t))
+        self.request = <uv.uv_req_t*> PyMem_RawMalloc(sizeof(uv.uv_connect_t))
         if self.request is NULL:
             self.on_done()
             raise MemoryError()

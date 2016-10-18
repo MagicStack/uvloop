@@ -8,8 +8,8 @@ cimport cython
 
 from .includes cimport uv
 from .includes cimport system
-from .includes.python cimport PyMem_Malloc, PyMem_Free, \
-                              PyMem_Calloc, PyMem_Realloc, \
+from .includes.python cimport PyMem_RawMalloc, PyMem_RawFree, \
+                              PyMem_RawCalloc, PyMem_RawRealloc, \
                               PyUnicode_EncodeFSDefault, \
                               PyErr_SetInterrupt, \
                               PyOS_AfterFork, \
@@ -52,7 +52,7 @@ cdef class Loop:
         __install_atfork()
 
         self.uvloop = <uv.uv_loop_t*> \
-                            PyMem_Malloc(sizeof(uv.uv_loop_t))
+                            PyMem_RawMalloc(sizeof(uv.uv_loop_t))
         if self.uvloop is NULL:
             raise MemoryError()
 
@@ -158,7 +158,7 @@ cdef class Loop:
         if self._closed == 0:
             aio_logger.error("deallocating an open event loop")
             return
-        PyMem_Free(self.uvloop)
+        PyMem_RawFree(self.uvloop)
         self.uvloop = NULL
 
     cdef _setup_signals(self):
@@ -2429,10 +2429,10 @@ cdef __install_pymem():
     __mem_installed = 1
 
     cdef int err
-    err = uv.uv_replace_allocator(<uv.uv_malloc_func>PyMem_Malloc,
-                                  <uv.uv_realloc_func>PyMem_Realloc,
-                                  <uv.uv_calloc_func>PyMem_Calloc,
-                                  <uv.uv_free_func>PyMem_Free)
+    err = uv.uv_replace_allocator(<uv.uv_malloc_func>PyMem_RawMalloc,
+                                  <uv.uv_realloc_func>PyMem_RawRealloc,
+                                  <uv.uv_calloc_func>PyMem_RawCalloc,
+                                  <uv.uv_free_func>PyMem_RawFree)
     if err < 0:
         __mem_installed = 0
         raise convert_error(err)

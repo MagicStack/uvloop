@@ -24,7 +24,7 @@ cdef class UVProcess(UVHandle):
         self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*> \
-                            PyMem_Malloc(sizeof(uv.uv_process_t))
+                            PyMem_RawMalloc(sizeof(uv.uv_process_t))
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()
@@ -179,11 +179,11 @@ cdef class UVProcess(UVHandle):
 
     def __dealloc__(self):
         if self.uv_opt_env is not NULL:
-            PyMem_Free(self.uv_opt_env)
+            PyMem_RawFree(self.uv_opt_env)
             self.uv_opt_env = NULL
 
         if self.uv_opt_args is not NULL:
-            PyMem_Free(self.uv_opt_args)
+            PyMem_RawFree(self.uv_opt_args)
             self.uv_opt_args = NULL
 
     cdef char** __to_cstring_array(self, list arr):
@@ -197,7 +197,7 @@ cdef class UVProcess(UVHandle):
         IF DEBUG:
             assert arr_len > 0
 
-        ret = <char **>PyMem_Malloc((arr_len + 1) * sizeof(char *))
+        ret = <char **>PyMem_RawMalloc((arr_len + 1) * sizeof(char *))
         if ret is NULL:
             raise MemoryError()
 
