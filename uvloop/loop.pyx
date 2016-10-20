@@ -1289,7 +1289,10 @@ cdef class Loop:
                 raise ValueError('Neither host/port nor sock were specified')
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
                                 uv.AF_UNSPEC)
+
+            # See a comment on os_dup in create_connection
             fileno = os_dup(sock.fileno())
+
             try:
                 tcp._open(fileno)
                 tcp._attach_fileobj(sock)
@@ -1472,8 +1475,35 @@ cdef class Loop:
             waiter = self._new_future()
             tr = TCPTransport.new(self, protocol, None, waiter)
             try:
-                # libuv will make socket non-blocking
+                # Why we use os.dup here and other places
+                # ---------------------------------------
+                #
+                # Prerequisite: in Python 3.6, Python Socket Objects (PSO)
+                # were fixed to raise an OSError if the `socket.close()` call
+                # failed.  So if the underlying FD is already closed,
+                # `socket.close()` call will fail with OSError(EBADF).
+                #
+                # Problem:
+                #
+                #   - Vanilla asyncio uses the passed PSO directly.  When the
+                #     transport eventually closes the PSO, the PSO is marked as
+                #     'closed'.  If the user decides to close the PSO after
+                #     closing the loop, everything works normal in Python 3.5
+                #     and 3.6.
+                #
+                #   - asyncio+uvloop unwraps the FD from the passed PSO.
+                #     Eventually the transport is closed and so the FD.
+                #     If the user decides to close the PSO after closing the
+                #     loop, an OSError(EBADF) will be raised in Python 3.6.
+                #
+                # All in all, duping FDs makes sense, because uvloop
+                # (and libuv) manage the FD once the user passes a PSO to
+                # `loop.create_connection`.  We don't want the user to have
+                # any control of the FD once it is passed to uvloop.
+                # See also: https://github.com/python/asyncio/pull/449
                 fileno = os_dup(sock.fileno())
+
+                # libuv will make socket non-blocking
                 tr._open(fileno)
                 tr._attach_fileobj(sock)
                 tr._init_protocol()
@@ -1555,7 +1585,9 @@ cdef class Loop:
                     .format(sock))
 
         try:
+            # See a comment on os_dup in create_connection
             fileno = os_dup(sock.fileno())
+
             pipe._open(fileno)
         except:
             pipe._close()
@@ -1628,8 +1660,10 @@ cdef class Loop:
             waiter = self._new_future()
             tr = UnixTransport.new(self, protocol, None, waiter)
             try:
-                # libuv will make socket non-blocking
+                # See a comment on os_dup in create_connection
                 fileno = os_dup(sock.fileno())
+
+                # libuv will make socket non-blocking
                 tr._open(fileno)
                 tr._attach_fileobj(sock)
                 tr._init_protocol()
@@ -1921,7 +1955,9 @@ cdef class Loop:
         if sock.type != uv.SOCK_STREAM:
             raise ValueError('invalid socket type, SOCK_STREAM expected')
 
-        fileno = sock.fileno()
+        # See a comment on os_dup in create_connection
+        fileno = os_dup(sock.fileno())
+
         app_protocol = protocol_factory()
         waiter = self._new_future()
         transport_waiter = None
@@ -2067,6 +2103,7 @@ cdef class Loop:
         ReadTransport interface."""
         cdef:
             ReadUnixTransport transp
+            # See a comment on os_dup in create_connection
             int fileno = os_dup(pipe.fileno())
 
         waiter = self._new_future()
@@ -2092,6 +2129,7 @@ cdef class Loop:
         WriteTransport interface."""
         cdef:
             WriteUnixTransport transp
+            # See a comment on os_dup in create_connection
             int fileno = os_dup(pipe.fileno())
 
         waiter = self._new_future()
