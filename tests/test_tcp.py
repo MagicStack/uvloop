@@ -490,6 +490,13 @@ class _TestTCP:
             t, p = await self.loop.create_connection(
                 lambda: asyncio.Protocol(), *addr)
 
+            if hasattr(t, 'get_protocol'):
+                p2 = asyncio.Protocol()
+                self.assertIs(t.get_protocol(), p)
+                t.set_protocol(p2)
+                self.assertIs(t.get_protocol(), p2)
+                t.set_protocol(p)
+
             self.assertFalse(t._paused)
             t.pause_reading()
             self.assertTrue(t._paused)

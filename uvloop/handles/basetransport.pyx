@@ -241,6 +241,12 @@ cdef class UVBaseTransport(UVSocketHandle):
         def __get__(self):
             return bool(not self._is_reading())
 
+    def get_protocol(self):
+        return self._protocol
+
+    def set_protocol(self, protocol):
+        self._set_protocol(protocol)
+
     def _force_close(self, exc):
         # Used by SSLProto.  Might be removed in the future.
         if self._conn_lost or self._closed:

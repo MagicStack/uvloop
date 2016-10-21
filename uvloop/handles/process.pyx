@@ -570,6 +570,12 @@ cdef class UVProcessTransport(UVProcess):
 
         return handle
 
+    def get_protocol(self):
+        return self._protocol
+
+    def set_protocol(self, protocol):
+        self._protocol = protocol
+
     def get_pid(self):
         return self._pid
 
