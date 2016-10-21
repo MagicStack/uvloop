@@ -17,3 +17,4 @@ import threading
 import traceback
 import time
 import warnings
+import weakref

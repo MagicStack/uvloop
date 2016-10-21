@@ -470,86 +470,6 @@ class _TestTCP:
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
 
-    def test_transport_get_extra_info(self):
-        fut = asyncio.Future(loop=self.loop)
-
-        async def handle_client(reader, writer):
-            with self.assertRaises(asyncio.IncompleteReadError):
-                data = await reader.readexactly(4)
-            writer.close()
-
-            # Previously, when we used socket.fromfd to create a socket
-            # for UVTransports (to make get_extra_info() work), a duplicate
-            # of the socket was created, preventing UVTransport from being
-            # properly closed.
-            # This test ensures that server handle will receive an EOF
-            # and finish the request.
-            fut.set_result(None)
-
-        async def test_client(addr):
-            t, p = await self.loop.create_connection(
-                lambda: asyncio.Protocol(), *addr)
-
-            if hasattr(t, 'get_protocol'):
-                p2 = asyncio.Protocol()
-                self.assertIs(t.get_protocol(), p)
-                t.set_protocol(p2)
-                self.assertIs(t.get_protocol(), p2)
-                t.set_protocol(p)
-
-            self.assertFalse(t._paused)
-            t.pause_reading()
-            self.assertTrue(t._paused)
-            t.resume_reading()
-            self.assertFalse(t._paused)
-
-            sock = t.get_extra_info('socket')
-            self.assertIs(sock, t.get_extra_info('socket'))
-            sockname = sock.getsockname()
-            peername = sock.getpeername()
-
-            # Test that adding a writer on the returned socket
-            # does not crash uvloop.  aiohttp does that to implement
-            # sendfile, for instance.
-            self.loop.add_writer(sock.fileno(), lambda: None)
-            self.loop.remove_writer(sock.fileno())
-
-            self.assertTrue(isinstance(sock, socket.socket))
-            self.assertEqual(t.get_extra_info('sockname'),
-                             sockname)
-            self.assertEqual(t.get_extra_info('peername'),
-                             peername)
-
-            t.write(b'OK')  # We want server to fail.
-
-            self.assertFalse(t._closing)
-            t.abort()
-            self.assertTrue(t._closing)
-
-            await fut
-
-            # Test that peername and sockname are available after
-            # the transport is closed.
-            self.assertEqual(t.get_extra_info('peername'),
-                             peername)
-            self.assertEqual(t.get_extra_info('sockname'),
-                             sockname)
-
-        async def start_server():
-            srv = await asyncio.start_server(
-                handle_client,
-                '127.0.0.1', 0,
-                family=socket.AF_INET,
-                loop=self.loop)
-
-            addr = srv.sockets[0].getsockname()
-            await test_client(addr)
-
-            srv.close()
-            await srv.wait_closed()
-
-        self.loop.run_until_complete(start_server())
-
     def test_tcp_handle_exception_in_connection_made(self):
         # Test that if connection_made raises an exception,
         # 'create_connection' still returns.
@@ -597,6 +517,92 @@ class _TestTCP:
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
+
+    def test_transport_get_extra_info(self):
+        # This tests is only for uvloop.  asyncio should pass it
+        # too in Python 3.6.
+
+        fut = asyncio.Future(loop=self.loop)
+
+        async def handle_client(reader, writer):
+            with self.assertRaises(asyncio.IncompleteReadError):
+                data = await reader.readexactly(4)
+            writer.close()
+
+            # Previously, when we used socket.fromfd to create a socket
+            # for UVTransports (to make get_extra_info() work), a duplicate
+            # of the socket was created, preventing UVTransport from being
+            # properly closed.
+            # This test ensures that server handle will receive an EOF
+            # and finish the request.
+            fut.set_result(None)
+
+        async def test_client(addr):
+            t, p = await self.loop.create_connection(
+                lambda: asyncio.Protocol(), *addr)
+
+            if hasattr(t, 'get_protocol'):
+                p2 = asyncio.Protocol()
+                self.assertIs(t.get_protocol(), p)
+                t.set_protocol(p2)
+                self.assertIs(t.get_protocol(), p2)
+                t.set_protocol(p)
+
+            self.assertFalse(t._paused)
+            t.pause_reading()
+            self.assertTrue(t._paused)
+            t.resume_reading()
+            self.assertFalse(t._paused)
+
+            sock = t.get_extra_info('socket')
+            self.assertIs(sock, t.get_extra_info('socket'))
+            sockname = sock.getsockname()
+            peername = sock.getpeername()
+
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.add_writer(sock.fileno(), lambda: None)
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.remove_writer(sock.fileno())
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.add_reader(sock.fileno(), lambda: None)
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.remove_reader(sock.fileno())
+
+            self.assertTrue(isinstance(sock, socket.socket))
+            self.assertEqual(t.get_extra_info('sockname'),
+                             sockname)
+            self.assertEqual(t.get_extra_info('peername'),
+                             peername)
+
+            t.write(b'OK')  # We want server to fail.
+
+            self.assertFalse(t._closing)
+            t.abort()
+            self.assertTrue(t._closing)
+
+            await fut
+
+            # Test that peername and sockname are available after
+            # the transport is closed.
+            self.assertEqual(t.get_extra_info('peername'),
+                             peername)
+            self.assertEqual(t.get_extra_info('sockname'),
+                             sockname)
+
+        async def start_server():
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop)
+
+            addr = srv.sockets[0].getsockname()
+            await test_client(addr)
+
+            srv.close()
+            await srv.wait_closed()
+
+        self.loop.run_until_complete(start_server())
 
     def test_create_server_float_backlog(self):
         # asyncio spits out a warning we cannot suppress

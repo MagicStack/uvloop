@@ -18,10 +18,13 @@ cdef extern from *:
 
 
 cdef class UVHandle
+cdef class UVSocketHandle(UVHandle)
 
 cdef class UVAsync(UVHandle)
 cdef class UVTimer(UVHandle)
 cdef class UVIdle(UVHandle)
+
+cdef class UVBaseTransport(UVSocketHandle)
 
 ctypedef object (*method_t)(object)
 ctypedef object (*method1_t)(object, object)
@@ -51,6 +54,8 @@ cdef class Loop:
         object _ready
         set _queued_streams
         Py_ssize_t _ready_len
+
+        object _transports
 
         dict _signal_handlers
         object _ssock
@@ -150,6 +155,9 @@ cdef class Loop:
                         object ssl,
                         bint reuse_port,
                         object backlog)
+
+    cdef _track_transport(self, UVBaseTransport transport)
+    cdef _ensure_fd_no_transport(self, fd)
 
     cdef _add_reader(self, fd, Handle handle)
     cdef _remove_reader(self, fd)

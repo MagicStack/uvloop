@@ -314,28 +314,6 @@ class _TestUnix:
         self.assertIn(excs[0].__class__,
                       (BrokenPipeError, ConnectionResetError))
 
-    def test_transport_fromsock_get_extra_info(self):
-        async def test(sock):
-            t, _ = await self.loop.create_unix_connection(
-                asyncio.Protocol,
-                None,
-                sock=sock)
-
-            sock = t.get_extra_info('socket')
-            self.assertIs(t.get_extra_info('socket'), sock)
-
-            # Test that adding a writer on the returned socket
-            # does not crash uvloop.  aiohttp does that to implement
-            # sendfile, for instance.
-            self.loop.add_writer(sock.fileno(), lambda: None)
-            self.loop.remove_writer(sock.fileno())
-
-            t.close()
-
-        s1, s2 = socket.socketpair(socket.AF_UNIX)
-        with s1, s2:
-            self.loop.run_until_complete(test(s1))
-
     def test_transport_unclosed_warning(self):
         async def test(sock):
             return await self.loop.create_unix_connection(
@@ -351,7 +329,30 @@ class _TestUnix:
 
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
-    pass
+
+    def test_transport_fromsock_get_extra_info(self):
+        # This tests is only for uvloop.  asyncio should pass it
+        # too in Python 3.6.
+
+        async def test(sock):
+            t, _ = await self.loop.create_unix_connection(
+                asyncio.Protocol,
+                None,
+                sock=sock)
+
+            sock = t.get_extra_info('socket')
+            self.assertIs(t.get_extra_info('socket'), sock)
+
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.add_writer(sock.fileno(), lambda: None)
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
+                self.loop.remove_writer(sock.fileno())
+
+            t.close()
+
+        s1, s2 = socket.socketpair(socket.AF_UNIX)
+        with s1, s2:
+            self.loop.run_until_complete(test(s1))
 
 
 class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):

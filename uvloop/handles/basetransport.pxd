@@ -17,6 +17,8 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         uint32_t _conn_lost
 
+        object __weakref__
+
     # All "inline" methods are final
 
     cdef inline _set_write_buffer_limits(self, int high=*, int low=*)

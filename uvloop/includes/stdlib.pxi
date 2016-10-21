@@ -18,6 +18,7 @@ import threading
 import traceback
 import time
 import warnings
+import weakref
 
 
 cdef aio_get_event_loop = asyncio.get_event_loop
@@ -127,10 +128,12 @@ cdef tb_format_list = traceback.format_list
 
 cdef warnings_warn = warnings.warn
 
+cdef weakref_WeakValueDictionary = weakref.WeakValueDictionary
+
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections, errno
 del functools, inspect, itertools, socket, os, threading
 del std_signal, subprocess, ssl
-del time, traceback, warnings
+del time, traceback, warnings, weakref

@@ -32,6 +32,7 @@ cdef extern from "uv.h" nogil:
     cdef int UV_ESHUTDOWN
     cdef int UV_ESRCH
     cdef int UV_ETIMEDOUT
+    cdef int UV_EBADF
 
     cdef int UV_EAI_ADDRFAMILY
     cdef int UV_EAI_AGAIN

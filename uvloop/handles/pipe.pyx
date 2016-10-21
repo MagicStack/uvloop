@@ -30,7 +30,7 @@ cdef __pipe_open(UVStream handle, int fd):
 
 
 cdef __pipe_get_socket(UVSocketHandle handle):
-    fileno = os_dup(handle._fileno())
+    fileno = handle._fileno()
     return socket_socket(uv.AF_UNIX, uv.SOCK_STREAM, 0, fileno)
 
 

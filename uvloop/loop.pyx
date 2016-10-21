@@ -65,6 +65,8 @@ cdef class Loop:
         self._running = 0
         self._stopping = 0
 
+        self._transports = weakref_WeakValueDictionary()
+
         self._timers = set()
         self._polls = dict()
 
@@ -491,6 +493,21 @@ cdef class Loop:
 
     cdef inline _new_future(self):
         return uvloop_Future(self)
+
+    cdef _track_transport(self, UVBaseTransport transport):
+        self._transports[transport._fileno()] = transport
+
+    cdef _ensure_fd_no_transport(self, fd):
+        cdef UVBaseTransport tr
+        try:
+            tr = <UVBaseTransport>(self._transports[fd])
+        except KeyError:
+            pass
+        else:
+            if tr._is_alive():
+                raise RuntimeError(
+                    'File descriptor {!r} is used by transport {!r}'.format(
+                        fd, tr))
 
     cdef inline _add_reader(self, fd, Handle handle):
         cdef:
@@ -1292,7 +1309,6 @@ cdef class Loop:
 
             # See a comment on os_dup in create_connection
             fileno = os_dup(sock.fileno())
-
             try:
                 tcp._open(fileno)
                 tcp._attach_fileobj(sock)
@@ -1792,22 +1808,26 @@ cdef class Loop:
 
     def add_reader(self, fd, callback, *args):
         """Add a reader callback."""
+        self._ensure_fd_no_transport(fd)
         if len(args) == 0:
             args = None
         self._add_reader(fd, new_Handle(self, callback, args))
 
     def remove_reader(self, fd):
         """Remove a reader callback."""
+        self._ensure_fd_no_transport(fd)
         self._remove_reader(fd)
 
     def add_writer(self, fd, callback, *args):
         """Add a writer callback.."""
+        self._ensure_fd_no_transport(fd)
         if len(args) == 0:
             args = None
         self._add_writer(fd, new_Handle(self, callback, args))
 
     def remove_writer(self, fd):
         """Remove a writer callback."""
+        self._ensure_fd_no_transport(fd)
         self._remove_writer(fd)
 
     def sock_recv(self, sock, n):
@@ -2274,7 +2294,7 @@ cdef class Loop:
             sock.setblocking(False)
             udp = UDPTransport.__new__(UDPTransport)
             udp._init(self, uv.AF_UNSPEC)
-            udp.open(sock.family, sock.fileno())
+            udp.open(sock.family, os_dup(sock.fileno()))
             udp._attach_fileobj(sock)
         else:
             reuse_address = bool(reuse_address)

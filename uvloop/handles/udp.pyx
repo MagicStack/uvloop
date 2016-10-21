@@ -187,7 +187,7 @@ cdef class UDPTransport(UVBaseTransport):
             raise RuntimeError(
                 'UDPTransport.family is undefined; cannot create python socket')
 
-        fileno = os_dup(self._fileno())
+        fileno = self._fileno()
         return socket_socket(self._family, uv.SOCK_STREAM, 0, fileno)
 
     cdef _send(self, object data, object addr):

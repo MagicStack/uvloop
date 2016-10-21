@@ -42,7 +42,7 @@ cdef __tcp_get_socket(UVSocketHandle handle):
         int err
         system.sockaddr_storage buf
 
-    fileno = os_dup(handle._fileno())
+    fileno = handle._fileno()
 
     err = uv.uv_tcp_getsockname(<uv.uv_tcp_t*>handle._handle,
                                 <system.sockaddr*>&buf,

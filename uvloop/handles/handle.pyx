@@ -239,9 +239,9 @@ cdef class UVSocketHandle(UVHandle):
             return None
 
         self.__cached_socket = self._new_socket()
-        if self.__cached_socket.fileno() == self._fileno():
-            raise RuntimeError('new socket shares fileno with the transport')
-
+        IF DEBUG:
+            # We don't "dup" for the "__cached_socket".
+            assert self.__cached_socket.fileno() == self._fileno()
         return self.__cached_socket
 
     cdef inline _attach_fileobj(self, object file):
@@ -253,10 +253,7 @@ cdef class UVSocketHandle(UVHandle):
     cdef _close(self):
         try:
             if self.__cached_socket is not None:
-                try:
-                    self.__cached_socket.close()
-                except OSError:
-                    pass
+                self.__cached_socket.detach()
                 self.__cached_socket = None
 
             if self._fileobj is not None:
