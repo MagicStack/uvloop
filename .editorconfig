@@ -1,0 +1,12 @@
+root = true
+
+[*]
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[Makefile]
+indent_style = tab
+
+[*.{py,pyx,pxd,pxi,yml,h}]
+indent_size = 4
+indent_style = space
