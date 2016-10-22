@@ -2018,7 +2018,7 @@ cdef class Loop:
         if executor is None:
             executor = self._default_executor
             if executor is None:
-                executor = cc_ThreadPoolExecutor(MAX_THREADPOOL_WORKERS)
+                executor = cc_ThreadPoolExecutor()
                 self._default_executor = executor
 
         new_fut = self._new_future()
