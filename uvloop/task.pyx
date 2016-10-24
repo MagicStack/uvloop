@@ -152,7 +152,7 @@ cdef class BaseTask(BaseFuture):
                 else:
                     self._raise_yield(result)
 
-            elif result_type is aio_Future or isinstance(result, aio_Future):
+            elif result_type is aio_Future or isfuture(result):
                 # Yielded Future must come from Future.__iter__().
                 if result._loop is not self._loop:
                     self._raise_wrong_loop(result)

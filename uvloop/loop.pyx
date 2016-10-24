@@ -40,6 +40,13 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 
+cdef isfuture(obj):
+    if aio_isfuture is None:
+        return isinstance(obj, aio_Future)
+    else:
+        return getattr(obj, '_asyncio_future_blocking', None) is not None
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -1115,7 +1122,7 @@ cdef class Loop:
         """
         self._check_closed()
 
-        new_task = not isinstance(future, aio_Future)
+        new_task = not isfuture(future)
         future = aio_ensure_future(future, loop=self)
         if new_task:
             # An exception is raised if the future didn't complete, so there

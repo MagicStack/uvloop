@@ -37,6 +37,7 @@ cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
 cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
 cdef aio_debug_wrapper = asyncio.coroutines.debug_wrapper
+cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable

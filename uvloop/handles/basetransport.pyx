@@ -200,7 +200,7 @@ cdef class UVBaseTransport(UVSocketHandle):
         (<Server>server)._attach()
 
     cdef inline _set_waiter(self, object waiter):
-        if waiter is not None and not isinstance(waiter, aio_Future):
+        if waiter is not None and not isfuture(waiter):
             raise TypeError(
                 'invalid waiter object {!r}, expected asyncio.Future'.
                     format(waiter))

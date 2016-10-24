@@ -45,9 +45,9 @@ cdef _chain_future(source, destination):
     If destination is cancelled, source gets cancelled too.
     Compatible with both asyncio.Future and concurrent.futures.Future.
     """
-    if not isinstance(source, (aio_Future, cc_Future)):
+    if not isfuture(source) and not isinstance(source, cc_Future):
         raise TypeError('A future is required for source argument')
-    if not isinstance(destination, (aio_Future, cc_Future)):
+    if not isfuture(destination) and not isinstance(destination, cc_Future):
         raise TypeError('A future is required for destination argument')
 
     source_loop = None
@@ -58,18 +58,16 @@ cdef _chain_future(source, destination):
 
     if source_type is uvloop_Future:
         source_loop = (<BaseFuture>source)._loop
-    elif source_type is not cc_Future and \
-            isinstance(source, aio_Future):
+    elif source_type is not cc_Future and isfuture(source):
         source_loop = source._loop
 
     if dest_type is uvloop_Future:
         dest_loop = (<BaseFuture>destination)._loop
-    elif dest_type is not cc_Future and \
-            isinstance(destination, aio_Future):
+    elif dest_type is not cc_Future and isfuture(destination):
         dest_loop = destination._loop
 
     def _set_state(future, other):
-        if isinstance(future, aio_Future):
+        if isfuture(future):
             _copy_future_state(other, future)
         else:
             _set_concurrent_future_state(future, other)
@@ -95,7 +93,7 @@ def _wrap_future(future, *, loop=None):
     # Don't use this function -- it's here for tests purposes only
     # and can be removed in future versions of uvloop.
 
-    if isinstance(future, aio_Future):
+    if isfuture(future):
         return future
     assert isinstance(future, cc_Future), \
         'concurrent.futures.Future is expected, got {!r}'.format(future)
