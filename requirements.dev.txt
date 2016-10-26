@@ -1,2 +1,2 @@
-Cython>=0.24
+Cython==0.24.1
 Sphinx>=1.4.1
