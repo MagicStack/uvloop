@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import gc
-import uvloop
 import os.path
 import socket as socket_module
 
@@ -92,6 +91,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.uvloop:
+        import uvloop
         loop = uvloop.new_event_loop()
         print('using UVLoop')
     else:
