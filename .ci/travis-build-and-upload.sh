@@ -8,6 +8,10 @@ if [ -z "${TRAVIS_TAG}" ]; then
     exit 0
 fi
 
+if [ "${PYTHON_VERSION}" == "3.6-dev" ]; then
+    exit 0
+fi
+
 
 pushd $(dirname $0) > /dev/null
 _root=$(dirname $(pwd -P))
