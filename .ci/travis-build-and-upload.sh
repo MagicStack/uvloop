@@ -8,7 +8,8 @@ if [ -z "${TRAVIS_TAG}" ]; then
     exit 0
 fi
 
-if [ "${TRAVIS_PYTHON_VERSION}" == "3.6-dev" -o "${TRAVIS_PYTHON_VERSION}" == "3.5-dev" ]; then
+release_level=$(python -c 'import sys; print(sys.version_info.releaselevel)')
+if [ "${release_level}" != "final" ]; then
     exit 0
 fi
 
