@@ -8,7 +8,7 @@ if [ -z "${TRAVIS_TAG}" ]; then
     exit 0
 fi
 
-if [ "${PYTHON_VERSION}" == "3.6-dev" ]; then
+if [ "${PYTHON_VERSION}" == "3.6-dev" -o "${PYTHON_VERSION}" == "3.5-dev" ]; then
     exit 0
 fi
 
