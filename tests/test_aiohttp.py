@@ -39,7 +39,7 @@ class _TestAioHTTP:
         async def test():
             for addr in (('localhost', port),
                          ('127.0.0.1', port)):
-                with aiohttp.ClientSession() as client:
+                async with aiohttp.ClientSession() as client:
                     async with client.get('http://{}:{}'.format(*addr)) as r:
                         self.assertEqual(r.status, 200)
                         self.assertEqual(len(await r.text()), len(PAYLOAD))
