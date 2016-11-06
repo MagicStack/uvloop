@@ -7,8 +7,13 @@ import unittest
 
 if sys.platform in ('win32', 'cygwin', 'cli'):
     raise RuntimeError('uvloop does not support Windows at the moment')
-if sys.version_info < (3, 5):
+
+vi = sys.version_info
+if vi < (3, 5):
     raise RuntimeError('uvloop requires Python 3.5 or greater')
+if vi[:2] == (3, 6):
+    if vi.releaselevel == 'beta' and vi.serial < 3:
+        raise RuntimeError('uvloop requires Python 3.5 or 3.6b3 or greater')
 
 
 from setuptools import setup, Extension
