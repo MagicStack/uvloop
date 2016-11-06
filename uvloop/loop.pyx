@@ -499,7 +499,7 @@ cdef class Loop:
                 "than the current one")
 
     cdef inline _new_future(self):
-        return uvloop_Future(self)
+        return future_factory(loop=self)
 
     cdef _track_transport(self, UVBaseTransport transport):
         self._transports[transport._fileno()] = transport
@@ -1086,7 +1086,7 @@ cdef class Loop:
         """
         self._check_closed()
         if self._task_factory is None:
-            task = uvloop_Task(coro, self)
+            task = task_factory(coro, loop=self)
         else:
             task = self._task_factory(self, coro)
         return task
@@ -2450,7 +2450,6 @@ include "server.pyx"
 
 include "future.pyx"
 include "chain_futs.pyx"
-include "task.pyx"
 
 
 # Used in UVProcess

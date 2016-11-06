@@ -53,17 +53,14 @@ cdef _chain_future(source, destination):
     source_loop = None
     dest_loop = None
 
-    source_type = type(source)
-    dest_type = type(destination)
-
-    if source_type is uvloop_Future:
+    if _is_uvloop_future(source):
         source_loop = (<BaseFuture>source)._loop
-    elif source_type is not cc_Future and isfuture(source):
+    elif isfuture(source):
         source_loop = source._loop
 
-    if dest_type is uvloop_Future:
+    if _is_uvloop_future(destination):
         dest_loop = (<BaseFuture>destination)._loop
-    elif dest_type is not cc_Future and isfuture(destination):
+    elif isfuture(destination):
         dest_loop = destination._loop
 
     def _set_state(future, other):
