@@ -44,7 +44,7 @@ cdef isfuture(obj):
     if aio_isfuture is None:
         return isinstance(obj, aio_Future)
     else:
-        return getattr(obj, '_asyncio_future_blocking', None) is not None
+        return aio_isfuture(obj)
 
 
 @cython.no_gc_clear
