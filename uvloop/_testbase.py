@@ -2,6 +2,7 @@
 
 
 import asyncio
+import asyncio.events
 import collections
 import contextlib
 import gc
@@ -68,11 +69,19 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
     def setUp(self):
         self.loop = self.new_loop()
-        asyncio.set_event_loop(self.loop)
+        asyncio.set_event_loop(None)
         self._check_unclosed_resources_in_debug = True
+
+        if hasattr(asyncio, '_get_running_loop'):
+            # Disable `_get_running_loop`.
+            self._get_running_loop = asyncio.events._get_running_loop
+            asyncio.events._get_running_loop = lambda: None
 
     def tearDown(self):
         self.loop.close()
+
+        if hasattr(asyncio, '_get_running_loop'):
+            asyncio.events._get_running_loop = self._get_running_loop
 
         if not self._check_unclosed_resources_in_debug:
             return
@@ -198,6 +207,17 @@ class UVTestCase(BaseTestCase):
 
 
 class AIOTestCase(BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        watcher = asyncio.SafeChildWatcher()
+        watcher.attach_loop(self.loop)
+        asyncio.set_child_watcher(watcher)
+
+    def tearDown(self):
+        asyncio.set_child_watcher(None)
+        super().tearDown()
 
     def new_loop(self):
         return asyncio.new_event_loop()

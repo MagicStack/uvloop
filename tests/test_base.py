@@ -149,9 +149,9 @@ class _TestBase:
         # libuv cached time.
 
         async def main():
-            await asyncio.sleep(0.001)
+            await asyncio.sleep(0.001, loop=self.loop)
             time.sleep(0.01)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01, loop=self.loop)
 
         started = time.monotonic()
         self.loop.run_until_complete(main())

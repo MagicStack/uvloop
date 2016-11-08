@@ -21,7 +21,7 @@ class _TestExecutors:
                     coros.append(self.loop.run_in_executor(pool, fib, i))
                 res = await asyncio.gather(*coros, loop=self.loop)
             self.assertEqual(res, fib10)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01, loop=self.loop)
 
         fib10 = [fib(i) for i in range(10)]
         self.loop.run_until_complete(run())

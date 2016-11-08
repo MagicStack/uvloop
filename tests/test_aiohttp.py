@@ -6,6 +6,7 @@ except ImportError:
 else:
     skip_tests = False
 
+import asyncio
 import unittest
 
 from uvloop import _testbase as tb
@@ -28,6 +29,8 @@ class _TestAioHTTP:
                 response.send_headers()
                 response.write(PAYLOAD)
                 await response.write_eof()
+
+        asyncio.set_event_loop(self.loop)
 
         f = self.loop.create_server(
             lambda: HttpRequestHandler(keepalive_timeout=1),

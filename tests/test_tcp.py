@@ -708,7 +708,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             self.loop.create_task(run())
             self.loop.run_until_complete(srv.wait_closed())
             gc.collect()
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
 
         # Since one TCPTransport handle wasn't closed correctly,
         # we need to disable this check:
