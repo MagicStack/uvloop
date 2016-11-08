@@ -554,3 +554,30 @@ class TestPolicy(unittest.TestCase):
 
         finally:
             asyncio.set_event_loop_policy(None)
+
+    @unittest.skipUnless(hasattr(asyncio, '_get_running_loop'),
+                         'No asyncio._get_running_loop')
+    def test_get_event_loop_returns_running_loop(self):
+        class Policy(asyncio.DefaultEventLoopPolicy):
+            def get_event_loop(self):
+                raise NotImplementedError
+
+        loop = None
+
+        old_policy = asyncio.get_event_loop_policy()
+        try:
+            asyncio.set_event_loop_policy(Policy())
+            loop = uvloop.new_event_loop()
+            self.assertIs(asyncio._get_running_loop(), None)
+
+            async def func():
+                self.assertIs(asyncio.get_event_loop(), loop)
+                self.assertIs(asyncio._get_running_loop(), loop)
+
+            loop.run_until_complete(func())
+        finally:
+            asyncio.set_event_loop_policy(old_policy)
+            if loop is not None:
+                loop.close()
+
+        self.assertIs(asyncio._get_running_loop(), None)
