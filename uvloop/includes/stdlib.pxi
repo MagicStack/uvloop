@@ -38,6 +38,8 @@ cdef aio_Protocol = asyncio.Protocol
 cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
 cdef aio_debug_wrapper = asyncio.coroutines.debug_wrapper
 cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
+cdef aio_get_running_loop = getattr(asyncio, '_get_running_loop', None)
+cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable

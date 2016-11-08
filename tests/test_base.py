@@ -530,3 +530,27 @@ class TestPolicy(unittest.TestCase):
                 loop.close()
         finally:
             asyncio.set_event_loop_policy(None)
+
+    @unittest.skipUnless(hasattr(asyncio, '_get_running_loop'),
+                         'No asyncio._get_running_loop')
+    def test_running_loop_within_a_loop(self):
+        @asyncio.coroutine
+        def runner(loop):
+            loop.run_forever()
+
+        try:
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+            loop = asyncio.new_event_loop()
+            outer_loop = asyncio.new_event_loop()
+
+            try:
+                with self.assertRaisesRegex(RuntimeError,
+                                            'while another loop is running'):
+                    outer_loop.run_until_complete(runner(loop))
+            finally:
+                loop.close()
+                outer_loop.close()
+
+        finally:
+            asyncio.set_event_loop_policy(None)

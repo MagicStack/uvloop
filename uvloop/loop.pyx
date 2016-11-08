@@ -322,7 +322,12 @@ cdef class Loop:
             raise RuntimeError('unable to start the loop; it was closed')
 
         if self._running == 1:
-            raise RuntimeError('Event loop is running.')
+            raise RuntimeError('this event loop is already running.')
+
+        if (aio_get_running_loop is not None and
+                aio_get_running_loop() is not None):
+            raise RuntimeError(
+                'Cannot run the event loop while another loop is running')
 
         if self._signal_handlers is None:
             self._setup_signals()
@@ -337,7 +342,13 @@ cdef class Loop:
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
 
-        self.__run(mode)
+        if aio_set_running_loop is not None:
+            aio_set_running_loop(self)
+        try:
+            self.__run(mode)
+        finally:
+            if aio_set_running_loop is not None:
+                aio_set_running_loop(None)
 
         self.handler_check__exec_writes.stop()
         self.handler_idle.stop()
