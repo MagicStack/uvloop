@@ -126,8 +126,12 @@ cdef __static_getaddrinfo(object host, object port,
     if proto not in {0, uv.IPPROTO_TCP, uv.IPPROTO_UDP}:
         raise LookupError
 
-    type &= ~_SOCKET_TYPE_MASK
     if type == uv.SOCK_STREAM:
+        # Linux only:
+        #    getaddrinfo() can raise when socket.type is a bit mask.
+        #    So if socket.type is a bit mask of SOCK_STREAM, and say
+        #    SOCK_NONBLOCK, we simply return None, which will trigger
+        #    a call to getaddrinfo() letting it process this request.
         proto = uv.IPPROTO_TCP
     elif type == uv.SOCK_DGRAM:
         proto = uv.IPPROTO_UDP

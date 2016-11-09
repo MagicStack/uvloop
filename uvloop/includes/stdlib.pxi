@@ -83,13 +83,6 @@ cdef int socket_EAI_SERVICE    = getattr(socket, 'EAI_SERVICE', -1)
 cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
 
 
-cdef int _SOCKET_TYPE_MASK = 0
-if hasattr(socket, 'SOCK_NONBLOCK'):
-    _SOCKET_TYPE_MASK |= socket.SOCK_NONBLOCK
-if hasattr(socket, 'SOCK_CLOEXEC'):
-    _SOCKET_TYPE_MASK |= socket.SOCK_CLOEXEC
-
-
 cdef str os_name = os.name
 cdef os_environ = os.environ
 cdef os_dup = os.dup

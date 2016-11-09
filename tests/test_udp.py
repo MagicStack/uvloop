@@ -131,7 +131,14 @@ class _TestUDP:
 
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
-    pass
+
+    def test_create_datagram_endpoint_wrong_sock(self):
+        sock = socket.socket(socket.AF_INET)
+        with sock:
+            coro = self.loop.create_datagram_endpoint(lambda: None, sock=sock)
+            with self.assertRaisesRegex(ValueError,
+                                        'A UDP Socket was expected'):
+                self.loop.run_until_complete(coro)
 
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):

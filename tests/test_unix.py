@@ -2,6 +2,7 @@ import asyncio
 import os
 import socket
 import tempfile
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -353,6 +354,33 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
         s1, s2 = socket.socketpair(socket.AF_UNIX)
         with s1, s2:
             self.loop.run_until_complete(test(s1))
+
+    def test_create_unix_server_path_dgram(self):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        with sock:
+            coro = self.loop.create_unix_server(lambda: None, path=None,
+                                                sock=sock)
+            with self.assertRaisesRegex(ValueError,
+                                        'A UNIX Domain Stream.*was expected'):
+                self.loop.run_until_complete(coro)
+
+    @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'),
+                         'no socket.SOCK_NONBLOCK (linux only)')
+    def test_create_unix_server_path_stream_bittype(self):
+        sock = socket.socket(
+            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
+        with tempfile.NamedTemporaryFile() as file:
+            fn = file.name
+        try:
+            with sock:
+                sock.bind(fn)
+                coro = self.loop.create_unix_server(lambda: None, path=None,
+                                                    sock=sock)
+                srv = self.loop.run_until_complete(coro)
+                srv.close()
+                self.loop.run_until_complete(srv.wait_closed())
+        finally:
+            os.unlink(fn)
 
 
 class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):

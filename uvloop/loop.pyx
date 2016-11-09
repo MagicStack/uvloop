@@ -40,6 +40,24 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 
+cdef _is_sock_ip(sock_family):
+    return sock_family == uv.AF_INET or sock_family == uv.AF_INET6
+
+
+cdef _is_sock_stream(sock_type):
+    # Linux's socket.type is a bitmask that can include extra info
+    # about socket, therefore we can't do simple
+    # `sock_type == socket.SOCK_STREAM`.
+    return (sock_type & uv.SOCK_STREAM) == uv.SOCK_STREAM
+
+
+cdef _is_sock_dgram(sock_type):
+    # Linux's socket.type is a bitmask that can include extra info
+    # about socket, therefore we can't do simple
+    # `sock_type == socket.SOCK_DGRAM`.
+    return (sock_type & uv.SOCK_DGRAM) == uv.SOCK_DGRAM
+
+
 cdef isfuture(obj):
     if aio_isfuture is None:
         return isinstance(obj, aio_Future)
@@ -1322,6 +1340,10 @@ cdef class Loop:
         else:
             if sock is None:
                 raise ValueError('Neither host/port nor sock were specified')
+            if (not _is_sock_stream(sock.type) or
+                    not _is_sock_ip(sock.family)):
+                raise ValueError(
+                    'A TCP Stream Socket was expected, got {!r}'.format(sock))
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
                                 uv.AF_UNSPEC)
 
@@ -1505,6 +1527,10 @@ cdef class Loop:
             if sock is None:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
+            if (not _is_sock_stream(sock.type) or
+                    not _is_sock_ip(sock.family)):
+                raise ValueError(
+                    'A TCP Stream Socket was expected, got {!r}'.format(sock))
 
             waiter = self._new_future()
             tr = TCPTransport.new(self, protocol, None, waiter)
@@ -1578,8 +1604,6 @@ cdef class Loop:
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
 
-        pipe = UnixServer.new(self, protocol_factory, server, ssl)
-
         if path is not None:
             if sock is not None:
                 raise ValueError(
@@ -1594,7 +1618,6 @@ cdef class Loop:
             try:
                 sock.bind(path)
             except OSError as exc:
-                pipe._close()
                 sock.close()
                 if exc.errno == errno.EADDRINUSE:
                     # Let's improve the error message by adding
@@ -1604,7 +1627,6 @@ cdef class Loop:
                 else:
                     raise
             except:
-                pipe._close()
                 sock.close()
                 raise
 
@@ -1613,10 +1635,12 @@ cdef class Loop:
                 raise ValueError(
                     'path was not specified, and no sock specified')
 
-            if sock.family != uv.AF_UNIX or sock.type != uv.SOCK_STREAM:
+            if sock.family != uv.AF_UNIX or not _is_sock_stream(sock.type):
                 raise ValueError(
                     'A UNIX Domain Stream Socket was expected, got {!r}'
                     .format(sock))
+
+        pipe = UnixServer.new(self, protocol_factory, server, ssl)
 
         try:
             # See a comment on os_dup in create_connection
@@ -1686,7 +1710,7 @@ cdef class Loop:
             if sock is None:
                 raise ValueError('no path and sock were specified')
 
-            if sock.family != uv.AF_UNIX or sock.type != uv.SOCK_STREAM:
+            if sock.family != uv.AF_UNIX or not _is_sock_stream(sock.type):
                 raise ValueError(
                     'A UNIX Domain Stream Socket was expected, got {!r}'
                     .format(sock))
@@ -1989,9 +2013,9 @@ cdef class Loop:
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
-
-        if sock.type != uv.SOCK_STREAM:
-            raise ValueError('invalid socket type, SOCK_STREAM expected')
+        if not _is_sock_stream(sock.type):
+            raise ValueError(
+                'A Stream Socket was expected, got {!r}'.format(sock))
 
         # See a comment on os_dup in create_connection
         fileno = os_dup(sock.fileno())
@@ -2296,6 +2320,9 @@ cdef class Loop:
             system.addrinfo * rai
 
         if sock is not None:
+            if not _is_sock_dgram(sock.type):
+                raise ValueError(
+                    'A UDP Socket was expected, got {!r}'.format(sock))
             if (local_addr or remote_addr or
                     family or proto or flags or
                     reuse_address or reuse_port or allow_broadcast):

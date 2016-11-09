@@ -806,6 +806,35 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         tr, _ = f.result()
         tr.close()
 
+    @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
+    def test_create_connection_wrong_sock(self):
+        sock = socket.socket(socket.AF_UNIX)
+        with sock:
+            coro = self.loop.create_connection(MyBaseProto, sock=sock)
+            with self.assertRaisesRegex(ValueError,
+                                        'A TCP Stream Socket was expected'):
+                self.loop.run_until_complete(coro)
+
+    @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
+    def test_create_server_wrong_sock(self):
+        sock = socket.socket(socket.AF_UNIX)
+        with sock:
+            coro = self.loop.create_server(MyBaseProto, sock=sock)
+            with self.assertRaisesRegex(ValueError,
+                                        'A TCP Stream Socket was expected'):
+                self.loop.run_until_complete(coro)
+
+    @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'),
+                         'no socket.SOCK_NONBLOCK (linux only)')
+    def test_create_server_stream_bittype(self):
+        sock = socket.socket(
+            socket.AF_INET, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
+        with sock:
+            coro = self.loop.create_server(lambda: None, sock=sock)
+            srv = self.loop.run_until_complete(coro)
+            srv.close()
+            self.loop.run_until_complete(srv.wait_closed())
+
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
     pass
