@@ -80,7 +80,7 @@ class libuv_build_ext(build_ext):
                 import Cython
             except ImportError:
                 raise RuntimeError(
-                    'please install Cython to compile asyncpg from source')
+                    'please install Cython to compile uvloop from source')
 
             if Cython.__version__ < '0.24':
                 raise RuntimeError(
