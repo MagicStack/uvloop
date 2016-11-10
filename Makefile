@@ -51,5 +51,7 @@ sdist: clean compile test sdist-libuv
 	$(PYTHON) setup.py sdist
 
 
-release: distclean compile test sdist-libuv
+# Don't change "clean" to "distclean"!  Otherwise "clean-libuv" will
+# only be called once, which will produce a broken sdist.
+release: clean compile test sdist-libuv
 	$(PYTHON) setup.py sdist bdist_wheel upload

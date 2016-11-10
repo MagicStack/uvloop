@@ -20,7 +20,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 
-VERSION = '0.6.1'
+VERSION = '0.6.5'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 
