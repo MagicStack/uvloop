@@ -20,6 +20,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 
+VERSION = '0.6.0'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 
@@ -238,7 +239,7 @@ setup(
     author='Yury Selivanov',
     author_email='yury@magic.io',
     platforms=['*nix'],
-    version='0.6.0',
+    version=VERSION,
     packages=['uvloop'],
     cmdclass={'build_ext': libuv_build_ext},
     ext_modules=[
