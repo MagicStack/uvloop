@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 import sys
 import unittest
@@ -17,12 +18,14 @@ if vi[:2] == (3, 6):
 
 
 from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
+from setuptools.command.build_ext import build_ext as build_ext
+from setuptools.command.sdist import sdist as sdist
 
 
 VERSION = '0.6.5'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
+LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
 
 
 def discover_tests():
@@ -31,7 +34,33 @@ def discover_tests():
     return test_suite
 
 
-class libuv_build_ext(build_ext):
+def _libuv_build_env():
+    env = os.environ.copy()
+
+    cur_cflags = env.get('CFLAGS', '')
+    if not re.search('-O\d', cur_cflags):
+        cur_cflags += ' -O2'
+
+    env['CFLAGS'] = (cur_cflags + ' -fPIC ' + env.get('ARCHFLAGS', ''))
+
+    return env
+
+
+def _libuv_autogen(env):
+    if not os.path.exists(os.path.join(LIBUV_DIR, 'configure')):
+        subprocess.run(
+            ['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env, check=True)
+
+
+class uvloop_sdist(sdist):
+    def run(self):
+        # Make sure sdist archive contains configure
+        # to avoid the dependency on autotools.
+        _libuv_autogen(_libuv_build_env())
+        super().run()
+
+
+class uvloop_build_ext(build_ext):
     user_options = build_ext.user_options + [
         ('cython-always', None,
             'run cythonize() even if .c files are present'),
@@ -177,31 +206,34 @@ class libuv_build_ext(build_ext):
             f.write(src)
 
     def build_libuv(self):
-        env = os.environ.copy()
+        env = _libuv_build_env()
 
-        cur_cflags = env.get('CFLAGS', '')
-        if not re.search('-O\d', cur_cflags):
-            cur_cflags += ' -O2'
+        # Make sure configure and friends are present in case
+        # we are building from a git checkout.
+        _libuv_autogen(env)
 
-        env['CFLAGS'] = (cur_cflags + ' -fPIC ' + env.get('ARCHFLAGS', ''))
-
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
-
-        if not os.path.exists(os.path.join(LIBUV_DIR, 'configure')):
-            subprocess.run(['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env,
-                           check=True)
+        # Copy the libuv tree to build/ so that its build
+        # products don't pollute sdist accidentally.
+        if os.path.exists(LIBUV_BUILD_DIR):
+            shutil.rmtree(LIBUV_BUILD_DIR)
+        shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
 
         # Sometimes pip fails to preserve the timestamps correctly,
         # in which case, make will try to run autotools again.
-        subprocess.run(['touch', 'configure.ac', 'aclocal.m4',
-                        'configure', 'Makefile.am', 'Makefile.in'],
-                       cwd=LIBUV_DIR, env=env, check=True)
+        subprocess.run(
+            ['touch', 'configure.ac', 'aclocal.m4', 'configure',
+             'Makefile.am', 'Makefile.in'],
+            cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        subprocess.run(['./configure'], cwd=LIBUV_DIR, env=env, check=True)
+        subprocess.run(
+            ['./configure'],
+            cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
+        j_flag = '-j{}'.format(os.cpu_count() or 1)
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
-        subprocess.run(['make', j_flag, c_flag],
-                       cwd=LIBUV_DIR, env=env, check=True)
+        subprocess.run(
+            ['make', j_flag, c_flag],
+            cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
     def build_extensions(self):
         if self.use_system_libuv:
@@ -212,7 +244,7 @@ class libuv_build_ext(build_ext):
                 # Support macports on Mac OS X.
                 self.compiler.add_include_dir('/opt/local/include')
         else:
-            libuv_lib = os.path.join(LIBUV_DIR, '.libs', 'libuv.a')
+            libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
             if not os.path.exists(libuv_lib):
                 self.build_libuv()
             if not os.path.exists(libuv_lib):
@@ -241,7 +273,10 @@ setup(
     platforms=['*nix'],
     version=VERSION,
     packages=['uvloop'],
-    cmdclass={'build_ext': libuv_build_ext},
+    cmdclass={
+        'sdist': uvloop_sdist,
+        'build_ext': uvloop_build_ext
+    },
     ext_modules=[
         Extension(
             "uvloop.loop",
