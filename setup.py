@@ -20,6 +20,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 
+CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 
 
@@ -30,17 +31,149 @@ def discover_tests():
 
 
 class libuv_build_ext(build_ext):
-    build_ext.user_options.extend([
-        ("use-system-libuv", None,
-         "Use the system provided libuv, instead of the bundled one")
-    ])
+    user_options = build_ext.user_options + [
+        ('cython-always', None,
+            'run cythonize() even if .c files are present'),
+        ('cython-annotate', None,
+            'Produce a colorized HTML version of the Cython source.'),
+        ('cython-directives=', None,
+            'Cythion compiler directives'),
+        ('use-system-libuv', None,
+            'Use the system provided libuv, instead of the bundled one'),
+    ]
 
-    build_ext.boolean_options.extend(["use-system-libuv"])
+    boolean_options = build_ext.boolean_options + [
+        'cython-always',
+        'cython-annotate',
+        'use-system-libuv',
+    ]
 
     def initialize_options(self):
-        build_ext.initialize_options(self)
-        if getattr(self, 'use_system_libuv', None) is None:
-            self.use_system_libuv = 0
+        super().initialize_options()
+        self.use_system_libuv = False
+        self.cython_always = False
+        self.cython_annotate = None
+        self.cython_directives = None
+
+    def finalize_options(self):
+        need_cythonize = self.cython_always
+        cfiles = {}
+
+        for extension in self.distribution.ext_modules:
+            for i, sfile in enumerate(extension.sources):
+                if sfile.endswith('.pyx'):
+                    prefix, ext = os.path.splitext(sfile)
+                    cfile = prefix + '.c'
+
+                    if os.path.exists(cfile) and not self.cython_always:
+                        extension.sources[i] = cfile
+                    else:
+                        if os.path.exists(cfile):
+                            cfiles[cfile] = os.path.getmtime(cfile)
+                        else:
+                            cfiles[cfile] = 0
+                        need_cythonize = True
+
+        if need_cythonize:
+            try:
+                import Cython
+            except ImportError:
+                raise RuntimeError(
+                    'please install Cython to compile asyncpg from source')
+
+            if Cython.__version__ < '0.24':
+                raise RuntimeError(
+                    'uvloop requires Cython version 0.24 or greater')
+
+            from Cython.Build import cythonize
+
+            directives = {}
+            if self.cython_directives:
+                for directive in self.cython_directives.split(','):
+                    k, _, v = directive.partition('=')
+                    if v.lower() == 'false':
+                        v = False
+                    if v.lower() == 'true':
+                        v = True
+
+                    directives[k] = v
+
+            self.distribution.ext_modules[:] = cythonize(
+                self.distribution.ext_modules,
+                compiler_directives=directives,
+                annotate=self.cython_annotate)
+
+            for cfile, timestamp in cfiles.items():
+                if os.path.getmtime(cfile) != timestamp:
+                    # The file was recompiled, patch
+                    self._patch_cfile(cfile)
+
+        super().finalize_options()
+
+    def _patch_cfile(self, cfile):
+        # Patch Cython 'async def' coroutines to have a 'tp_iter'
+        # slot, which makes them compatible with 'yield from' without
+        # the `asyncio.coroutine` decorator.
+
+        with open(cfile, 'rt') as f:
+            src = f.read()
+
+        src = re.sub(
+            r'''
+            \s* offsetof\(__pyx_CoroutineObject,\s*gi_weakreflist\),
+            \s* 0,
+            \s* 0,
+            \s* __pyx_Coroutine_methods,
+            \s* __pyx_Coroutine_memberlist,
+            \s* __pyx_Coroutine_getsets,
+            ''',
+
+            r'''
+            offsetof(__pyx_CoroutineObject, gi_weakreflist),
+            __Pyx_Coroutine_await, /* tp_iter */
+            0,
+            __pyx_Coroutine_methods,
+            __pyx_Coroutine_memberlist,
+            __pyx_Coroutine_getsets,
+            ''',
+
+            src, flags=re.X)
+
+        # Fix a segfault in Cython.
+        src = re.sub(
+            r'''
+            \s* __Pyx_Coroutine_get_qualname\(__pyx_CoroutineObject\s+\*self\)
+            \s* {
+            \s* Py_INCREF\(self->gi_qualname\);
+            ''',
+
+            r'''
+            __Pyx_Coroutine_get_qualname(__pyx_CoroutineObject *self)
+            {
+                if (self->gi_qualname == NULL) { return __pyx_empty_unicode; }
+                Py_INCREF(self->gi_qualname);
+            ''',
+
+            src, flags=re.X)
+
+        src = re.sub(
+            r'''
+            \s* __Pyx_Coroutine_get_name\(__pyx_CoroutineObject\s+\*self\)
+            \s* {
+            \s* Py_INCREF\(self->gi_name\);
+            ''',
+
+            r'''
+            __Pyx_Coroutine_get_name(__pyx_CoroutineObject *self)
+            {
+                if (self->gi_name == NULL) { return __pyx_empty_unicode; }
+                Py_INCREF(self->gi_name);
+            ''',
+
+            src, flags=re.X)
+
+        with open(cfile, 'wt') as f:
+            f.write(src)
 
     def build_libuv(self):
         env = os.environ.copy()
@@ -112,9 +245,9 @@ setup(
         Extension(
             "uvloop.loop",
             sources=[
-                "uvloop/loop.c",
+                "uvloop/loop.pyx",
             ],
-            extra_compile_args=['-O2']
+            extra_compile_args=CFLAGS
         ),
     ],
     classifiers=[
