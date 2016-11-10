@@ -31,7 +31,7 @@ cdef class _StreamWriteContext:
         if self.uv_bufs is not NULL:
             PyMem_RawFree(self.uv_bufs)
             self.uv_bufs = NULL
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 if self.py_bufs_sml_inuse:
                     raise RuntimeError(
                         '_StreamWriteContext.close: uv_bufs != NULL and '
@@ -42,7 +42,7 @@ cdef class _StreamWriteContext:
                 PyBuffer_Release(&self.py_bufs[i])
             PyMem_RawFree(self.py_bufs)
             self.py_bufs = NULL
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 if self.py_bufs_sml_inuse:
                     raise RuntimeError(
                         '_StreamWriteContext.close: py_bufs != NULL and '
@@ -87,7 +87,7 @@ cdef class _StreamWriteContext:
             else:
                 sent -= self.uv_bufs_start[idx].len
 
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 if sent < 0:
                     raise RuntimeError('fatal: sent < 0 in advance_uv_buf')
 
@@ -123,7 +123,7 @@ cdef class _StreamWriteContext:
 
         else:
             for buf in buffers:
-                IF DEBUG:
+                if UVLOOP_DEBUG:
                     if not isinstance(buf, (bytes, bytearray, memoryview)):
                         raise RuntimeError(
                             'invalid data in writebuf: an instance of '
@@ -180,7 +180,7 @@ cdef class _StreamWriteContext:
         ctx.py_bufs_len = py_bufs_len
         ctx.req.data = <void*> ctx
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             stream._loop._debug_stream_write_ctx_total += 1
             stream._loop._debug_stream_write_ctx_cnt += 1
 
@@ -191,15 +191,14 @@ cdef class _StreamWriteContext:
         ctx.closed = 0
         return ctx
 
-    IF DEBUG:
-        def __dealloc__(self):
+    def __dealloc__(self):
+        if not self.closed:
             # Because we do an INCREF in _StreamWriteContext.new,
-            # __dealloc__ shouldn't ever happen with `self.closed == 0`
+            # __dealloc__ shouldn't ever happen with `self.closed == 1`
+            raise RuntimeError(
+                'open _StreamWriteContext is being deallocated')
 
-            if not self.closed:
-                raise RuntimeError(
-                    'open _StreamWriteContext is being deallocated')
-
+        if UVLOOP_DEBUG:
             if self.stream is not None:
                 self.stream._loop._debug_stream_write_ctx_cnt -= 1
                 self.stream = None
@@ -360,7 +359,7 @@ cdef class UVStream(UVBaseTransport):
                 self._fatal_error(exc, True)
                 return
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             self._loop._debug_stream_write_tries += 1
 
         if <size_t>written == blen:
@@ -392,7 +391,7 @@ cdef class UVStream(UVBaseTransport):
             # Then:
             #   - Try to write all buffered data right now.
             all_sent = self._exec_write()
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 if self._buffer_size != 0 or self._buffer != []:
                     raise RuntimeError(
                         '_buffer_size is not 0 after a successful _exec_write')
@@ -454,7 +453,7 @@ cdef class UVStream(UVBaseTransport):
                     return True
 
                 if sent > 0:
-                    IF DEBUG:
+                    if UVLOOP_DEBUG:
                         if sent == len(data):
                             raise RuntimeError(
                                 '_try_write sent all data and returned '
@@ -704,7 +703,7 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
         #     v0.11.  A possible reason for leaving it unchanged is that it
         #     informs the callee that the handle has been destroyed.
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             stream._loop._debug_stream_shutdown_errors_total += 1
 
         exc = convert_error(status)
@@ -736,13 +735,13 @@ cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
         #     when an error happens by calling uv_read_stop() or uv_close().
         #     Trying to read from the stream again is undefined.
         try:
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 loop._debug_stream_read_eof_total += 1
 
             sc._stop_reading()
             sc._on_eof()
         except BaseException as ex:
-            IF DEBUG:
+            if UVLOOP_DEBUG:
                 loop._debug_stream_read_eof_cb_errors_total += 1
 
             sc._error(ex, False)
@@ -765,7 +764,7 @@ cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
         # doesn't raise exceptions unless uvloop is built with DEBUG=1,
         # we don't need try...finally here.
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             loop._debug_stream_read_errors_total += 1
 
         if sc.__read_error_close:
@@ -780,12 +779,12 @@ cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
         return
 
     try:
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
         sc._on_read(loop._recv_buffer[:nread])
     except BaseException as exc:
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_errors_total += 1
 
         sc._error(exc, False)
@@ -805,7 +804,7 @@ cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
         return
 
     if status < 0:
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             stream._loop._debug_stream_write_errors_total += 1
 
         exc = convert_error(status)
@@ -816,7 +815,7 @@ cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
     try:
         stream._on_write()
     except BaseException as exc:
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             stream._loop._debug_stream_write_cb_errors_total += 1
 
         stream._error(exc, False)
@@ -839,7 +838,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
 
 cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
-    IF DEBUG:
+    if UVLOOP_DEBUG:
         if req.data is NULL:
             aio_logger.error(
                 'UVStream.write callback called with NULL req.data, status=%r',

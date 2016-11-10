@@ -38,7 +38,7 @@ cdef class UVRequest:
         if self.done == 1:
             return
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if self.request is NULL:
                 raise RuntimeError(
                     '{}.cancel: .request is NULL'.format(

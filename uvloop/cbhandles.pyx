@@ -8,18 +8,17 @@ cdef class Handle:
 
     cdef inline _set_loop(self, Loop loop):
         self.loop = loop
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             loop._debug_cb_handles_total += 1
             loop._debug_cb_handles_count += 1
         if loop._debug:
             self._source_traceback = tb_extract_stack(sys_getframe(0))
 
-    IF DEBUG:
-        def __dealloc__(self):
-            if self.loop is not None:
-                self.loop._debug_cb_handles_count -= 1
-            else:
-                raise RuntimeError('Handle.loop is None in Handle.__dealloc__')
+    def __dealloc__(self):
+        if UVLOOP_DEBUG and self.loop is not None:
+            self.loop._debug_cb_handles_count -= 1
+        if self.loop is None:
+            raise RuntimeError('Handle.loop is None in Handle.__dealloc__')
 
     def __init__(self):
         raise TypeError(
@@ -144,15 +143,15 @@ cdef class TimerHandle:
         # Only add to loop._timers when `self.timer` is successfully created
         loop._timers.add(self)
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             self.loop._debug_cb_timer_handles_total += 1
             self.loop._debug_cb_timer_handles_count += 1
 
-    IF DEBUG:
-        def __dealloc__(self):
+    def __dealloc__(self):
+        if UVLOOP_DEBUG:
             self.loop._debug_cb_timer_handles_count -= 1
-            if self.closed == 0:
-                raise RuntimeError('active TimerHandle is deallacating')
+        if self.closed == 0:
+            raise RuntimeError('active TimerHandle is deallacating')
 
     cdef _cancel(self):
         if self.closed == 1:

@@ -194,7 +194,7 @@ cdef class UVProcess(UVHandle):
 
             char **ret
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             assert arr_len > 0
 
         ret = <char **>PyMem_RawMalloc((arr_len + 1) * sizeof(char *))
@@ -634,7 +634,7 @@ cdef class UVProcessTransport(UVProcess):
 class WriteSubprocessPipeProto(aio_BaseProtocol):
 
     def __init__(self, proc, fd):
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if type(proc) is not UVProcessTransport:
                 raise TypeError
             if not isinstance(fd, int):

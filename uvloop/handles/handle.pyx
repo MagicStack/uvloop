@@ -25,7 +25,7 @@ cdef class UVHandle:
                 self.__class__.__name__))
 
     def __dealloc__(self):
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if self._loop is not None:
                 self._loop._debug_handles_current.subtract([
                     self.__class__.__name__])
@@ -71,7 +71,7 @@ cdef class UVHandle:
         if self._handle == NULL:
             return
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             self._loop._debug_uv_handles_freed += 1
 
         PyMem_RawFree(self._handle)
@@ -91,7 +91,7 @@ cdef class UVHandle:
         if self._handle is not NULL:
             self._free()
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             name = self.__class__.__name__
             if self._inited:
                 raise RuntimeError(
@@ -107,11 +107,11 @@ cdef class UVHandle:
         self._handle.data = <void*>self
         if self._loop._debug:
             self._source_traceback = tb_extract_stack(sys_getframe(0))
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             self._loop._debug_uv_handles_total += 1
 
     cdef inline _start_init(self, Loop loop):
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if self._loop is not None:
                 raise RuntimeError(
                     '{}._start_init can only be called once'.format(
@@ -126,7 +126,7 @@ cdef class UVHandle:
     cdef inline bint _is_alive(self):
         cdef bint res
         res = self._closed != 1 and self._inited == 1
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if res:
                 name = self.__class__.__name__
                 if self._handle is NULL:
@@ -181,7 +181,7 @@ cdef class UVHandle:
         if self._handle is NULL:
             return
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if self._handle.data is NULL:
                 raise RuntimeError(
                     '{}._close: _handle.data is NULL'.format(
@@ -239,7 +239,7 @@ cdef class UVSocketHandle(UVHandle):
             return None
 
         self.__cached_socket = self._new_socket()
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             # We don't "dup" for the "__cached_socket".
             assert self.__cached_socket.fileno() == self._fileno()
         return self.__cached_socket
@@ -280,7 +280,7 @@ cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
 
     cdef Loop loop
 
-    IF DEBUG:
+    if UVLOOP_DEBUG:
         if handle.loop is NULL:
             raise RuntimeError(
                 'handle.loop is NULL in __ensure_handle_data')
@@ -316,7 +316,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         # The original UVHandle is long dead. Just free the mem of
         # the uv_handle_t* handler.
 
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             if handle.loop == NULL or handle.loop.data == NULL:
                 raise RuntimeError(
                     '__uv_close_handle_cb: handle.loop is invalid')
@@ -325,7 +325,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         PyMem_RawFree(handle)
     else:
         h = <UVHandle>handle.data
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             h._loop._debug_handles_closed.update([
                 h.__class__.__name__])
         h._free()

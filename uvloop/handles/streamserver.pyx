@@ -114,7 +114,7 @@ cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
         UVStreamServer stream = <UVStreamServer> handle.data
 
     if status < 0:
-        IF DEBUG:
+        if UVLOOP_DEBUG:
             stream._loop._debug_stream_listen_errors_total += 1
 
         exc = convert_error(status)

@@ -42,12 +42,12 @@ cdef class _UDPSendContext:
         ctx.closed = 0
         return ctx
 
-    IF DEBUG:
-        def __dealloc__(self):
+    def __dealloc__(self):
+        if UVLOOP_DEBUG:
             if not self.closed:
                 raise RuntimeError(
                     'open _UDPSendContext is being deallocated')
-            self.udp = None
+        self.udp = None
 
 
 @cython.no_gc_clear

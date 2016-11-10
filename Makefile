@@ -31,17 +31,16 @@ distclean: clean clean-libuv
 
 
 compile: check-env clean
-	echo "DEF DEBUG = 0" > uvloop/__debug.pxi
-	$(PYTHON) -m cython -3 uvloop/loop.pyx; rm uvloop/__debug.*
+	$(PYTHON) -m cython -3 uvloop/loop.pyx
 	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | $(PYTHON)
 	$(PYTHON) setup.py build_ext --inplace
 
 
 debug: check-env clean
-	echo "DEF DEBUG = 1" > uvloop/__debug.pxi
-	$(PYTHON) -m cython -3 -a -p uvloop/loop.pyx; rm uvloop/__debug.*
+	$(PYTHON) -m cython -3 -a -p uvloop/loop.pyx
 	@echo "$$UVLOOP_BUILD_PATCH_SCRIPT" | $(PYTHON)
-	$(PYTHON) setup.py build_ext --inplace
+	$(PYTHON) setup.py build_ext --inplace \
+		--define UVLOOP_DEBUG,CYTHON_TRACE,CYTHON_TRACE_NOGIL
 
 
 docs: compile
