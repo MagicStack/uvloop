@@ -2550,6 +2550,10 @@ cdef void __atfork_child() nogil:
 
 cdef __install_atfork():
     global __atfork_installed
+
+    IF UNAME_SYSNAME == "Windows":
+        return
+
     if __atfork_installed:
         return
     __atfork_installed = 1
