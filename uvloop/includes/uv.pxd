@@ -4,7 +4,7 @@ from posix.types cimport gid_t, uid_t
 from . cimport system
 
 
-cdef extern from "includes/compat.h":
+cdef extern from "includes/compat.h" nogil:
     # Member of uv_poll_event, in compat.h for compatibility
     # with libuv < v1.9.0
     cdef int UV_DISCONNECT
@@ -383,7 +383,6 @@ cdef extern from "uv.h" nogil:
 
     # Polling
 
-    int uv_poll_init(uv_loop_t* loop, uv_poll_t* handle, int fd)
     int uv_poll_init_socket(uv_loop_t* loop, uv_poll_t* handle,
                             uv_os_sock_t socket)
     int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)

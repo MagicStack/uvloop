@@ -11,8 +11,9 @@ cdef class UVPoll(UVHandle):
             self._abort_init()
             raise MemoryError()
 
-        err = uv.uv_poll_init(self._loop.uvloop,
-                              <uv.uv_poll_t *>self._handle, fd)
+        err = uv.uv_poll_init_socket(self._loop.uvloop,
+                                     <uv.uv_poll_t *>self._handle,
+                                     <uv.uv_os_sock_t>fd)
         if err < 0:
             self._abort_init()
             raise convert_error(err)
