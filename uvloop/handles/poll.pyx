@@ -61,6 +61,29 @@ cdef class UVPoll(UVHandle):
             self._fatal_error(exc, True)
             return
 
+        IF UNAME_SYSNAME == "Linux":
+            # libuv doesn't remove the FD from epoll immediately
+            # after uv_poll_stop or uv_poll_close, causing hard
+            # to debug issue with dup-ed file descriptors causing
+            # CPU burn in epoll/epoll_ctl:
+            #    https://github.com/MagicStack/uvloop/issues/61
+            #
+            # It's safe though to manually call epoll_ctl here,
+            # after calling uv_poll_stop.
+
+            cdef:
+                int backend_id
+                system.epoll_event dummy_event
+
+            backend_id = uv.uv_backend_fd(self._loop.uvloop)
+            if backend_id != -1:
+                memset(&dummy_event, 0, sizeof(dummy_event))
+                system.epoll_ctl(
+                    backend_id,
+                    system.EPOLL_CTL_DEL,
+                    self.fd,
+                    &dummy_event)  # ignore errors
+
     cdef start_reading(self, Handle callback):
         cdef:
             int mask = 0
