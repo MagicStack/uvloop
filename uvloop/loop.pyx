@@ -58,6 +58,17 @@ cdef _is_sock_dgram(sock_type):
         return (sock_type & 0xF) == uv.SOCK_DGRAM
 
 
+cdef __dup(sock):
+    # cross-platform duping
+    IF UNAME_SYSNAME == "Windows":
+        dup_sock = sock.dup()
+        fileno = dup_sock.fileno()
+        dup_sock.detach()
+        return fileno
+    ELSE:
+        return os_dup(sock.fileno())
+
+
 cdef isfuture(obj):
     if aio_isfuture is None:
         return isinstance(obj, aio_Future)
