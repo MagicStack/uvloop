@@ -214,7 +214,24 @@ class uvloop_build_ext(build_ext):
     def build_libuv(self):
         env = _libuv_build_env()
 
+        if sys.platform != 'win32':
+            # Make sure configure and friends are present in case
+            # we are building from a git checkout.
+            _libuv_autogen(env)
+
+        # Copy the libuv tree to build/ so that its build
+        # products don't pollute sdist accidentally.
+        if os.path.exists(LIBUV_BUILD_DIR):
+            shutil.rmtree(LIBUV_BUILD_DIR)
+        shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
+
         if sys.platform == 'win32':
+            env.pop('VS120COMNTOOLS', None)
+            env.pop('VS110COMNTOOLS', None)
+            env.pop('VS100COMNTOOLS', None)
+            env.pop('VS90COMNTOOLS', None)
+            env['GYP_MSVS_VERSION'] = '2015'
+
             pypath = os.path.expandvars(os.path.join(
                 '%SYSTEMDRIVE%', 'Python27', 'python.exe'))
             if not os.path.exists(pypath):
@@ -296,8 +313,6 @@ class uvloop_build_ext(build_ext):
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
 
-        self.compiler.add_library('pthread')
-
         elif sys.platform.startswith('win'):
             self.compiler.add_library('advapi32')
             self.compiler.add_library('iphlpapi')
@@ -306,6 +321,9 @@ class uvloop_build_ext(build_ext):
             self.compiler.add_library('user32')
             self.compiler.add_library('userenv')
             self.compiler.add_library('ws2_32')
+
+        if not sys.platform.startswith('win'):
+            self.compiler.add_library('pthread')
 
         super().build_extensions()
 
