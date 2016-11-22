@@ -128,8 +128,8 @@ cdef weakref_WeakValueDictionary = weakref.WeakValueDictionary
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
-# so we delete refs to all modules manually (except sys)
-del asyncio, concurrent, collections, errno
+# so we delete refs to all modules manually (except sys and errno)
+del asyncio, concurrent, collections
 del functools, inspect, itertools, socket, os, threading
 del std_signal, subprocess, ssl
 del time, traceback, warnings, weakref
