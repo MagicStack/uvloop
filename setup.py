@@ -1,13 +1,11 @@
 import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
 import unittest
 
-
-if sys.platform in ('win32', 'cygwin', 'cli'):
-    raise RuntimeError('uvloop does not support Windows at the moment')
 
 vi = sys.version_info
 if vi < (3, 5):
@@ -208,32 +206,47 @@ class uvloop_build_ext(build_ext):
     def build_libuv(self):
         env = _libuv_build_env()
 
-        # Make sure configure and friends are present in case
-        # we are building from a git checkout.
-        _libuv_autogen(env)
+        if sys.platform == 'win32':
+            pypath = os.path.expandvars(os.path.join(
+                '%SYSTEMDRIVE%', 'Python27', 'python.exe'))
+            if not os.path.exists(pypath):
+                raise RuntimeError(
+                    'cannot find Python 2.7 at {!r}'.format(pypath))
+            env['PYTHON'] = pypath
 
-        # Copy the libuv tree to build/ so that its build
-        # products don't pollute sdist accidentally.
-        if os.path.exists(LIBUV_BUILD_DIR):
-            shutil.rmtree(LIBUV_BUILD_DIR)
-        shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
+            arch = platform.architecture()[0]
+            libuv_arch = {'32bit': 'x86', '64bit': 'x64'}[arch]
+            subprocess.run(
+                ['cmd.exe', '/C', 'vcbuild.bat', libuv_arch, 'release'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        # Sometimes pip fails to preserve the timestamps correctly,
-        # in which case, make will try to run autotools again.
-        subprocess.run(
-            ['touch', 'configure.ac', 'aclocal.m4', 'configure',
-             'Makefile.am', 'Makefile.in'],
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+        else:
+            # Make sure configure and friends are present in case
+            # we are building from a git checkout.
+            _libuv_autogen(env)
 
-        subprocess.run(
-            ['./configure'],
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+            # Copy the libuv tree to build/ so that its build
+            # products don't pollute sdist accidentally.
+            if os.path.exists(LIBUV_BUILD_DIR):
+                shutil.rmtree(LIBUV_BUILD_DIR)
+            shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
 
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
-        c_flag = "CFLAGS={}".format(env['CFLAGS'])
-        subprocess.run(
-            ['make', j_flag, c_flag],
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+            # Sometimes pip fails to preserve the timestamps correctly,
+            # in which case, make will try to run autotools again.
+            subprocess.run(
+                ['touch', 'configure.ac', 'aclocal.m4', 'configure',
+                 'Makefile.am', 'Makefile.in'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
+
+            subprocess.run(
+                ['./configure'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
+
+            j_flag = '-j{}'.format(os.cpu_count() or 1)
+            c_flag = "CFLAGS={}".format(env['CFLAGS'])
+            subprocess.run(
+                ['make', j_flag, c_flag],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
     def build_extensions(self):
         if self.use_system_libuv:
@@ -244,7 +257,12 @@ class uvloop_build_ext(build_ext):
                 # Support macports on Mac OS X.
                 self.compiler.add_include_dir('/opt/local/include')
         else:
-            libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
+            if sys.platform != 'win32':
+                libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
+            else:
+                libuv_lib = os.path.join(
+                    LIBUV_BUILD_DIR, 'Release', 'lib', 'libuv.lib')
+
             if not os.path.exists(libuv_lib):
                 self.build_libuv()
             if not os.path.exists(libuv_lib):
@@ -255,10 +273,21 @@ class uvloop_build_ext(build_ext):
 
         if sys.platform.startswith('linux'):
             self.compiler.add_library('rt')
+
         elif sys.platform.startswith('freebsd'):
             self.compiler.add_library('kvm')
+
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
+
+        elif sys.platform.startswith('win'):
+            self.compiler.add_library('advapi32')
+            self.compiler.add_library('iphlpapi')
+            self.compiler.add_library('psapi')
+            self.compiler.add_library('shell32')
+            self.compiler.add_library('user32')
+            self.compiler.add_library('userenv')
+            self.compiler.add_library('ws2_32')
 
         super().build_extensions()
 
