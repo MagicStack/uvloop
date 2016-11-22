@@ -28,7 +28,6 @@ class TestCaseDict(collections.UserDict):
     def __init__(self, name):
         super().__init__()
         self.name = name
-
     def __setitem__(self, key, value):
         if key in self.data:
             raise RuntimeError('duplicate test {}.{}'.format(
@@ -211,12 +210,16 @@ class AIOTestCase(BaseTestCase):
     def setUp(self):
         super().setUp()
 
-        watcher = asyncio.SafeChildWatcher()
-        watcher.attach_loop(self.loop)
-        asyncio.set_child_watcher(watcher)
+        # No watchers on Windows
+        if hasattr(asyncio, 'SafeChildWatcher'):
+            # posix system
+            watcher = asyncio.SafeChildWatcher()
+            watcher.attach_loop(self.loop)
+            asyncio.set_child_watcher(watcher)
 
     def tearDown(self):
-        asyncio.set_child_watcher(None)
+        if hasattr(asyncio, 'SafeChildWatcher'):
+            asyncio.set_child_watcher(None)
         super().tearDown()
 
     def new_loop(self):
