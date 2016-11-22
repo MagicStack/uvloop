@@ -1,5 +1,4 @@
 import asyncio
-import fcntl
 import logging
 import os
 import sys
@@ -683,8 +682,10 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.run_loop_briefly(delay=0.05)
         self.assertFalse(handle.cancelled())
 
+    @unittest.skipIf(sys.platform.startswith('win'), 'posix only test')
     def test_loop_std_files_cloexec(self):
         # See https://github.com/MagicStack/uvloop/issues/40 for details.
+        import fcntl
         for fd in {0, 1, 2}:
             flags = fcntl.fcntl(fd, fcntl.F_GETFD)
             self.assertFalse(flags & fcntl.FD_CLOEXEC)
