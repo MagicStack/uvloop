@@ -23,10 +23,10 @@ matrix:
           python: "3.5"
           services: [docker]
 
-        - os: linux
-          dist: trusty
-          language: python
-          python: "3.6-dev"
+        # - os: linux
+        #   dist: trusty
+        #   language: python
+        #   python: "3.6-dev"
 
 cache:
     pip
