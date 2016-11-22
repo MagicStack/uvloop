@@ -808,20 +808,20 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
     def test_create_connection_wrong_sock(self):
-        sock = socket.socket(socket.AF_UNIX)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         with sock:
             coro = self.loop.create_connection(MyBaseProto, sock=sock)
             with self.assertRaisesRegex(ValueError,
-                                        'A TCP Stream Socket was expected'):
+                                        'A Stream Socket was expected'):
                 self.loop.run_until_complete(coro)
 
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
     def test_create_server_wrong_sock(self):
-        sock = socket.socket(socket.AF_UNIX)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         with sock:
             coro = self.loop.create_server(MyBaseProto, sock=sock)
             with self.assertRaisesRegex(ValueError,
-                                        'A TCP Stream Socket was expected'):
+                                        'A Stream Socket was expected'):
                 self.loop.run_until_complete(coro)
 
     @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'),

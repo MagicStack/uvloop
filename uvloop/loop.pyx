@@ -1,6 +1,6 @@
 # cython: language_level=3, embedsignature=True
 
-
+import asyncio
 cimport cython
 
 from .includes.debug cimport UVLOOP_DEBUG
@@ -36,10 +36,6 @@ include "includes/consts.pxi"
 include "includes/stdlib.pxi"
 
 include "errors.pyx"
-
-
-cdef _is_sock_ip(sock_family):
-    return sock_family == uv.AF_INET or sock_family == uv.AF_INET6
 
 
 cdef _is_sock_stream(sock_type):
@@ -1298,7 +1294,16 @@ cdef class Loop:
         cdef:
             TCPServer tcp
             system.addrinfo *addrinfo
-            Server server = Server(self)
+            Server server
+
+        if sock is not None and sock.family == uv.AF_UNIX:
+            if host is not None or port is not None:
+                raise ValueError(
+                    'host/port and sock can not be specified at the same time')
+            return await self.create_unix_server(
+                protocol_factory, sock=sock, ssl=ssl)
+
+        server = Server(self)
 
         if ssl is not None and not isinstance(ssl, ssl_SSLContext):
             raise TypeError('ssl argument must be an SSLContext or None')
@@ -1349,10 +1354,10 @@ cdef class Loop:
         else:
             if sock is None:
                 raise ValueError('Neither host/port nor sock were specified')
-            if (not _is_sock_stream(sock.type) or
-                    not _is_sock_ip(sock.family)):
+            if not _is_sock_stream(sock.type):
                 raise ValueError(
-                    'A TCP Stream Socket was expected, got {!r}'.format(sock))
+                    'A Stream Socket was expected, got {!r}'.format(sock))
+
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
                                 uv.AF_UNSPEC)
 
@@ -1404,6 +1409,14 @@ cdef class Loop:
             object protocol
             object ssl_waiter
 
+        if sock is not None and sock.family == uv.AF_UNIX:
+            if host is not None or port is not None:
+                raise ValueError(
+                    'host/port and sock can not be specified at the same time')
+            return await self.create_unix_connection(
+                protocol_factory, None,
+                sock=sock, ssl=ssl, server_hostname=server_hostname)
+
         app_protocol = protocol = protocol_factory()
         ssl_waiter = None
         if ssl:
@@ -1423,6 +1436,10 @@ cdef class Loop:
                 raise ValueError('server_hostname is only meaningful with ssl')
 
         if host is not None or port is not None:
+            if sock is not None:
+                raise ValueError(
+                    'host/port and sock can not be specified at the same time')
+
             fs = []
             f1 = f2 = None
 
@@ -1536,10 +1553,9 @@ cdef class Loop:
             if sock is None:
                 raise ValueError(
                     'host and port was not specified and no sock specified')
-            if (not _is_sock_stream(sock.type) or
-                    not _is_sock_ip(sock.family)):
+            if not _is_sock_stream(sock.type):
                 raise ValueError(
-                    'A TCP Stream Socket was expected, got {!r}'.format(sock))
+                    'A Stream Socket was expected, got {!r}'.format(sock))
 
             waiter = self._new_future()
             tr = TCPTransport.new(self, protocol, None, waiter)

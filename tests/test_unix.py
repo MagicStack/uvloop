@@ -83,7 +83,7 @@ class _TestUnix:
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
 
-        async def start_server_sock():
+        async def start_server_sock(start_server):
             nonlocal CNT
             CNT = 0
 
@@ -92,11 +92,7 @@ class _TestUnix:
                 sock = socket.socket(socket.AF_UNIX)
                 sock.bind(sock_name)
 
-                srv = await asyncio.start_unix_server(
-                    handle_client,
-                    None,
-                    loop=self.loop,
-                    sock=sock)
+                srv = await start_server(sock)
 
                 try:
                     srv_socks = srv.sockets
@@ -121,11 +117,27 @@ class _TestUnix:
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
 
-        self.loop.run_until_complete(start_server())
-        self.assertEqual(CNT, TOTAL_CNT)
+        with self.subTest(func='start_unix_server(host, port)'):
+            self.loop.run_until_complete(start_server())
+            self.assertEqual(CNT, TOTAL_CNT)
 
-        self.loop.run_until_complete(start_server_sock())
-        self.assertEqual(CNT, TOTAL_CNT)
+        with self.subTest(func='start_unix_server(sock)'):
+            self.loop.run_until_complete(start_server_sock(
+                 lambda sock: asyncio.start_unix_server(
+                    handle_client,
+                    None,
+                    loop=self.loop,
+                    sock=sock)))
+            self.assertEqual(CNT, TOTAL_CNT)
+
+        with self.subTest(func='start_server(sock)'):
+            self.loop.run_until_complete(start_server_sock(
+                 lambda sock: asyncio.start_server(
+                    handle_client,
+                    None, None,
+                    loop=self.loop,
+                    sock=sock)))
+            self.assertEqual(CNT, TOTAL_CNT)
 
     def test_create_unix_server_2(self):
         with tempfile.TemporaryDirectory() as td:
@@ -187,6 +199,24 @@ class _TestUnix:
 
             writer.close()
 
+        async def client_3(addr):
+            sock = socket.socket(socket.AF_UNIX)
+            sock.connect(addr)
+            reader, writer = await asyncio.open_connection(
+                sock=sock,
+                loop=self.loop)
+
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
+
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            nonlocal CNT
+            CNT += 1
+
+            writer.close()
+
         def run(coro):
             nonlocal CNT
             CNT = 0
@@ -208,6 +238,7 @@ class _TestUnix:
 
         run(client)
         run(client_2)
+        run(client_3)
 
     def test_create_unix_connection_2(self):
         with tempfile.NamedTemporaryFile() as tmp:
