@@ -52,6 +52,17 @@ cdef _is_sock_dgram(sock_type):
     return (sock_type & uv.SOCK_DGRAM) == uv.SOCK_DGRAM
 
 
+cdef __dup(sock):
+    # cross-platform duping
+    IF UNAME_SYSNAME == "Windows":
+        dup_sock = sock.dup()
+        fileno = dup_sock.fileno()
+        dup_sock.detach()
+        return fileno
+    ELSE:
+        return os_dup(sock.fileno())
+
+
 cdef isfuture(obj):
     if aio_isfuture is None:
         return isinstance(obj, aio_Future)
@@ -1365,8 +1376,8 @@ cdef class Loop:
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
                                 uv.AF_UNSPEC)
 
-            # See a comment on os_dup in create_connection
-            fileno = os_dup(sock.fileno())
+            # See a comment on __dup in create_connection
+            fileno = __dup(sock)
             try:
                 tcp._open(fileno)
                 tcp._attach_fileobj(sock)
@@ -1590,7 +1601,7 @@ cdef class Loop:
                 # `loop.create_connection`.  We don't want the user to have
                 # any control of the FD once it is passed to uvloop.
                 # See also: https://github.com/python/asyncio/pull/449
-                fileno = os_dup(sock.fileno())
+                fileno = __dup(sock)
 
                 # libuv will make socket non-blocking
                 tr._open(fileno)
@@ -1672,8 +1683,8 @@ cdef class Loop:
         pipe = UnixServer.new(self, protocol_factory, server, ssl)
 
         try:
-            # See a comment on os_dup in create_connection
-            fileno = os_dup(sock.fileno())
+            # See a comment on __dup in create_connection
+            fileno = __dup(sock)
 
             pipe._open(fileno)
         except:
@@ -1747,8 +1758,8 @@ cdef class Loop:
             waiter = self._new_future()
             tr = UnixTransport.new(self, protocol, None, waiter)
             try:
-                # See a comment on os_dup in create_connection
-                fileno = os_dup(sock.fileno())
+                # See a comment on __dup in create_connection
+                fileno = __dup(sock)
 
                 # libuv will make socket non-blocking
                 tr._open(fileno)
@@ -2046,8 +2057,8 @@ cdef class Loop:
             raise ValueError(
                 'A Stream Socket was expected, got {!r}'.format(sock))
 
-        # See a comment on os_dup in create_connection
-        fileno = os_dup(sock.fileno())
+        # See a comment on __dup in create_connection
+        fileno = __dup(sock)
 
         app_protocol = protocol_factory()
         waiter = self._new_future()
@@ -2194,8 +2205,8 @@ cdef class Loop:
         ReadTransport interface."""
         cdef:
             ReadUnixTransport transp
-            # See a comment on os_dup in create_connection
-            int fileno = os_dup(pipe.fileno())
+            # See a comment on __dup in create_connection
+            int fileno = __dup(pipe)
 
         waiter = self._new_future()
         proto = proto_factory()
@@ -2220,8 +2231,8 @@ cdef class Loop:
         WriteTransport interface."""
         cdef:
             WriteUnixTransport transp
-            # See a comment on os_dup in create_connection
-            int fileno = os_dup(pipe.fileno())
+            # See a comment on __dup in create_connection
+            int fileno = __dup(pipe)
 
         waiter = self._new_future()
         proto = proto_factory()
@@ -2368,7 +2379,7 @@ cdef class Loop:
             sock.setblocking(False)
             udp = UDPTransport.__new__(UDPTransport)
             udp._init(self, uv.AF_UNSPEC)
-            udp.open(sock.family, os_dup(sock.fileno()))
+            udp.open(sock.family, __dup(sock))
             udp._attach_fileobj(sock)
         else:
             reuse_address = bool(reuse_address)
