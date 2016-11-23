@@ -239,7 +239,7 @@ def tcp_server(server_prog, *,
                max_clients=10):
 
     if addr is None:
-        if family == socket.AF_UNIX:
+        if hasattr(socket, 'AF_UNIX') and family == socket.AF_UNIX:
             with tempfile.NamedTemporaryFile() as tmp:
                 addr = tmp.name
         else:
