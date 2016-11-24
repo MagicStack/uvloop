@@ -877,6 +877,10 @@ cdef class Loop:
 
         return tcp
 
+    def _get_backend_id(self):
+        """This method is used by uvloop tests and is not part of the API."""
+        return uv.uv_backend_fd(self.uvloop)
+
     def print_debug_info(self):
         cdef:
             int err

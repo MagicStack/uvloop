@@ -1,4 +1,5 @@
 import asyncio
+import select
 import socket
 import sys
 import unittest
@@ -113,8 +114,30 @@ class _TestSockets:
 
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
-    pass
 
+    @unittest.skipUnless(hasattr(select, 'epoll'), 'Linux only test')
+    def test_socket_sync_remove(self):
+        # See https://github.com/MagicStack/uvloop/issues/61 for details
+
+        sock = socket.socket()
+        epoll = select.epoll.fromfd(self.loop._get_backend_id())
+
+        try:
+            cb = lambda: None
+
+            sock.bind(('127.0.0.1', 0))
+            sock.listen(0)
+            fd = sock.fileno()
+            self.loop.add_reader(fd, cb)
+            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+            self.loop.remove_reader(fd)
+            with self.assertRaises(FileNotFoundError):
+                epoll.modify(fd, 0)
+
+        finally:
+            sock.close()
+            self.loop.close()
+            epoll.close()
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass
