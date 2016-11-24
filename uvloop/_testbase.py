@@ -12,11 +12,18 @@ import re
 import select
 import socket
 import ssl
+import sys
 import tempfile
 import threading
 import time
 import unittest
 import uvloop
+
+
+def skip_windows(o):
+    dec = unittest.skipIf(sys.platform in ('win32', 'cygwin', 'cli'),
+                         'skipped on Windows')
+    return dec(o)
 
 
 class MockPattern(str):
