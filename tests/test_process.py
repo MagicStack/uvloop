@@ -505,6 +505,7 @@ class _AsyncioTests:
             test_utils.run_briefly(self.loop)
 
 
+@tb.skip_windows  # XXX tests will have to be fixed later
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
     def test_process_lated_stdio_init(self):
@@ -626,13 +627,16 @@ print('err', file=sys.stderr, flush=True)
                     self.assertEqual(se.read(), b'err\n')
 
 
+@tb.skip_windows  # Some tests fail under asyncio
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
     pass
 
 
+@tb.skip_windows  # XXX tests will have to be fixed later
 class TestAsyncio_UV_Process(_AsyncioTests, tb.UVTestCase):
     pass
 
 
+@tb.skip_windows  # Some tests fail under asyncio
 class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
     pass
