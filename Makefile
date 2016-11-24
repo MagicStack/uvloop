@@ -8,7 +8,7 @@ _default: compile
 
 
 clean:
-	rm -fr dist/ doc/_build/ *.egg-info
+	rm -fr dist/ doc/_build/ *.egg-info build/ uvloop/loop.*.pyd
 	rm -fr build/lib.* build/temp.*
 	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
