@@ -61,7 +61,11 @@ cdef class UVPoll(UVHandle):
             self._fatal_error(exc, True)
             return
 
-        IF UNAME_SYSNAME == "Linux":
+        cdef:
+            int backend_id
+            system.epoll_event dummy_event
+
+        if system.PLATFORM_IS_LINUX:
             # libuv doesn't remove the FD from epoll immediately
             # after uv_poll_stop or uv_poll_close, causing hard
             # to debug issue with dup-ed file descriptors causing
@@ -70,10 +74,6 @@ cdef class UVPoll(UVHandle):
             #
             # It's safe though to manually call epoll_ctl here,
             # after calling uv_poll_stop.
-
-            cdef:
-                int backend_id
-                system.epoll_event dummy_event
 
             backend_id = uv.uv_backend_fd(self._loop.uvloop)
             if backend_id != -1:

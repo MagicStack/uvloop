@@ -16,3 +16,14 @@
 #else
 #define PLATFORM_IS_APPLE 0
 #endif
+
+
+#ifdef __linux__
+#  define PLATFORM_IS_LINUX 1
+#  include <sys/epoll.h>
+#else
+#  define PLATFORM_IS_LINUX 0
+#  define EPOLL_CTL_DEL 2
+struct epoll_event {};
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {};
+#endif
