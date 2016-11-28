@@ -290,6 +290,7 @@ setup(
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: Apache Software License',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',
