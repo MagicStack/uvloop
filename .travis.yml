@@ -1,32 +1,53 @@
 language: generic
 
-sudo: required
-
 env:
     global:
         - PYMODULE=uvloop
-        - PYPI_USER=magicstack-ci
-        - secure: "uVBP1RmdqLS8iQKDZLP8k5ByHAkwDorOztk1HynEr3gSnMLZH3bhibvtXfVoz+bpdDI+JY3RF1uNhR14XdQX6KMmBqSyU1c/fcOVURBVhKBeMbaUXR0nUAuh7Ac9xIuEhVvO6S/4vAsDzgnR4CJ/99Ns5tyo9GYMjlpdKAI87bqmnpHI2YZ7qaQ+yab4LUrAQzd6QVByJaaHoH0WgCUWqZ3CJfPBk8ROB1Jj+oPWpOB1zw70fh+MSxYtuS/527DbGkHWWg/h7fzDEIUvYX02rNnmdC48ewXlA+yZx03W4cAK0v+RT0XT4+hgGGPl2G+DDYyXLVvwQlqV4GnbTRFKLX8DI+Gu2Lc1Cyni125lq7TormDWMh0kA2miUIMg35Mp/YaYCQORSY3cXZsNZH1QvfaP25GIsRc+KrzXdmksXb6osZLXTpDFNKjSRVh1Os4JlaPTeSo48f90dk662bcdQQIfiNqEpqA3Lf96bHvw62J1QkKxWyzz7BodhOBwB6y+KH4h3GwuCI58DKjX6VIZvw9W6B0yvP9Yu7a2InNMAmsQsiB0SIICN5zT+O9BR/9bHZBWXC/hL5estVz5p6Q/+fmYzCaYbiSjuOJzFJ42ku8NxMQBaJvjG1lAH8wGHTiE1ApufWQBL9VJR1nY+nFdG6n9QgLKKHVe1QtseTVgStg="
+        - RELEASE_PYTHON_VERSIONS="3.5"
+
+        - S3_UPLOAD_USERNAME=oss-ci-bot
+        - S3_UPLOAD_BUCKET=magicstack-oss-releases
+        # S3_UPLOAD_ACCESSKEY:
+        - secure: "g3fR9aJe2+BvQt8xR2RHLJsrOhxxEmz2RHRDY1Sy5bFTMFA3CYtj8ylTxvFADotFWd8Q81xV7Q450hD6eOLlIP/twsibvhbzXmOybswzFJnLaOrciUQE2iCQ6AzmkPBut3BNpAtdXPlbmJoHntKSZWu6Dt/UvQ2w23hGlp9EW1JtOV3jE2m/FdCcfDYxa/tZPJ7cnQKuMXo5N4/Es2IPyIurTpqbgYo3K2UnX1nSNcAdBPzigC/H0zJpLerXeqhNWeXimhFH6QAMsk7JvVGMYWfxq2lVBKpM7v8JRd9wk1ux8VNJNWDjLUVcskgmF+KwmbPdn1xx3bwy+FZBuH4WCjSepNAdyUgOF6y9YgdZ1kpQcfhVUIQEgH/5nFOA81oABMlCJ+eHSt+jxJoo69g82lHyVxcfKm34mG380tOJK+R6ZDIi+2Qsvoi86TCxiju6ecCu3fx/0JEiT8cDwMo7KedhSN7d+NiZRJ5xB40FXk0zTf6WfDmgD7twjnCwhCXKU4U8eVi0pVMSUqjP3sPkFPa+licg7irjgt7dmpLJhqZb2JZt78HcrANiLyfoFWhOB7TYfPbP8Fv+g/rs8y/Q+oOBcJnFV2YkltB+sLFvv9jQlP1z6NBSvJZl0IUuC3vNt6b1aMuesXbPQntqXBkL1Vu7WQTmo4LmKwvdGze/0sY="
+        # S3_UPLOAD_SECRET:
+        - secure: "M0NfG4tJryVEe+6IXfAtrRe08PMd6VfyOj7NQPOEX4WqaSvWjROSA7WIVrawh64TR9hcjnQT2gflU9jA2r2z0/vUYyQ5M2gU3TXoSD+uRH7I/BdUxKQvAWCd/y+JYwMHg1yY+/WClSnvwFw0F4MIzOzTyVVEbF0K2T+azN2pxNx6KIOmZQOY3yLA0MwUbD78EKuyOWdIhizTA0XUSHqH1RTdZVmXdn8hz7RePe8jdivaHY6gRMPzeunh7w+Sl64Nu9nWDdy/Iu9yyLzmLWDpQMzSzaHLbTKCu13YDMWiAOp0hO5WWSfXpYSyJ6EcAAk+RTKXQQVZkie8/a/0nrhdvrhxWjG9hwrSad7L8baYdWFmcnWlvTp2gizFO1c2G8jomRhkr+M9TF2Z6J6+oJPzHLFlFOpy71I+O4sWQqCgfp+oNX0HfcOF6KY2HuWrUCcne1drgFgOkH2vg5OOhjLSB21N+UnbkOqWm9K6xa9b2feNdqhjZxij1RbA/7WlsZ15mgjnIhEc0juI2TcylxX09ASg1udGlj7Oqr9eZn+Xg7ScPb4SQnTr0hPfFWBAW7AeZbSx4FkZXDYZXWa5U517Q6TgUi1FFF843unP9mNMZC7WpQGcuLhW2iLHDjvSwczKvEjdRYEqeDCTShG89MVMsrqHDui4EzQI5DrlV/aJxcE="
+
+        - TWINE_USERNAME: magicstack-ci
+        # TWINE_PASSWORD:
+        - secure: "MhkWx5Z2KIVp9VGNiiMrJAbfiNeuHt5uZLsnFvSWqmi66MnBt15uRfle/9swNpc2eaNJ7XcC3oVvo6pf2118gyXxdqfgOCApLIjW4uBJwwzpA2DrCVxXT6gNVaDZ5c1PgHAAwY/jMxbloRPneqtyD6Pt5FvqcKy/VSp5DEEea+nJqX7MEk0I3ZtkvCxu6kBJ4wEfSyxilBVrezydEyimjUrHECyaSI92MLy6LRGZxOjM+Y++bjtnU3cYxXhu0W/E1CYQLUF1ZdhgAKNNcsQz939KuNrT5iVUNU2iDi+TKufG1seekaaoetSfhKmL94Bf1m/Yux+AyoUgoOA18sioqDbDW4zXQTTLnyFXTMQGXzKiYE7SXwOqteLNfzs90tHDwkyvVOSDvkh3uxFIz/pDkiBGp1/o1w9JncPlmKxreXMyBDJSbDomKptr3aswU31l3KOlOBO2uCQuzFtJc4Act+gV7MTxgVBKmIbxZaSUpE8elBVcNUTIruMaCvieYfDk/GgX1619bE8k2SR/z/gQ1OB5fmb/daN8/cqAw1r9PWsIRlvOkhrONIACkjvoZDErMo9DyDI2AqLKGhk6/QUwwatD9NIZe7nnEeEsJsoI7o4T+gJPGta0owU4XaAB+JY0VZ6gsun3+hY8cAhnhNYF3TDtiSL73c70vf55+LYaM/E="
 
 matrix:
+    fast_finish: true
+
     include:
-#        - os: osx
-#          osx_image: xcode7.2  # OS X 10.11
-#          # Travis macOS env does not support Python yet,
-#          # so we have to set things up manually in install.sh.
-#          env: PYTHON_VERSION=3.5.2
-#               PIP_USER=1
+        - os: osx
+          # Travis macOS env does not support Python yet,
+          # so we have to set things up manually in install.sh.
+          env: BUILD=tests,wheels PYTHON_VERSION=3.5.2 PIP_USER=1
+          branches: {only: [releases]}
 
         - os: linux
           dist: trusty
+          sudo: false
+          language: python
+          python: "3.5"
+          env: BUILD=tests
+
+        - os: linux
+          dist: trusty
+          sudo: false
+          language: python
+          python: "3.6-dev"
+          env: BUILD=tests
+
+        - os: linux
+          dist: trusty
+          branches: {only: [releases]}
+          sudo: required
           language: python
           python: "3.5"
           services: [docker]
-
-        - os: linux
-          dist: trusty
-          language: python
-          python: "3.6-dev"
+          env: BUILD=tests,wheels,release
 
 cache:
     pip
@@ -35,20 +56,11 @@ install:
     - .ci/travis-install.sh
 
 script:
-    - if [ "$TRAVIS_OS_NAME" == "osx" ]; then eval "$(pyenv init -)"; fi
-    - make distclean && make && make test
-    - make distclean && make debug && make test
-
-before_deploy:
-    - .ci/travis-build-and-upload.sh
+    - .ci/travis-tests.sh && .ci/travis-build-wheels.sh
 
 deploy:
-    skip_cleanup: true
-    provider: pypi
-    user: magicstack-ci
-    password:
-        secure: F08sPDASx4iqS7q9vXbaeIR/lgAaCQVgXQoKB6kXT1I/hMjjev86XesNeGmrAnyhz/nj9VlU5axl0Pjf3nk3t6dwPgH4W7SCxkqLrwWSNUcalEmFMZW3FWNSZApevrK1Tj0naY96j+7xcoO5UwoWQI5N5lJAEGRFYYXkenfp2YHLPRT0imTL78Xydom9Ab+HFyUWGnrF95aizC+c+19KKvRQBySxbSztNinztJ1mHa66UY/kv1x8irJPhvS33SWG7SVEAqUTnD7vZa/OtT96MD6RZTNNFS++wFPSI3TEsIwLeIPS26I/vR6ta5Hga3xa9q+1XZw/fx44Q+aVvOd0sTrr9ZvbpPlKO4QJJQZ04+6Mi7zvCrq+6fq5TDQmU0K9l3vWWpQFSL4cWejyDEv8qjB+fok7fWLOWHqDlaoBIUKAYJu9KwWMWx7r81cpPUhZaZ5mULgcXhZiYMiI2dWzZNYKPvrzkXm1Mw8csotM+GXguLUGVbgSO0KzUk+L6yiVjWC5zYNJbLDALrU0Iw+FYYE6JssWm8meXHn0M9kS3FABi/EgHlITVwTHrfQrfhCPvcZU3NBtgUnPiEEQpsrLw4tWL5jgh8Y71WJAkFn5Lmhx2UCsBE5HVWuCPMPfeYr2PrhtyXz1WoapTk8EM/RA3IeA1PmZkaLuairMX4pw56o=
-    distributions: sdist
+    provider: script
+    script: .ci/travis-release.sh
     on:
         tags: true
-        all_branches: true
+        condition: '"${BUILD}" == *release*'

@@ -1,4 +1,5 @@
 import os
+import os.path
 import re
 import shutil
 import subprocess
@@ -22,7 +23,7 @@ from setuptools.command.build_ext import build_ext as build_ext
 from setuptools.command.sdist import sdist as sdist
 
 
-VERSION = '0.6.8'
+VERSION = '0.7.0'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
@@ -263,9 +264,14 @@ class uvloop_build_ext(build_ext):
         super().build_extensions()
 
 
+with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
+    readme = f.read()
+
+
 setup(
     name='uvloop',
     description='Fast implementation of asyncio event loop on top of libuv',
+    long_description=readme,
     url='http://github.com/MagicStack/uvloop',
     license='MIT',
     author='Yury Selivanov',
