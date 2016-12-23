@@ -498,6 +498,47 @@ class _TestBase:
         self.assertFalse(isinstance(task, MyTask))
         self.loop.run_until_complete(task)
 
+    def test_shutdown_asyncgens_01(self):
+        finalized = list()
+
+        if not hasattr(self.loop, 'shutdown_asyncgens'):
+            raise unittest.SkipTest()
+
+        waiter_src = '''async def waiter(timeout, finalized, loop):
+            try:
+                await asyncio.sleep(timeout, loop=loop)
+                yield 1
+            finally:
+                await asyncio.sleep(0, loop=loop)
+                finalized.append(1)
+        '''
+
+        try:
+            g = {}
+            exec(waiter_src, globals(), g)
+        except SyntaxError:
+            # Python < 3.6
+            raise unittest.SkipTest()
+        else:
+            waiter = g['waiter']
+
+        async def wait():
+            async for _ in waiter(1, finalized, self.loop):
+                pass
+
+        t1 = self.loop.create_task(wait())
+        t2 = self.loop.create_task(wait())
+
+        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+
+        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+        self.assertEqual(finalized, [1, 1])
+
+        # Silence warnings
+        t1.cancel()
+        t2.cancel()
+        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+
 
 class TestBaseUV(_TestBase, UVTestCase):
 

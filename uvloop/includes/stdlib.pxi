@@ -125,6 +125,7 @@ cdef tb_format_list = traceback.format_list
 cdef warnings_warn = warnings.warn
 
 cdef weakref_WeakValueDictionary = weakref.WeakValueDictionary
+cdef weakref_WeakSet = weakref.WeakSet
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,

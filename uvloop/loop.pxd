@@ -71,6 +71,9 @@ cdef class Loop:
 
         cdef object __weakref__
 
+        object _asyncgens
+        bint _asyncgens_shutdown_called
+
         char _recv_buffer[UV_STREAM_RECV_BUF_SIZE]
         bint _recv_buffer_in_use
 
