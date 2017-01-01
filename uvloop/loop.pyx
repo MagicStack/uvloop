@@ -2494,7 +2494,7 @@ cdef class Loop:
             self.create_task(agen.aclose())
             # Wake up the loop if the finalizer was called from
             # a different thread.
-            self._write_to_self()
+            self.handler_async.send()
 
     def _asyncgen_firstiter_hook(self, agen):
         if self._asyncgens_shutdown_called:
