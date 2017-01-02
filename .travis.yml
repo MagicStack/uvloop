@@ -3,7 +3,7 @@ language: generic
 env:
     global:
         - PYMODULE=uvloop
-        - RELEASE_PYTHON_VERSIONS="3.5"
+        - RELEASE_PYTHON_VERSIONS="3.5 3.6"
 
         - S3_UPLOAD_USERNAME=oss-ci-bot
         - S3_UPLOAD_BUCKET=magicstack-oss-releases
