@@ -37,29 +37,23 @@ _upload_wheels() {
 
 
 if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
-    ML_PYTHON_VERSION=$(python3 -c "import sys; \
-        print('cp{maj}{min}-cp{maj}{min}m'.format( \
-              maj=sys.version_info.major, min=sys.version_info.minor))")
+    for pyver in ${RELEASE_PYTHON_VERSIONS}; do
+        ML_PYTHON_VERSION=$(python3 -c \
+            "print('cp{maj}{min}-cp{maj}{min}m'.format( \
+                   maj='${pyver}'.split('.')[0], \
+                   min='${pyver}'.split('.')[1]))")
 
-    PYTHON_VERSION=$(python3 -c "import sys; \
-        print('{maj}.{min}'.format( \
-              maj=sys.version_info.major, min=sys.version_info.minor))")
+        for arch in x86_64 i686; do
+            ML_IMAGE="quay.io/pypa/manylinux1_${arch}"
+            docker pull "${ML_IMAGE}"
+            docker run --rm \
+                -v "${_root}":/io \
+                -e "PYMODULE=${PYMODULE}" \
+                -e "PYTHON_VERSION=${ML_PYTHON_VERSION}" \
+                "${ML_IMAGE}" /io/.ci/build-manylinux-wheels.sh
 
-    if [[ "${RELEASE_PYTHON_VERSIONS}" != *"${PYTHON_VERSION}"* ]]; then
-        echo "Skipping release on Python ${PYTHON_VERSION}."
-        exit 0
-    fi
-
-    for arch in x86_64 i686; do
-        ML_IMAGE="quay.io/pypa/manylinux1_${arch}"
-        docker pull "${ML_IMAGE}"
-        docker run --rm \
-            -v "${_root}":/io \
-            -e "PYMODULE=${PYMODULE}" \
-            -e "PYTHON_VERSION=${ML_PYTHON_VERSION}" \
-            "${ML_IMAGE}" /io/.ci/build-manylinux-wheels.sh
-
-        _upload_wheels
+            _upload_wheels
+        done
     done
 
 elif [ "${TRAVIS_OS_NAME}" == "osx" ]; then
