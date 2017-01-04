@@ -57,7 +57,7 @@ if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
     done
 
 elif [ "${TRAVIS_OS_NAME}" == "osx" ]; then
-    make -C "${_root}"
+    make clean && make -C "${_root}"
     pip wheel "${_root}" -w "${_root}/dist/"
 
     pip install ${PYMODULE} --no-index -f "file:///${_root}/dist"

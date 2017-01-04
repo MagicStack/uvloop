@@ -23,7 +23,7 @@ from setuptools.command.build_ext import build_ext as build_ext
 from setuptools.command.sdist import sdist as sdist
 
 
-VERSION = '0.7.1'
+VERSION = '0.7.2'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
