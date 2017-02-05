@@ -256,7 +256,7 @@ class uvloop_build_ext(build_ext):
 
         if sys.platform.startswith('linux'):
             self.compiler.add_library('rt')
-        elif sys.platform.startswith('freebsd'):
+        elif sys.platform.startswith(('freebsd', 'dragonfly')):
             self.compiler.add_library('kvm')
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
