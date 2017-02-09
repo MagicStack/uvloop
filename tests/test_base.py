@@ -1,6 +1,7 @@
 import asyncio
 import fcntl
 import logging
+import os
 import threading
 import time
 import uvloop
@@ -170,6 +171,10 @@ class _TestBase:
         self.assertEqual(calls, ['a'])
 
     def test_call_at(self):
+        if os.environ.get('TRAVIS_OS_NAME') == 'osx':
+            # Time seems to be really unpredictable on Travis' macOS.
+            raise unittest.SkipTest('time is not monotonic on Travis/macOS')
+
         i = 0
 
         def cb(inc):
