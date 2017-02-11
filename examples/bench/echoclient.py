@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', default=3, type=int,
                         help='number of workers')
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str,
-                        help='number of workers')
+                        help='address:port of echoserver')
     args = parser.parse_args()
 
     unix = False
