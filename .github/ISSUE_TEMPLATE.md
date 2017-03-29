@@ -9,7 +9,8 @@ Thank you!
 -->
 
 * **uvloop version**:
-* **python version**:
-* **platform**:
+* **Python version**:
+* **Platform**:
+* **Can you reproduce the bug with `PYTHONASYNCIODEBUG` in env?**:
 
 <!-- Enter your issue details below this comment. -->
