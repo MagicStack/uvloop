@@ -34,13 +34,13 @@ debug: clean
 		--define UVLOOP_DEBUG,CYTHON_TRACE,CYTHON_TRACE_NOGIL
 
 
-docs: compile
-	cd docs && $(PYTHON) -m sphinx -a -b html . _build/html
+docs:
+	$(PYTHON) setup.py build_ext --inplace build_sphinx
 
 
 test:
-	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest discover -s tests
-	$(PYTHON) -m unittest discover -s tests
+	PYTHONASYNCIODEBUG=1 $(PYTHON) setup.py test
+	$(PYTHON) setup.py test
 
 
 release: distclean compile test
