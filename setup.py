@@ -4,7 +4,6 @@ import re
 import shutil
 import subprocess
 import sys
-import unittest
 
 
 if sys.platform in ('win32', 'cygwin', 'cli'):
@@ -27,12 +26,6 @@ VERSION = '0.8.0'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
-
-
-def discover_tests():
-    test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('tests', pattern='test_*.py')
-    return test_suite
 
 
 def _libuv_build_env():
@@ -80,6 +73,12 @@ class uvloop_build_ext(build_ext):
     ]
 
     def initialize_options(self):
+        # initialize_options() may be called multiple times on the
+        # same command object, so make sure not to override previously
+        # set options.
+        if getattr(self, '_initialized', False):
+            return
+
         super().initialize_options()
         self.use_system_libuv = False
         self.cython_always = False
@@ -87,6 +86,12 @@ class uvloop_build_ext(build_ext):
         self.cython_directives = None
 
     def finalize_options(self):
+        # finalize_options() may be called multiple times on the
+        # same command object, so make sure not to override previously
+        # set options.
+        if getattr(self, '_initialized', False):
+            return
+
         need_cythonize = self.cython_always
         cfiles = {}
 
@@ -140,6 +145,8 @@ class uvloop_build_ext(build_ext):
                     self._patch_cfile(cfile)
 
         super().finalize_options()
+
+        self._initialized = True
 
     def _patch_cfile(self, cfile):
         # Patch Cython 'async def' coroutines to have a 'tp_iter'
@@ -303,5 +310,5 @@ setup(
     ],
     provides=['uvloop'],
     include_package_data=True,
-    test_suite='setup.discover_tests'
+    test_suite='tests.suite'
 )
