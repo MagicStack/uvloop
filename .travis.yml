@@ -16,6 +16,13 @@ env:
         # TWINE_PASSWORD:
         - secure: "MhkWx5Z2KIVp9VGNiiMrJAbfiNeuHt5uZLsnFvSWqmi66MnBt15uRfle/9swNpc2eaNJ7XcC3oVvo6pf2118gyXxdqfgOCApLIjW4uBJwwzpA2DrCVxXT6gNVaDZ5c1PgHAAwY/jMxbloRPneqtyD6Pt5FvqcKy/VSp5DEEea+nJqX7MEk0I3ZtkvCxu6kBJ4wEfSyxilBVrezydEyimjUrHECyaSI92MLy6LRGZxOjM+Y++bjtnU3cYxXhu0W/E1CYQLUF1ZdhgAKNNcsQz939KuNrT5iVUNU2iDi+TKufG1seekaaoetSfhKmL94Bf1m/Yux+AyoUgoOA18sioqDbDW4zXQTTLnyFXTMQGXzKiYE7SXwOqteLNfzs90tHDwkyvVOSDvkh3uxFIz/pDkiBGp1/o1w9JncPlmKxreXMyBDJSbDomKptr3aswU31l3KOlOBO2uCQuzFtJc4Act+gV7MTxgVBKmIbxZaSUpE8elBVcNUTIruMaCvieYfDk/GgX1619bE8k2SR/z/gQ1OB5fmb/daN8/cqAw1r9PWsIRlvOkhrONIACkjvoZDErMo9DyDI2AqLKGhk6/QUwwatD9NIZe7nnEeEsJsoI7o4T+gJPGta0owU4XaAB+JY0VZ6gsun3+hY8cAhnhNYF3TDtiSL73c70vf55+LYaM/E="
 
+branches:
+    # Avoid building PR branches.
+    only:
+        - master
+        - ci
+        - releases
+
 matrix:
     fast_finish: true
 
