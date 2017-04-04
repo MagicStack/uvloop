@@ -2,9 +2,9 @@ import asyncio
 
 from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 
-from . import includes as __includes
-from . import _patch
-from .loop import Loop as __BaseLoop, Future
+from . import includes as __includes  # NOQA
+from . import _patch  # NOQA
+from .loop import Loop as __BaseLoop, Future  # NOQA
 
 
 __all__ = ('new_event_loop', 'EventLoopPolicy')
