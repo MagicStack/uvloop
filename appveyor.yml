@@ -1,0 +1,14 @@
+environment:
+  matrix:
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python35-x64"
+
+install:
+  - "%PYTHON%\\python.exe -m pip install -r requirements.dev.txt"
+  - "git submodule init"
+  - "git submodule update"
+
+build: off
+
+test_script:
+  - "%PYTHON%\\python.exe setup.py test"
