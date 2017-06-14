@@ -39,9 +39,7 @@ To build `uvloop`, you'll need ``Cython`` and Python 3.5.
     .. code-block:: console
 
         $ python3 -m venv myvenv
-        $ cd myvenv
-        $ source bin/activate
-        $ cd ..
+        $ source myvenv/bin/activate
 
 Install Cython if not already present.
 
