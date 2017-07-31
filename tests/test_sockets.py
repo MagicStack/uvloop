@@ -4,6 +4,11 @@ import socket
 import sys
 import unittest
 
+try:
+    from socket import socketpair
+except ImportError:
+    from asyncio.windows_utils import socketpair
+
 from uvloop import _testbase as tb
 
 
@@ -111,6 +116,25 @@ class _TestSockets:
             with self.assertRaisesRegex(ValueError, 'must be non-blocking'):
                 self.loop.run_until_complete(
                     self.loop.sock_connect(sock, (b'', 0)))
+    
+    def test_socket_fileno(self):
+        rsock, wsock = socketpair()
+        f = asyncio.Future(loop=self.loop)
+
+        def reader():
+            data = rsock.recv(100)
+            # We are done: unregister the file descriptor
+            self.loop.remove_reader(rsock)
+            f.set_result(None)
+
+        def writer():
+            wsock.send(b'abc')
+            self.loop.remove_writer(wsock)
+
+        with rsock, wsock:
+            self.loop.add_reader(rsock, reader)
+            self.loop.add_writer(wsock, writer)
+            self.loop.run_until_complete(f)
 
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):

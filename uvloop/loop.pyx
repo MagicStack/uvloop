@@ -58,6 +58,14 @@ cdef isfuture(obj):
     else:
         return aio_isfuture(obj)
 
+cdef inline int _as_fd(obj):
+    """Return an integer FD from an FD or an object with a .fileno() method"""
+    if isinstance(obj, int):
+        return obj
+    elif hasattr(obj, 'fileno'):
+        return obj.fileno()
+    else:
+        raise TypeError("%r is not an integer fd and has no .fileno() method" % obj)
 
 @cython.no_gc_clear
 cdef class Loop:
@@ -1896,6 +1904,7 @@ cdef class Loop:
 
     def add_reader(self, fd, callback, *args):
         """Add a reader callback."""
+        fd = _as_fd(fd)
         self._ensure_fd_no_transport(fd)
         if len(args) == 0:
             args = None
@@ -1903,11 +1912,13 @@ cdef class Loop:
 
     def remove_reader(self, fd):
         """Remove a reader callback."""
+        fd = _as_fd(fd)
         self._ensure_fd_no_transport(fd)
         self._remove_reader(fd)
 
     def add_writer(self, fd, callback, *args):
         """Add a writer callback.."""
+        fd = _as_fd(fd)
         self._ensure_fd_no_transport(fd)
         if len(args) == 0:
             args = None
@@ -1915,6 +1926,7 @@ cdef class Loop:
 
     def remove_writer(self, fd):
         """Remove a writer callback."""
+        fd = _as_fd(fd)
         self._ensure_fd_no_transport(fd)
         self._remove_writer(fd)
 
