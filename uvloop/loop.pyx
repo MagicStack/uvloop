@@ -2433,7 +2433,10 @@ cdef class Loop:
                     self._sock_set_reuseport(udp._fileno())
 
                 socket = udp._get_socket()
-                socket.bind(('0.0.0.0', 0))
+                if family == uv.AF_INET6:
+                    socket.bind(('::', 0))
+                else:
+                    socket.bind(('0.0.0.0', 0))
             else:
                 lai = (<AddrInfo>lads).data
                 while lai is not NULL:

@@ -97,6 +97,24 @@ class _TestUDP:
                 server.transport.close()
                 self.loop.run_until_complete(server.done)
 
+    def test_create_datagram_endpoint_ipv6_family(self):
+        class TestMyDatagramProto(MyDatagramProto):
+            def __init__(inner_self):
+                super().__init__(loop=self.loop)
+
+            def datagram_received(self, data, addr):
+                super().datagram_received(data, addr)
+                self.transport.sendto(b'resp:' + data, addr)
+
+        coro = self.loop.create_datagram_endpoint(
+            TestMyDatagramProto, local_addr=None, family=socket.AF_INET6)
+        s_transport = None
+        try:
+            s_transport, server = self.loop.run_until_complete(coro)
+        finally:
+            if s_transport:
+                s_transport.close()
+
     def test_create_datagram_endpoint_sock(self):
         sock = None
         local_address = ('127.0.0.1', 0)
