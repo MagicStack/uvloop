@@ -133,10 +133,10 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def skip_unclosed_handles_check(self):
         self._check_unclosed_resources_in_debug = False
 
-def _cert_fullname(name):
-    fullname = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'tests', 'certs', name)
+
+def _cert_fullname(test_file_name, cert_file_name):
+    fullname = os.path.abspath(os.path.join(
+        os.path.dirname(test_file_name), 'certs', cert_file_name))
     assert os.path.isfile(fullname)
     return fullname
 
@@ -172,9 +172,6 @@ def find_free_port(start_from=50000):
 
 
 class SSLTestCase:
-
-    ONLYCERT = _cert_fullname('ssl_cert.pem')
-    ONLYKEY = _cert_fullname('ssl_key.pem')
 
     def _create_server_ssl_context(self, certfile, keyfile=None):
         sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)

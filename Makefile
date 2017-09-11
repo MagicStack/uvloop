@@ -1,4 +1,4 @@
-.PHONY: _default clean clean-libuv distclean compile debug docs test release
+.PHONY: _default clean clean-libuv distclean compile debug docs test testinstalled release
 
 
 PYTHON ?= python
@@ -9,7 +9,7 @@ _default: compile
 
 clean:
 	rm -fr dist/ doc/_build/ *.egg-info uvloop/loop.*.pyd
-	rm -fr build/lib.* build/temp.*
+	rm -fr build/lib.* build/temp.* build/libuv
 	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
@@ -42,6 +42,10 @@ docs:
 test:
 	PYTHONASYNCIODEBUG=1 $(PYTHON) setup.py test
 	$(PYTHON) setup.py test
+
+
+testinstalled:
+	$(PYTHON) tests/__init__.py
 
 
 release: distclean compile test

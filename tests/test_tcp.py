@@ -842,6 +842,9 @@ class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
 
 class _TestSSL(tb.SSLTestCase):
 
+    ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')
+    ONLYKEY = tb._cert_fullname(__file__, 'ssl_key.pem')
+
     def test_create_server_ssl_1(self):
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create

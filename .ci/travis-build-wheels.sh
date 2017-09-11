@@ -62,7 +62,7 @@ elif [ "${TRAVIS_OS_NAME}" == "osx" ]; then
 
     pip install ${PYMODULE} --no-index -f "file:///${_root}/dist"
     pushd / >/dev/null
-    make -C "${_root}" test
+    make -C "${_root}" testinstalled
     popd >/dev/null
 
     _upload_wheels
