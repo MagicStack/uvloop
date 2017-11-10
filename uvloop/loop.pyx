@@ -1231,8 +1231,11 @@ cdef class Loop:
         if sl > 2:
             flowinfo = sockaddr[2]
             if flowinfo < 0 or flowinfo > 0xfffff:
-                raise OverflowError(
-                    'getsockaddrarg: flowinfo must be 0-1048575.')
+                if sys_version_info >= (3, 7, 0):
+                    msg = 'getnameinfo(): flowinfo must be 0-1048575.'
+                else:
+                    msg = 'getsockaddrarg: flowinfo must be 0-1048575.'
+                raise OverflowError(msg)
         else:
             flowinfo = 0
 
