@@ -983,7 +983,7 @@ cdef class Loop:
             self._poll_write_cb_errors_total))
         print()
 
-        print('--- Sock ops successfull on 1st try: ---')
+        print('--- Sock ops successful on 1st try: ---')
         print('Socket try-writes:         {}'.format(
             self._sock_try_write_total))
 
