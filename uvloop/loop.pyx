@@ -1196,7 +1196,8 @@ cdef class Loop:
                 # local task.
                 future.exception()
             raise
-        future.remove_done_callback(done_cb)
+        finally:
+            future.remove_done_callback(done_cb)
         if not future.done():
             raise RuntimeError('Event loop stopped before Future completed.')
 

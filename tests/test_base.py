@@ -295,6 +295,20 @@ class _TestBase:
         with self.assertRaisesRegex(ValueError, 'aaa'):
             self.loop.run_until_complete(foo())
 
+    def test_run_until_complete_loop_orphan_future_close_loop(self):
+        async def foo(sec=0):
+            await asyncio.sleep(sec)
+        self.loop.close()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            with mock.patch('asyncio.base_events.BaseEventLoop.run_forever', side_effect=Exception):
+                loop.run_until_complete(foo())
+        except:
+            pass
+        loop.run_until_complete(foo(0.1))
+        loop.close()
+
     def test_debug_slow_callbacks(self):
         logger = logging.getLogger('asyncio')
         self.loop.set_debug(True)
