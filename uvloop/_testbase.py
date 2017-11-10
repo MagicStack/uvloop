@@ -199,11 +199,15 @@ class SSLTestCase:
 
 class UVTestCase(BaseTestCase):
 
+    implementation = 'uvloop'
+
     def new_loop(self):
         return uvloop.new_event_loop()
 
 
 class AIOTestCase(BaseTestCase):
+
+    implementation = 'asyncio'
 
     def setUp(self):
         super().setUp()

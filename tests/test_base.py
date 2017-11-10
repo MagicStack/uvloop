@@ -2,6 +2,7 @@ import asyncio
 import fcntl
 import logging
 import os
+import sys
 import threading
 import time
 import uvloop
@@ -296,6 +297,9 @@ class _TestBase:
             self.loop.run_until_complete(foo())
 
     def test_run_until_complete_loop_orphan_future_close_loop(self):
+        if self.implementation == 'asyncio' and sys.version_info < (3, 6, 2):
+            raise unittest.SkipTest('unfixed asyncio')
+
         class ShowStopper(BaseException):
             pass
 
