@@ -148,13 +148,18 @@ cdef class UVProcess(UVHandle):
 
     cdef _after_fork(self):
         # See CPython/_posixsubprocess.c for details
+        cdef int err
 
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        if self._preexec_fn is not None:
-            PyOS_AfterFork()
+        PyOS_AfterFork()
 
+        err = uv.uv_loop_fork(self._loop.uvloop)
+        if err < 0:
+            raise convert_error(err)
+
+        if self._preexec_fn is not None:
             try:
                 gc_disable()
                 self._preexec_fn()
