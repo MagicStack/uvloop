@@ -44,7 +44,7 @@ cdef class UVStreamServer(UVSocketHandle):
             return
 
     cdef inline _on_listen(self):
-        cdef UVStream slient
+        cdef UVStream client
 
         protocol = self.protocol_factory()
 
