@@ -296,18 +296,24 @@ class _TestBase:
             self.loop.run_until_complete(foo())
 
     def test_run_until_complete_loop_orphan_future_close_loop(self):
-        async def foo(sec=0):
-            await asyncio.sleep(sec)
-        self.loop.close()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            with mock.patch('asyncio.base_events.BaseEventLoop.run_forever', side_effect=Exception):
-                loop.run_until_complete(foo())
-        except:
+        class ShowStopper(BaseException):
             pass
-        loop.run_until_complete(foo(0.1))
-        loop.close()
+
+        async def foo(delay):
+            await asyncio.sleep(delay, loop=self.loop)
+
+        def throw():
+            raise ShowStopper
+
+        self.loop.call_soon(throw)
+        try:
+            self.loop.run_until_complete(foo(0.1))
+        except ShowStopper:
+            pass
+
+        # This call fails if run_until_complete does not clean up
+        # done-callback for the previous future.
+        self.loop.run_until_complete(foo(0.2))
 
     def test_debug_slow_callbacks(self):
         logger = logging.getLogger('asyncio')
