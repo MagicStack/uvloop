@@ -88,6 +88,7 @@ cdef class Loop:
 
         # Used to keep a reference (and hence keep the fileobj alive)
         # for as long as its registered by add_reader or add_writer.
+        # This is how the selector module and hence asyncio behaves.
         self._fd_to_reader_fileobj = {}
         self._fd_to_writer_fileobj = {}
 
