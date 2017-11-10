@@ -1,4 +1,4 @@
-.PHONY: _default clean clean-libuv distclean compile debug docs test testinstalled release
+.PHONY: _default clean clean-libuv distclean compile debug docs test testinstalled release setup-build
 
 
 PYTHON ?= python
@@ -23,8 +23,11 @@ distclean: clean clean-libuv
 	rm -fr build/
 
 
-compile: clean
+setup-build:
 	$(PYTHON) setup.py build_ext --inplace --cython-always
+
+
+compile: clean setup-build
 
 
 debug: clean
