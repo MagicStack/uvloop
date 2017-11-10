@@ -112,6 +112,25 @@ class _TestSockets:
                 self.loop.run_until_complete(
                     self.loop.sock_connect(sock, (b'', 0)))
 
+    def test_socket_fileno(self):
+        rsock, wsock = socket.socketpair()
+        f = asyncio.Future(loop=self.loop)
+
+        def reader():
+            rsock.recv(100)
+            # We are done: unregister the file descriptor
+            self.loop.remove_reader(rsock)
+            f.set_result(None)
+
+        def writer():
+            wsock.send(b'abc')
+            self.loop.remove_writer(wsock)
+
+        with rsock, wsock:
+            self.loop.add_reader(rsock, reader)
+            self.loop.add_writer(wsock, writer)
+            self.loop.run_until_complete(f)
+
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
 
@@ -138,6 +157,51 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.close()
             self.loop.close()
             epoll.close()
+
+    def test_add_reader_or_writer_transport_fd(self):
+        def assert_raises():
+            return self.assertRaisesRegex(
+                RuntimeError,
+                r'File descriptor .* is used by transport')
+
+        async def runner():
+            tr, pr = await self.loop.create_connection(
+                lambda: asyncio.Protocol(), sock=rsock)
+
+            try:
+                cb = lambda: None
+                sock = tr.get_extra_info('socket')
+
+                with assert_raises():
+                    self.loop.add_reader(sock, cb)
+                with assert_raises():
+                    self.loop.add_reader(sock.fileno(), cb)
+
+                with assert_raises():
+                    self.loop.remove_reader(sock)
+                with assert_raises():
+                    self.loop.remove_reader(sock.fileno())
+
+                with assert_raises():
+                    self.loop.add_writer(sock, cb)
+                with assert_raises():
+                    self.loop.add_writer(sock.fileno(), cb)
+
+                with assert_raises():
+                    self.loop.remove_writer(sock)
+                with assert_raises():
+                    self.loop.remove_writer(sock.fileno())
+
+            finally:
+                tr.close()
+
+        rsock, wsock = socket.socketpair()
+        try:
+            self.loop.run_until_complete(runner())
+        finally:
+            rsock.close()
+            wsock.close()
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass

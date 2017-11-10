@@ -53,6 +53,8 @@ cdef class Loop:
         Py_ssize_t _ready_len
 
         object _transports
+        dict _fd_to_reader_fileobj
+        dict _fd_to_writer_fileobj
 
         dict _signal_handlers
         object _ssock
@@ -159,6 +161,7 @@ cdef class Loop:
                         object backlog)
 
     cdef _track_transport(self, UVBaseTransport transport)
+    cdef _fileobj_to_fd(self, fileobj)
     cdef _ensure_fd_no_transport(self, fd)
 
     cdef _add_reader(self, fd, Handle handle)
