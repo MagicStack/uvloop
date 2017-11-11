@@ -624,6 +624,15 @@ class _TestBase:
         self.loop.run_until_complete(foo())
         self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
+    def test_inf_wait_for(self):
+        async def foo():
+            await asyncio.sleep(0.1, loop=self.loop)
+            return 123
+        res = self.loop.run_until_complete(
+            asyncio.wait_for(foo(), timeout=float('inf'), loop=self.loop))
+        self.assertEqual(res, 123)
+
+
 class TestBaseUV(_TestBase, UVTestCase):
 
     def test_loop_create_future(self):

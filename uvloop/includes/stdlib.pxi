@@ -128,6 +128,8 @@ cdef warnings_warn = warnings.warn
 cdef weakref_WeakValueDictionary = weakref.WeakValueDictionary
 cdef weakref_WeakSet = weakref.WeakSet
 
+cdef py_inf = float('inf')
+
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
 # so we delete refs to all modules manually (except sys)

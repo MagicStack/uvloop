@@ -1085,12 +1085,20 @@ cdef class Loop:
         Any positional arguments after the callback will be passed to
         the callback when it is called.
         """
+        cdef uint64_t when
+
         self._check_closed()
         if self._debug == 1:
             self._check_thread()
+
         if delay < 0:
             delay = 0
-        cdef uint64_t when = <uint64_t>(delay * 1000)
+        elif delay == py_inf:
+            # ~100 years sounds like a good approximation of
+            # infinity for a Python application.
+            delay = 3600 * 24 * 365 * 100
+
+        when = <uint64_t>(delay * 1000)
         if not args:
             args = None
         if when == 0:
