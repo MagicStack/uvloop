@@ -31,15 +31,5 @@ class EventLoopPolicy(__BasePolicy):
     <uvloop.Loop running=False closed=False debug=False>
     """
 
-    def __init__(self):
-        super().__init__()
-        self.__watcher = None
-
     def _loop_factory(self):
         return new_event_loop()
-
-    def get_child_watcher(self):
-        return self.__watcher
-
-    def set_child_watcher(self, watcher):
-        self.__watcher = watcher
