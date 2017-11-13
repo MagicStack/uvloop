@@ -75,7 +75,11 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
             raise ValueError('AF_INET address must be tuple of (host, port)')
         host, port = addr
         if isinstance(host, str):
-            host = host.encode('idna')
+            try:
+                # idna codec is rather slow, so we try ascii first.
+                host = host.encode('ascii')
+            except UnicodeEncodeError:
+                host = host.encode('idna')
         if not isinstance(host, (bytes, bytearray)):
             raise TypeError('host must be a string or bytes object')
 
@@ -97,7 +101,13 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
 
         host = addr[0]
         if isinstance(host, str):
-            host = host.encode('idna')
+            try:
+                # idna codec is rather slow, so we try ascii first.
+                host = host.encode('ascii')
+            except UnicodeEncodeError:
+                host = host.encode('idna')
+        if not isinstance(host, (bytes, bytearray)):
+            raise TypeError('host must be a string or bytes object')
 
         port = __port_to_int(addr[1], None)
 
