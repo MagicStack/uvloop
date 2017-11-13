@@ -2092,7 +2092,7 @@ cdef class Loop:
             await fut
             return
 
-        _, _, _, _, address = (await self.getaddrinfo(*address))[0]
+        _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
         self._sock_connect(fut, sock, address)
         await fut
 

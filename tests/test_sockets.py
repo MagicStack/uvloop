@@ -91,6 +91,27 @@ class _TestSockets:
 
         self.loop.run_until_complete(run())
 
+    def test_socket_ipv6_addr(self):
+        server_sock = socket.socket(socket.AF_INET6)
+        with server_sock:
+            server_sock.bind(('::1', 0))
+            addr = server_sock.getsockname()  # tuple of 4 elements for IPv6
+
+            async def run():
+                sock = socket.socket(socket.AF_INET6)
+                with sock:
+                    sock.setblocking(False)
+                    # Check that sock_connect accepts 4-element address tuple
+                    # for IPv6 sockets.
+                    f = self.loop.sock_connect(sock, addr)
+                    try:
+                        await asyncio.wait_for(f, timeout=0.1, loop=self.loop)
+                    except asyncio.TimeoutError:
+                        # TimeoutError is expected.
+                        pass
+
+            self.loop.run_until_complete(run())
+
     def test_socket_blocking_error(self):
         self.loop.set_debug(True)
         sock = socket.socket()
