@@ -1,11 +1,13 @@
 import asyncio
 import contextlib
 import os
+import pathlib
 import signal
 import subprocess
 import sys
 import tempfile
 import time
+import unittest
 
 from asyncio import test_utils
 from uvloop import _testbase as tb
@@ -34,6 +36,26 @@ class _TestProcess:
             cmd = 'pwd'
             env = {}
             cwd = '/'
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                loop=self.loop)
+
+            out, _ = await proc.communicate()
+            self.assertEqual(out, b'/\n')
+            self.assertEqual(proc.returncode, 0)
+
+        self.loop.run_until_complete(test())
+
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
+    def test_process_cwd_2(self):
+        async def test():
+            cmd = 'pwd'
+            env = {}
+            cwd = pathlib.Path('/')
             proc = await asyncio.create_subprocess_shell(
                 cmd,
                 cwd=cwd,

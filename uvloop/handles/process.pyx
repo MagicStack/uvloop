@@ -232,10 +232,20 @@ cdef class UVProcess(UVHandle):
             self.options.flags |= uv.UV_PROCESS_DETACHED
 
         if cwd is not None:
+            try:
+                # Lookup __fspath__ manually, as os.fspath() isn't
+                # available on Python 3.5.
+                fspath = type(cwd).__fspath__
+            except AttributeError:
+                pass
+            else:
+                cwd = fspath(cwd)
+
             if isinstance(cwd, str):
                 cwd = PyUnicode_EncodeFSDefault(cwd)
             if not isinstance(cwd, bytes):
                 raise ValueError('cwd must be a str or bytes object')
+
             self.__cwd = cwd
             self.options.cwd = PyBytes_AsString(self.__cwd)
 
