@@ -30,6 +30,7 @@ cdef aio_Task = asyncio.Task
 cdef aio_ensure_future = asyncio.ensure_future
 cdef aio_gather = asyncio.gather
 cdef aio_wait = asyncio.wait
+cdef aio_wrap_future = asyncio.wrap_future
 cdef aio_logger = asyncio.log.logger
 cdef aio_iscoroutine = asyncio.iscoroutine
 cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction

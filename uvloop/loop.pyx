@@ -547,7 +547,7 @@ cdef class Loop:
                 "than the current one")
 
     cdef inline _new_future(self):
-        return future_factory(loop=self)
+        return aio_Future(loop=self)
 
     cdef _track_transport(self, UVBaseTransport transport):
         self._transports[transport._fileno()] = transport
@@ -1194,7 +1194,7 @@ cdef class Loop:
         """
         self._check_closed()
         if self._task_factory is None:
-            task = task_factory(coro, loop=self)
+            task = aio_Task(coro, loop=self)
         else:
             task = self._task_factory(self, coro)
         return task
@@ -2162,9 +2162,7 @@ cdef class Loop:
                 executor = cc_ThreadPoolExecutor()
                 self._default_executor = executor
 
-        new_fut = self._new_future()
-        _chain_future(executor.submit(func, *args), new_fut)
-        return new_fut
+        return aio_wrap_future(executor.submit(func, *args), loop=self)
 
     def set_default_executor(self, executor):
         self._default_executor = executor
@@ -2631,9 +2629,6 @@ include "dns.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
-
-include "future.pyx"
-include "chain_futs.pyx"
 
 
 # Used in UVProcess
