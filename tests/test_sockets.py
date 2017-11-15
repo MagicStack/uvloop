@@ -110,7 +110,7 @@ class _TestSockets:
                     f = self.loop.sock_connect(sock, addr)
                     try:
                         await asyncio.wait_for(f, timeout=0.1, loop=self.loop)
-                    except asyncio.TimeoutError:
+                    except (asyncio.TimeoutError, ConnectionRefusedError):
                         # TimeoutError is expected.
                         pass
 
