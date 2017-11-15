@@ -94,7 +94,11 @@ class _TestSockets:
     def test_socket_ipv6_addr(self):
         server_sock = socket.socket(socket.AF_INET6)
         with server_sock:
-            server_sock.bind(('::1', 0))
+            try:
+                server_sock.bind(('::1', 0))
+            except OSError:
+                raise unittest.SkipTest('IPv6 is not supported')
+
             addr = server_sock.getsockname()  # tuple of 4 elements for IPv6
 
             async def run():
