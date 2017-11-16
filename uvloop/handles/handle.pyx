@@ -79,10 +79,17 @@ cdef class UVHandle:
 
     cdef _warn_unclosed(self):
         if self._source_traceback is not None:
-            tb = ''.join(tb_format_list(self._source_traceback))
-            tb = 'object created at (most recent call last):\n{}'.format(
-                tb.rstrip())
-            msg = 'unclosed resource {!r}; {}'.format(self, tb)
+            try:
+                tb = ''.join(tb_format_list(self._source_traceback))
+                tb = 'object created at (most recent call last):\n{}'.format(
+                    tb.rstrip())
+            except Exception as ex:
+                msg = (
+                    'unclosed resource {!r}; could not serialize '
+                    'debug traceback: {}: {}'
+                ).format(self, type(ex).__name__, ex)
+            else:
+                msg = 'unclosed resource {!r}; {}'.format(self, tb)
         else:
             msg = 'unclosed resource {!r}'.format(self)
         warnings_warn(msg, ResourceWarning)
