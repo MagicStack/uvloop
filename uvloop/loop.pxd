@@ -184,6 +184,9 @@ cdef class Loop:
 
     cdef _setup_signals(self)
     cdef _shutdown_signals(self)
+    cdef _recv_signals_start(self)
+    cdef _recv_signals_stop(self)
+
     cdef _handle_signal(self, sig)
     cdef _read_from_self(self)
     cdef _process_self_data(self, data)

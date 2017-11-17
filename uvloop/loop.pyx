@@ -219,6 +219,15 @@ cdef class Loop:
             self._ssock = self._csock = None
             return
 
+        self._signal_handlers = {}
+
+    cdef _recv_signals_start(self):
+        if self._ssock is None:
+            self._setup_signals()
+            if self._ssock is None:
+                # Not the main thread.
+                return
+
         self._add_reader(
             self._ssock,
             new_MethodHandle(
@@ -227,7 +236,11 @@ cdef class Loop:
                 <method_t>self._read_from_self,
                 self))
 
-        self._signal_handlers = {}
+    cdef _recv_signals_stop(self):
+        if self._ssock is None:
+            return
+
+        self._remove_reader(self._ssock)
 
     cdef _shutdown_signals(self):
         if self._signal_handlers is None:
@@ -365,9 +378,6 @@ cdef class Loop:
             raise RuntimeError(
                 'Cannot run the event loop while another loop is running')
 
-        if self._signal_handlers is None:
-            self._setup_signals()
-
         # reset _last_error
         self._last_error = None
 
@@ -378,6 +388,8 @@ cdef class Loop:
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
 
+        self._recv_signals_start()
+
         if aio_set_running_loop is not None:
             aio_set_running_loop(self)
         try:
@@ -386,13 +398,15 @@ cdef class Loop:
             if aio_set_running_loop is not None:
                 aio_set_running_loop(None)
 
-        self.handler_check__exec_writes.stop()
-        self.handler_idle.stop()
+            self._recv_signals_stop()
 
-        self._thread_is_main = 0
-        self._thread_id = 0
-        self._running = 0
-        self._stopping = 0
+            self.handler_check__exec_writes.stop()
+            self.handler_idle.stop()
+
+            self._thread_is_main = 0
+            self._thread_id = 0
+            self._running = 0
+            self._stopping = 0
 
         if self._last_error is not None:
             # The loop was stopped with an error with 'loop._stop(error)' call
