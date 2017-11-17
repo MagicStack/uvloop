@@ -156,7 +156,7 @@ cdef class Loop:
         if self._running == 1:
             raise RuntimeError('deallocating a running event loop!')
         if self._closed == 0:
-            aio_logger.error("deallocating an open event loop")
+            # aio_logger.error("deallocating an open event loop")
             return
         PyMem_RawFree(self.uvloop)
         self.uvloop = NULL
