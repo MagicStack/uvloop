@@ -190,6 +190,18 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def unix_client(self, *args, **kwargs):
         return self.tcp_client(*args, family=socket.AF_UNIX, **kwargs)
 
+    @contextlib.contextmanager
+    def unix_sock_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            fn = os.path.join(td, 'sock')
+            try:
+                yield fn
+            finally:
+                try:
+                    os.unlink(fn)
+                except OSError:
+                    pass
+
     def _abort_socket_test(self, ex):
         try:
             self.loop.stop()

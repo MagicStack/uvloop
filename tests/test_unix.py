@@ -1,7 +1,9 @@
 import asyncio
 import os
+import pathlib
 import socket
 import tempfile
+import time
 import unittest
 
 from uvloop import _testbase as tb
@@ -356,6 +358,26 @@ class _TestUnix:
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
 
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
+    def test_create_unix_connection_pathlib(self):
+        async def run(addr):
+            t, _ = await self.loop.create_unix_connection(
+                asyncio.Protocol, addr)
+            t.close()
+
+        with self.unix_server(lambda sock: time.sleep(0.01)) as srv:
+            addr = pathlib.Path(srv.addr)
+            self.loop.run_until_complete(run(addr))
+
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
+    def test_create_unix_server_pathlib(self):
+        with self.unix_sock_name() as srv_path:
+            srv_path = pathlib.Path(srv_path)
+            srv = self.loop.run_until_complete(
+                self.loop.create_unix_server(asyncio.Protocol, srv_path))
+            srv.close()
+            self.loop.run_until_complete(srv.wait_closed())
+
     def test_transport_fromsock_get_extra_info(self):
         # This tests is only for uvloop.  asyncio should pass it
         # too in Python 3.6.
@@ -363,7 +385,6 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
         async def test(sock):
             t, _ = await self.loop.create_unix_connection(
                 asyncio.Protocol,
-                None,
                 sock=sock)
 
             sock = t.get_extra_info('socket')
@@ -383,7 +404,7 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
     def test_create_unix_server_path_dgram(self):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         with sock:
-            coro = self.loop.create_unix_server(lambda: None, path=None,
+            coro = self.loop.create_unix_server(lambda: None,
                                                 sock=sock)
             with self.assertRaisesRegex(ValueError,
                                         'A UNIX Domain Stream.*was expected'):

@@ -1739,7 +1739,7 @@ cdef class Loop:
         else:
             return tr, protocol
 
-    async def create_unix_server(self, protocol_factory, str path=None,
+    async def create_unix_server(self, protocol_factory, path=None,
                                  *, backlog=100, sock=None, ssl=None):
         """A coroutine which creates a UNIX Domain Socket server.
 
@@ -1769,6 +1769,15 @@ cdef class Loop:
             if sock is not None:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
+
+            try:
+                # Lookup __fspath__ manually, as os.fspath() isn't
+                # available on Python 3.5.
+                fspath = type(path).__fspath__
+            except AttributeError:
+                pass
+            else:
+                path = fspath(path)
 
             # We use Python sockets to create a UNIX server socket because
             # when UNIX sockets are created by libuv, libuv removes the path
@@ -1824,7 +1833,7 @@ cdef class Loop:
         server._add_server(pipe)
         return server
 
-    async def create_unix_connection(self, protocol_factory, path, *,
+    async def create_unix_connection(self, protocol_factory, path=None, *,
                                      ssl=None, sock=None,
                                      server_hostname=None):
 
@@ -1851,12 +1860,21 @@ cdef class Loop:
                 raise ValueError('server_hostname is only meaningful with ssl')
 
         if path is not None:
-            if isinstance(path, str):
-                path = PyUnicode_EncodeFSDefault(path)
-
             if sock is not None:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
+
+            try:
+                # Lookup __fspath__ manually, as os.fspath() isn't
+                # available on Python 3.5.
+                fspath = type(path).__fspath__
+            except AttributeError:
+                pass
+            else:
+                path = fspath(path)
+
+            if isinstance(path, str):
+                path = PyUnicode_EncodeFSDefault(path)
 
             waiter = self._new_future()
             tr = UnixTransport.new(self, protocol, None, waiter)
