@@ -113,7 +113,7 @@ cdef class UVHandle:
         self._inited = 1
         self._handle.data = <void*>self
         if self._loop._debug:
-            self._source_traceback = tb_extract_stack(sys_getframe(0))
+            self._source_traceback = extract_stack()
         if UVLOOP_DEBUG:
             self._loop._debug_uv_handles_total += 1
 

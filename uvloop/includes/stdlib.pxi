@@ -121,7 +121,8 @@ cdef signal_SIG_DFL = std_signal.SIG_DFL
 cdef time_sleep = time.sleep
 cdef time_monotonic = time.monotonic
 
-cdef tb_extract_stack = traceback.extract_stack
+cdef tb_StackSummary = traceback.StackSummary
+cdef tb_walk_stack = traceback.walk_stack
 cdef tb_format_list = traceback.format_list
 
 cdef warnings_warn = warnings.warn

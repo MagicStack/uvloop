@@ -12,7 +12,7 @@ cdef class Handle:
             loop._debug_cb_handles_total += 1
             loop._debug_cb_handles_count += 1
         if loop._debug:
-            self._source_traceback = tb_extract_stack(sys_getframe(0))
+            self._source_traceback = extract_stack()
 
     def __dealloc__(self):
         if UVLOOP_DEBUG and self.loop is not None:
@@ -133,7 +133,7 @@ cdef class TimerHandle:
         self.closed = 0
 
         if loop._debug:
-            self._source_traceback = tb_extract_stack(sys_getframe(0))
+            self._source_traceback = extract_stack()
 
         self.timer = UVTimer.new(
             loop, <method_t>self._run, self, delay)
@@ -310,3 +310,22 @@ cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
     handle.arg4 = arg3
 
     return handle
+
+
+cdef extract_stack():
+    """Replacement for traceback.extract_stack() that only does the
+    necessary work for asyncio debug mode.
+    """
+    f = sys_getframe()
+    if f is None:
+        return
+
+    try:
+        stack = tb_StackSummary.extract(tb_walk_stack(f),
+                                        limit=DEBUG_STACK_DEPTH,
+                                        lookup_lines=False)
+    finally:
+        f = None
+
+    stack.reverse()
+    return stack
