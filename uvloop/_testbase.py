@@ -184,6 +184,12 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         return TestThreadedClient(
             self, sock, client_prog, timeout)
 
+    def unix_server(self, *args, **kwargs):
+        return self.tcp_server(*args, family=socket.AF_UNIX, **kwargs)
+
+    def unix_client(self, *args, **kwargs):
+        return self.tcp_client(*args, family=socket.AF_UNIX, **kwargs)
+
     def _abort_socket_test(self, ex):
         try:
             self.loop.stop()

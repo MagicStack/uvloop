@@ -221,10 +221,9 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            with self.tcp_server(server,
-                                 family=socket.AF_UNIX,
-                                 max_clients=TOTAL_CNT,
-                                 backlog=TOTAL_CNT) as srv:
+            with self.unix_server(server,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT) as srv:
                 tasks = []
                 for _ in range(TOTAL_CNT):
                     tasks.append(coro(srv.addr))
@@ -284,10 +283,9 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            with self.tcp_server(server,
-                                 family=socket.AF_UNIX,
-                                 max_clients=TOTAL_CNT,
-                                 backlog=TOTAL_CNT) as srv:
+            with self.unix_server(server,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT) as srv:
                 tasks = []
                 for _ in range(TOTAL_CNT):
                     tasks.append(coro(srv.addr))
@@ -472,7 +470,7 @@ class _TestSSL(tb.SSLTestCase):
                 else:
                     self.loop.call_soon_threadsafe(fut.set_result, None)
 
-            client = self.tcp_client(prog, family=socket.AF_UNIX)
+            client = self.unix_client(prog)
             client.start()
             clients.append(client)
 
@@ -561,19 +559,16 @@ class _TestSSL(tb.SSLTestCase):
             nonlocal CNT
             CNT = 0
 
-            srv = self.tcp_server(server,
-                                  family=socket.AF_UNIX,
+            with self.unix_server(server,
                                   max_clients=TOTAL_CNT,
-                                  backlog=TOTAL_CNT)
-            srv.start()
+                                  backlog=TOTAL_CNT) as srv:
+                tasks = []
+                for _ in range(TOTAL_CNT):
+                    tasks.append(coro(srv.addr))
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(coro(srv.addr))
+                self.loop.run_until_complete(
+                    asyncio.gather(*tasks, loop=self.loop))
 
-            self.loop.run_until_complete(
-                asyncio.gather(*tasks, loop=self.loop))
-            srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
         with self._silence_eof_received_warning():
