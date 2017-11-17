@@ -14,6 +14,7 @@ import socket
 import ssl
 import tempfile
 import threading
+import time
 import unittest
 import uvloop
 
@@ -381,6 +382,15 @@ class _Command:
 
     def _run(self, sock):
         raise NotImplementedError
+
+
+class sleep(_Command):
+    def __init__(self, delay):
+        self._delay = delay
+
+    def _run(self, sock):
+        time.sleep(self._delay)
+        return sock, None
 
 
 class write(_Command):

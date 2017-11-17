@@ -227,6 +227,86 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             rsock.close()
             wsock.close()
 
+    def test_socket_connect_and_close(self):
+        def srv_gen():
+            yield tb.write(b'helo')
+
+        async def client(sock, addr):
+            f = asyncio.ensure_future(self.loop.sock_connect(sock, addr),
+                                      loop=self.loop)
+            self.loop.call_soon(sock.close)
+            await f
+            return 'ok'
+
+        with tb.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                r = self.loop.run_until_complete(client(sock, srv.addr))
+                self.assertEqual(r, 'ok')
+
+    def test_socket_recv_and_close(self):
+        def srv_gen():
+            yield tb.sleep(1.2)
+            yield tb.write(b'helo')
+
+        async def kill(sock):
+            await asyncio.sleep(0.2, loop=self.loop)
+            sock.close()
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            f = asyncio.ensure_future(self.loop.sock_recv(sock, 10),
+                                      loop=self.loop)
+            self.loop.create_task(kill(sock))
+            res = await f
+            self.assertEqual(sock.fileno(), -1)
+            return res
+
+        with tb.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                r = self.loop.run_until_complete(w)
+                self.assertEqual(r, b'helo')
+
+    def test_socket_send_and_close(self):
+        ok = False
+
+        def srv_gen():
+            nonlocal ok
+            b = yield tb.read(2)
+            if b == b'hi':
+                ok = True
+            yield tb.write(b'ii')
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            s2 = sock.dup()  # Don't let it drop connection until `f` is done
+            with s2:
+                f = asyncio.ensure_future(self.loop.sock_sendall(sock, b'hi'),
+                                          loop=self.loop)
+                self.loop.call_soon(sock.close)
+                await f
+
+                return await self.loop.sock_recv(s2, 2)
+
+        with tb.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                r = self.loop.run_until_complete(client(sock, srv.addr))
+                self.assertEqual(r, b'ii')
+
+        self.assertTrue(ok)
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass

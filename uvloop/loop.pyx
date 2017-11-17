@@ -220,7 +220,7 @@ cdef class Loop:
             return
 
         self._add_reader(
-            self._ssock.fileno(),
+            self._ssock,
             new_MethodHandle(
                 self,
                 "Loop._read_from_self",
@@ -235,7 +235,7 @@ cdef class Loop:
         for sig in list(self._signal_handlers):
             self.remove_signal_handler(sig)
         signal_set_wakeup_fd(-1)
-        self._remove_reader(self._ssock.fileno())
+        self._remove_reader(self._ssock)
         self._ssock.close()
         self._csock.close()
 
@@ -589,7 +589,22 @@ cdef class Loop:
                     'File descriptor {!r} is used by transport {!r}'.format(
                         fd, tr))
 
-    cdef inline _add_reader(self, fileobj, Handle handle):
+    cdef inline _inc_io_ref(self, sock):
+        try:
+            sock._io_refs += 1
+        except AttributeError:
+            pass
+
+    cdef inline _dec_io_ref(self, sock):
+        try:
+            sock._io_refs
+            sock._decref_socketios
+        except AttributeError:
+            pass
+        else:
+            sock._decref_socketios()
+
+    cdef _add_reader(self, fileobj, Handle handle):
         cdef:
             UVPoll poll
 
@@ -604,9 +619,10 @@ cdef class Loop:
             self._polls[fd] = poll
 
         self._fd_to_reader_fileobj[fd] = fileobj
+        self._inc_io_ref(fileobj)
         poll.start_reading(handle)
 
-    cdef inline _remove_reader(self, fileobj):
+    cdef _remove_reader(self, fileobj):
         cdef:
             UVPoll poll
 
@@ -626,9 +642,11 @@ cdef class Loop:
         if not poll.is_active():
             del self._polls[fd]
             poll._close()
+
+        self._dec_io_ref(fileobj)
         return result
 
-    cdef inline _add_writer(self, fileobj, Handle handle):
+    cdef _add_writer(self, fileobj, Handle handle):
         cdef:
             UVPoll poll
 
@@ -643,9 +661,10 @@ cdef class Loop:
             self._polls[fd] = poll
 
         self._fd_to_writer_fileobj[fd] = fileobj
+        self._inc_io_ref(fileobj)
         poll.start_writing(handle)
 
-    cdef inline _remove_writer(self, fileobj):
+    cdef _remove_writer(self, fileobj):
         cdef:
             UVPoll poll
 
@@ -665,6 +684,8 @@ cdef class Loop:
         if not poll.is_active():
             del self._polls[fd]
             poll._close()
+
+        self._dec_io_ref(fileobj)
         return result
 
     cdef _getaddrinfo(self, object host, object port,
@@ -724,11 +745,9 @@ cdef class Loop:
     cdef _sock_recv(self, fut, sock, n):
         cdef:
             Handle handle
-            int fd
 
-        fd = sock.fileno()
         if fut.cancelled():
-            self._remove_reader(fd)
+            self._remove_reader(sock)
             return
 
         try:
@@ -739,21 +758,18 @@ cdef class Loop:
             pass
         except Exception as exc:
             fut.set_exception(exc)
-            self._remove_reader(fd)
+            self._remove_reader(sock)
         else:
             fut.set_result(data)
-            self._remove_reader(fd)
+            self._remove_reader(sock)
 
     cdef _sock_sendall(self, fut, sock, data):
         cdef:
             Handle handle
             int n
-            int fd
-
-        fd = sock.fileno()
 
         if fut.cancelled():
-            self._remove_writer(fd)
+            self._remove_writer(sock)
             return
 
         try:
@@ -763,12 +779,12 @@ cdef class Loop:
             return
         except Exception as exc:
             fut.set_exception(exc)
-            self._remove_writer(fd)
+            self._remove_writer(sock)
             return
 
         if n == len(data):
             fut.set_result(None)
-            self._remove_writer(fd)
+            self._remove_writer(sock)
         else:
             if n:
                 if not isinstance(data, memoryview):
@@ -782,16 +798,14 @@ cdef class Loop:
                 self,
                 fut, sock, data)
 
-            self._add_writer(fd, handle)
+            self._add_writer(sock, handle)
 
     cdef _sock_accept(self, fut, sock):
         cdef:
             Handle handle
 
-        fd = sock.fileno()
-
         if fut.cancelled():
-            self._remove_reader(fd)
+            self._remove_reader(sock)
             return
 
         try:
@@ -803,16 +817,15 @@ cdef class Loop:
             pass
         except Exception as exc:
             fut.set_exception(exc)
-            self._remove_reader(fd)
+            self._remove_reader(sock)
         else:
             fut.set_result((conn, address))
-            self._remove_reader(fd)
+            self._remove_reader(sock)
 
     cdef _sock_connect(self, fut, sock, address):
         cdef:
             Handle handle
 
-        fd = sock.fileno()
         try:
             sock.connect(address)
         except (BlockingIOError, InterruptedError):
@@ -820,7 +833,7 @@ cdef class Loop:
             # connection runs in background. We have to wait until the socket
             # becomes writable to be notified when the connection succeed or
             # fails.
-            fut.add_done_callback(lambda fut: self._remove_writer(fd))
+            fut.add_done_callback(lambda fut: self._remove_writer(sock))
 
             handle = new_MethodHandle3(
                 self,
@@ -829,7 +842,7 @@ cdef class Loop:
                 self,
                 fut, sock, address)
 
-            self._add_writer(fd, handle)
+            self._add_writer(sock, handle)
         except Exception as exc:
             fut.set_exception(exc)
         else:
@@ -1982,7 +1995,6 @@ cdef class Loop:
         """
         cdef:
             Handle handle
-            int fd
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
@@ -1995,8 +2007,7 @@ cdef class Loop:
             self,
             fut, sock, n)
 
-        fd = sock.fileno()
-        self._add_reader(fd, handle)
+        self._add_reader(sock, handle)
         return fut
 
     async def sock_sendall(self, sock, data):
@@ -2013,7 +2024,6 @@ cdef class Loop:
         cdef:
             Handle handle
             int n
-            int fd
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
@@ -2021,33 +2031,36 @@ cdef class Loop:
         if not data:
             return
 
+        self._inc_io_ref(sock)
         try:
-            n = sock.send(data)
-        except (BlockingIOError, InterruptedError):
-            pass
-        else:
-            if UVLOOP_DEBUG:
-                # This can be a partial success, i.e. only part
-                # of the data was sent
-                self._sock_try_write_total += 1
+            try:
+                n = sock.send(data)
+            except (BlockingIOError, InterruptedError):
+                pass
+            else:
+                if UVLOOP_DEBUG:
+                    # This can be a partial success, i.e. only part
+                    # of the data was sent
+                    self._sock_try_write_total += 1
 
-            if n == len(data):
-                return
-            if not isinstance(data, memoryview):
-                data = memoryview(data)
-            data = data[n:]
+                if n == len(data):
+                    return
+                if not isinstance(data, memoryview):
+                    data = memoryview(data)
+                data = data[n:]
 
-        fut = self._new_future()
-        handle = new_MethodHandle3(
-            self,
-            "Loop._sock_sendall",
-            <method3_t>self._sock_sendall,
-            self,
-            fut, sock, data)
+            fut = self._new_future()
+            handle = new_MethodHandle3(
+                self,
+                "Loop._sock_sendall",
+                <method3_t>self._sock_sendall,
+                self,
+                fut, sock, data)
 
-        fd = sock.fileno()
-        self._add_writer(fd, handle)
-        return await fut
+            self._add_writer(sock, handle)
+            return await fut
+        finally:
+            self._dec_io_ref(sock)
 
     def sock_accept(self, sock):
         """Accept a connection.
@@ -2061,7 +2074,6 @@ cdef class Loop:
         """
         cdef:
             Handle handle
-            int fd
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
@@ -2074,8 +2086,7 @@ cdef class Loop:
             self,
             fut, sock)
 
-        fd = sock.fileno()
-        self._add_reader(fd, handle)
+        self._add_reader(sock, handle)
         return fut
 
     async def sock_connect(self, sock, address):
@@ -2086,15 +2097,19 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_future()
-        if sock.family == uv.AF_UNIX:
+        self._inc_io_ref(sock)
+        try:
+            fut = self._new_future()
+            if sock.family == uv.AF_UNIX:
+                self._sock_connect(fut, sock, address)
+                await fut
+                return
+
+            _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
             self._sock_connect(fut, sock, address)
             await fut
-            return
-
-        _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
-        self._sock_connect(fut, sock, address)
-        await fut
+        finally:
+            self._dec_io_ref(sock)
 
     async def connect_accepted_socket(self, protocol_factory, sock, *,
                                       ssl=None):
