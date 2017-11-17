@@ -549,10 +549,15 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
                 t.set_protocol(p)
 
             self.assertFalse(t._paused)
+            self.assertTrue(t.is_reading())
             t.pause_reading()
+            t.pause_reading()  # Check that it's OK to call it 2nd time.
             self.assertTrue(t._paused)
+            self.assertFalse(t.is_reading())
             t.resume_reading()
+            t.resume_reading()  # Check that it's OK to call it 2nd time.
             self.assertFalse(t._paused)
+            self.assertTrue(t.is_reading())
 
             sock = t.get_extra_info('socket')
             self.assertIs(sock, t.get_extra_info('socket'))
@@ -579,6 +584,12 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             self.assertFalse(t._closing)
             t.abort()
             self.assertTrue(t._closing)
+
+            self.assertFalse(t.is_reading())
+            # Check that pause_reading and resume_reading don't raise
+            # errors if called after the transport is closed.
+            t.pause_reading()
+            t.resume_reading()
 
             await fut
 
