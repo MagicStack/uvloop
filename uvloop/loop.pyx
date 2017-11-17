@@ -448,6 +448,16 @@ cdef class Loop:
         # so it should finish right away
         self.__run(uv.UV_RUN_DEFAULT)
 
+        if self._fd_to_writer_fileobj:
+            for fileobj in self._fd_to_writer_fileobj.values():
+                self._dec_io_ref(fileobj)
+            self._fd_to_writer_fileobj.clear()
+
+        if self._fd_to_reader_fileobj:
+            for fileobj in self._fd_to_reader_fileobj.values():
+                self._dec_io_ref(fileobj)
+            self._fd_to_reader_fileobj.clear()
+
         if self._timers:
             raise RuntimeError(
                 "new timers were queued during loop closing: {}"
@@ -633,19 +643,20 @@ cdef class Loop:
             self._polls[fd] = poll
 
         self._fd_to_reader_fileobj[fd] = fileobj
-        self._inc_io_ref(fileobj)
         poll.start_reading(handle)
+        self._inc_io_ref(fileobj)
 
     cdef _remove_reader(self, fileobj):
         cdef:
             UVPoll poll
 
-        if self._closed == 1:
-            return False
-
         fd = self._fileobj_to_fd(fileobj)
         self._ensure_fd_no_transport(fd)
         self._fd_to_reader_fileobj.pop(fd, None)
+        self._dec_io_ref(fileobj)
+
+        if self._closed == 1:
+            return False
 
         try:
             poll = <UVPoll>(self._polls[fd])
@@ -657,7 +668,6 @@ cdef class Loop:
             del self._polls[fd]
             poll._close()
 
-        self._dec_io_ref(fileobj)
         return result
 
     cdef _add_writer(self, fileobj, Handle handle):
@@ -675,19 +685,20 @@ cdef class Loop:
             self._polls[fd] = poll
 
         self._fd_to_writer_fileobj[fd] = fileobj
-        self._inc_io_ref(fileobj)
         poll.start_writing(handle)
+        self._inc_io_ref(fileobj)
 
     cdef _remove_writer(self, fileobj):
         cdef:
             UVPoll poll
 
-        if self._closed == 1:
-            return False
-
         fd = self._fileobj_to_fd(fileobj)
         self._ensure_fd_no_transport(fd)
         self._fd_to_writer_fileobj.pop(fd, None)
+        self._dec_io_ref(fileobj)
+
+        if self._closed == 1:
+            return False
 
         try:
             poll = <UVPoll>(self._polls[fd])
@@ -699,7 +710,6 @@ cdef class Loop:
             del self._polls[fd]
             poll._close()
 
-        self._dec_io_ref(fileobj)
         return result
 
     cdef _getaddrinfo(self, object host, object port,

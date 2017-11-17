@@ -307,6 +307,44 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
         self.assertTrue(ok)
 
+    def test_socket_close_loop_and_close(self):
+        class Abort(Exception):
+            pass
+
+        def srv_gen():
+            yield tb.sleep(1.2)
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            asyncio.ensure_future(self.loop.sock_recv(sock, 10),
+                                  loop=self.loop)
+            await asyncio.sleep(0.2, loop=self.loop)
+            raise Abort
+
+        with tb.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                try:
+                    sock = self.loop.run_until_complete(w)
+                except Abort:
+                    pass
+
+                # `loop` still owns `sock`, so closing `sock` shouldn't
+                # do anything.
+                sock.close()
+                self.assertNotEqual(sock.fileno(), -1)
+
+                # `loop.close()` should io-decref all sockets that the
+                # loop owns, including our `sock`.
+                self.loop.close()
+                self.assertEqual(sock.fileno(), -1)
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass
