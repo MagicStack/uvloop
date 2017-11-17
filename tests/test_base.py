@@ -641,6 +641,30 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertIs(fut._loop, self.loop)
         fut.cancel()
 
+    def test_loop_call_soon_handle_cancelled(self):
+        cb = lambda: False
+        handle = self.loop.call_soon(cb)
+        self.assertFalse(handle.cancelled())
+        handle.cancel()
+        self.assertTrue(handle.cancelled())
+
+        handle = self.loop.call_soon(cb)
+        self.assertFalse(handle.cancelled())
+        self.run_loop_briefly()
+        self.assertFalse(handle.cancelled())
+
+    def test_loop_call_later_handle_cancelled(self):
+        cb = lambda: False
+        handle = self.loop.call_later(0.01, cb)
+        self.assertFalse(handle.cancelled())
+        handle.cancel()
+        self.assertTrue(handle.cancelled())
+
+        handle = self.loop.call_later(0.01, cb)
+        self.assertFalse(handle.cancelled())
+        self.run_loop_briefly(delay=0.05)
+        self.assertFalse(handle.cancelled())
+
     def test_loop_std_files_cloexec(self):
         # See https://github.com/MagicStack/uvloop/issues/40 for details.
         for fd in {0, 1, 2}:

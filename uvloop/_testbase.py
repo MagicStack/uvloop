@@ -69,6 +69,9 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def is_asyncio_loop(self):
         return type(self.loop).__module__.startswith('asyncio.')
 
+    def run_loop_briefly(self, *, delay=0.01):
+        self.loop.run_until_complete(asyncio.sleep(delay, loop=self.loop))
+
     def setUp(self):
         self.loop = self.new_loop()
         asyncio.set_event_loop(None)

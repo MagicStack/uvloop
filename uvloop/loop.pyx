@@ -287,7 +287,7 @@ cdef class Loop:
             _noop.noop()
             return
 
-        if handle.cancelled:
+        if handle._cancelled:
             self.remove_signal_handler(sig)  # Remove it properly.
         else:
             self._call_soon_handle(handle)
@@ -308,7 +308,7 @@ cdef class Loop:
         if self._debug:
             for i from 0 <= i < ntodo:
                 handler = <Handle> popleft()
-                if handler.cancelled == 0:
+                if handler._cancelled == 0:
                     try:
                         started = time_monotonic()
                         handler._run()
@@ -325,7 +325,7 @@ cdef class Loop:
         else:
             for i from 0 <= i < ntodo:
                 handler = <Handle> popleft()
-                if handler.cancelled == 0:
+                if handler._cancelled == 0:
                     try:
                         handler._run()
                     except BaseException as ex:
