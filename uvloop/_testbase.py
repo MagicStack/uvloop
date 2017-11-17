@@ -10,6 +10,7 @@ import inspect
 import logging
 import os
 import re
+import select
 import socket
 import ssl
 import tempfile
@@ -348,26 +349,52 @@ class Server(_Runner, threading.Thread):
 
         self._prog = prog
 
+        self._s1, self._s2 = socket.socketpair()
+        self._s1.setblocking(False)
+
+    def stop(self):
+        self._s2.send(b'stop')
+        super().stop()
+
     def run(self):
-        with self._sock:
-            while self._active:
-                if self._clients >= self._max_clients:
-                    return
+        try:
+            with self._sock:
+                self._sock.setblocking(0)
+                self._run()
+        finally:
+            self._s1.close()
+            self._s2.close()
+
+    def _run(self):
+        while self._active:
+            if self._clients >= self._max_clients:
+                return
+
+            r, w, x = select.select(
+                [self._sock, self._s1], [], [], self._timeout)
+
+            if self._s1 in r:
+                return
+
+            if self._sock in r:
                 try:
                     conn, addr = self._sock.accept()
+                except BlockingIOError:
+                    continue
                 except socket.timeout:
                     if not self._active:
                         return
                     else:
                         raise
-                self._clients += 1
-                conn.settimeout(self._timeout)
-                try:
-                    with conn:
-                        self._handle_client(conn)
-                except Exception:
-                    self._active = False
-                    raise
+                else:
+                    self._clients += 1
+                    conn.settimeout(self._timeout)
+                    try:
+                        with conn:
+                            self._handle_client(conn)
+                    except Exception:
+                        self._active = False
+                        raise
 
     def _handle_client(self, sock):
         prog = self._prog()
