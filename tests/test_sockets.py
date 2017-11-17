@@ -275,6 +275,38 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 r = self.loop.run_until_complete(w)
                 self.assertEqual(r, b'helo')
 
+    def test_socket_recv_into_and_close(self):
+        def srv_gen():
+            yield tb.sleep(1.2)
+            yield tb.write(b'helo')
+
+        async def kill(sock):
+            await asyncio.sleep(0.2, loop=self.loop)
+            sock.close()
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            data = bytearray(10)
+            with memoryview(data) as buf:
+                f = asyncio.ensure_future(self.loop.sock_recv_into(sock, buf),
+                                          loop=self.loop)
+                self.loop.create_task(kill(sock))
+                rcvd = await f
+                data = data[:rcvd]
+            self.assertEqual(sock.fileno(), -1)
+            return bytes(data)
+
+        with tb.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                r = self.loop.run_until_complete(w)
+                self.assertEqual(r, b'helo')
+
     def test_socket_send_and_close(self):
         ok = False
 

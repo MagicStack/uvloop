@@ -174,6 +174,7 @@ cdef class Loop:
     cdef _remove_writer(self, fd)
 
     cdef _sock_recv(self, fut, sock, n)
+    cdef _sock_recv_into(self, fut, sock, buf)
     cdef _sock_sendall(self, fut, sock, data)
     cdef _sock_accept(self, fut, sock)
 

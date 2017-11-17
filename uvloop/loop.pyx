@@ -787,6 +787,27 @@ cdef class Loop:
             fut.set_result(data)
             self._remove_reader(sock)
 
+    cdef _sock_recv_into(self, fut, sock, buf):
+        cdef:
+            Handle handle
+
+        if fut.cancelled():
+            self._remove_reader(sock)
+            return
+
+        try:
+            data = sock.recv_into(buf)
+        except (BlockingIOError, InterruptedError):
+            # No need to re-add the reader, let's just wait until
+            # the poll handler calls this callback again.
+            pass
+        except Exception as exc:
+            fut.set_exception(exc)
+            self._remove_reader(sock)
+        else:
+            fut.set_result(data)
+            self._remove_reader(sock)
+
     cdef _sock_sendall(self, fut, sock, data):
         cdef:
             Handle handle
@@ -2030,6 +2051,31 @@ cdef class Loop:
             <method3_t>self._sock_recv,
             self,
             fut, sock, n)
+
+        self._add_reader(sock, handle)
+        return fut
+
+    def sock_recv_into(self, sock, buf):
+        """Receive data from the socket.
+
+        The received data is written into *buf* (a writable buffer).
+        The return value is the number of bytes written.
+
+        This method is a coroutine.
+        """
+        cdef:
+            Handle handle
+
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
+
+        fut = self._new_future()
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_recv_into",
+            <method3_t>self._sock_recv_into,
+            self,
+            fut, sock, buf)
 
         self._add_reader(sock, handle)
         return fut
