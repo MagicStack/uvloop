@@ -156,14 +156,14 @@ class _TestUnix:
         CNT = 0
         TOTAL_CNT = 100
 
-        def server():
-            data = yield tb.read(4)
+        def server(sock):
+            data = sock.recv_all(4)
             self.assertEqual(data, b'AAAA')
-            yield tb.write(b'OK')
+            sock.send(b'OK')
 
-            data = yield tb.read(4)
+            data = sock.recv_all(4)
             self.assertEqual(data, b'BBBB')
-            yield tb.write(b'SPAM')
+            sock.send(b'SPAM')
 
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(
@@ -221,19 +221,17 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            srv = tb.tcp_server(server,
-                                family=socket.AF_UNIX,
-                                max_clients=TOTAL_CNT,
-                                backlog=TOTAL_CNT)
-            srv.start()
+            with self.tcp_server(server,
+                                 family=socket.AF_UNIX,
+                                 max_clients=TOTAL_CNT,
+                                 backlog=TOTAL_CNT) as srv:
+                tasks = []
+                for _ in range(TOTAL_CNT):
+                    tasks.append(coro(srv.addr))
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(coro(srv.addr))
+                self.loop.run_until_complete(
+                    asyncio.gather(*tasks, loop=self.loop))
 
-            self.loop.run_until_complete(
-                asyncio.gather(*tasks, loop=self.loop))
-            srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
         run(client)
@@ -259,10 +257,10 @@ class _TestUnix:
         CNT = 0
         TOTAL_CNT = 100
 
-        def server():
-            data = yield tb.read(4)
+        def server(sock):
+            data = sock.recv_all(4)
             self.assertEqual(data, b'AAAA')
-            yield tb.close()
+            sock.close()
 
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(
@@ -286,19 +284,17 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            srv = tb.tcp_server(server,
-                                family=socket.AF_UNIX,
-                                max_clients=TOTAL_CNT,
-                                backlog=TOTAL_CNT)
-            srv.start()
+            with self.tcp_server(server,
+                                 family=socket.AF_UNIX,
+                                 max_clients=TOTAL_CNT,
+                                 backlog=TOTAL_CNT) as srv:
+                tasks = []
+                for _ in range(TOTAL_CNT):
+                    tasks.append(coro(srv.addr))
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(coro(srv.addr))
+                self.loop.run_until_complete(
+                    asyncio.gather(*tasks, loop=self.loop))
 
-            self.loop.run_until_complete(
-                asyncio.gather(*tasks, loop=self.loop))
-            srv.join()
             self.assertEqual(CNT, TOTAL_CNT)
 
         run(client)
@@ -455,27 +451,28 @@ class _TestSSL(tb.SSLTestCase):
         async def test_client(addr):
             fut = asyncio.Future(loop=self.loop)
 
-            def prog():
+            def prog(sock):
                 try:
-                    yield tb.starttls(client_sslctx)
-                    yield tb.connect(addr)
-                    yield tb.write(A_DATA)
+                    sock.starttls(client_sslctx)
 
-                    data = yield tb.read(2)
+                    sock.connect(addr)
+                    sock.send(A_DATA)
+
+                    data = sock.recv_all(2)
                     self.assertEqual(data, b'OK')
 
-                    yield tb.write(B_DATA)
-                    data = yield tb.read(4)
+                    sock.send(B_DATA)
+                    data = sock.recv_all(4)
                     self.assertEqual(data, b'SPAM')
 
-                    yield tb.close()
+                    sock.close()
 
                 except Exception as ex:
                     self.loop.call_soon_threadsafe(fut.set_exception, ex)
                 else:
                     self.loop.call_soon_threadsafe(fut.set_result, None)
 
-            client = tb.tcp_client(prog, family=socket.AF_UNIX)
+            client = self.tcp_client(prog, family=socket.AF_UNIX)
             client.start()
             clients.append(client)
 
@@ -529,20 +526,18 @@ class _TestSSL(tb.SSLTestCase):
         sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
         client_sslctx = self._create_client_ssl_context()
 
-        def server():
-            yield tb.starttls(
-                sslctx,
-                server_side=True)
+        def server(sock):
+            sock.starttls(sslctx, server_side=True)
 
-            data = yield tb.read(len(A_DATA))
+            data = sock.recv_all(len(A_DATA))
             self.assertEqual(data, A_DATA)
-            yield tb.write(b'OK')
+            sock.send(b'OK')
 
-            data = yield tb.read(len(B_DATA))
+            data = sock.recv_all(len(B_DATA))
             self.assertEqual(data, B_DATA)
-            yield tb.write(b'SPAM')
+            sock.send(b'SPAM')
 
-            yield tb.close()
+            sock.close()
 
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(
@@ -566,10 +561,10 @@ class _TestSSL(tb.SSLTestCase):
             nonlocal CNT
             CNT = 0
 
-            srv = tb.tcp_server(server,
-                                family=socket.AF_UNIX,
-                                max_clients=TOTAL_CNT,
-                                backlog=TOTAL_CNT)
+            srv = self.tcp_server(server,
+                                  family=socket.AF_UNIX,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT)
             srv.start()
 
             tasks = []

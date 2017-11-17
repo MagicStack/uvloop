@@ -2,6 +2,7 @@ import asyncio
 import select
 import socket
 import sys
+import time
 import unittest
 
 from uvloop import _testbase as tb
@@ -23,12 +24,12 @@ class _TestSockets:
             # See https://github.com/python/asyncio/pull/366 for details.
             raise unittest.SkipTest()
 
-        def srv_gen():
-            yield tb.write(b'helo')
-            data = yield tb.read(4 * _SIZE)
+        def srv_gen(sock):
+            sock.send(b'helo')
+            data = sock.recv_all(4 * _SIZE)
             self.assertEqual(data, b'ehlo' * _SIZE)
-            yield tb.write(b'O')
-            yield tb.write(b'K')
+            sock.send(b'O')
+            sock.send(b'K')
 
         # We use @asyncio.coroutine & `yield from` to test
         # the compatibility of Cython's 'async def' coroutines.
@@ -41,7 +42,7 @@ class _TestSockets:
             data = yield from self.recv_all(sock, 2)
             self.assertEqual(data, b'OK')
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
@@ -228,8 +229,8 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             wsock.close()
 
     def test_socket_connect_and_close(self):
-        def srv_gen():
-            yield tb.write(b'helo')
+        def srv_gen(sock):
+            sock.send(b'helo')
 
         async def client(sock, addr):
             f = asyncio.ensure_future(self.loop.sock_connect(sock, addr),
@@ -238,7 +239,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             await f
             return 'ok'
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
@@ -247,9 +248,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 self.assertEqual(r, 'ok')
 
     def test_socket_recv_and_close(self):
-        def srv_gen():
-            yield tb.sleep(1.2)
-            yield tb.write(b'helo')
+        def srv_gen(sock):
+            time.sleep(1.2)
+            sock.send(b'helo')
 
         async def kill(sock):
             await asyncio.sleep(0.2, loop=self.loop)
@@ -265,7 +266,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             self.assertEqual(sock.fileno(), -1)
             return res
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
@@ -276,9 +277,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 self.assertEqual(r, b'helo')
 
     def test_socket_recv_into_and_close(self):
-        def srv_gen():
-            yield tb.sleep(1.2)
-            yield tb.write(b'helo')
+        def srv_gen(sock):
+            time.sleep(1.2)
+            sock.send(b'helo')
 
         async def kill(sock):
             await asyncio.sleep(0.2, loop=self.loop)
@@ -297,7 +298,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             self.assertEqual(sock.fileno(), -1)
             return bytes(data)
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
@@ -310,12 +311,12 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
     def test_socket_send_and_close(self):
         ok = False
 
-        def srv_gen():
+        def srv_gen(sock):
             nonlocal ok
-            b = yield tb.read(2)
+            b = sock.recv_all(2)
             if b == b'hi':
                 ok = True
-            yield tb.write(b'ii')
+            sock.send(b'ii')
 
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
@@ -329,7 +330,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
                 return await self.loop.sock_recv(s2, 2)
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
@@ -343,8 +344,8 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         class Abort(Exception):
             pass
 
-        def srv_gen():
-            yield tb.sleep(1.2)
+        def srv_gen(sock):
+            time.sleep(1.2)
 
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
@@ -354,7 +355,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             await asyncio.sleep(0.2, loop=self.loop)
             raise Abort
 
-        with tb.tcp_server(srv_gen) as srv:
+        with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()
             with sock:
