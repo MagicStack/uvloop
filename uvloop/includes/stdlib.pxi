@@ -13,6 +13,7 @@ import signal as std_signal
 import socket
 import subprocess
 import ssl
+import stat
 import sys
 import threading
 import traceback
@@ -95,6 +96,10 @@ cdef os_devnull = os.devnull
 cdef os_O_RDWR = os.O_RDWR
 cdef os_pipe = os.pipe
 cdef os_read = os.read
+cdef os_remove = os.remove
+cdef os_stat = os.stat
+
+cdef stat_S_ISSOCK = stat.S_ISSOCK
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info

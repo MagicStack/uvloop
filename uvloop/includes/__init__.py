@@ -12,6 +12,7 @@ import signal
 import socket
 import subprocess
 import ssl
+import stat
 import sys
 import threading
 import traceback

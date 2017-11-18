@@ -154,6 +154,19 @@ class _TestUnix:
                 self.loop.run_until_complete(
                     self.loop.create_unix_server(object, sock_name))
 
+    def test_create_unix_server_existing_path_sock(self):
+        with self.unix_sock_name() as path:
+            sock = socket.socket(socket.AF_UNIX)
+            with sock:
+                sock.bind(path)
+                sock.listen(1)
+
+            # Check that no error is raised -- `path` is removed.
+            coro = self.loop.create_unix_server(lambda: None, path)
+            srv = self.loop.run_until_complete(coro)
+            srv.close()
+            self.loop.run_until_complete(srv.wait_closed())
+
     def test_create_unix_connection_1(self):
         CNT = 0
         TOTAL_CNT = 100

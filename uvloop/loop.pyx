@@ -1769,6 +1769,7 @@ cdef class Loop:
             if sock is not None:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
+            orig_path = path
 
             try:
                 # Lookup __fspath__ manually, as os.fspath() isn't
@@ -1778,6 +1779,22 @@ cdef class Loop:
                 pass
             else:
                 path = fspath(path)
+
+            if isinstance(path, str):
+                path = PyUnicode_EncodeFSDefault(path)
+
+            # Check for abstract socket.
+            if path[0] != 0:
+                try:
+                    if stat_S_ISSOCK(os_stat(path).st_mode):
+                        os_remove(path)
+                except FileNotFoundError:
+                    pass
+                except OSError as err:
+                    # Directory may have permissions only to create socket.
+                    aio_logger.error(
+                        'Unable to check or remove stale UNIX socket %r: %r',
+                        orig_path, err)
 
             # We use Python sockets to create a UNIX server socket because
             # when UNIX sockets are created by libuv, libuv removes the path
@@ -1792,7 +1809,7 @@ cdef class Loop:
                 if exc.errno == errno.EADDRINUSE:
                     # Let's improve the error message by adding
                     # with what exact address it occurs.
-                    msg = 'Address {!r} is already in use'.format(path)
+                    msg = 'Address {!r} is already in use'.format(orig_path)
                     raise OSError(errno.EADDRINUSE, msg) from None
                 else:
                     raise
