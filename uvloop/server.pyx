@@ -27,6 +27,13 @@ cdef class Server:
         if self._active_count == 0 and self._servers is None:
             self._wakeup()
 
+    cdef _ref(self):
+        # Keep the server object alive while it's not explicitly closed.
+        self._loop._servers.add(self)
+
+    cdef _unref(self):
+        self._loop._servers.discard(self)
+
     # Public API
 
     def __repr__(self):
@@ -40,25 +47,32 @@ cdef class Server:
         await waiter
 
     def close(self):
+        cdef list servers
+
         if self._servers is None:
             return
 
-        cdef list servers = self._servers
-        self._servers = None
+        try:
+            servers = self._servers
+            self._servers = None
 
-        for server in servers:
-            (<UVStreamServer>server)._close()
+            for server in servers:
+                (<UVStreamServer>server)._close()
 
-        if self._active_count == 0:
-            self._wakeup()
+            if self._active_count == 0:
+                self._wakeup()
+        finally:
+            self._unref()
 
     property sockets:
         def __get__(self):
             cdef list sockets = []
 
-            for server in self._servers:
-                sockets.append(
-                    (<UVStreamServer>server)._get_socket()
-                )
+            # Guard against `self._servers is None`
+            if self._servers:
+                for server in self._servers:
+                    sockets.append(
+                        (<UVStreamServer>server)._get_socket()
+                    )
 
             return sockets

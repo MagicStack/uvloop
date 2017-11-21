@@ -148,6 +148,8 @@ cdef class Loop:
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
 
+        self._servers = set()
+
     def __init__(self):
         self.set_debug((not sys_ignore_environment
                         and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
@@ -1509,6 +1511,7 @@ cdef class Loop:
 
             server._add_server(tcp)
 
+        server._ref()
         return server
 
     async def create_connection(self, protocol_factory, host=None, port=None, *,

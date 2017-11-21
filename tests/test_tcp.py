@@ -6,6 +6,7 @@ import uvloop
 import ssl
 import sys
 import threading
+import weakref
 
 from uvloop import _testbase as tb
 
@@ -261,6 +262,50 @@ class _TestTCP:
             await srv2.wait_closed()
 
         self.loop.run_until_complete(runner())
+
+    def test_create_server_7(self):
+        # Test that create_server() stores a hard ref to the server object
+        # somewhere in the loop.  In asyncio it so happens that
+        # loop.sock_accept() has a reference to the server object so it
+        # never gets GCed.
+
+        class Proto(asyncio.Protocol):
+            def connection_made(self, tr):
+                self.tr = tr
+                self.tr.write(b'hello')
+
+        async def test():
+            port = tb.find_free_port()
+            srv = await self.loop.create_server(Proto, '127.0.0.1', port)
+            wsrv = weakref.ref(srv)
+            del srv
+
+            gc.collect()
+            gc.collect()
+            gc.collect()
+
+            s = socket.socket(socket.AF_INET)
+            with s:
+                s.setblocking(False)
+                await self.loop.sock_connect(s, ('127.0.0.1', port))
+                d = await self.loop.sock_recv(s, 100)
+                self.assertEqual(d, b'hello')
+
+            srv = wsrv()
+            srv.close()
+            await srv.wait_closed()
+            del srv
+
+            # Let all transports shutdown.
+            await asyncio.sleep(0.1, loop=self.loop)
+
+            gc.collect()
+            gc.collect()
+            gc.collect()
+
+            self.assertIsNone(wsrv())
+
+        self.loop.run_until_complete(test())
 
     def test_create_connection_1(self):
         CNT = 0

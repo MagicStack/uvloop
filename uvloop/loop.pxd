@@ -52,6 +52,8 @@ cdef class Loop:
         set _queued_streams
         Py_ssize_t _ready_len
 
+        set _servers
+
         object _transports
         dict _fd_to_reader_fileobj
         dict _fd_to_writer_fileobj
