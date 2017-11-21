@@ -45,6 +45,9 @@ class _TestAioHTTP:
         self.loop.run_until_complete(app.shutdown())
         self.loop.run_until_complete(app.cleanup())
 
+        srv.close()
+        self.loop.run_until_complete(srv.wait_closed())
+
 
 @unittest.skipIf(skip_tests, "no aiohttp module")
 class Test_UV_AioHTTP(_TestAioHTTP, tb.UVTestCase):
