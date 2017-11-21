@@ -348,8 +348,8 @@ class _TestBase:
         # format message
         msg = log.call_args[0][0] % log.call_args[0][1:]
 
-        # self.assertIn('Executing <Handle', msg)
-        # self.assertIn('test_debug_slow_callbacks', msg)
+        self.assertIn('Executing <TimerHandle', msg)
+        self.assertIn('test_debug_slow_timer_callbacks', msg)
 
     def test_default_exc_handler_callback(self):
         self.loop._process_events = mock.Mock()

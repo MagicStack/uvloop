@@ -166,7 +166,6 @@ cdef class TimerHandle:
         if self.timer is None:
             return
 
-        self.callback = None
         self.args = None
 
         try:
