@@ -16,6 +16,8 @@ cdef class Handle:
     cdef inline _run(self)
     cdef _cancel(self)
 
+    cdef _format_handle(self)
+
 
 cdef class TimerHandle:
     cdef:

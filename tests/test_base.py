@@ -351,6 +351,24 @@ class _TestBase:
         self.assertIn('Executing <TimerHandle', msg)
         self.assertIn('test_debug_slow_timer_callbacks', msg)
 
+    def test_debug_slow_task_callbacks(self):
+        logger = logging.getLogger('asyncio')
+        self.loop.set_debug(True)
+        self.loop.slow_callback_duration = 0.2
+
+        async def foo():
+            time.sleep(0.3)
+
+        with mock.patch.object(logger, 'warning') as log:
+            self.loop.run_until_complete(foo())
+
+        self.assertEqual(log.call_count, 1)
+        # format message
+        msg = log.call_args[0][0] % log.call_args[0][1:]
+
+        self.assertIn('Executing <Task finished', msg)
+        self.assertIn('test_debug_slow_task_callbacks', msg)
+
     def test_default_exc_handler_callback(self):
         self.loop._process_events = mock.Mock()
 

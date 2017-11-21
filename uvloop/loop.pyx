@@ -321,8 +321,8 @@ cdef class Loop:
                         delta = time_monotonic() - started
                         if delta > self.slow_callback_duration:
                             aio_logger.warning(
-                                'Executing %r took %.3f seconds',
-                                handler, delta)
+                                'Executing %s took %.3f seconds',
+                                handler._format_handle(), delta)
 
         else:
             for i from 0 <= i < ntodo:

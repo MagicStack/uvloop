@@ -90,6 +90,14 @@ cdef class Handle:
         self.callback = NULL
         self.arg2 = self.arg3 = self.arg4 = None
 
+    cdef _format_handle(self):
+        # Mirrors `asyncio.base_events._format_handle`.
+        if self.cb_type == 1:
+            cb = self.arg1
+            if isinstance(getattr(cb, '__self__', None), aio_Task):
+                return repr(cb.__self__)
+        return repr(self)
+
     # Public API
 
     def __repr__(self):
