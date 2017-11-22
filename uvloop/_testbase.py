@@ -401,7 +401,7 @@ class TestThreadedServer(SocketThread):
             if self._s2 and self._s2.fileno() != -1:
                 try:
                     self._s2.send(b'stop')
-                except BrokenPipeError:
+                except OSError:
                     pass
         finally:
             super().stop()
