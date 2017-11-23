@@ -1,4 +1,7 @@
 cdef __port_to_int(port, proto):
+    if type(port) is int:
+        return port
+
     if port is None or port == '' or port == b'':
         return 0
 
@@ -153,18 +156,29 @@ cdef __static_getaddrinfo(object host, object port,
     except:
         return
 
+    hp = (host, port)
     if family == uv.AF_UNSPEC:
-        afs = [uv.AF_INET, uv.AF_INET6]
-    else:
-        afs = [family]
-
-    for af in afs:
         try:
-            __convert_pyaddr_to_sockaddr(af, (host, port), addr)
-        except:
-            continue
+            __convert_pyaddr_to_sockaddr(uv.AF_INET, hp, addr)
+        except Exception:
+            pass
         else:
-            return (af, type, proto)
+            return (uv.AF_INET, type, proto)
+
+        try:
+            __convert_pyaddr_to_sockaddr(uv.AF_INET6, hp, addr)
+        except Exception:
+            pass
+        else:
+            return (uv.AF_INET6, type, proto)
+
+    else:
+        try:
+            __convert_pyaddr_to_sockaddr(family, hp, addr)
+        except Exception:
+            pass
+        else:
+            return (family, type, proto)
 
 
 cdef __static_getaddrinfo_pyaddr(object host, object port,
