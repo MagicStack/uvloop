@@ -134,7 +134,7 @@ cdef __static_getaddrinfo(object host, object port,
                           system.sockaddr *addr):
 
     if proto not in {0, uv.IPPROTO_TCP, uv.IPPROTO_UDP}:
-        raise LookupError
+        return
 
     if type == uv.SOCK_STREAM:
         # Linux only:
@@ -146,12 +146,12 @@ cdef __static_getaddrinfo(object host, object port,
     elif type == uv.SOCK_DGRAM:
         proto = uv.IPPROTO_UDP
     else:
-        raise LookupError
+        return
 
     try:
         port = __port_to_int(port, proto)
     except:
-        raise LookupError
+        return
 
     if family == uv.AF_UNSPEC:
         afs = [uv.AF_INET, uv.AF_INET6]
@@ -166,8 +166,6 @@ cdef __static_getaddrinfo(object host, object port,
         else:
             return (af, type, proto)
 
-    raise LookupError
-
 
 cdef __static_getaddrinfo_pyaddr(object host, object port,
                                  int family, int type,
@@ -175,13 +173,15 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
 
     cdef:
         system.sockaddr_storage addr
+        object triplet
 
-    try:
-        (af, type, proto) = __static_getaddrinfo(
-            host, port, family, type,
-            proto, <system.sockaddr*>&addr)
-    except LookupError:
+    triplet = __static_getaddrinfo(
+        host, port, family, type,
+        proto, <system.sockaddr*>&addr)
+    if triplet is None:
         return
+
+    af, type, proto = triplet
 
     try:
         pyaddr = __convert_sockaddr_to_pyaddr(<system.sockaddr*>&addr)

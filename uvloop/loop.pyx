@@ -1582,11 +1582,10 @@ cdef class Loop:
             fs = []
             f1 = f2 = None
 
-            try:
-                __static_getaddrinfo(
+            addr = __static_getaddrinfo(
                     host, port, family, uv.SOCK_STREAM,
                     proto, <system.sockaddr*>&rai_addr_static)
-            except LookupError:
+            if addr is None:
                 f1 = self._getaddrinfo(
                     host, port, family,
                     uv.SOCK_STREAM, proto, flags,
@@ -1604,12 +1603,11 @@ cdef class Loop:
                     raise ValueError(
                         'local_addr must be a tuple of host and port')
 
-                try:
-                    __static_getaddrinfo(
-                        local_addr[0], local_addr[1],
-                        family, uv.SOCK_STREAM,
-                        proto, <system.sockaddr*>&lai_addr_static)
-                except LookupError:
+                addr = __static_getaddrinfo(
+                    local_addr[0], local_addr[1],
+                    family, uv.SOCK_STREAM,
+                    proto, <system.sockaddr*>&lai_addr_static)
+                if addr is None:
                     f2 = self._getaddrinfo(
                         local_addr[0], local_addr[1], family,
                         uv.SOCK_STREAM, proto, flags,
