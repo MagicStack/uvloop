@@ -239,8 +239,10 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             self.assertIn('AF_UNIX', repr(pseudo_sock))
 
             self.assertEqual(pseudo_sock.family, real_sock.family)
-            self.assertEqual(pseudo_sock.type, real_sock.type)
             self.assertEqual(pseudo_sock.proto, real_sock.proto)
+
+            # Guard against SOCK_NONBLOCK bit in socket.type on Linux.
+            self.assertEqual(pseudo_sock.type & 0xf, real_sock.type & 0xf)
 
             with self.assertRaises(TypeError):
                 pickle.dumps(pseudo_sock)
