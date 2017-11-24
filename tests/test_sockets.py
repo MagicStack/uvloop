@@ -158,6 +158,23 @@ class _TestSockets:
             self.loop.add_writer(wsock, writer)
             self.loop.run_until_complete(f)
 
+    def test_socket_sync_remove_and_immediately_close(self):
+        # Test that it's OK to close the socket right after calling
+        # `remove_reader`.
+        sock = socket.socket()
+        with sock:
+            cb = lambda: None
+
+            sock.bind(('127.0.0.1', 0))
+            sock.listen(0)
+            fd = sock.fileno()
+            self.loop.add_reader(fd, cb)
+            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+            self.loop.remove_reader(fd)
+            sock.close()
+            self.assertEqual(sock.fileno(), -1)
+            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
 
