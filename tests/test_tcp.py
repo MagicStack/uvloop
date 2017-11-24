@@ -96,6 +96,10 @@ class _TestTCP:
                     buf += await self.loop.sock_recv(sock, 1)
                 self.assertEqual(buf, b'SPAM')
 
+            self.assertEqual(sock.fileno(), -1)
+            self.assertEqual(sock._io_refs, 0)
+            self.assertTrue(sock._closed)
+
         async def start_server():
             nonlocal CNT
             CNT = 0

@@ -829,9 +829,10 @@ cdef class Loop:
             self._remove_writer(sock)
             return
 
+        self._remove_writer(sock)
+
         if n == len(data):
             fut.set_result(None)
-            self._remove_writer(sock)
         else:
             if n:
                 if not isinstance(data, memoryview):
