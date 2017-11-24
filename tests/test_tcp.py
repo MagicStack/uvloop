@@ -1,4 +1,5 @@
 import asyncio
+import asyncio.sslproto
 import gc
 import socket
 import unittest.mock
@@ -865,7 +866,13 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         self.assertEqual(proto.nbytes, len(message))
         self.assertEqual(response, expected_response)
         tr, _ = f.result()
+
+        if server_ssl:
+            self.assertIsInstance(tr, asyncio.sslproto._SSLProtocolTransport)
+
         tr.close()
+        # let it close
+        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
 
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
     def test_create_connection_wrong_sock(self):
@@ -1084,9 +1091,6 @@ class _TestSSL(tb.SSLTestCase):
         with self._silence_eof_received_warning():
             run(client_sock)
 
-
-class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
-
     def test_ssl_connect_accepted_socket(self):
         server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
@@ -1102,6 +1106,9 @@ class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
         Test_UV_TCP.test_connect_accepted_socket(
             self, server_context, client_context)
 
+
+class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
+    pass
 
 
 class Test_AIO_TCPSSL(_TestSSL, tb.AIOTestCase):

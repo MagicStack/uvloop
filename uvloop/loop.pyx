@@ -2270,7 +2270,11 @@ cdef class Loop:
         transport._init_protocol()
 
         await waiter
-        return transport, protocol
+
+        if ssl:
+            return protocol._app_transport, protocol
+        else:
+            return transport, protocol
 
     def run_in_executor(self, executor, func, *args):
         if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
