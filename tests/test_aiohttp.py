@@ -22,7 +22,7 @@ class _TestAioHTTP:
             return aiohttp.web.Response(text=PAYLOAD)
 
         asyncio.set_event_loop(self.loop)
-        app = aiohttp.web.Application(loop=self.loop)
+        app = aiohttp.web.Application()
         app.router.add_get('/', on_request)
 
         f = self.loop.create_server(
@@ -33,6 +33,9 @@ class _TestAioHTTP:
         port = srv.sockets[0].getsockname()[1]
 
         async def test():
+            # Make sure we're using the correct event loop.
+            self.assertIs(asyncio.get_event_loop(), self.loop)
+
             for addr in (('localhost', port),
                          ('127.0.0.1', port)):
                 async with aiohttp.ClientSession() as client:

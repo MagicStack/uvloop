@@ -823,7 +823,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
                 super().data_received(data)
                 self.transport.write(expected_response)
 
-        lsock = socket.socket()
+        lsock = socket.socket(socket.AF_INET)
         lsock.bind(('127.0.0.1', 0))
         lsock.listen(1)
         addr = lsock.getsockname()
@@ -835,7 +835,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         def client():
             nonlocal response
             try:
-                csock = socket.socket()
+                csock = socket.socket(socket.AF_INET)
                 if client_ssl is not None:
                     csock = client_ssl.wrap_socket(csock)
                 csock.connect(addr)

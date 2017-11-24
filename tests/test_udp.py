@@ -114,6 +114,9 @@ class _TestUDP:
         finally:
             if s_transport:
                 s_transport.close()
+                # let it close
+                self.loop.run_until_complete(
+                    asyncio.sleep(0.1, loop=self.loop))
 
     def test_create_datagram_endpoint_sock(self):
         sock = None
