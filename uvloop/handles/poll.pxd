@@ -12,6 +12,7 @@ cdef class UVPoll(UVHandle):
 
     cdef int is_active(self)
 
+    cdef is_reading(self)
     cdef start_reading(self, Handle callback)
     cdef start_writing(self, Handle callback)
     cdef stop_reading(self)

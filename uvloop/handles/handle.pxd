@@ -1,10 +1,14 @@
 cdef class UVHandle:
     cdef:
         uv.uv_handle_t *_handle
-        bint _closed
-        bint _inited
         Loop _loop
         readonly _source_traceback
+        bint _closed
+        bint _inited
+
+        # Added to enable current UDPTransport implementation,
+        # which doesn't use libuv handles.
+        bint _has_handle
 
     # All "inline" methods are final
 
@@ -20,7 +24,8 @@ cdef class UVHandle:
 
     cdef _warn_unclosed(self)
 
-    cdef inline _free(self)
+    cdef _dealloc_impl(self)
+    cdef _free(self)
     cdef _close(self)
     cdef _after_close(self)
 
@@ -35,7 +40,7 @@ cdef class UVSocketHandle(UVHandle):
 
     # All "inline" methods are final
 
-    cdef inline _fileno(self)
+    cdef _fileno(self)
 
     cdef _new_socket(self)
     cdef inline _get_socket(self)

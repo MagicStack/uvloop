@@ -46,18 +46,19 @@ class _TestUDP:
                 super().datagram_received(data, addr)
                 self.transport.sendto(b'resp:' + data, addr)
 
-        for lc in (('127.0.0.1', 0), None):
-            if lc is None and not isinstance(self.loop, uvloop.Loop):
-                # TODO This looks like a bug in asyncio -- if no local_addr
-                # and no remote_addr are specified, the connection
-                # that asyncio creates is not bound anywhere.
-                return
+        for family, lc_host, lc_port in ((socket.AF_INET, '127.0.0.1', 0),
+                                         (socket.AF_INET6, '::1', 0)):
+
+            lc = (lc_host, lc_port)
 
             with self.subTest(local_addr=lc):
                 coro = self.loop.create_datagram_endpoint(
-                    TestMyDatagramProto, local_addr=lc, family=socket.AF_INET)
+                    TestMyDatagramProto,
+                    local_addr=lc,
+                    family=family)
+
                 s_transport, server = self.loop.run_until_complete(coro)
-                host, port = s_transport.get_extra_info('sockname')
+                host, port, *_ = s_transport.get_extra_info('sockname')
 
                 self.assertIsInstance(server, TestMyDatagramProto)
                 self.assertEqual('INITIALIZED', server.state)
@@ -70,8 +71,8 @@ class _TestUDP:
 
                 coro = self.loop.create_datagram_endpoint(
                     lambda: MyDatagramProto(loop=self.loop),
-                    family=socket.AF_INET,
-                    remote_addr=None if lc is None else (host, port),
+                    family=family,
+                    remote_addr=(host, port),
                     **extra)
                 transport, client = self.loop.run_until_complete(coro)
 
@@ -79,7 +80,7 @@ class _TestUDP:
                 self.assertEqual('INITIALIZED', client.state)
                 self.assertIs(client.transport, transport)
 
-                transport.sendto(b'xxx', (host, port) if lc is None else None)
+                transport.sendto(b'xxx')
                 test_utils.run_until(self.loop, lambda: server.nbytes)
                 self.assertEqual(3, server.nbytes)
                 test_utils.run_until(self.loop, lambda: client.nbytes)

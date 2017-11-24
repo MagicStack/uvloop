@@ -15,6 +15,7 @@ cdef class UVHandle:
     def __cinit__(self):
         self._closed = 0
         self._inited = 0
+        self._has_handle = 1
         self._handle = NULL
         self._loop = None
         self._source_traceback = None
@@ -25,6 +26,9 @@ cdef class UVHandle:
                 self.__class__.__name__))
 
     def __dealloc__(self):
+        self._dealloc_impl()
+
+    cdef _dealloc_impl(self):
         if UVLOOP_DEBUG:
             if self._loop is not None:
                 self._loop._debug_handles_current.subtract([
@@ -36,6 +40,9 @@ cdef class UVHandle:
                     .format(self.__class__.__name__))
 
         if self._handle is NULL:
+            if UVLOOP_DEBUG:
+                if self._has_handle == 0:
+                    self._loop._debug_uv_handles_freed += 1
             return
 
         # -> When we're at this point, something is wrong <-
@@ -67,7 +74,7 @@ cdef class UVHandle:
             self._closed = 1
             self._free()
 
-    cdef inline _free(self):
+    cdef _free(self):
         if self._handle == NULL:
             return
 
@@ -98,6 +105,8 @@ cdef class UVHandle:
         if self._handle is not NULL:
             self._free()
 
+        self._closed = 1
+
         if UVLOOP_DEBUG:
             name = self.__class__.__name__
             if self._inited:
@@ -107,11 +116,10 @@ cdef class UVHandle:
                 raise RuntimeError(
                     '_abort_init: {}._closed is set'.format(name))
 
-        self._closed = 1
-
     cdef inline _finish_init(self):
         self._inited = 1
-        self._handle.data = <void*>self
+        if self._has_handle == 1:
+            self._handle.data = <void*>self
         if self._loop._debug:
             self._source_traceback = extract_stack()
         if UVLOOP_DEBUG:
@@ -134,7 +142,7 @@ cdef class UVHandle:
         cdef bint res
         res = self._closed != 1 and self._inited == 1
         if UVLOOP_DEBUG:
-            if res:
+            if res and self._has_handle == 1:
                 name = self.__class__.__name__
                 if self._handle is NULL:
                     raise RuntimeError(
@@ -228,7 +236,7 @@ cdef class UVSocketHandle(UVHandle):
         self._fileobj = None
         self.__cached_socket = None
 
-    cdef inline _fileno(self):
+    cdef _fileno(self):
         cdef:
             int fd
             int err
@@ -349,6 +357,9 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         h = <UVHandle>handle.data
         try:
             if UVLOOP_DEBUG:
+                if not h._has_handle:
+                    raise RuntimeError(
+                        'has_handle=0 in __uv_close_handle_cb')
                 h._loop._debug_handles_closed.update([
                     h.__class__.__name__])
             h._free()

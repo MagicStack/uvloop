@@ -46,6 +46,7 @@ cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.Iterable
 cdef col_Counter = collections.Counter
+cdef col_OrderedDict = collections.OrderedDict
 
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
@@ -62,6 +63,7 @@ cdef inspect_isgenerator = inspect.isgenerator
 
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
+cdef int SO_BROADCAST = getattr(socket, 'SO_BROADCAST')
 
 cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error

@@ -84,6 +84,9 @@ cdef class UVPoll(UVHandle):
                     self.fd,
                     &dummy_event)  # ignore errors
 
+    cdef is_reading(self):
+        return self._is_alive() and self.reading_handle is not None
+
     cdef start_reading(self, Handle callback):
         cdef:
             int mask = 0

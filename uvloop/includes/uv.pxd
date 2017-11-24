@@ -129,17 +129,6 @@ cdef extern from "uv.h" nogil:
         uv_loop_t* loop
         # ...
 
-    ctypedef struct uv_udp_t:
-        void* data
-        uv_loop_t* loop
-        size_t send_queue_size
-        size_t send_queue_count
-        # ...
-
-    ctypedef struct uv_udp_send_t:
-        void* data
-        uv_udp_t* handle
-
     ctypedef struct uv_poll_t:
         void* data
         uv_loop_t* loop
@@ -201,11 +190,6 @@ cdef extern from "uv.h" nogil:
         UV_WRITABLE = 2
         # UV_DISCONNECT = 4 ; see compat.h for details
 
-    ctypedef enum uv_udp_flags:
-        UV_UDP_IPV6ONLY = 1,
-        UV_UDP_PARTIAL = 2,
-        UV_UDP_REUSEADDR = 4
-
     ctypedef enum uv_membership:
         UV_LEAVE_GROUP = 0,
         UV_JOIN_GROUP
@@ -241,13 +225,6 @@ cdef extern from "uv.h" nogil:
                                 int status, int events) with gil
 
     ctypedef void (*uv_connect_cb)(uv_connect_t* req, int status) with gil
-
-    ctypedef void (*uv_udp_send_cb)(uv_udp_send_t* req, int status) with gil
-    ctypedef void (*uv_udp_recv_cb)(uv_udp_t* handle,
-                                    ssize_t nread,
-                                    const uv_buf_t* buf,
-                                    const system.sockaddr* addr,
-                                    unsigned flags) with gil
 
     # Buffers
 
@@ -367,20 +344,6 @@ cdef extern from "uv.h" nogil:
 
     void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
                          const char* name, uv_connect_cb cb)
-
-    # UDP
-
-    int uv_udp_init_ex(uv_loop_t* loop, uv_udp_t* handle, unsigned int flags)
-    int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock)
-    int uv_udp_bind(uv_udp_t* handle, const system.sockaddr* addr,
-                    unsigned int flags)
-    int uv_udp_send(uv_udp_send_t* req, uv_udp_t* handle,
-                    const uv_buf_t bufs[], unsigned int nbufs,
-                    const system.sockaddr* addr, uv_udp_send_cb send_cb)
-    int uv_udp_recv_start(uv_udp_t* handle, uv_alloc_cb alloc_cb,
-                          uv_udp_recv_cb recv_cb)
-    int uv_udp_recv_stop(uv_udp_t* handle)
-    int uv_udp_set_broadcast(uv_udp_t* handle, int on)
 
     # Polling
 
