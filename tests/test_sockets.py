@@ -1,4 +1,5 @@
 import asyncio
+import pickle
 import select
 import socket
 import sys
@@ -218,6 +219,79 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 with assert_raises():
                     self.loop.remove_writer(sock.fileno())
 
+            finally:
+                tr.close()
+
+        rsock, wsock = socket.socketpair()
+        try:
+            self.loop.run_until_complete(runner())
+        finally:
+            rsock.close()
+            wsock.close()
+
+    def test_pseudosocket(self):
+        def assert_raises():
+            return self.assertRaisesRegex(
+                RuntimeError,
+                r'File descriptor .* is used by transport')
+
+        def test_pseudo(real_sock, pseudo_sock, *, is_dup=False):
+            self.assertIn('AF_UNIX', repr(pseudo_sock))
+
+            self.assertEqual(pseudo_sock.family, real_sock.family)
+            self.assertEqual(pseudo_sock.type, real_sock.type)
+            self.assertEqual(pseudo_sock.proto, real_sock.proto)
+
+            with self.assertRaises(TypeError):
+                pickle.dumps(pseudo_sock)
+
+            na_meths = {
+                'accept', 'connect', 'connect_ex', 'bind', 'listen',
+                'makefile', 'sendfile', 'close', 'detach', 'shutdown',
+                'sendmsg_afalg', 'sendmsg', 'sendto', 'send', 'sendall',
+                'recv_into', 'recvfrom_into', 'recvmsg_into', 'recvmsg',
+                'recvfrom', 'recv'
+            }
+            for methname in na_meths:
+                meth = getattr(pseudo_sock, methname)
+                with self.assertRaisesRegex(
+                        TypeError,
+                        r'.*not support ' + methname + r'\(\) method'):
+                    meth()
+
+            eq_meths = {
+                'getsockname', 'getpeername', 'get_inheritable', 'gettimeout'
+            }
+            for methname in eq_meths:
+                pmeth = getattr(pseudo_sock, methname)
+                rmeth = getattr(real_sock, methname)
+
+                # Call 2x to check caching paths
+                self.assertEqual(pmeth(), rmeth())
+                self.assertEqual(pmeth(), rmeth())
+
+            self.assertEqual(
+                pseudo_sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR),
+                0)
+
+            if not is_dup:
+                self.assertEqual(pseudo_sock.fileno(), real_sock.fileno())
+
+                duped = pseudo_sock.dup()
+                with duped:
+                    test_pseudo(duped, pseudo_sock, is_dup=True)
+
+            with self.assertRaises(TypeError):
+                with pseudo_sock:
+                    pass
+
+        async def runner():
+            tr, pr = await self.loop.create_connection(
+                lambda: asyncio.Protocol(), sock=rsock)
+
+            try:
+                sock = tr.get_extra_info('socket')
+                test_pseudo(rsock, sock)
             finally:
                 tr.close()
 

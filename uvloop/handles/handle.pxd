@@ -22,6 +22,7 @@ cdef class UVHandle:
 
     cdef inline _free(self)
     cdef _close(self)
+    cdef _after_close(self)
 
 
 cdef class UVSocketHandle(UVHandle):

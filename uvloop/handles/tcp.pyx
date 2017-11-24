@@ -50,7 +50,7 @@ cdef __tcp_get_socket(UVSocketHandle handle):
     if err < 0:
         raise convert_error(err)
 
-    return socket_socket(buf.ss_family, uv.SOCK_STREAM, 0, fileno)
+    return PseudoSocket(buf.ss_family, uv.SOCK_STREAM, 0, fileno)
 
 
 @cython.no_gc_clear

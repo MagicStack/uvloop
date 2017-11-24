@@ -166,9 +166,6 @@ cdef class Loop:
     cdef _fileobj_to_fd(self, fileobj)
     cdef _ensure_fd_no_transport(self, fd)
 
-    cdef _inc_io_ref(self, sock)
-    cdef _dec_io_ref(self, sock)
-
     cdef _add_reader(self, fd, Handle handle)
     cdef _remove_reader(self, fd)
 

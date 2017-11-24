@@ -31,7 +31,7 @@ cdef __pipe_open(UVStream handle, int fd):
 
 cdef __pipe_get_socket(UVSocketHandle handle):
     fileno = handle._fileno()
-    return socket_socket(uv.AF_UNIX, uv.SOCK_STREAM, 0, fileno)
+    return PseudoSocket(uv.AF_UNIX, uv.SOCK_STREAM, 0, fileno)
 
 
 @cython.no_gc_clear

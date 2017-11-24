@@ -209,6 +209,11 @@ cdef class UVHandle:
         Py_INCREF(self)
         uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
 
+    cdef _after_close(self):
+        # Can only be called when '._close()' was called by hand
+        # (i.e. won't be called on UVHandle.__dealloc__).
+        pass
+
     def __repr__(self):
         return '<{} closed={} {:#x}>'.format(
             self.__class__.__name__,
@@ -255,28 +260,38 @@ cdef class UVSocketHandle(UVHandle):
         # When we create a TCP/PIPE/etc connection/server based on
         # a Python file object, we need to close the file object when
         # the uv handle is closed.
+        socket_inc_io_ref(file)
         self._fileobj = file
 
     cdef _close(self):
-        try:
-            if self.__cached_socket is not None:
-                self.__cached_socket.detach()
-                self.__cached_socket = None
+        if self.__cached_socket is not None:
+            (<PseudoSocket>self.__cached_socket)._fd = -1
+        UVHandle._close(self)
 
+    cdef _after_close(self):
+        try:
+            # This code will only run for transports created from
+            # Python sockets, i.e. with `loop.create_server(sock=sock)` etc.
             if self._fileobj is not None:
                 try:
+                    socket_dec_io_ref(self._fileobj)
+
+                    # `socket.close()` will raise an EBADF because libuv
+                    # has already closed the underlying FDself.
                     self._fileobj.close()
-                except Exception as exc:
-                    self._loop.call_exception_handler({
-                        'exception': exc,
-                        'transport': self,
-                        'message': 'could not close attached file object {!r}'.
-                            format(self._fileobj)
-                    })
-                finally:
-                    self._fileobj = None
+                except OSError as ex:
+                    if ex.errno != errno_EBADF:
+                        raise
+        except Exception as ex:
+            self._loop.call_exception_handler({
+                'exception': ex,
+                'transport': self,
+                'message': 'could not close attached file object {!r}'.
+                    format(self._fileobj)
+            })
         finally:
-            UVHandle._close(self)
+            self._fileobj = None
+            UVHandle._after_close(self)
 
     cdef _open(self, int sockfd):
         raise NotImplementedError
@@ -332,11 +347,14 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
         PyMem_RawFree(handle)
     else:
         h = <UVHandle>handle.data
-        if UVLOOP_DEBUG:
-            h._loop._debug_handles_closed.update([
-                h.__class__.__name__])
-        h._free()
-        Py_DECREF(h) # Was INCREFed in UVHandle._close
+        try:
+            if UVLOOP_DEBUG:
+                h._loop._debug_handles_closed.update([
+                    h.__class__.__name__])
+            h._free()
+            h._after_close()
+        finally:
+            Py_DECREF(h) # Was INCREFed in UVHandle._close
 
 
 cdef void __close_all_handles(Loop loop):

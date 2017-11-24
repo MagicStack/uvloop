@@ -619,7 +619,6 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
                 self.loop.remove_reader(sock.fileno())
 
-            self.assertTrue(isinstance(sock, socket.socket))
             self.assertEqual(t.get_extra_info('sockname'),
                              sockname)
             self.assertEqual(t.get_extra_info('peername'),
@@ -764,6 +763,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         with self.assertWarnsRegex(ResourceWarning, rx):
             self.loop.create_task(run())
             self.loop.run_until_complete(srv.wait_closed())
+            self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
 
             srv = None
             gc.collect()

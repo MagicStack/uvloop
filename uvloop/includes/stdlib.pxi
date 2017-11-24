@@ -50,6 +50,7 @@ cdef col_Counter = collections.Counter
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
+cdef errno_EBADF = errno.EBADF
 cdef errno_EINVAL = errno.EINVAL
 
 cdef ft_partial = functools.partial
@@ -68,6 +69,8 @@ cdef socket_timeout = socket.timeout
 cdef socket_socket = socket.socket
 cdef socket_socketpair = socket.socketpair
 cdef socket_getservbyname = socket.getservbyname
+cdef socket_AddressFamily = socket.AddressFamily
+cdef socket_SocketKind = socket.SocketKind
 
 cdef int socket_EAI_ADDRFAMILY = getattr(socket, 'EAI_ADDRFAMILY', -1)
 cdef int socket_EAI_AGAIN      = getattr(socket, 'EAI_AGAIN', -1)
