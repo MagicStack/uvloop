@@ -246,6 +246,10 @@ class _TestUnix:
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks, loop=self.loop))
 
+                # Give time for all transports to close.
+                self.loop.run_until_complete(
+                    asyncio.sleep(0.1, loop=self.loop))
+
             self.assertEqual(CNT, TOTAL_CNT)
 
         run(client)
