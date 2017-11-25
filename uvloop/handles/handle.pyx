@@ -276,15 +276,20 @@ cdef class UVSocketHandle(UVHandle):
             # This code will only run for transports created from
             # Python sockets, i.e. with `loop.create_server(sock=sock)` etc.
             if self._fileobj is not None:
-                try:
-                    socket_dec_io_ref(self._fileobj)
-
-                    # `socket.close()` will raise an EBADF because libuv
-                    # has already closed the underlying FDself.
-                    self._fileobj.close()
-                except OSError as ex:
-                    if ex.errno != errno_EBADF:
-                        raise
+                if isinstance(self._fileobj, socket_socket):
+                    # Detaching the socket object is an ideal solution:
+                    # * libuv will actually close the FD
+                    # * detach() call will reset FD for the Python socket
+                    #   object, which means that it won't be closed 2 times.
+                    self._fileobj.detach()
+                else:
+                    try:
+                        # `socket.close()` will raise an EBADF because libuv
+                        # has already closed the underlying FDself.
+                        self._fileobj.close()
+                    except OSError as ex:
+                        if ex.errno != errno_EBADF:
+                            raise
         except Exception as ex:
             self._loop.call_exception_handler({
                 'exception': ex,
