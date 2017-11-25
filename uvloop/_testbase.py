@@ -299,6 +299,20 @@ class AIOTestCase(BaseTestCase):
         return asyncio.new_event_loop()
 
 
+def has_IPv6():
+    server_sock = socket.socket(socket.AF_INET6)
+    with server_sock:
+        try:
+            server_sock.bind(('::1', 0))
+        except OSError:
+            return False
+        else:
+            return True
+
+
+has_IPv6 = has_IPv6()
+
+
 ###############################################################################
 # Socket Testing Utilities
 ###############################################################################

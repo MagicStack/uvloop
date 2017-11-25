@@ -1,6 +1,6 @@
 import asyncio
 import socket
-import uvloop
+import unittest
 import sys
 
 from asyncio import test_utils
@@ -37,7 +37,8 @@ class MyDatagramProto(asyncio.DatagramProtocol):
 
 
 class _TestUDP:
-    def test_create_datagram_endpoint_addrs(self):
+
+    def _test_create_datagram_endpoint_addrs(self, family, lc_addr):
         class TestMyDatagramProto(MyDatagramProto):
             def __init__(inner_self):
                 super().__init__(loop=self.loop)
@@ -46,57 +47,61 @@ class _TestUDP:
                 super().datagram_received(data, addr)
                 self.transport.sendto(b'resp:' + data, addr)
 
-        for family, lc_host, lc_port in ((socket.AF_INET, '127.0.0.1', 0),
-                                         (socket.AF_INET6, '::1', 0)):
+        coro = self.loop.create_datagram_endpoint(
+            TestMyDatagramProto,
+            local_addr=lc_addr,
+            family=family)
 
-            lc = (lc_host, lc_port)
+        s_transport, server = self.loop.run_until_complete(coro)
 
-            with self.subTest(local_addr=lc):
-                coro = self.loop.create_datagram_endpoint(
-                    TestMyDatagramProto,
-                    local_addr=lc,
-                    family=family)
+        host, port, *_ = s_transport.get_extra_info('sockname')
 
-                s_transport, server = self.loop.run_until_complete(coro)
-                host, port, *_ = s_transport.get_extra_info('sockname')
+        self.assertIsInstance(server, TestMyDatagramProto)
+        self.assertEqual('INITIALIZED', server.state)
+        self.assertIs(server.transport, s_transport)
 
-                self.assertIsInstance(server, TestMyDatagramProto)
-                self.assertEqual('INITIALIZED', server.state)
-                self.assertIs(server.transport, s_transport)
+        extra = {}
+        if hasattr(socket, 'SO_REUSEPORT') and \
+                sys.version_info[:3] >= (3, 5, 1):
+            extra['reuse_port'] = True
 
-                extra = {}
-                if hasattr(socket, 'SO_REUSEPORT') and \
-                        sys.version_info[:3] >= (3, 5, 1):
-                    extra['reuse_port'] = True
+        coro = self.loop.create_datagram_endpoint(
+            lambda: MyDatagramProto(loop=self.loop),
+            family=family,
+            remote_addr=(host, port),
+            **extra)
+        transport, client = self.loop.run_until_complete(coro)
 
-                coro = self.loop.create_datagram_endpoint(
-                    lambda: MyDatagramProto(loop=self.loop),
-                    family=family,
-                    remote_addr=(host, port),
-                    **extra)
-                transport, client = self.loop.run_until_complete(coro)
+        self.assertIsInstance(client, MyDatagramProto)
+        self.assertEqual('INITIALIZED', client.state)
+        self.assertIs(client.transport, transport)
 
-                self.assertIsInstance(client, MyDatagramProto)
-                self.assertEqual('INITIALIZED', client.state)
-                self.assertIs(client.transport, transport)
+        transport.sendto(b'xxx')
+        test_utils.run_until(self.loop, lambda: server.nbytes)
+        self.assertEqual(3, server.nbytes)
+        test_utils.run_until(self.loop, lambda: client.nbytes)
 
-                transport.sendto(b'xxx')
-                test_utils.run_until(self.loop, lambda: server.nbytes)
-                self.assertEqual(3, server.nbytes)
-                test_utils.run_until(self.loop, lambda: client.nbytes)
+        # received
+        self.assertEqual(8, client.nbytes)
 
-                # received
-                self.assertEqual(8, client.nbytes)
+        # extra info is available
+        self.assertIsNotNone(transport.get_extra_info('sockname'))
 
-                # extra info is available
-                self.assertIsNotNone(transport.get_extra_info('sockname'))
+        # close connection
+        transport.close()
+        self.loop.run_until_complete(client.done)
+        self.assertEqual('CLOSED', client.state)
+        server.transport.close()
+        self.loop.run_until_complete(server.done)
 
-                # close connection
-                transport.close()
-                self.loop.run_until_complete(client.done)
-                self.assertEqual('CLOSED', client.state)
-                server.transport.close()
-                self.loop.run_until_complete(server.done)
+    def test_create_datagram_endpoint_addrs_ipv4(self):
+        self._test_create_datagram_endpoint_addrs(
+            socket.AF_INET, ('127.0.0.1', 0))
+
+    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
+    def test_create_datagram_endpoint_addrs_ipv6(self):
+        self._test_create_datagram_endpoint_addrs(
+            socket.AF_INET6, ('::1', 0))
 
     def test_create_datagram_endpoint_ipv6_family(self):
         class TestMyDatagramProto(MyDatagramProto):
