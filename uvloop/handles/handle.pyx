@@ -277,15 +277,16 @@ cdef class UVSocketHandle(UVHandle):
             # Python sockets, i.e. with `loop.create_server(sock=sock)` etc.
             if self._fileobj is not None:
                 if isinstance(self._fileobj, socket_socket):
-                    # Detaching the socket object is an ideal solution:
-                    # * libuv will actually close the FD
+                    # Detaching the socket object is the ideal solution:
+                    # * libuv will actually close the FD;
                     # * detach() call will reset FD for the Python socket
-                    #   object, which means that it won't be closed 2 times.
+                    #   object, which means that it won't be closed 2nd time
+                    #   when the socket object is GCed.
                     self._fileobj.detach()
                 else:
                     try:
                         # `socket.close()` will raise an EBADF because libuv
-                        # has already closed the underlying FDself.
+                        # has already closed the underlying FD.
                         self._fileobj.close()
                     except OSError as ex:
                         if ex.errno != errno_EBADF:
