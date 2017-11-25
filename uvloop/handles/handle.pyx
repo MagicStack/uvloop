@@ -217,11 +217,6 @@ cdef class UVHandle:
         Py_INCREF(self)
         uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
 
-    cdef _after_close(self):
-        # Can only be called when '._close()' was called by hand
-        # (i.e. won't be called on UVHandle.__dealloc__).
-        pass
-
     def __repr__(self):
         return '<{} closed={} {:#x}>'.format(
             self.__class__.__name__,
@@ -274,9 +269,9 @@ cdef class UVSocketHandle(UVHandle):
     cdef _close(self):
         if self.__cached_socket is not None:
             (<PseudoSocket>self.__cached_socket)._fd = -1
+
         UVHandle._close(self)
 
-    cdef _after_close(self):
         try:
             # This code will only run for transports created from
             # Python sockets, i.e. with `loop.create_server(sock=sock)` etc.
@@ -299,7 +294,6 @@ cdef class UVSocketHandle(UVHandle):
             })
         finally:
             self._fileobj = None
-            UVHandle._after_close(self)
 
     cdef _open(self, int sockfd):
         raise NotImplementedError
@@ -363,7 +357,6 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
                 h._loop._debug_handles_closed.update([
                     h.__class__.__name__])
             h._free()
-            h._after_close()
         finally:
             Py_DECREF(h) # Was INCREFed in UVHandle._close
 

@@ -27,7 +27,6 @@ cdef class UVHandle:
     cdef _dealloc_impl(self)
     cdef _free(self)
     cdef _close(self)
-    cdef _after_close(self)
 
 
 cdef class UVSocketHandle(UVHandle):
