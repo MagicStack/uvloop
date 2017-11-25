@@ -167,19 +167,7 @@ class _TestUnix:
             srv.close()
             self.loop.run_until_complete(srv.wait_closed())
 
-    def test_create_unix_connection_1(self):
-        CNT = 0
-        TOTAL_CNT = 100
-
-        def server(sock):
-            data = sock.recv_all(4)
-            self.assertEqual(data, b'AAAA')
-            sock.send(b'OK')
-
-            data = sock.recv_all(4)
-            self.assertEqual(data, b'BBBB')
-            sock.send(b'SPAM')
-
+    def test_create_unix_connection_open_unix_con_addr(self):
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(
                 addr,
@@ -191,12 +179,12 @@ class _TestUnix:
             writer.write(b'BBBB')
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
-            nonlocal CNT
-            CNT += 1
-
             writer.close()
 
-        async def client_2(addr):
+        self._test_create_unix_connection_1(client)
+
+    def test_create_unix_connection_open_unix_con_sock(self):
+        async def client(addr):
             sock = socket.socket(socket.AF_UNIX)
             sock.connect(addr)
             reader, writer = await asyncio.open_unix_connection(
@@ -209,12 +197,12 @@ class _TestUnix:
             writer.write(b'BBBB')
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
-            nonlocal CNT
-            CNT += 1
-
             writer.close()
 
-        async def client_3(addr):
+        self._test_create_unix_connection_1(client)
+
+    def test_create_unix_connection_open_con_sock(self):
+        async def client(addr):
             sock = socket.socket(socket.AF_UNIX)
             sock.connect(addr)
             reader, writer = await asyncio.open_connection(
@@ -227,10 +215,27 @@ class _TestUnix:
             writer.write(b'BBBB')
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
+            writer.close()
+
+        self._test_create_unix_connection_1(client)
+
+    def _test_create_unix_connection_1(self, client):
+        CNT = 0
+        TOTAL_CNT = 100
+
+        def server(sock):
+            data = sock.recv_all(4)
+            self.assertEqual(data, b'AAAA')
+            sock.send(b'OK')
+
+            data = sock.recv_all(4)
+            self.assertEqual(data, b'BBBB')
+            sock.send(b'SPAM')
+
+        async def client_wrapper(addr):
+            await client(addr)
             nonlocal CNT
             CNT += 1
-
-            writer.close()
 
         def run(coro):
             nonlocal CNT
@@ -252,9 +257,7 @@ class _TestUnix:
 
             self.assertEqual(CNT, TOTAL_CNT)
 
-        run(client)
-        run(client_2)
-        run(client_3)
+        run(client_wrapper)
 
     def test_create_unix_connection_2(self):
         with tempfile.NamedTemporaryFile() as tmp:
