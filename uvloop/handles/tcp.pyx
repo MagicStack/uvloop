@@ -66,6 +66,13 @@ cdef class TCPServer(UVStreamServer):
         __tcp_init_uv_handle(<UVStream>handle, loop, flags)
         return handle
 
+    cdef _set_nodelay(self):
+        cdef int err
+        self._ensure_alive()
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t*>self._handle, 1);
+        if err < 0:
+            raise convert_error(err)
+
     cdef _new_socket(self):
         return __tcp_get_socket(<UVSocketHandle>self)
 
@@ -77,6 +84,7 @@ cdef class TCPServer(UVStreamServer):
             self._fatal_error(exc, True)
         else:
             self._mark_as_open()
+            self._set_nodelay()
 
     cdef bind(self, system.sockaddr* addr, unsigned int flags=0):
         self._ensure_alive()
@@ -86,6 +94,7 @@ cdef class TCPServer(UVStreamServer):
             self._fatal_error(exc, True)
         else:
             self._mark_as_open()
+            self._set_nodelay()
 
     cdef UVStream _make_new_transport(self, object protocol, object waiter):
         cdef TCPTransport tr
@@ -106,7 +115,15 @@ cdef class TCPTransport(UVStream):
         __tcp_init_uv_handle(<UVStream>handle, loop, uv.AF_UNSPEC)
         handle.__peername_set = 0
         handle.__sockname_set = 0
+        handle._set_nodelay()
         return handle
+
+    cdef _set_nodelay(self):
+        cdef int err
+        self._ensure_alive()
+        err = uv.uv_tcp_nodelay(<uv.uv_tcp_t*>self._handle, 1);
+        if err < 0:
+            raise convert_error(err)
 
     cdef _call_connection_made(self):
         # asyncio saves peername & sockname when transports are instantiated,

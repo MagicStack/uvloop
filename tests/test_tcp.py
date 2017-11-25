@@ -72,6 +72,12 @@ class _TestTCP:
             writer.write(bytearray(b'A'))
             writer.write(memoryview(b'M'))
 
+            if self.implementation == 'uvloop':
+                tr = writer.transport
+                sock = tr.get_extra_info('socket')
+                self.assertTrue(
+                    sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
+
             await writer.drain()
             writer.close()
 
@@ -339,6 +345,12 @@ class _TestTCP:
 
             writer.write(b'BBBB')
             self.assertEqual(await reader.readexactly(4), b'SPAM')
+
+            if self.implementation == 'uvloop':
+                tr = writer.transport
+                sock = tr.get_extra_info('socket')
+                self.assertTrue(
+                    sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
 
             nonlocal CNT
             CNT += 1
