@@ -1,13 +1,11 @@
 import os
 import os.path
+import platform
 import re
 import shutil
 import subprocess
 import sys
 
-
-if sys.platform in ('win32', 'cygwin', 'cli'):
-    raise RuntimeError('uvloop does not support Windows at the moment')
 
 vi = sys.version_info
 if vi < (3, 5):
@@ -216,9 +214,10 @@ class uvloop_build_ext(build_ext):
     def build_libuv(self):
         env = _libuv_build_env()
 
-        # Make sure configure and friends are present in case
-        # we are building from a git checkout.
-        _libuv_autogen(env)
+        if sys.platform != 'win32':
+            # Make sure configure and friends are present in case
+            # we are building from a git checkout.
+            _libuv_autogen(env)
 
         # Copy the libuv tree to build/ so that its build
         # products don't pollute sdist accidentally.
@@ -226,26 +225,61 @@ class uvloop_build_ext(build_ext):
             shutil.rmtree(LIBUV_BUILD_DIR)
         shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
 
-        # Sometimes pip fails to preserve the timestamps correctly,
-        # in which case, make will try to run autotools again.
-        subprocess.run(
-            ['touch', 'configure.ac', 'aclocal.m4', 'configure',
-             'Makefile.am', 'Makefile.in'],
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+        if sys.platform == 'win32':
+            env.pop('VS120COMNTOOLS', None)
+            env.pop('VS110COMNTOOLS', None)
+            env.pop('VS100COMNTOOLS', None)
+            env.pop('VS90COMNTOOLS', None)
+            env['GYP_MSVS_VERSION'] = '2015'
 
-        if 'LIBUV_CONFIGURE_HOST' in env:
-            cmd = ['./configure', '--host=' + env['LIBUV_CONFIGURE_HOST']]
+            pypath = os.path.expandvars(os.path.join(
+                '%SYSTEMDRIVE%', 'Python27', 'python.exe'))
+            if not os.path.exists(pypath):
+                raise RuntimeError(
+                    'cannot find Python 2.7 at {!r}'.format(pypath))
+            env['PYTHON'] = pypath
+
+            arch = platform.architecture()[0]
+            libuv_arch = {'32bit': 'x86', '64bit': 'x64'}[arch]
+            subprocess.run(
+                ['cmd.exe', '/C', 'vcbuild.bat', libuv_arch, 'release'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
+
         else:
-            cmd = ['./configure']
-        subprocess.run(
-            cmd,
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+            if 'LIBUV_CONFIGURE_HOST' in env:
+                cmd = ['./configure', '--host=' + env['LIBUV_CONFIGURE_HOST']]
+            else:
+                cmd = ['./configure']
+            subprocess.run(
+                cmd,
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
-        c_flag = "CFLAGS={}".format(env['CFLAGS'])
-        subprocess.run(
-            ['make', j_flag, c_flag],
-            cwd=LIBUV_BUILD_DIR, env=env, check=True)
+            # Make sure configure and friends are present in case
+            # we are building from a git checkout.
+            _libuv_autogen(env)
+
+            # Copy the libuv tree to build/ so that its build
+            # products don't pollute sdist accidentally.
+            if os.path.exists(LIBUV_BUILD_DIR):
+                shutil.rmtree(LIBUV_BUILD_DIR)
+            shutil.copytree(LIBUV_DIR, LIBUV_BUILD_DIR)
+
+            # Sometimes pip fails to preserve the timestamps correctly,
+            # in which case, make will try to run autotools again.
+            subprocess.run(
+                ['touch', 'configure.ac', 'aclocal.m4', 'configure',
+                 'Makefile.am', 'Makefile.in'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
+
+            subprocess.run(
+                ['./configure'],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
+
+            j_flag = '-j{}'.format(os.cpu_count() or 1)
+            c_flag = "CFLAGS={}".format(env['CFLAGS'])
+            subprocess.run(
+                ['make', j_flag, c_flag],
+                cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
     def build_extensions(self):
         if self.use_system_libuv:
@@ -256,7 +290,12 @@ class uvloop_build_ext(build_ext):
                 # Support macports on Mac OS X.
                 self.compiler.add_include_dir('/opt/local/include')
         else:
-            libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
+            if sys.platform != 'win32':
+                libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
+            else:
+                libuv_lib = os.path.join(
+                    LIBUV_BUILD_DIR, 'Release', 'lib', 'libuv.lib')
+
             if not os.path.exists(libuv_lib):
                 self.build_libuv()
             if not os.path.exists(libuv_lib):
@@ -267,12 +306,24 @@ class uvloop_build_ext(build_ext):
 
         if sys.platform.startswith('linux'):
             self.compiler.add_library('rt')
+
         elif sys.platform.startswith(('freebsd', 'dragonfly')):
             self.compiler.add_library('kvm')
+
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
-            
-        self.compiler.add_library('pthread')
+
+        elif sys.platform.startswith('win'):
+            self.compiler.add_library('advapi32')
+            self.compiler.add_library('iphlpapi')
+            self.compiler.add_library('psapi')
+            self.compiler.add_library('shell32')
+            self.compiler.add_library('user32')
+            self.compiler.add_library('userenv')
+            self.compiler.add_library('ws2_32')
+
+        if not sys.platform.startswith('win'):
+            self.compiler.add_library('pthread')
 
         super().build_extensions()
 

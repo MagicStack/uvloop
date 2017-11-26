@@ -9,6 +9,7 @@ from uvloop import _testbase as tb
 DELAY = 0.1
 
 
+@tb.skip_windows
 class _TestSignal:
     NEW_LOOP = None
 

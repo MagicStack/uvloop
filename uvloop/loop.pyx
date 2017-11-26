@@ -58,6 +58,17 @@ cdef _is_sock_dgram(sock_type):
         return (sock_type & 0xF) == uv.SOCK_DGRAM
 
 
+cdef __dup(sock):
+    # cross-platform duping
+    IF UNAME_SYSNAME == "Windows":
+        dup_sock = sock.dup()
+        fileno = dup_sock.fileno()
+        dup_sock.detach()
+        return fileno
+    ELSE:
+        return os_dup(sock.fileno())
+
+
 cdef isfuture(obj):
     if aio_isfuture is None:
         return isinstance(obj, aio_Future)
@@ -2732,6 +2743,10 @@ cdef void __atfork_child() nogil:
 
 cdef __install_atfork():
     global __atfork_installed
+
+    IF UNAME_SYSNAME == "Windows":
+        return
+
     if __atfork_installed:
         return
     __atfork_installed = 1

@@ -3,13 +3,6 @@ cdef str __strerr(int errno):
 
 
 cdef __convert_python_error(int uverr):
-    # XXX Won't work for Windows:
-    # From libuv docs:
-    #      Implementation detail: on Unix error codes are the
-    #      negated errno (or -errno), while on Windows they
-    #      are defined by libuv to arbitrary negative numbers.
-    cdef int oserr = -uverr
-
     exc = OSError
 
     if uverr in (uv.UV_EACCES, uv.UV_EPERM):
@@ -48,7 +41,17 @@ cdef __convert_python_error(int uverr):
     elif uverr == uv.UV_ETIMEDOUT:
         exc = TimeoutError
 
-    return exc(oserr, __strerr(oserr))
+    IF UNAME_SYSNAME == "Windows":
+        # Translate libuv/Windows error to a posix errno
+        errname = uv.uv_err_name(uverr).decode()
+        err = getattr(errno, errname, uverr)
+        return exc(err, uv.uv_strerror(uverr).decode())
+    ELSE:
+        # From libuv docs:
+        #      Implementation detail: on Unix error codes are the
+        #      negated errno (or -errno), while on Windows they
+        #      are defined by libuv to arbitrary negative numbers.
+        return exc(-uverr, __strerr(-uverr))
 
 
 cdef int __convert_socket_error(int uverr):

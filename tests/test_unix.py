@@ -9,6 +9,7 @@ import unittest
 from uvloop import _testbase as tb
 
 
+@tb.skip_windows
 class _TestUnix:
     def test_create_unix_server_1(self):
         CNT = 0           # number of clients that were successful
@@ -453,6 +454,7 @@ class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
     pass
 
 
+@tb.skip_windows
 class _TestSSL(tb.SSLTestCase):
 
     ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')
