@@ -529,91 +529,6 @@ class _AsyncioTests:
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
-    def test_process_lated_stdio_init(self):
-
-        class TestProto:
-            def __init__(self):
-                self.lost = 0
-                self.stages = []
-
-            def connection_made(self, transport):
-                self.stages.append(('CM', transport))
-
-            def pipe_data_received(self, fd, data):
-                if fd == 1:
-                    self.stages.append(('STDOUT', data))
-
-            def pipe_connection_lost(self, fd, exc):
-                if fd == 1:
-                    self.stages.append(('STDOUT', 'LOST'))
-
-            def process_exited(self):
-                self.stages.append('PROC_EXIT')
-
-            def connection_lost(self, exc):
-                self.stages.append(('CL', self.lost, exc))
-                self.lost += 1
-
-        async def run(**kwargs):
-            return await self.loop.subprocess_shell(
-                lambda: TestProto(),
-                'echo 1',
-                **kwargs)
-
-        with self.subTest('paused, stdin pipe'):
-            transport, proto = self.loop.run_until_complete(
-                run(stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    __uvloop_sleep_after_fork=True))
-            self.assertIsNot(transport, None)
-            self.assertEqual(transport.get_returncode(), 0)
-            self.assertEqual(
-                set(proto.stages),
-                {
-                    ('CM', transport),
-                    'PROC_EXIT',
-                    ('STDOUT', b'1\n'),
-                    ('STDOUT', 'LOST'),
-                    ('CL', 0, None)
-                })
-
-        with self.subTest('paused, no stdin'):
-            transport, proto = self.loop.run_until_complete(
-                run(stdin=None,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    __uvloop_sleep_after_fork=True))
-            self.assertIsNot(transport, None)
-            self.assertEqual(transport.get_returncode(), 0)
-            self.assertEqual(
-                set(proto.stages),
-                {
-                    ('CM', transport),
-                    'PROC_EXIT',
-                    ('STDOUT', b'1\n'),
-                    ('STDOUT', 'LOST'),
-                    ('CL', 0, None)
-                })
-
-        with self.subTest('no pause, no stdin'):
-            transport, proto = self.loop.run_until_complete(
-                run(stdin=None,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE))
-            self.loop.run_until_complete(transport._wait())
-            self.assertEqual(transport.get_returncode(), 0)
-            self.assertIsNot(transport, None)
-            self.assertEqual(
-                set(proto.stages),
-                {
-                    ('CM', transport),
-                    'PROC_EXIT',
-                    ('STDOUT', b'1\n'),
-                    ('STDOUT', 'LOST'),
-                    ('CL', 0, None)
-                })
-
     def test_process_streams_redirect(self):
         # This won't work for asyncio implementation of subprocess
 
@@ -658,3 +573,92 @@ class TestAsyncio_UV_Process(_AsyncioTests, tb.UVTestCase):
 
 class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
     pass
+
+
+class Test_UV_Process_Delayed(tb.UVTestCase):
+
+    class TestProto:
+        def __init__(self):
+            self.lost = 0
+            self.stages = []
+
+        def connection_made(self, transport):
+            self.stages.append(('CM', transport))
+
+        def pipe_data_received(self, fd, data):
+            if fd == 1:
+                self.stages.append(('STDOUT', data))
+
+        def pipe_connection_lost(self, fd, exc):
+            if fd == 1:
+                self.stages.append(('STDOUT', 'LOST'))
+
+        def process_exited(self):
+            self.stages.append('PROC_EXIT')
+
+        def connection_lost(self, exc):
+            self.stages.append(('CL', self.lost, exc))
+            self.lost += 1
+
+    async def run_sub(self, **kwargs):
+        return await self.loop.subprocess_shell(
+            lambda: self.TestProto(),
+            'echo 1',
+            **kwargs)
+
+    def test_process_delayed_stdio__paused__stdin_pipe(self):
+        transport, proto = self.loop.run_until_complete(
+            self.run_sub(
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                __uvloop_sleep_after_fork=True))
+        self.assertIsNot(transport, None)
+        self.assertEqual(transport.get_returncode(), 0)
+        self.assertEqual(
+            set(proto.stages),
+            {
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b'1\n'),
+                ('STDOUT', 'LOST'),
+                ('CL', 0, None)
+            })
+
+    def test_process_delayed_stdio__paused__no_stdin(self):
+        transport, proto = self.loop.run_until_complete(
+            self.run_sub(
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                __uvloop_sleep_after_fork=True))
+        self.assertIsNot(transport, None)
+        self.assertEqual(transport.get_returncode(), 0)
+        self.assertEqual(
+            set(proto.stages),
+            {
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b'1\n'),
+                ('STDOUT', 'LOST'),
+                ('CL', 0, None)
+            })
+
+    def test_process_delayed_stdio__not_paused__no_stdin(self):
+        transport, proto = self.loop.run_until_complete(
+            self.run_sub(
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE))
+        self.loop.run_until_complete(transport._wait())
+        self.assertEqual(transport.get_returncode(), 0)
+        self.assertIsNot(transport, None)
+        self.assertEqual(
+            set(proto.stages),
+            {
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b'1\n'),
+                ('STDOUT', 'LOST'),
+                ('CL', 0, None)
+            })
