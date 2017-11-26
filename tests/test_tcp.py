@@ -358,6 +358,12 @@ class _TestTCP:
             writer.write(b'BBBB')
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
+            if self.implementation == 'uvloop':
+                tr = writer.transport
+                sock = tr.get_extra_info('socket')
+                self.assertTrue(
+                    sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
+
             writer.close()
 
         self._test_create_connection_1(client)
