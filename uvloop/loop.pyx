@@ -39,17 +39,23 @@ include "errors.pyx"
 
 
 cdef _is_sock_stream(sock_type):
-    # Linux's socket.type is a bitmask that can include extra info
-    # about socket, therefore we can't do simple
-    # `sock_type == socket.SOCK_STREAM`.
-    return (sock_type & uv.SOCK_STREAM) == uv.SOCK_STREAM
+    if SOCK_NONBLOCK == -1:
+        return sock_type == uv.SOCK_STREAM
+    else:
+        # Linux's socket.type is a bitmask that can include extra info
+        # about socket (like SOCK_NONBLOCK bit), therefore we can't do simple
+        # `sock_type == socket.SOCK_STREAM`, see
+        # https://github.com/torvalds/linux/blob/v4.13/include/linux/net.h#L77
+        # for more details.
+        return (sock_type & 0xF) == uv.SOCK_STREAM
 
 
 cdef _is_sock_dgram(sock_type):
-    # Linux's socket.type is a bitmask that can include extra info
-    # about socket, therefore we can't do simple
-    # `sock_type == socket.SOCK_DGRAM`.
-    return (sock_type & uv.SOCK_DGRAM) == uv.SOCK_DGRAM
+    if SOCK_NONBLOCK == -1:
+        return sock_type == uv.SOCK_DGRAM
+    else:
+        # Read the comment in `_is_sock_stream`.
+        return (sock_type & 0xF) == uv.SOCK_DGRAM
 
 
 cdef isfuture(obj):
