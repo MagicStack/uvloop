@@ -10,7 +10,11 @@ cdef class UDPTransport(UVBaseTransport):
     cdef _init(self, Loop loop, object sock, object r_addr):
         self._start_init(loop)
         try:
+            # It's important to incref the socket in case it
+            # was created outside of uvloop,
+            # i.e. `look.create_datagram_endpoint(sock=sock)`.
             socket_inc_io_ref(sock)
+
             self.sock = sock
             self.address = r_addr
             self.poll = UVPoll.new(loop, sock.fileno())
