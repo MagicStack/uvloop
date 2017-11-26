@@ -61,6 +61,7 @@ cdef class Loop:
         dict _signal_handlers
         object _ssock
         object _csock
+        bint _listening_signals
 
         set _timers
         dict _polls

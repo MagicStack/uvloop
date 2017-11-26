@@ -9,7 +9,7 @@ import gc
 import inspect
 import itertools
 import os
-import signal as std_signal
+import signal
 import socket
 import subprocess
 import ssl
@@ -123,11 +123,12 @@ cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
 cdef subprocess_SubprocessError = subprocess.SubprocessError
 
-cdef int signal_NSIG = std_signal.NSIG
-cdef signal_signal = std_signal.signal
-cdef signal_set_wakeup_fd = std_signal.set_wakeup_fd
-cdef signal_default_int_handler = std_signal.default_int_handler
-cdef signal_SIG_DFL = std_signal.SIG_DFL
+cdef int signal_NSIG = signal.NSIG
+cdef signal_signal = signal.signal
+cdef signal_siginterrupt = signal.siginterrupt
+cdef signal_set_wakeup_fd = signal.set_wakeup_fd
+cdef signal_default_int_handler = signal.default_int_handler
+cdef signal_SIG_DFL = signal.SIG_DFL
 
 cdef time_sleep = time.sleep
 cdef time_monotonic = time.monotonic
@@ -148,5 +149,5 @@ cdef py_inf = float('inf')
 # so we delete refs to all modules manually (except sys)
 del asyncio, concurrent, collections, errno
 del functools, inspect, itertools, socket, os, threading
-del std_signal, subprocess, ssl
+del signal, subprocess, ssl
 del time, traceback, warnings, weakref
