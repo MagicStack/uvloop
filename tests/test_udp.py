@@ -167,6 +167,23 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
                                         'A UDP Socket was expected'):
                 self.loop.run_until_complete(coro)
 
+    def test_udp_sendto_dns(self):
+        coro = self.loop.create_datagram_endpoint(
+            asyncio.DatagramProtocol,
+            local_addr=('127.0.0.1', 0),
+            family=socket.AF_INET)
+
+        s_transport, server = self.loop.run_until_complete(coro)
+
+        with self.assertRaisesRegex(ValueError, 'DNS lookup'):
+            s_transport.sendto(b'aaaa', ('example.com', 80))
+
+        with self.assertRaisesRegex(ValueError, 'socket family mismatch'):
+            s_transport.sendto(b'aaaa', ('::1', 80))
+
+        s_transport.close()
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     pass

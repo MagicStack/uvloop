@@ -139,6 +139,19 @@ cdef class UDPTransport(UVBaseTransport):
             raise ValueError(
                 'Invalid address: must be None or {}'.format(self.address))
 
+        if addr is not None:
+            addrinfo = __static_getaddrinfo_pyaddr(
+                addr[0], addr[1],
+                uv.AF_UNSPEC, self.sock.type, self.sock.proto, 0)
+            if addrinfo is None:
+                raise ValueError(
+                    'UDP.sendto(): address {!r} requires a DNS lookup'.format(
+                        addr))
+            if addrinfo[0] != self.sock.family:
+                raise ValueError(
+                    'UDP.sendto(): {!r} socket family mismatch'.format(
+                        addr))
+
         if self._conn_lost and self._address:
             if self._conn_lost >= LOG_THRESHOLD_FOR_CONNLOST_WRITES:
                 aio_logger.warning('socket.send() raised exception.')
