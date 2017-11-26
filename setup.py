@@ -271,7 +271,7 @@ class uvloop_build_ext(build_ext):
             self.compiler.add_library('kvm')
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
-            
+
         self.compiler.add_library('pthread')
 
         super().build_extensions()
