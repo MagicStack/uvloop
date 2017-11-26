@@ -282,6 +282,9 @@ cdef class UVSocketHandle(UVHandle):
                     # * detach() call will reset FD for the Python socket
                     #   object, which means that it won't be closed 2nd time
                     #   when the socket object is GCed.
+                    #
+                    # No need to call `socket_dec_io_ref()`, as
+                    # `socket.detach()` ignores `socket._io_refs`.
                     self._fileobj.detach()
                 else:
                     try:
