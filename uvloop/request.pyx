@@ -13,15 +13,6 @@ cdef class UVRequest:
         self.done = 0
         Py_INCREF(self)
 
-    def __dealloc__(self):
-        if self.request is not NULL:
-            if self.done == 0:
-                raise RuntimeError(
-                    'Unable to deallocate request for {!r} (not done)'
-                    .format(self))
-            PyMem_RawFree(self.request)
-            self.request = NULL
-
     cdef on_done(self):
         self.done = 1
         Py_DECREF(self)

@@ -249,6 +249,7 @@ cdef class AddrInfoRequest(UVRequest):
     cdef:
         system.addrinfo hints
         object callback
+        uv.uv_getaddrinfo_t _req_data
 
     def __cinit__(self, Loop loop,
                   bytes host, bytes port,
@@ -283,12 +284,7 @@ cdef class AddrInfoRequest(UVRequest):
         self.hints.ai_socktype = type
         self.hints.ai_protocol = proto
 
-        self.request = <uv.uv_req_t*> PyMem_RawMalloc(
-            sizeof(uv.uv_getaddrinfo_t))
-        if self.request is NULL:
-            self.on_done()
-            raise MemoryError()
-
+        self.request = <uv.uv_req_t*> &self._req_data
         self.callback = callback
         self.request.data = <void*>self
 
@@ -307,14 +303,10 @@ cdef class AddrInfoRequest(UVRequest):
 cdef class NameInfoRequest(UVRequest):
     cdef:
         object callback
+        uv.uv_getnameinfo_t _req_data
 
     def __cinit__(self, Loop loop, callback):
-        self.request = <uv.uv_req_t*> PyMem_RawMalloc(
-            sizeof(uv.uv_getnameinfo_t))
-        if self.request is NULL:
-            self.on_done()
-            raise MemoryError()
-
+        self.request = <uv.uv_req_t*> &self._req_data
         self.callback = callback
         self.request.data = <void*>self
 
