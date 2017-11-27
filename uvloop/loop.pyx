@@ -794,13 +794,27 @@ cdef class Loop:
         nr.query(addr, flags)
         return fut
 
+    cdef _new_reader_future(self, sock):
+        def _on_cancel(fut):
+            if fut.cancelled():
+                self._remove_reader(sock)
+
+        fut = self._new_future()
+        fut.add_done_callback(_on_cancel)
+        return fut
+
+    cdef _new_writer_future(self, sock):
+        def _on_cancel(fut):
+            if fut.cancelled():
+                self._remove_writer(sock)
+
+        fut = self._new_future()
+        fut.add_done_callback(_on_cancel)
+        return fut
+
     cdef _sock_recv(self, fut, sock, n):
         cdef:
             Handle handle
-
-        if fut.cancelled():
-            self._remove_reader(sock)
-            return
 
         try:
             data = sock.recv(n)
@@ -819,10 +833,6 @@ cdef class Loop:
         cdef:
             Handle handle
 
-        if fut.cancelled():
-            self._remove_reader(sock)
-            return
-
         try:
             data = sock.recv_into(buf)
         except (BlockingIOError, InterruptedError):
@@ -840,10 +850,6 @@ cdef class Loop:
         cdef:
             Handle handle
             int n
-
-        if fut.cancelled():
-            self._remove_writer(sock)
-            return
 
         try:
             n = sock.send(data)
@@ -878,10 +884,6 @@ cdef class Loop:
         cdef:
             Handle handle
 
-        if fut.cancelled():
-            self._remove_reader(sock)
-            return
-
         try:
             conn, address = sock.accept()
             conn.setblocking(False)
@@ -896,31 +898,29 @@ cdef class Loop:
             fut.set_result((conn, address))
             self._remove_reader(sock)
 
-    cdef _sock_connect(self, fut, sock, address):
+    cdef _sock_connect(self, sock, address):
         cdef:
             Handle handle
 
         try:
             sock.connect(address)
         except (BlockingIOError, InterruptedError):
-            # Issue #23618: When the C function connect() fails with EINTR, the
-            # connection runs in background. We have to wait until the socket
-            # becomes writable to be notified when the connection succeed or
-            # fails.
-            fut.add_done_callback(lambda fut: self._remove_writer(sock))
-
-            handle = new_MethodHandle3(
-                self,
-                "Loop._sock_connect",
-                <method3_t>self._sock_connect_cb,
-                self,
-                fut, sock, address)
-
-            self._add_writer(sock, handle)
-        except Exception as exc:
-            fut.set_exception(exc)
+            pass
         else:
-            fut.set_result(None)
+            return
+
+        fut = self._new_future()
+        fut.add_done_callback(lambda fut: self._remove_writer(sock))
+
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_connect",
+            <method3_t>self._sock_connect_cb,
+            self,
+            fut, sock, address)
+
+        self._add_writer(sock, handle)
+        return fut
 
     cdef _sock_connect_cb(self, fut, sock, address):
         if fut.cancelled():
@@ -2087,7 +2087,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_future()
+        fut = self._new_reader_future(sock)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_recv",
@@ -2112,7 +2112,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_future()
+        fut = self._new_reader_future(sock)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_recv_into",
@@ -2162,7 +2162,7 @@ cdef class Loop:
                     data = memoryview(data)
                 data = data[n:]
 
-            fut = self._new_future()
+            fut = self._new_writer_future(sock)
             handle = new_MethodHandle3(
                 self,
                 "Loop._sock_sendall",
@@ -2191,7 +2191,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_future()
+        fut = self._new_reader_future(sock)
         handle = new_MethodHandle2(
             self,
             "Loop._sock_accept",
@@ -2212,15 +2212,13 @@ cdef class Loop:
 
         socket_inc_io_ref(sock)
         try:
-            fut = self._new_future()
             if sock.family == uv.AF_UNIX:
-                self._sock_connect(fut, sock, address)
+                fut = self._sock_connect(sock, address)
+            else:
+                _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
+                fut = self._sock_connect(sock, address)
+            if fut is not None:
                 await fut
-                return
-
-            _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
-            self._sock_connect(fut, sock, address)
-            await fut
         finally:
             socket_dec_io_ref(sock)
 

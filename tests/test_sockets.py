@@ -505,6 +505,65 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             s.close()
             self.assertEqual(s.fileno(), -1)
 
+    def test_socket_cancel_sock_recv(self):
+        def srv_gen(sock):
+            time.sleep(1.2)
+            sock.send(b'helo')
+
+        async def kill(fut):
+            await asyncio.sleep(0.2, loop=self.loop)
+            fut.cancel()
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            f = asyncio.ensure_future(self.loop.sock_recv(sock, 10),
+                                      loop=self.loop)
+            self.loop.create_task(kill(f))
+            with self.assertRaises(asyncio.CancelledError):
+                await f
+            sock.close()
+            self.assertEqual(sock.fileno(), -1)
+
+        with self.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                self.loop.run_until_complete(w)
+
+    def test_socket_cancel_sock_sendall(self):
+        def srv_gen(sock):
+            time.sleep(1.2)
+            sock.recv_all(4)
+
+        async def kill(fut):
+            await asyncio.sleep(0.2, loop=self.loop)
+            fut.cancel()
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            f = asyncio.ensure_future(
+                self.loop.sock_sendall(sock, b'helo' * (1024 * 1024 * 50)),
+                loop=self.loop)
+            self.loop.create_task(kill(f))
+            with self.assertRaises(asyncio.CancelledError):
+                await f
+            sock.close()
+            self.assertEqual(sock.fileno(), -1)
+
+        with self.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                self.loop.run_until_complete(w)
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass

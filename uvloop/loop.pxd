@@ -167,6 +167,8 @@ cdef class Loop:
     cdef _fileobj_to_fd(self, fileobj)
     cdef _ensure_fd_no_transport(self, fd)
 
+    cdef _new_reader_future(self, sock)
+    cdef _new_writer_future(self, sock)
     cdef _add_reader(self, fd, Handle handle)
     cdef _remove_reader(self, fd)
 
@@ -178,7 +180,7 @@ cdef class Loop:
     cdef _sock_sendall(self, fut, sock, data)
     cdef _sock_accept(self, fut, sock)
 
-    cdef _sock_connect(self, fut, sock, address)
+    cdef _sock_connect(self, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
 
     cdef _sock_set_reuseport(self, int fd)
