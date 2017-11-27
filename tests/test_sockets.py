@@ -469,6 +469,42 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 self.loop.close()
                 self.assertEqual(sock.fileno(), -1)
 
+    def test_socket_close_remove_reader(self):
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.remove_reader(s.fileno())
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_reader(s.fileno(), lambda: None)
+            self.loop.remove_reader(s)
+            self.assertNotEqual(s.fileno(), -1)
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+    def test_socket_close_remove_writer(self):
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.remove_writer(s.fileno())
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_writer(s.fileno(), lambda: None)
+            self.loop.remove_writer(s)
+            self.assertNotEqual(s.fileno(), -1)
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass

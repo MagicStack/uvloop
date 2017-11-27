@@ -664,8 +664,9 @@ cdef class Loop:
             poll = UVPoll.new(self, fd)
             self._polls[fd] = poll
 
-        self._fd_to_reader_fileobj[fd] = fileobj
         poll.start_reading(handle)
+
+        self._fd_to_reader_fileobj[fd] = fileobj
         socket_inc_io_ref(fileobj)
 
     cdef _remove_reader(self, fileobj):
@@ -674,8 +675,10 @@ cdef class Loop:
 
         fd = self._fileobj_to_fd(fileobj)
         self._ensure_fd_no_transport(fd)
-        self._fd_to_reader_fileobj.pop(fd, None)
-        socket_dec_io_ref(fileobj)
+
+        mapped_fileobj = self._fd_to_reader_fileobj.pop(fd, None)
+        if mapped_fileobj is not None:
+            socket_dec_io_ref(mapped_fileobj)
 
         if self._closed == 1:
             return False
@@ -706,8 +709,9 @@ cdef class Loop:
             poll = UVPoll.new(self, fd)
             self._polls[fd] = poll
 
-        self._fd_to_writer_fileobj[fd] = fileobj
         poll.start_writing(handle)
+
+        self._fd_to_writer_fileobj[fd] = fileobj
         socket_inc_io_ref(fileobj)
 
     cdef _remove_writer(self, fileobj):
@@ -716,8 +720,10 @@ cdef class Loop:
 
         fd = self._fileobj_to_fd(fileobj)
         self._ensure_fd_no_transport(fd)
-        self._fd_to_writer_fileobj.pop(fd, None)
-        socket_dec_io_ref(fileobj)
+
+        mapped_fileobj = self._fd_to_writer_fileobj.pop(fd, None)
+        if mapped_fileobj is not None:
+            socket_dec_io_ref(mapped_fileobj)
 
         if self._closed == 1:
             return False
