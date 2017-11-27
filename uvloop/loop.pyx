@@ -626,7 +626,7 @@ cdef class Loop:
         ValueError if the object is invalid
         """
         # Copy of the `selectors._fileobj_to_fd()` function.
-        if isinstance(fileobj, int):
+        if type(fileobj) is int:
             fd = fileobj
         else:
             try:
