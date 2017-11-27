@@ -478,6 +478,26 @@ class _TestTCP:
 
         self.loop.run_until_complete(runner())
 
+    def test_create_connection_5(self):
+        def server(sock):
+            data = sock.recv_all(4)
+            self.assertEqual(data, b'AAAA')
+            sock.send(b'OK')
+
+        async def client(addr):
+            fut = asyncio.ensure_future(
+                self.loop.create_connection(asyncio.Protocol, *addr),
+                loop=self.loop)
+            await asyncio.sleep(0, loop=self.loop)
+            fut.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await fut
+
+        with self.tcp_server(server,
+                             max_clients=1,
+                             backlog=1) as srv:
+            self.loop.run_until_complete(client(srv.addr))
+
     def test_transport_shutdown(self):
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 100   # total number of clients that test will create
