@@ -666,6 +666,10 @@ cdef class Loop:
 
         poll.start_reading(handle)
 
+        old_fileobj = self._fd_to_reader_fileobj.pop(fd, None)
+        if old_fileobj is not None:
+            socket_dec_io_ref(old_fileobj)
+
         self._fd_to_reader_fileobj[fd] = fileobj
         socket_inc_io_ref(fileobj)
 
@@ -710,6 +714,10 @@ cdef class Loop:
             self._polls[fd] = poll
 
         poll.start_writing(handle)
+
+        old_fileobj = self._fd_to_writer_fileobj.pop(fd, None)
+        if old_fileobj is not None:
+            socket_dec_io_ref(old_fileobj)
 
         self._fd_to_writer_fileobj[fd] = fileobj
         socket_inc_io_ref(fileobj)

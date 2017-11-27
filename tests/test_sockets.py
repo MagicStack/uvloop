@@ -564,6 +564,48 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
                 self.loop.run_until_complete(w)
 
+    def test_socket_close_many_add_readers(self):
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.remove_reader(s.fileno())
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.add_reader(s, lambda: None)
+            self.loop.remove_reader(s)
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+    def test_socket_close_many_remove_writers(self):
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.remove_writer(s.fileno())
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
+        s = socket.socket()
+        with s:
+            s.setblocking(False)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.add_writer(s, lambda: None)
+            self.loop.remove_writer(s)
+            s.close()
+            self.assertEqual(s.fileno(), -1)
+
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
     pass
