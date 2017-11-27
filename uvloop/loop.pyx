@@ -804,7 +804,15 @@ cdef class Loop:
 
     cdef _new_reader_future(self, sock):
         def _on_cancel(fut):
-            if fut.cancelled():
+            # Check if the future was cancelled and if the socket
+            # is still open, i.e.
+            #
+            #    loop.remove_reader(sock)
+            #    sock.close()
+            #    fut.cancel()
+            #
+            # wasn't called by the user.
+            if fut.cancelled() and sock.fileno() != -1:
                 self._remove_reader(sock)
 
         fut = self._new_future()
@@ -813,7 +821,7 @@ cdef class Loop:
 
     cdef _new_writer_future(self, sock):
         def _on_cancel(fut):
-            if fut.cancelled():
+            if fut.cancelled() and sock.fileno() != -1:
                 self._remove_writer(sock)
 
         fut = self._new_future()

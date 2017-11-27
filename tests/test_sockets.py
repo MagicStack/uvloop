@@ -505,7 +505,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             s.close()
             self.assertEqual(s.fileno(), -1)
 
-    def test_socket_cancel_sock_recv(self):
+    def test_socket_cancel_sock_recv_1(self):
         def srv_gen(sock):
             time.sleep(1.2)
             sock.send(b'helo')
@@ -519,6 +519,46 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
             f = asyncio.ensure_future(self.loop.sock_recv(sock, 10),
                                       loop=self.loop)
+            self.loop.create_task(kill(f))
+            with self.assertRaises(asyncio.CancelledError):
+                await f
+            sock.close()
+            self.assertEqual(sock.fileno(), -1)
+
+        with self.tcp_server(srv_gen) as srv:
+
+            sock = socket.socket()
+            with sock:
+                sock.setblocking(False)
+                c = client(sock, srv.addr)
+                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                self.loop.run_until_complete(w)
+
+    def test_socket_cancel_sock_recv_2(self):
+        def srv_gen(sock):
+            time.sleep(1.2)
+            sock.send(b'helo')
+
+        async def kill(fut):
+            await asyncio.sleep(0.5, loop=self.loop)
+            fut.cancel()
+
+        async def recv(sock):
+            fut = self.loop.sock_recv(sock, 10)
+            await asyncio.sleep(0.1, loop=self.loop)
+            self.loop.remove_reader(sock)
+            sock.close()
+            try:
+                await fut
+            except asyncio.CancelledError:
+                raise
+            finally:
+                sock.close()
+
+        async def client(sock, addr):
+            await self.loop.sock_connect(sock, addr)
+
+            f = asyncio.ensure_future(recv(sock), loop=self.loop)
             self.loop.create_task(kill(f))
             with self.assertRaises(asyncio.CancelledError):
                 await f
