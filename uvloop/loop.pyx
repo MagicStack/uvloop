@@ -1024,13 +1024,10 @@ cdef class Loop:
         """This method is used by uvloop tests and is not part of the API."""
         return uv.uv_backend_fd(self.uvloop)
 
-    def print_debug_info(self):
+    cdef _print_debug_info(self):
         cdef:
             int err
             uv.uv_rusage_t rusage
-
-        if not UVLOOP_DEBUG:
-            raise NotImplementedError
 
         err = uv.uv_getrusage(&rusage)
         if err < 0:
@@ -1120,6 +1117,13 @@ cdef class Loop:
             self._sock_try_write_total))
 
         print(flush=True)
+
+    property print_debug_info:
+        def __get__(self):
+            if UVLOOP_DEBUG:
+                return lambda: self._print_debug_info()
+            else:
+                raise AttributeError('print_debug_info')
 
     # Public API
 

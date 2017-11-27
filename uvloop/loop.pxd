@@ -196,6 +196,8 @@ cdef class Loop:
 
     cdef _set_coroutine_wrapper(self, bint enabled)
 
+    cdef _print_debug_info(self)
+
 
 include "cbhandles.pxd"
 
