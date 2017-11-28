@@ -8,6 +8,7 @@ import contextlib
 import gc
 import logging
 import os
+import pprint
 import re
 import select
 import socket
@@ -71,10 +72,16 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def run_loop_briefly(self, *, delay=0.01):
         self.loop.run_until_complete(asyncio.sleep(delay, loop=self.loop))
 
+    def loop_exception_handler(self, loop, context):
+        self.__unhandled_exceptions.append(context)
+
     def setUp(self):
         self.loop = self.new_loop()
         asyncio.set_event_loop(None)
         self._check_unclosed_resources_in_debug = True
+
+        self.loop.set_exception_handler(self.loop_exception_handler)
+        self.__unhandled_exceptions = []
 
         if hasattr(asyncio, '_get_running_loop'):
             # Disable `_get_running_loop`.
@@ -83,6 +90,12 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
     def tearDown(self):
         self.loop.close()
+
+        if self.__unhandled_exceptions:
+            print('Unexpected calls to loop.call_exception_handler():')
+            pprint.pprint(self.__unhandled_exceptions)
+            self.fail('unexpected calls to loop.call_exception_handler()')
+            return
 
         if hasattr(asyncio, '_get_running_loop'):
             asyncio.events._get_running_loop = self._get_running_loop

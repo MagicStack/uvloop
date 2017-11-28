@@ -370,6 +370,8 @@ class _TestBase:
         self.assertIn('test_debug_slow_task_callbacks', msg)
 
     def test_default_exc_handler_callback(self):
+        self.loop.set_exception_handler(None)
+
         self.loop._process_events = mock.Mock()
 
         def zero_error(fut):
@@ -399,6 +401,7 @@ class _TestBase:
                 exc_info=mock.ANY)
 
     def test_set_exc_handler_custom(self):
+        self.loop.set_exception_handler(None)
         logger = logging.getLogger('asyncio')
 
         def run_loop():

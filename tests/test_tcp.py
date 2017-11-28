@@ -1048,6 +1048,10 @@ class _TestSSL(tb.SSLTestCase):
             client.stop()
 
     def test_create_connection_ssl_1(self):
+        if self.implementation == 'asyncio':
+            # Don't crash on asyncio errors
+            self.loop.set_exception_handler(None)
+
         CNT = 0
         TOTAL_CNT = 25
 
