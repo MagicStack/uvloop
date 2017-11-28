@@ -507,9 +507,12 @@ class _TestSSL(tb.SSLTestCase):
                     sock.close()
 
                 except Exception as ex:
-                    self.loop.call_soon_threadsafe(fut.set_exception, ex)
+                    self.loop.call_soon_threadsafe(
+                        lambda ex=ex:
+                            (fut.cancelled() or fut.set_exception(ex)))
                 else:
-                    self.loop.call_soon_threadsafe(fut.set_result, None)
+                    self.loop.call_soon_threadsafe(
+                        lambda: (fut.cancelled() or fut.set_result(None)))
 
             client = self.unix_client(prog)
             client.start()
