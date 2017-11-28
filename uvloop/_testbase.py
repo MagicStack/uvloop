@@ -74,6 +74,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
     def loop_exception_handler(self, loop, context):
         self.__unhandled_exceptions.append(context)
+        self.loop.default_exception_handler(context)
 
     def setUp(self):
         self.loop = self.new_loop()
