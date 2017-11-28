@@ -126,6 +126,14 @@ cdef class UVBaseTransport(UVSocketHandle):
             raise RuntimeError(
                 'protocol is not set, cannot call connection_made()')
 
+        if self._closing:
+            # A connection waiter can be cancelled between
+            # 'await loop.create_connection()' and
+            # `_schedule_call_connection_made` and
+            # the actual `_call_connection_made`.
+            self._wakeup_waiter()
+            return
+
         _loop_ready_len = self._loop._ready_len
 
         # Set _protocol_connected to 1 before calling "connection_made":
