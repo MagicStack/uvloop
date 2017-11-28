@@ -480,7 +480,10 @@ class _TestTCP:
 
     def test_create_connection_5(self):
         def server(sock):
-            data = sock.recv_all(4)
+            try:
+                data = sock.recv_all(4)
+            except ConnectionError:
+                return
             self.assertEqual(data, b'AAAA')
             sock.send(b'OK')
 
