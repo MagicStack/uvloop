@@ -1755,6 +1755,11 @@ cdef class Loop:
                 tr._init_protocol()
                 await waiter
             except:
+                # It's OK to call `_close()` here, as opposed to
+                # `_force_close()` or `close()` as we want to terminate the
+                # transport immediately.  The `waiter` can only be waken
+                # up in `Transport._call_connection_made()`, and calling
+                # `_close()` before it is fine.
                 tr._close()
                 raise
 

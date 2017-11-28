@@ -254,6 +254,10 @@ cdef class UVStream(UVBaseTransport):
 
     cdef _start_reading(self):
         cdef int err
+
+        if self._closing:
+            return
+
         self._ensure_alive()
 
         if self.__reading:
