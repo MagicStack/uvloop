@@ -64,6 +64,13 @@ matrix:
           python: "3.5"
           services: [docker]
           env: BUILD=tests,wheels,release
+          
+        - os: linux
+          dist: trusty
+          sudo: false
+          language: python
+          python: "3.7-dev"
+          env: BUILD=tests
 
 cache:
     pip
