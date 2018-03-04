@@ -58,6 +58,13 @@ matrix:
 
         - os: linux
           dist: trusty
+          sudo: false
+          language: python
+          python: "3.7-dev"
+          env: BUILD=tests
+
+        - os: linux
+          dist: trusty
           branches: {only: [releases]}
           sudo: required
           language: python
