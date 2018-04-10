@@ -38,7 +38,6 @@ cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
 cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
-cdef aio_debug_wrapper = asyncio.coroutines.debug_wrapper
 cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
 cdef aio_get_running_loop = getattr(asyncio, '_get_running_loop', None)
 cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
@@ -146,8 +145,8 @@ cdef py_inf = float('inf')
 
 
 # Cython doesn't clean-up imported objects properly in Py3 mode,
-# so we delete refs to all modules manually (except sys)
-del asyncio, concurrent, collections, errno
+# so we delete refs to all modules manually (except sys, asyncio)
+del concurrent, collections, errno
 del functools, inspect, itertools, socket, os, threading
 del signal, subprocess, ssl
 del time, traceback, warnings, weakref

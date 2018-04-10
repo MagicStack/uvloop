@@ -29,11 +29,14 @@ ctypedef object (*method2_t)(object, object, object)
 ctypedef object (*method3_t)(object, object, object, object)
 
 
+
 cdef class Loop:
     cdef:
         uv.uv_loop_t *uvloop
 
-        bint _coroutine_wrapper_set
+
+        bint _coroutine_debug_set
+        int _coroutine_origin_tracking_saved_depth
 
         public slow_callback_duration
 
@@ -194,7 +197,7 @@ cdef class Loop:
     cdef _read_from_self(self)
     cdef _process_self_data(self, data)
 
-    cdef _set_coroutine_wrapper(self, bint enabled)
+    cdef _set_coroutine_debug(self, bint enabled)
 
     cdef _print_debug_info(self)
 

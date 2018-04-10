@@ -9,7 +9,7 @@ import tempfile
 import time
 import unittest
 
-from asyncio import test_utils
+from tests import utils as test_utils
 from uvloop import _testbase as tb
 
 

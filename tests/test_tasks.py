@@ -2,7 +2,7 @@
 
 import asyncio
 
-from asyncio import test_utils
+from tests import utils as test_utils
 from uvloop import _testbase as tb
 
 
@@ -232,7 +232,8 @@ class _TestTasks:
             raise BaseException()
 
         task = self.create_task(notmutch())
-        self.assertRaises(BaseException, task._step)
+        with self.assertRaises(BaseException):
+            test_utils.run_briefly(self.loop)
 
         self.assertTrue(task.done())
         self.assertIsInstance(task.exception(), BaseException)
@@ -245,7 +246,7 @@ class _TestTasks:
                 self.cb_added = False
                 super().__init__(*args, **kwds)
 
-            def add_done_callback(self, fn):
+            def add_done_callback(self, fn, context=None):
                 self.cb_added = True
                 super().add_done_callback(fn)
 

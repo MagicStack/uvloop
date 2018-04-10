@@ -2,7 +2,7 @@ import asyncio
 import io
 import os
 
-from asyncio import test_utils
+from tests import utils as test_utils
 from uvloop import _testbase as tb
 
 
