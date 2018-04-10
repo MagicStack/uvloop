@@ -57,7 +57,7 @@ matrix:
           env: BUILD=tests
 
         - os: linux
-          dist: trusty
+          dist: xenial
           sudo: false
           language: python
           python: "3.7-dev"
