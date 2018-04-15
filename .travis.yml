@@ -62,11 +62,12 @@ matrix:
         - os: linux
           dist: trusty
           sudo: required
-          language: python
-          python: "3.7"
+          # Travis has removed the py37 image from their repos
+          #  language: python
+          #  python: "3.7"
           before_install:
               - docker container run -dt -v $PWD:/app -w /app --name uvloop-ci-py37 --rm python:3.7-rc
-          env: BUILD=tests
+          env: BUILD=tests UVLOOP_PY37_DOCKER=true
 
         - os: linux
           dist: trusty
@@ -82,7 +83,7 @@ cache:
 
 install:
     - |
-      if [ $TRAVIS_PYTHON_VERSION == "3.7" ]; then
+      if [ $UVLOOP_PY37_DOCKER == "true" ]; then
           docker container exec -it uvloop-ci-py37 .ci/travis-install.sh
       else
           .ci/travis-install.sh
@@ -90,7 +91,7 @@ install:
 
 script:
     - |
-      if [ $TRAVIS_PYTHON_VERSION == "3.7" ]; then
+      if [ $UVLOOP_PY37_DOCKER == "true" ]; then
           docker container exec -e BUILD='tests' -it uvloop-ci-py37 sh -c ".ci/travis-tests.sh"
       else
           .ci/travis-tests.sh && .ci/travis-build-wheels.sh
