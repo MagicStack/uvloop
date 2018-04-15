@@ -83,7 +83,7 @@ cache:
 
 install:
     - |
-      if [ $UVLOOP_PY37_DOCKER == "true" ]; then
+      if [ "${UVLOOP_PY37_DOCKER}" == "true" ]; then
           docker container exec -it uvloop-ci-py37 .ci/travis-install.sh
       else
           .ci/travis-install.sh
@@ -91,7 +91,7 @@ install:
 
 script:
     - |
-      if [ $UVLOOP_PY37_DOCKER == "true" ]; then
+      if [ "${UVLOOP_PY37_DOCKER}" == "true" ]; then
           docker container exec -e BUILD='tests' -it uvloop-ci-py37 sh -c ".ci/travis-tests.sh"
       else
           .ci/travis-tests.sh && .ci/travis-build-wheels.sh
