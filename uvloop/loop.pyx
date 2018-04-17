@@ -987,7 +987,7 @@ cdef class Loop:
 
             self._coroutine_debug_set = enabled
         else:
-            wrapper = asyncio.coroutines.debug_wrapper
+            wrapper = aio_debug_wrapper 
             current_wrapper = sys_get_coroutine_wrapper()
 
             if enabled:
