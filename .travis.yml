@@ -62,9 +62,10 @@ matrix:
         - os: linux
           dist: trusty
           sudo: required
-          # Travis has removed the py37 image from their repos
           language: python
-          python: "3.7"
+          # Travis has removed the py37 image from their repos, while 3.7-dev still
+          # points to 3.7.0a4. So we use the docker version of 3.7-rc that points to the
+          # the last release candidate.
           before_install:
               - docker container run -dt -v $PWD:/app -w /app --name uvloop-ci-py37 --rm python:3.7-rc
           env: BUILD=tests UVLOOP_PY37_DOCKER=true
