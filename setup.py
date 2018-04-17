@@ -307,6 +307,7 @@ setup(
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
+        'Framework :: AsyncIO',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
