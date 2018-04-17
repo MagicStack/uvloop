@@ -22,8 +22,9 @@ if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     brew outdated automake || brew upgrade automake --with-default-names
 fi
 
-pip --version
-pip install --upgrade pip
+# Pined to the 9.0 Pip version, having issues
+# with Mac environments
+# pip install --upgrade pip
 pip install --upgrade wheel
 pip install --upgrade setuptools
 pip install -r .ci/requirements.txt
