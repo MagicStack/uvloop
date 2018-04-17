@@ -24,7 +24,7 @@ if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     # Pined to 9.0.X till following issues are addressed
     # https://github.com/pypa/pip/issues/5240
     # https://github.com/pyenv/pyenv/issues/1141
-    pip install --upgrade pip=~9.0.3
+    pip install --upgrade pip~=9.0.0
 else
     pip install --upgrade pip
 fi
