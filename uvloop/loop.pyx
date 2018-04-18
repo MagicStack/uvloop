@@ -974,28 +974,31 @@ cdef class Loop:
         enabled = bool(enabled)
         if self._coroutine_wrapper_set == enabled:
             return
-
-        wrapper = aio_debug_wrapper
-        current_wrapper = sys_get_coroutine_wrapper()
-
-        if enabled:
-            if current_wrapper not in (None, wrapper):
-                warnings.warn(
-                    "loop.set_debug(True): cannot set debug coroutine "
-                    "wrapper; another wrapper is already set %r" %
-                    current_wrapper, RuntimeWarning)
-            else:
-                sys_set_coroutine_wrapper(wrapper)
-                self._coroutine_wrapper_set = True
+        
+        if sys_version_info >= (3, 7, 0):
+            pass
         else:
-            if current_wrapper not in (None, wrapper):
-                warnings.warn(
-                    "loop.set_debug(False): cannot unset debug coroutine "
-                    "wrapper; another wrapper was set %r" %
-                    current_wrapper, RuntimeWarning)
+            wrapper = aio_debug_wrapper
+            current_wrapper = sys_get_coroutine_wrapper()
+
+            if enabled:
+                if current_wrapper not in (None, wrapper):
+                    warnings.warn(
+                        "loop.set_debug(True): cannot set debug coroutine "
+                        "wrapper; another wrapper is already set %r" %
+                        current_wrapper, RuntimeWarning)
+                else:
+                    sys_set_coroutine_wrapper(wrapper)
+                    self._coroutine_wrapper_set = True
             else:
-                sys_set_coroutine_wrapper(None)
-                self._coroutine_wrapper_set = False
+                if current_wrapper not in (None, wrapper):
+                    warnings.warn(
+                        "loop.set_debug(False): cannot unset debug coroutine "
+                        "wrapper; another wrapper was set %r" %
+                        current_wrapper, RuntimeWarning)
+                else:
+                    sys_set_coroutine_wrapper(None)
+                    self._coroutine_wrapper_set = False
 
     cdef _create_server(self, system.sockaddr *addr,
                         object protocol_factory,
