@@ -3,7 +3,7 @@
 set -e -x
 
 
-if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+if [ "${PYENV}" == "true" ]; then
     git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
     PYENV_ROOT="$HOME/.pyenv"
     PATH="$PYENV_ROOT/bin:$PATH"
@@ -15,30 +15,16 @@ if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     pyenv global ${PYTHON_VERSION}
     pyenv rehash
 
-    brew update
+    python --version
 
-    brew install gnu-sed --with-default-names
-    brew outdated libtool || brew upgrade libtool
-    brew outdated autoconf || brew upgrade autoconf --with-default-names
-    brew outdated automake || brew upgrade automake --with-default-names
+    if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+        brew update
 
-    # Pined to 9.0.X till following issues are addressed
-    # https://github.com/pypa/pip/issues/5240
-    # https://github.com/pyenv/pyenv/issues/1141
-    pip install --upgrade pip~=9.0.0
-elif [ "${PYTHON_VERSION}" == "3.7" ]; then
-    # Travis has removed the py37 image from their repos, while 3.7-dev still
-    # points to 3.7.0a4. https://github.com/travis-ci/travis-ci/issues/9069    
-    # Forcing to use the pyenv version.
-
-    git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
-    PYENV_ROOT="$HOME/.pyenv"
-    PATH="$PYENV_ROOT/bin:$PATH"
-    eval "$(pyenv init -)"
-
-    pyenv install ${PYTHON_VERSION}
-    pyenv global ${PYTHON_VERSION}
-    pyenv rehash
+        brew install gnu-sed --with-default-names
+        brew outdated libtool || brew upgrade libtool
+        brew outdated autoconf || brew upgrade autoconf --with-default-names
+        brew outdated automake || brew upgrade automake --with-default-names
+    fi
 
     # Pined to 9.0.X till following issues are addressed
     # https://github.com/pypa/pip/issues/5240
@@ -48,9 +34,6 @@ else
     pip install --upgrade pip
 fi
 
-echo "Travis Python version vs Python system version"
-echo ${PYTHON_VERSION}
-python -V
 
 pip install --upgrade wheel
 pip install --upgrade setuptools
