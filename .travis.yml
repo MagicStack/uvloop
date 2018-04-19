@@ -63,14 +63,10 @@ matrix:
           dist: xenial
           sudo: required
           language: python
-          python: "3.7-dev"
           # Travis has removed the py37 image from their repos, while 3.7-dev still
           # points to 3.7.0a4.
           # https://github.com/travis-ci/travis-ci/issues/9069
-          before_install:
-              - sudo add-apt-repository ppa:deadsnakes/ppa -y
-              - sudo sudo apt-get update
-              - sudo apt-get --yes install python3.7
+          python: "3.7-dev"
           env: BUILD=tests
 
         - os: linux
