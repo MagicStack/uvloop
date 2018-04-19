@@ -2,6 +2,8 @@
 
 set -e -x
 
+python -V
+
 if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
     PYENV_ROOT="$HOME/.pyenv"
