@@ -24,9 +24,6 @@ branches:
         - releases
         - /^v\d+(\.\d+)*$/
 
-services:
-    - docker
-
 matrix:
     fast_finish: true
 
