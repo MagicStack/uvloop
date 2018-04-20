@@ -67,7 +67,7 @@ matrix:
           # points to 3.7.0a4.
           # https://github.com/travis-ci/travis-ci/issues/9069
           python: "3.7-dev"
-          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7-dev
+          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7.0b3
 
         - os: linux
           dist: trusty
