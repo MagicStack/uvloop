@@ -32,14 +32,14 @@ matrix:
           osx_image: xcode7.3
           # Travis macOS env does not support Python yet,
           # so we have to set things up manually in install.sh.
-          env: BUILD=tests,wheels PYTHON_VERSION=3.5.4 PIP_USER=1
+          env: BUILD=tests,wheels PYTHON_VERSION=3.5.5
           branches: {only: [releases]}
 
         - os: osx
           osx_image: xcode7.3
           # Travis macOS env does not support Python yet,
           # so we have to set things up manually in install.sh.
-          env: BUILD=tests,wheels PYTHON_VERSION=3.6.3 PIP_USER=1
+          env: BUILD=tests,wheels PYTHON_VERSION=3.6.5
           branches: {only: [releases]}
 
         - os: linux
