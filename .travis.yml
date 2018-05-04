@@ -57,7 +57,7 @@ matrix:
           env: BUILD=tests
 
         - os: linux
-          dist: trusty
+          dist: xenial
           sudo: required
           language: python
           # Travis has removed the py37 image from their repos, while 3.7-dev still
@@ -82,6 +82,7 @@ install:
     - .ci/travis-install.sh
 
 script:
+    - ifconfig && exit 1
     - .ci/travis-tests.sh && .ci/travis-build-wheels.sh
 
 deploy:
