@@ -427,10 +427,13 @@ class _TestTCP:
 
         def server(sock):
             data = sock.recv_all(4)
+            print("server received")
+            print(data)
             self.assertEqual(data, b'AAAA')
             sock.close()
 
         async def client(addr):
+            print(addr)
             reader, writer = await asyncio.open_connection(
                 *addr,
                 loop=self.loop)
@@ -438,6 +441,7 @@ class _TestTCP:
             writer.write(b'AAAA')
 
             with self.assertRaises(asyncio.IncompleteReadError):
+                print("reading")
                 await reader.readexactly(10)
 
             writer.close()
