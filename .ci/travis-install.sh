@@ -2,11 +2,17 @@
 
 set -e -x
 
-
 if [ "${PYENV}" == "true" ]; then
-    git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
-    PYENV_ROOT="$HOME/.pyenv"
-    PATH="$PYENV_ROOT/bin:$PATH"
+
+    if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+        brew update >/dev/null
+        brew upgrade pyenv
+    else
+        git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
+        PYENV_ROOT="$HOME/.pyenv"
+        PATH="$PYENV_ROOT/bin:$PATH"
+    fi
+
     eval "$(pyenv init -)"
 
     if ! (pyenv versions | grep "${PYTHON_VERSION}$"); then
@@ -16,15 +22,15 @@ if [ "${PYENV}" == "true" ]; then
     pyenv rehash
 
     python --version
+fi
 
-    if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
-        brew update
+if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+    brew update
 
-        brew install gnu-sed --with-default-names
-        brew outdated libtool || brew upgrade libtool
-        brew outdated autoconf || brew upgrade autoconf --with-default-names
-        brew outdated automake || brew upgrade automake --with-default-names
-    fi
+    brew install gnu-sed --with-default-names
+    brew outdated libtool || brew upgrade libtool
+    brew outdated autoconf || brew upgrade autoconf --with-default-names
+    brew outdated automake || brew upgrade automake --with-default-names
 
     # Pined to 9.0.X till following issues are addressed
     # https://github.com/pypa/pip/issues/5240
