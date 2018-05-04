@@ -64,7 +64,7 @@ matrix:
           # points to 3.7.0a4.
           # https://github.com/travis-ci/travis-ci/issues/9069
           python: "3.7-dev"
-          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7.0b3
+          env: BUILD=tests
 
         - os: linux
           dist: trusty
@@ -82,7 +82,6 @@ install:
     - .ci/travis-install.sh
 
 script:
-    - ifconfig && exit 1
     - .ci/travis-tests.sh && .ci/travis-build-wheels.sh
 
 deploy:
