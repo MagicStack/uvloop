@@ -57,7 +57,7 @@ matrix:
           env: BUILD=tests
 
         - os: linux
-          dist: xenial
+          dist: trusty
           sudo: required
           language: python
           # Travis has removed the py37 image from their repos, while 3.7-dev still
