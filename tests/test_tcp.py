@@ -443,6 +443,7 @@ class _TestTCP:
             with self.assertRaises(asyncio.IncompleteReadError):
                 print("reading")
                 await reader.readexactly(10)
+            print("finish reading")
 
             writer.close()
 
