@@ -43,8 +43,8 @@ docs:
 
 
 test:
-	PYTHONASYNCIODEBUG=1 $(PYTHON) setup.py test
-	$(PYTHON) setup.py test
+	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest tests.test_tcp -v
+	$(PYTHON) -m unittest tests.test_tcp -v
 
 
 testinstalled:
