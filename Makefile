@@ -43,6 +43,7 @@ docs:
 
 
 test:
+	$(PYTHON) -m unittest tests.test_tcp -v
 	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest tests.test_tcp -v
 	$(PYTHON) -m unittest tests.test_tcp -v
 
