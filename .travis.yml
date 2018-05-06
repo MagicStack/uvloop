@@ -33,7 +33,7 @@ matrix:
           sudo: false
           language: python
           python: "3.7-dev"
-          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7.0b4
+          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7.0b3
 
 cache:
     pip
