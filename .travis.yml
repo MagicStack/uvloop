@@ -29,7 +29,7 @@ matrix:
 
     include:
         - os: linux
-          dist: trusty
+          dist: xenial
           sudo: false
           language: python
           python: "3.6"
@@ -37,7 +37,7 @@ matrix:
 
         - os: linux
           dist: xenial
-          sudo: required
+          sudo: false
           language: python
           # Travis has removed the py37 image from their repos, while 3.7-dev still
           # points to 3.7.0a4.
