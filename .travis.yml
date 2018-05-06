@@ -35,15 +35,6 @@ matrix:
           python: "3.7-dev"
           env: BUILD=tests
 
-        - os: linux
-          dist: trusty
-          branches: {only: [releases]}
-          sudo: required
-          language: python
-          python: "3.5"
-          services: [docker]
-          env: BUILD=tests,wheels,release
-
 cache:
     pip
 
