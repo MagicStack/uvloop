@@ -38,6 +38,7 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 
+
 cdef _is_sock_stream(sock_type):
     if SOCK_NONBLOCK == -1:
         return sock_type == uv.SOCK_STREAM
@@ -778,12 +779,17 @@ cdef class Loop:
                 except Exception as ex:
                     if not fut.cancelled():
                         fut.set_exception(ex)
+                    __trace_dns_request_end(None)
                 else:
                     if not fut.cancelled():
                         fut.set_result(data)
+                    __trace_dns_request_end(data)
             else:
                 if not fut.cancelled():
                     fut.set_exception(result)
+                __trace_dns_request_end(result)
+
+        __trace_dns_request_begin(host, port, family, type, proto, flags)
 
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
@@ -2785,6 +2791,8 @@ include "dns.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
+
+include "tracing.pyx"
 
 
 # Used in UVProcess

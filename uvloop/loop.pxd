@@ -222,3 +222,5 @@ include "request.pxd"
 include "handles/udp.pxd"
 
 include "server.pxd"
+
+include "tracing.pxd"
