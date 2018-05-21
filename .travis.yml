@@ -28,42 +28,12 @@ matrix:
     fast_finish: true
 
     include:
-        - os: osx
-          osx_image: xcode7.3
-          # Travis macOS env does not support Python yet,
-          # so we have to set things up manually in install.sh.
-          env: BUILD=tests,wheels PYTHON_VERSION=3.5.5
-          branches: {only: [releases]}
-
-        - os: osx
-          osx_image: xcode7.3
-          # Travis macOS env does not support Python yet,
-          # so we have to set things up manually in install.sh.
-          env: BUILD=tests,wheels PYTHON_VERSION=3.6.5
-          branches: {only: [releases]}
-
         - os: linux
-          dist: trusty
+          dist: xenial
           sudo: false
           language: python
-          python: "3.5"
-          env: BUILD=tests
-
-        - os: linux
-          dist: trusty
-          sudo: false
-          language: python
-          python: "3.6"
-          env: BUILD=tests
-
-        - os: linux
-          dist: trusty
-          branches: {only: [releases]}
-          sudo: required
-          language: python
-          python: "3.5"
-          services: [docker]
-          env: BUILD=tests,wheels,release
+          python: "3.7-dev"
+          env: BUILD=tests PYENV=true PYTHON_VERSION=3.7.0b3
 
 cache:
     pip

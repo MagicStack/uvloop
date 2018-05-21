@@ -5,9 +5,10 @@ from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 from . import includes as __includes  # NOQA
 from . import _patch  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
+from .loop import tracing, TracingCollector
 
 
-__all__ = ('new_event_loop', 'EventLoopPolicy')
+__all__ = ('new_event_loop', 'EventLoopPolicy', 'tracing', 'TracingCollector')
 
 
 class Loop(__BaseLoop, asyncio.AbstractEventLoop):

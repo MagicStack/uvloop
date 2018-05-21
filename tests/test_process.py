@@ -9,7 +9,6 @@ import tempfile
 import time
 import unittest
 
-from asyncio import test_utils
 from uvloop import _testbase as tb
 
 
@@ -504,7 +503,7 @@ class _AsyncioTests:
 
         # ignore the log:
         # "Exception during subprocess creation, kill the subprocess"
-        with test_utils.disable_logger():
+        with tb.disable_logger():
             self.loop.run_until_complete(cancel_make_transport())
 
     def test_cancel_post_init(self):
@@ -522,9 +521,9 @@ class _AsyncioTests:
 
         # ignore the log:
         # "Exception during subprocess creation, kill the subprocess"
-        with test_utils.disable_logger():
+        with tb.disable_logger():
             self.loop.run_until_complete(cancel_make_transport())
-            test_utils.run_briefly(self.loop)
+            tb.run_briefly(self.loop)
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):

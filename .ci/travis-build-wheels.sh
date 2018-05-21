@@ -9,7 +9,7 @@ if [[ "${TRAVIS_BRANCH}" != "releases" || "${BUILD}" != *wheels* ]]; then
 fi
 
 
-if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+if [ "${PYENV}" == "true" ]; then
     PYENV_ROOT="$HOME/.pyenv"
     PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"

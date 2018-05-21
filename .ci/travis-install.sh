@@ -2,9 +2,17 @@
 
 set -e -x
 
-if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
-    brew update >/dev/null
-    brew upgrade pyenv
+if [ "${PYENV}" == "true" ]; then
+
+    if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+        brew update >/dev/null
+        brew upgrade pyenv
+    else
+        git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
+        PYENV_ROOT="$HOME/.pyenv"
+        PATH="$PYENV_ROOT/bin:$PATH"
+    fi
+
     eval "$(pyenv init -)"
 
     if ! (pyenv versions | grep "${PYTHON_VERSION}$"); then
@@ -13,11 +21,26 @@ if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     pyenv global ${PYTHON_VERSION}
     pyenv rehash
 
+    python --version
+fi
+
+if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+    brew update
+
     brew install gnu-sed --with-default-names
     brew outdated libtool || brew upgrade libtool
     brew outdated autoconf || brew upgrade autoconf --with-default-names
     brew outdated automake || brew upgrade automake --with-default-names
+
+    # Pined to 9.0.X till following issues are addressed
+    # https://github.com/pypa/pip/issues/5240
+    # https://github.com/pyenv/pyenv/issues/1141
+    pip install --upgrade pip~=9.0.0
+else
+    pip install --upgrade pip
 fi
 
-pip install --upgrade setuptools pip wheel
+
+pip install --upgrade wheel
+pip install --upgrade setuptools
 pip install -r .ci/requirements.txt

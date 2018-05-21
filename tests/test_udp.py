@@ -3,7 +3,6 @@ import socket
 import unittest
 import sys
 
-from asyncio import test_utils
 from uvloop import _testbase as tb
 
 
@@ -77,9 +76,9 @@ class _TestUDP:
         self.assertIs(client.transport, transport)
 
         transport.sendto(b'xxx')
-        test_utils.run_until(self.loop, lambda: server.nbytes)
+        tb.run_until(self.loop, lambda: server.nbytes)
         self.assertEqual(3, server.nbytes)
-        test_utils.run_until(self.loop, lambda: client.nbytes)
+        tb.run_until(self.loop, lambda: client.nbytes)
 
         # received
         self.assertEqual(8, client.nbytes)

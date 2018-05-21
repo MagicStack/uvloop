@@ -7,11 +7,14 @@ if [[ "${BUILD}" != *tests* ]]; then
     exit 0
 fi
 
-if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+if [ "${PYENV}" == "true" ]; then
     PYENV_ROOT="$HOME/.pyenv"
     PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"
+    pyenv global ${PYTHON_VERSION}
 fi
+
+python --version
 
 make distclean && make && make test
 make distclean && make debug && make test

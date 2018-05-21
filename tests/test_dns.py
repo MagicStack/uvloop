@@ -2,6 +2,7 @@ import socket
 import unittest
 
 from uvloop import _testbase as tb
+from uvloop import tracing, TracingCollector
 
 
 class BaseTestDNS:
@@ -173,6 +174,34 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
             self.loop.run_until_complete(run())
         finally:
             self.loop.close()
+
+    def test_getaddrinfo_tracing(self):
+
+        class DNSCollector(TracingCollector):
+            dns_request_begin_called = False
+            dns_request_end_called = False
+
+            def dns_request_begin(self, *args):
+                self.dns_request_begin_called = True
+
+            def dns_request_end(self, *args):
+                self.dns_request_end_called = True
+
+        collector = DNSCollector()
+        with tracing(collector):
+            self.loop.run_until_complete(
+                self.loop.getaddrinfo('example.com', 80)
+            )
+        assert collector.dns_request_begin_called
+        assert collector.dns_request_end_called
+
+        collector.dns_request_begin_called = False
+        collector.dns_request_end_called = False
+        self.loop.run_until_complete(
+            self.loop.getaddrinfo('example.com', 80)
+        )
+        assert not collector.dns_request_begin_called
+        assert not collector.dns_request_end_called
 
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
