@@ -12,6 +12,9 @@ cdef class TracingCollector:
     cpdef dns_request_end(self, arg1):
         pass
 
+    cpdef task_created(self, arg1):
+        pass
+
 
 @contextmanager
 def tracing(collector):
@@ -25,15 +28,16 @@ def tracing(collector):
 
 cdef inline __trace_dns_request_end(arg1):
     cdef TracingCollector collector = __tracing_ctx.get(None)
-    if not collector:
-        return
-
-    collector.dns_request_end(arg1)
+    if collector:
+        collector.dns_request_end(arg1)
 
 
 cdef inline __trace_dns_request_begin(arg1, arg2, arg3, arg4, arg5, arg6):
     cdef TracingCollector collector = __tracing_ctx.get(None)
-    if not collector:
-        return
+    if collector:
+        collector.dns_request_begin(arg1, arg2, arg3, arg4, arg5, arg6)
 
-    collector.dns_request_begin(arg1, arg2, arg3, arg4, arg5, arg6)
+cdef inline __trace_task_created(arg1):
+    cdef TracingCollector collector = __tracing_ctx.get(None)
+    if collector:
+        collector.task_created(arg1)

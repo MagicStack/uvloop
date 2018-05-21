@@ -1323,6 +1323,7 @@ cdef class Loop:
             task = aio_Task(coro, loop=self)
         else:
             task = self._task_factory(self, coro)
+        __trace_task_created(task)
         return task
 
     def set_task_factory(self, factory):

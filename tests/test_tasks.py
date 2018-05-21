@@ -3,6 +3,7 @@
 import asyncio
 
 from uvloop import _testbase as tb
+from uvloop import tracing, TracingCollector
 
 
 class Dummy:
@@ -401,6 +402,29 @@ class Test_UV_UV_Tasks(_TestTasks, tb.UVTestCase):
 
     def create_task(self, coro):
         return self.loop.create_task(coro)
+
+    def test_create_task_tracing(self):
+
+        @asyncio.coroutine
+        def coro():
+            pass
+
+        class CreateTaskCollector(TracingCollector):
+            task_created_called = False
+
+            def task_created(self, *args):
+                self.task_created_called = True
+
+        collector = CreateTaskCollector()
+        with tracing(collector):
+            self.create_task(coro())
+        assert collector.task_created_called
+
+        collector.task_created_called = False
+        self.create_task(coro())
+        assert not collector.task_created_called
+
+        tb.run_briefly(self.loop)
 
 
 class Test_UV_UV_Tasks_AIO_Future(_TestTasks, tb.UVTestCase):

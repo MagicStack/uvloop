@@ -8,6 +8,7 @@ class TestTracingCollector(unittest.TestCase):
         collector = TracingCollector()
         assert hasattr(collector, 'dns_request_begin')
         assert hasattr(collector, 'dns_request_end')
+        assert hasattr(collector, 'task_created')
 
 
 class TestTracing(unittest.TestCase):
