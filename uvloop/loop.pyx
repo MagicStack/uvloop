@@ -975,7 +975,7 @@ cdef class Loop:
         if self._coroutine_wrapper_set == enabled:
             return
 
-        wrapper = aio_debug_wrapper
+        wrapper = aio_CoroWrapper
         current_wrapper = sys_get_coroutine_wrapper()
 
         if enabled:
