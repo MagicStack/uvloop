@@ -28,4 +28,5 @@ __pycache__/
 /.cache
 docs/_build
 uvloop/loop.*.pyd
+/.pytest_cache/
 
