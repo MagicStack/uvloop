@@ -1375,6 +1375,7 @@ cdef class Loop:
 
         return self._getaddrinfo(host, port, family, type, proto, flags, 1)
 
+    @cython.iterable_coroutine
     async def getnameinfo(self, sockaddr, int flags=0):
         cdef:
             AddrInfo ai_cnt
@@ -1432,6 +1433,7 @@ cdef class Loop:
 
         return await self._getnameinfo(ai.ai_addr, flags)
 
+    @cython.iterable_coroutine
     async def create_server(self, protocol_factory, host=None, port=None,
                             *,
                             int family=uv.AF_UNSPEC,
@@ -1563,6 +1565,7 @@ cdef class Loop:
         server._ref()
         return server
 
+    @cython.iterable_coroutine
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
                                 local_addr=None, server_hostname=None):
@@ -1771,6 +1774,7 @@ cdef class Loop:
         else:
             return tr, protocol
 
+    @cython.iterable_coroutine
     async def create_unix_server(self, protocol_factory, path=None,
                                  *, backlog=100, sock=None, ssl=None):
         """A coroutine which creates a UNIX Domain Socket server.
@@ -1882,6 +1886,7 @@ cdef class Loop:
         server._add_server(pipe)
         return server
 
+    @cython.iterable_coroutine
     async def create_unix_connection(self, protocol_factory, path=None, *,
                                      ssl=None, sock=None,
                                      server_hostname=None):
@@ -2148,6 +2153,7 @@ cdef class Loop:
         self._add_reader(sock, handle)
         return fut
 
+    @cython.iterable_coroutine
     async def sock_sendall(self, sock, data):
         """Send data to the socket.
 
@@ -2227,6 +2233,7 @@ cdef class Loop:
         self._add_reader(sock, handle)
         return fut
 
+    @cython.iterable_coroutine
     async def sock_connect(self, sock, address):
         """Connect to a remote socket at address.
 
@@ -2247,6 +2254,7 @@ cdef class Loop:
         finally:
             socket_dec_io_ref(sock)
 
+    @cython.iterable_coroutine
     async def connect_accepted_socket(self, protocol_factory, sock, *,
                                       ssl=None):
         """Handle an accepted connection.
@@ -2320,6 +2328,7 @@ cdef class Loop:
     def set_default_executor(self, executor):
         self._default_executor = executor
 
+    @cython.iterable_coroutine
     async def __subprocess_run(self, protocol_factory, args,
                                stdin=subprocess_PIPE,
                                stdout=subprocess_PIPE,
@@ -2406,6 +2415,7 @@ cdef class Loop:
         return self.__subprocess_run(protocol_factory, args, shell=False,
                                      **kwargs)
 
+    @cython.iterable_coroutine
     async def connect_read_pipe(self, proto_factory, pipe):
         """Register read pipe in event loop. Set the pipe to non-blocking mode.
 
@@ -2430,6 +2440,7 @@ cdef class Loop:
         transp._attach_fileobj(pipe)
         return transp, proto
 
+    @cython.iterable_coroutine
     async def connect_write_pipe(self, proto_factory, pipe):
         """Register write pipe in event loop.
 
@@ -2541,6 +2552,7 @@ cdef class Loop:
 
         return True
 
+    @cython.iterable_coroutine
     async def create_datagram_endpoint(self, protocol_factory,
                                        local_addr=None, remote_addr=None, *,
                                        family=0, proto=0, flags=0,
@@ -2701,6 +2713,7 @@ cdef class Loop:
 
         self._asyncgens.add(agen)
 
+    @cython.iterable_coroutine
     async def shutdown_asyncgens(self):
         """Shutdown all active asynchronous generators."""
         self._asyncgens_shutdown_called = True
@@ -2831,5 +2844,6 @@ def _sighandler_noop(signum, frame):
 
 ########### Stuff for tests:
 
+@cython.iterable_coroutine
 async def _test_coroutine_1():
     return 42
