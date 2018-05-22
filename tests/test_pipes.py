@@ -126,6 +126,7 @@ class _BasePipeTest:
         # ignore it.
         self.loop.set_exception_handler(lambda loop, ctx: None)
         os.close(slave)
+        proto.transport.close()
         self.loop.run_until_complete(proto.done)
 
         self.assertEqual(
