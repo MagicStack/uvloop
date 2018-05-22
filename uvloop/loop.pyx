@@ -1363,17 +1363,19 @@ cdef class Loop:
 
         return future.result()
 
-    def getaddrinfo(self, object host, object port, *,
-                    int family=0, int type=0, int proto=0, int flags=0):
+    @cython.iterable_coroutine
+    async def getaddrinfo(self, object host, object port, *,
+                          int family=0, int type=0, int proto=0, int flags=0):
 
         addr = __static_getaddrinfo_pyaddr(host, port, family,
                                            type, proto, flags)
         if addr is not None:
             fut = self._new_future()
             fut.set_result([addr])
-            return fut
+            return await fut
 
-        return self._getaddrinfo(host, port, family, type, proto, flags, 1)
+        return await self._getaddrinfo(
+            host, port, family, type, proto, flags, 1)
 
     @cython.iterable_coroutine
     async def getnameinfo(self, sockaddr, int flags=0):
@@ -2102,7 +2104,8 @@ cdef class Loop:
         """Remove a writer callback."""
         self._remove_writer(fileobj)
 
-    def sock_recv(self, sock, n):
+    @cython.iterable_coroutine
+    async def sock_recv(self, sock, n):
         """Receive data from the socket.
 
         The return value is a bytes object representing the data received.
@@ -2126,9 +2129,10 @@ cdef class Loop:
             fut, sock, n)
 
         self._add_reader(sock, handle)
-        return fut
+        return await fut
 
-    def sock_recv_into(self, sock, buf):
+    @cython.iterable_coroutine
+    async def sock_recv_into(self, sock, buf):
         """Receive data from the socket.
 
         The received data is written into *buf* (a writable buffer).
@@ -2151,7 +2155,7 @@ cdef class Loop:
             fut, sock, buf)
 
         self._add_reader(sock, handle)
-        return fut
+        return await fut
 
     @cython.iterable_coroutine
     async def sock_sendall(self, sock, data):
@@ -2206,7 +2210,8 @@ cdef class Loop:
         finally:
             socket_dec_io_ref(sock)
 
-    def sock_accept(self, sock):
+    @cython.iterable_coroutine
+    async def sock_accept(self, sock):
         """Accept a connection.
 
         The socket must be bound to an address and listening for connections.
@@ -2231,7 +2236,7 @@ cdef class Loop:
             fut, sock)
 
         self._add_reader(sock, handle)
-        return fut
+        return await fut
 
     @cython.iterable_coroutine
     async def sock_connect(self, sock, address):
@@ -2390,9 +2395,10 @@ cdef class Loop:
 
         return proc, protocol
 
-    def subprocess_shell(self, protocol_factory, cmd, *,
-                         shell=True,
-                         **kwargs):
+    @cython.iterable_coroutine
+    async def subprocess_shell(self, protocol_factory, cmd, *,
+                               shell=True,
+                               **kwargs):
 
         if not shell:
             raise ValueError("shell must be True")
@@ -2401,19 +2407,20 @@ cdef class Loop:
         if shell:
             args = [b'/bin/sh', b'-c'] + args
 
-        return self.__subprocess_run(protocol_factory, args, shell=True,
-                                     **kwargs)
+        return await self.__subprocess_run(protocol_factory, args, shell=True,
+                                           **kwargs)
 
-    def subprocess_exec(self,  protocol_factory, program, *args,
-                        shell=False, **kwargs):
+    @cython.iterable_coroutine
+    async def subprocess_exec(self,  protocol_factory, program, *args,
+                              shell=False, **kwargs):
 
         if shell:
             raise ValueError("shell must be False")
 
         args = list((program,) + args)
 
-        return self.__subprocess_run(protocol_factory, args, shell=False,
-                                     **kwargs)
+        return await self.__subprocess_run(protocol_factory, args, shell=False,
+                                           **kwargs)
 
     @cython.iterable_coroutine
     async def connect_read_pipe(self, proto_factory, pipe):

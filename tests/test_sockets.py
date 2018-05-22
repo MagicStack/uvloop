@@ -544,7 +544,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             fut.cancel()
 
         async def recv(sock):
-            fut = self.loop.sock_recv(sock, 10)
+            fut = self.loop.create_task(self.loop.sock_recv(sock, 10))
             await asyncio.sleep(0.1, loop=self.loop)
             self.loop.remove_reader(sock)
             sock.close()
