@@ -20,6 +20,7 @@ cdef class UDPTransport(UVBaseTransport):
             self.poll = UVPoll.new(loop, sock.fileno())
             self._finish_init()
         except:
+            self._free()
             self._abort_init()
             raise
 
@@ -102,6 +103,7 @@ cdef class UDPTransport(UVBaseTransport):
     cdef _dealloc_impl(self):
         if self._closed == 0:
             self._warn_unclosed()
+            self._close()
 
         # It is unsafe to call `self.poll._close()` here as
         # we might be at the stage where all CPython objects
@@ -110,7 +112,7 @@ cdef class UDPTransport(UVBaseTransport):
 
         UVHandle._dealloc_impl(self)
 
-    cdef _close(self):
+    cdef _free(self):
         if self.poll is not None:
             self.poll._close()
             self.poll = None
@@ -121,6 +123,11 @@ cdef class UDPTransport(UVBaseTransport):
                 self.sock.close()
             finally:
                 self.sock = None
+
+        UVBaseTransport._free(self)
+
+    cdef _close(self):
+        self._free()
 
         if UVLOOP_DEBUG:
             self._loop._debug_handles_closed.update([
