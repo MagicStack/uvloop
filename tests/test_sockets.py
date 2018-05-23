@@ -595,6 +595,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.close()
             self.assertEqual(sock.fileno(), -1)
 
+        # disable slow callback reporting for this test
+        self.loop.slow_callback_duration = 1000.0
+
         with self.tcp_server(srv_gen) as srv:
 
             sock = socket.socket()

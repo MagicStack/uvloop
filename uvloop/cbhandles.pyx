@@ -95,7 +95,18 @@ cdef class Handle:
         if self.cb_type == 1:
             cb = self.arg1
             if isinstance(getattr(cb, '__self__', None), aio_Task):
-                return repr(cb.__self__)
+                try:
+                    return repr(cb.__self__)
+                except (AttributeError, TypeError, ValueError) as ex:
+                    # Cython generates empty __code__ objects for coroutines
+                    # that can crash asyncio.Task.__repr__ with an
+                    # AttributeError etc.  Guard against that.
+                    self.loop.call_exception_handler({
+                        'message': 'exception in Task.__repr__',
+                        'task': cb.__self__,
+                        'exception': ex,
+                        'handle': self,
+                    })
         return repr(self)
 
     # Public API
@@ -108,10 +119,11 @@ cdef class Handle:
 
         if self.cb_type == 1:
             func = self.arg1
-            if hasattr(func, '__qualname__'):
-                cb_name = getattr(func, '__qualname__')
-            elif hasattr(func, '__name__'):
-                cb_name = getattr(func, '__name__')
+            # Cython can unset func.__qualname__/__name__, hence the checks.
+            if hasattr(func, '__qualname__') and func.__qualname__:
+                cb_name = func.__qualname__
+            elif hasattr(func, '__name__') and func.__name__:
+                cb_name = func.__name__
             else:
                 cb_name = repr(func)
 
