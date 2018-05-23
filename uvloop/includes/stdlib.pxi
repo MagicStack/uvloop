@@ -1,7 +1,7 @@
 import asyncio, asyncio.log, asyncio.base_events, \
        asyncio.sslproto, asyncio.coroutines, \
        asyncio.futures
-import collections
+import collections.abc
 import concurrent.futures
 import errno
 import functools
@@ -44,7 +44,7 @@ cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
 cdef aio_debug_wrapper = getattr(asyncio.coroutines, 'debug_wrapper', None)
 
 cdef col_deque = collections.deque
-cdef col_Iterable = collections.Iterable
+cdef col_Iterable = collections.abc.Iterable
 cdef col_Counter = collections.Counter
 cdef col_OrderedDict = collections.OrderedDict
 
