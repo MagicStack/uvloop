@@ -1,8 +1,8 @@
 import asyncio
 import io
 import os
+import socket
 
-from asyncio import test_utils
 from uvloop import _testbase as tb
 
 
@@ -81,11 +81,11 @@ class _BasePipeTest:
         self.loop.run_until_complete(connect())
 
         os.write(wpipe, b'1')
-        test_utils.run_until(self.loop, lambda: proto.nbytes >= 1)
+        tb.run_until(self.loop, lambda: proto.nbytes >= 1)
         self.assertEqual(1, proto.nbytes)
 
         os.write(wpipe, b'2345')
-        test_utils.run_until(self.loop, lambda: proto.nbytes >= 5)
+        tb.run_until(self.loop, lambda: proto.nbytes >= 5)
         self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
         self.assertEqual(5, proto.nbytes)
 
@@ -114,11 +114,11 @@ class _BasePipeTest:
         self.loop.run_until_complete(connect())
 
         os.write(slave, b'1')
-        test_utils.run_until(self.loop, lambda: proto.nbytes)
+        tb.run_until(self.loop, lambda: proto.nbytes)
         self.assertEqual(1, proto.nbytes)
 
         os.write(slave, b'2345')
-        test_utils.run_until(self.loop, lambda: proto.nbytes >= 5)
+        tb.run_until(self.loop, lambda: proto.nbytes >= 5)
         self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
         self.assertEqual(5, proto.nbytes)
 
@@ -158,11 +158,11 @@ class _BasePipeTest:
             data += chunk
             return len(data)
 
-        test_utils.run_until(self.loop, lambda: reader(data) >= 1)
+        tb.run_until(self.loop, lambda: reader(data) >= 1)
         self.assertEqual(b'1', data)
 
         transport.write(b'2345')
-        test_utils.run_until(self.loop, lambda: reader(data) >= 5)
+        tb.run_until(self.loop, lambda: reader(data) >= 5)
         self.assertEqual(b'12345', data)
         self.assertEqual('CONNECTED', proto.state)
 
@@ -177,7 +177,7 @@ class _BasePipeTest:
         self.assertEqual('CLOSED', proto.state)
 
     def test_write_pipe_disconnect_on_close(self):
-        rsock, wsock = test_utils.socketpair()
+        rsock, wsock = socket.socketpair()
         rsock.setblocking(False)
 
         pipeobj = io.open(wsock.detach(), 'wb', 1024)
@@ -223,12 +223,12 @@ class _BasePipeTest:
             data += chunk
             return len(data)
 
-        test_utils.run_until(self.loop, lambda: reader(data) >= 1,
+        tb.run_until(self.loop, lambda: reader(data) >= 1,
                              timeout=10)
         self.assertEqual(b'1', data)
 
         transport.write(b'2345')
-        test_utils.run_until(self.loop, lambda: reader(data) >= 5,
+        tb.run_until(self.loop, lambda: reader(data) >= 5,
                              timeout=10)
         self.assertEqual(b'12345', data)
         self.assertEqual('CONNECTED', proto.state)

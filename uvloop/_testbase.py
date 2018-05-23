@@ -483,3 +483,46 @@ class TestThreadedServer(SocketThread):
     @property
     def addr(self):
         return self._sock.getsockname()
+
+
+###############################################################################
+# A few helpers from asyncio/tests/testutils.py
+###############################################################################
+
+
+def run_briefly(loop):
+    async def once():
+        pass
+    gen = once()
+    t = loop.create_task(gen)
+    # Don't log a warning if the task is not done after run_until_complete().
+    # It occurs if the loop is stopped or if a task raises a BaseException.
+    t._log_destroy_pending = False
+    try:
+        loop.run_until_complete(t)
+    finally:
+        gen.close()
+
+
+def run_until(loop, pred, timeout=30):
+    deadline = time.time() + timeout
+    while not pred():
+        if timeout is not None:
+            timeout = deadline - time.time()
+            if timeout <= 0:
+                raise asyncio.futures.TimeoutError()
+        loop.run_until_complete(asyncio.tasks.sleep(0.001, loop=loop))
+
+
+@contextlib.contextmanager
+def disable_logger():
+    """Context manager to disable asyncio logger.
+
+    For example, it can be used to ignore warnings in debug mode.
+    """
+    old_level = asyncio.log.logger.level
+    try:
+        asyncio.log.logger.setLevel(logging.CRITICAL + 1)
+        yield
+    finally:
+        asyncio.log.logger.setLevel(old_level)

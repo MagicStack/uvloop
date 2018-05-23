@@ -5,6 +5,7 @@ import socket
 import tempfile
 import time
 import unittest
+import sys
 
 from uvloop import _testbase as tb
 
@@ -362,6 +363,7 @@ class _TestUnix:
         self.assertIn(excs[0].__class__,
                       (BrokenPipeError, ConnectionResetError))
 
+    @unittest.skipUnless(sys.version_info < (3, 7), 'Python version must be < 3.7')
     def test_transport_unclosed_warning(self):
         async def test(sock):
             return await self.loop.create_unix_connection(

@@ -152,7 +152,7 @@ cdef class Loop:
         self._signal_handlers = {}
         self._listening_signals = False
 
-        self._coroutine_wrapper_set = False
+        self._coroutine_debug_set = False
 
         if hasattr(sys, 'get_asyncgen_hooks'):
             # Python >= 3.6
@@ -970,32 +970,45 @@ cdef class Loop:
         if err < 0:
             raise convert_error(-errno.errno)
 
-    cdef _set_coroutine_wrapper(self, bint enabled):
+    cdef _set_coroutine_debug(self, bint enabled):
         enabled = bool(enabled)
-        if self._coroutine_wrapper_set == enabled:
+        if self._coroutine_debug_set == enabled:
             return
 
-        wrapper = aio_debug_wrapper
-        current_wrapper = sys_get_coroutine_wrapper()
+        if sys_version_info >= (3, 7, 0):
+            if enabled:
+                self._coroutine_origin_tracking_saved_depth = (
+                    sys.get_coroutine_origin_tracking_depth())
+                sys.set_coroutine_origin_tracking_depth(
+                    DEBUG_STACK_DEPTH)
+            else:
+                sys.set_coroutine_origin_tracking_depth(
+                    self._coroutine_origin_tracking_saved_depth)
 
-        if enabled:
-            if current_wrapper not in (None, wrapper):
-                warnings.warn(
-                    "loop.set_debug(True): cannot set debug coroutine "
-                    "wrapper; another wrapper is already set %r" %
-                    current_wrapper, RuntimeWarning)
-            else:
-                sys_set_coroutine_wrapper(wrapper)
-                self._coroutine_wrapper_set = True
+            self._coroutine_debug_set = enabled
         else:
-            if current_wrapper not in (None, wrapper):
-                warnings.warn(
-                    "loop.set_debug(False): cannot unset debug coroutine "
-                    "wrapper; another wrapper was set %r" %
-                    current_wrapper, RuntimeWarning)
+            wrapper = aio_debug_wrapper
+            current_wrapper = sys_get_coroutine_wrapper()
+
+            if enabled:
+                if current_wrapper not in (None, wrapper):
+                    warnings.warn(
+                        "loop.set_debug(True): cannot set debug coroutine "
+                        "wrapper; another wrapper is already set %r" %
+                        current_wrapper, RuntimeWarning)
+                else:
+                    sys_set_coroutine_wrapper(wrapper)
+                    self._coroutine_debug_set = True
             else:
-                sys_set_coroutine_wrapper(None)
-                self._coroutine_wrapper_set = False
+                if current_wrapper not in (None, wrapper):
+                    warnings.warn(
+                        "loop.set_debug(False): cannot unset debug coroutine "
+                        "wrapper; another wrapper was set %r" %
+                        current_wrapper, RuntimeWarning)
+                else:
+                    sys_set_coroutine_wrapper(None)
+                    self._coroutine_debug_set = False
+
 
     cdef _create_server(self, system.sockaddr *addr,
                         object protocol_factory,
@@ -1151,7 +1164,7 @@ cdef class Loop:
                     self.is_closed(),
                     self.get_debug())
 
-    def call_soon(self, callback, *args):
+    def call_soon(self, callback, *args, context=None):
         """Arrange for a callback to be called as soon as possible.
 
         This operates as a FIFO queue: callbacks are called in the
@@ -1168,7 +1181,7 @@ cdef class Loop:
         else:
             return self._call_soon(callback, None)
 
-    def call_soon_threadsafe(self, callback, *args):
+    def call_soon_threadsafe(self, callback, *args, context=None):
         """Like call_soon(), but thread-safe."""
         if not args:
             args = None
@@ -1176,7 +1189,7 @@ cdef class Loop:
         self.handler_async.send()
         return handle
 
-    def call_later(self, delay, callback, *args):
+    def call_later(self, delay, callback, *args, context=None):
         """Arrange for a callback to be called at a given time.
 
         Return a Handle: an opaque object with a cancel() method that
@@ -1213,7 +1226,7 @@ cdef class Loop:
         else:
             return self._call_later(when, callback, args)
 
-    def call_at(self, when, callback, *args):
+    def call_at(self, when, callback, *args, context=None):
         """Like call_later(), but uses an absolute time.
 
         Absolute time corresponds to the event loop's time() method.
@@ -1251,7 +1264,7 @@ cdef class Loop:
             # loop.stop() was called right before loop.run_forever().
             # This is how asyncio loop behaves.
             mode = uv.UV_RUN_NOWAIT
-        self._set_coroutine_wrapper(self._debug)
+        self._set_coroutine_debug(self._debug)
         if self._asyncgens is not None:
             old_agen_hooks = sys.get_asyncgen_hooks()
             sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
@@ -1259,7 +1272,7 @@ cdef class Loop:
         try:
             self._run(mode)
         finally:
-            self._set_coroutine_wrapper(False)
+            self._set_coroutine_debug(False)
             if self._asyncgens is not None:
                 sys.set_asyncgen_hooks(*old_agen_hooks)
 
@@ -1280,7 +1293,7 @@ cdef class Loop:
     def set_debug(self, enabled):
         self._debug = bool(enabled)
         if self.is_running():
-            self._set_coroutine_wrapper(self._debug)
+            self.call_soon_threadsafe(self._set_coroutine_debug, self, self._debug)
 
     def is_running(self):
         """Return whether the event loop is currently running."""
