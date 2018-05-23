@@ -342,6 +342,10 @@ class _AsyncioTests:
                   'data = sys.stdin.buffer.read()',
                   'sys.stdout.buffer.write(data)'))]
 
+    PROGRAM_ERROR = [
+        sys.executable, '-c', '1/0'
+    ]
+
     def test_stdin_not_inheritable(self):
         # asyncio issue #209: stdin must not be inheritable, otherwise
         # the Process.communicate() hangs
@@ -363,7 +367,7 @@ class _AsyncioTests:
         self.assertEqual(output.rstrip(), b'3')
         self.assertEqual(exitcode, 0)
 
-    def test_stdin_stdout(self):
+    def test_stdin_stdout_pipe(self):
         args = self.PROGRAM_CAT
 
         @asyncio.coroutine
@@ -389,6 +393,57 @@ class _AsyncioTests:
         exitcode, stdout = self.loop.run_until_complete(task)
         self.assertEqual(exitcode, 0)
         self.assertEqual(stdout, b'some data')
+
+    def test_stdin_stdout_file(self):
+        args = self.PROGRAM_CAT
+
+        @asyncio.coroutine
+        def run(data, stderr):
+            proc = yield from asyncio.create_subprocess_exec(
+                *args,
+                stdin=subprocess.PIPE,
+                stderr=stdout,
+                loop=self.loop)
+
+            # feed data
+            proc.stdin.write(data)
+            yield from proc.stdin.drain()
+            proc.stdin.close()
+
+            exitcode = yield from proc.wait()
+            return exitcode
+
+        with tempfile.TemporaryFile('w+b') as new_stdout:
+            task = run(b'some data', new_stdout)
+            task = asyncio.wait_for(task, 60.0, loop=self.loop)
+            exitcode = self.loop.run_until_complete(task)
+            self.assertEqual(exitcode, 0)
+
+            new_stdout.seek(0)
+            self.assertEqual(new_stdout.read(), b'some data')
+
+    def test_stdin_stderr_file(self):
+        args = self.PROGRAM_ERROR
+
+        @asyncio.coroutine
+        def run(stderr):
+            proc = yield from asyncio.create_subprocess_exec(
+                *args,
+                stdin=subprocess.PIPE,
+                stderr=stderr,
+                loop=self.loop)
+
+            exitcode = yield from proc.wait()
+            return exitcode
+
+        with tempfile.TemporaryFile('w+b') as new_stderr:
+            task = run(new_stderr)
+            task = asyncio.wait_for(task, 60.0, loop=self.loop)
+            exitcode = self.loop.run_until_complete(task)
+            self.assertEqual(exitcode, 1)
+
+            new_stderr.seek(0)
+            self.assertIn(b'ZeroDivisionError', new_stderr.read())
 
     def test_communicate(self):
         args = self.PROGRAM_CAT

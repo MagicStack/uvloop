@@ -424,8 +424,7 @@ cdef class UVProcessTransport(UVProcess):
                 raise ValueError(
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
-                raise ValueError(
-                    'invalid stdin argument value {!r}'.format(_stdin))
+                io[0] = self._file_redirect_stdio(_stdin)
         else:
             io[0] = self._file_redirect_stdio(sys.stdin.fileno())
 
@@ -453,8 +452,7 @@ cdef class UVProcessTransport(UVProcess):
                 raise ValueError(
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
-                raise ValueError(
-                    'invalid stdout argument value {!r}'.format(_stdout))
+                io[1] = self._file_redirect_stdio(_stdout)
         else:
             io[1] = self._file_redirect_stdio(sys.stdout.fileno())
 
@@ -482,8 +480,7 @@ cdef class UVProcessTransport(UVProcess):
             elif _stderr == subprocess_DEVNULL:
                 io[2] = self._file_devnull()
             else:
-                raise ValueError(
-                    'invalid stderr argument value {!r}'.format(_stderr))
+                io[2] = self._file_redirect_stdio(_stderr)
         else:
             io[2] = self._file_redirect_stdio(sys.stderr.fileno())
 
