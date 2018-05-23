@@ -2,7 +2,6 @@
 
 import asyncio
 
-from asyncio import test_utils
 from uvloop import _testbase as tb
 
 
@@ -44,7 +43,7 @@ class _TestTasks:
                          '_TestTasks.test_task_repr.<locals>.notmuch')
         self.assertEqual(notmuch.__module__, __name__)
 
-        filename, lineno = test_utils.get_function_source(notmuch)
+        filename, lineno = tb.get_function_source(notmuch)
         src = "%s:%s" % (filename, lineno)
 
         # test coroutine object
@@ -109,7 +108,7 @@ class _TestTasks:
             return 12
 
         t = self.create_task(task())
-        test_utils.run_briefly(self.loop)  # start coro
+        tb.run_briefly(self.loop)  # start coro
         t.cancel()
         self.assertRaises(
             asyncio.CancelledError, self.loop.run_until_complete, t)
@@ -126,7 +125,7 @@ class _TestTasks:
             return 12
 
         t = self.create_task(task())
-        test_utils.run_briefly(self.loop)  # start task
+        tb.run_briefly(self.loop)  # start task
         f.cancel()
         with self.assertRaises(asyncio.CancelledError):
             self.loop.run_until_complete(t)
@@ -143,7 +142,7 @@ class _TestTasks:
 
         t = self.create_task(task())
         self.assertEqual(asyncio.Task.all_tasks(loop=self.loop), {t})
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
 
         f.cancel()
         t.cancel()
@@ -168,10 +167,10 @@ class _TestTasks:
                 return 42
 
         t = self.create_task(task())
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(t._fut_waiter, fut1)  # White-box test.
         fut1.set_result(None)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(t._fut_waiter, fut2)  # White-box test.
         t.cancel()
         self.assertTrue(fut2.cancelled())
@@ -195,14 +194,14 @@ class _TestTasks:
             return res
 
         t = self.create_task(task())
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(t._fut_waiter, fut1)  # White-box test.
         fut1.set_result(None)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(t._fut_waiter, fut2)  # White-box test.
         t.cancel()
         self.assertTrue(fut2.cancelled())
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(t._fut_waiter, fut3)  # White-box test.
         fut3.set_result(42)
         res = self.loop.run_until_complete(t)
@@ -232,7 +231,8 @@ class _TestTasks:
             raise BaseException()
 
         task = self.create_task(notmutch())
-        self.assertRaises(BaseException, task._step)
+        with self.assertRaises(BaseException):
+            tb.run_briefly(self.loop)
 
         self.assertTrue(task.done())
         self.assertIsInstance(task.exception(), BaseException)
@@ -245,7 +245,7 @@ class _TestTasks:
                 self.cb_added = False
                 super().__init__(*args, **kwds)
 
-            def add_done_callback(self, fn):
+            def add_done_callback(self, fn, context=None):
                 self.cb_added = True
                 super().add_done_callback(fn)
 
@@ -258,12 +258,12 @@ class _TestTasks:
             result = yield from fut
 
         t = self.create_task(wait_for_future())
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertTrue(fut.cb_added)
 
         res = object()
         fut.set_result(res)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertIs(res, result)
         self.assertTrue(t.done())
         self.assertIsNone(t.result())
@@ -356,7 +356,7 @@ class _TestTasks:
                 proof += 10
 
         f = asyncio.ensure_future(outer(), loop=self.loop)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         f.cancel()
         self.loop.run_until_complete(f)
         self.assertEqual(proof, 101)
@@ -381,12 +381,12 @@ class _TestTasks:
             proof += 100
 
         f = asyncio.ensure_future(outer(), loop=self.loop)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         f.cancel()
         self.assertRaises(
             asyncio.CancelledError, self.loop.run_until_complete, f)
         waiter.set_result(None)
-        test_utils.run_briefly(self.loop)
+        tb.run_briefly(self.loop)
         self.assertEqual(proof, 1)
 
 
