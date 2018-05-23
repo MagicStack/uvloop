@@ -398,11 +398,11 @@ class _AsyncioTests:
         args = self.PROGRAM_CAT
 
         @asyncio.coroutine
-        def run(data, stderr):
+        def run(data, stdout):
             proc = yield from asyncio.create_subprocess_exec(
                 *args,
                 stdin=subprocess.PIPE,
-                stderr=stdout,
+                stdout=stdout,
                 loop=self.loop)
 
             # feed data
