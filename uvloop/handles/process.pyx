@@ -10,6 +10,7 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close = set()
         self._preexec_fn = None
         self._restore_signals = True
+        self._kill_requested = False
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
@@ -303,6 +304,8 @@ cdef class UVProcess(UVHandle):
     cdef _kill(self, int signum):
         cdef int err
         self._ensure_alive()
+        if signum in {uv.SIGKILL, uv.SIGTERM}:
+            self._kill_requested = True
         err = uv.uv_process_kill(<uv.uv_process_t*>self._handle, signum)
         if err < 0:
             raise convert_error(err)
@@ -532,6 +535,11 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 self._pending_calls.append((_CALL_CONNECTION_LOST, None, None))
 
+    cdef _warn_unclosed(self):
+        if self._kill_requested:
+            return
+        super()._warn_unclosed()
+
     def __stdio_inited(self, waiter, stdio_fut):
         exc = stdio_fut.exception()
         if exc is not None:
@@ -628,7 +636,14 @@ cdef class UVProcessTransport(UVProcess):
         if self._stderr is not None:
             self._stderr.close()
 
-        self._close()
+        if self._returncode is not None:
+            # The process is dead, just close the UV handle.
+            #
+            # (If "self._returncode is None", the process should have been
+            # killed already and we're just waiting for a SIGCHLD; after
+            # which the transport will be GC'ed and the uvhandle will be
+            # closed in UVHandle.__dealloc__.)
+            self._close()
 
     def get_extra_info(self, name, default=None):
         return default
