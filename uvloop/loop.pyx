@@ -1678,7 +1678,7 @@ cdef class Loop:
 
             ssl_waiter = self._new_future()
             sslcontext = None if isinstance(ssl, bool) else ssl
-            protocol = aio_SSLProtocol(
+            protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
                 False, server_hostname)
         else:
@@ -1965,7 +1965,7 @@ cdef class Loop:
 
             ssl_waiter = self._new_future()
             sslcontext = None if isinstance(ssl, bool) else ssl
-            protocol = aio_SSLProtocol(
+            protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
                 False, server_hostname)
         else:
@@ -2348,7 +2348,7 @@ cdef class Loop:
             protocol = app_protocol
             transport_waiter = waiter
         else:
-            protocol = aio_SSLProtocol(
+            protocol = SSLProtocol(
                 self, app_protocol, ssl, waiter,
                 True,  # server_side
                 None)  # server_hostname
@@ -2870,6 +2870,7 @@ include "handles/process.pyx"
 
 include "request.pyx"
 include "dns.pyx"
+include "sslproto.pyx"
 
 include "handles/udp.pyx"
 

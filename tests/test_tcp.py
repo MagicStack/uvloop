@@ -913,7 +913,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         tr, _ = f.result()
 
         if server_ssl:
-            self.assertIsInstance(tr, asyncio.sslproto._SSLProtocolTransport)
+            self.assertIn('SSL', tr.__class__.__name__)
 
         tr.close()
         # let it close

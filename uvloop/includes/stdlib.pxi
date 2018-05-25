@@ -1,6 +1,6 @@
 import asyncio, asyncio.log, asyncio.base_events, \
        asyncio.sslproto, asyncio.coroutines, \
-       asyncio.futures
+       asyncio.futures, asyncio.transports
 import collections.abc
 import concurrent.futures
 import errno
@@ -37,12 +37,13 @@ cdef aio_iscoroutine = asyncio.iscoroutine
 cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
-cdef aio_SSLProtocol = asyncio.sslproto.SSLProtocol
 cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
 cdef aio_get_running_loop = getattr(asyncio, '_get_running_loop', None)
 cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
 cdef aio_debug_wrapper = getattr(asyncio.coroutines, 'debug_wrapper', None)
 cdef aio_AbstractChildWatcher = asyncio.AbstractChildWatcher
+cdef aio_Transport = asyncio.Transport
+cdef aio_FlowControlMixin = asyncio.transports._FlowControlMixin
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.abc.Iterable
@@ -116,6 +117,13 @@ cdef sys_getframe = sys._getframe
 cdef sys_version_info = sys.version_info
 
 cdef ssl_SSLContext = ssl.SSLContext
+cdef ssl_MemoryBIO = ssl.MemoryBIO
+cdef ssl_create_default_context = ssl.create_default_context
+cdef ssl_SSLError = ssl.SSLError
+cdef ssl_CertificateError = ssl.CertificateError
+cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
+cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
+cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
 cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
 

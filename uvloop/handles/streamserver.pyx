@@ -54,7 +54,7 @@ cdef class UVStreamServer(UVSocketHandle):
         else:
             waiter = self._loop._new_future()
 
-            ssl_protocol = aio_SSLProtocol(
+            ssl_protocol = SSLProtocol(
                 self._loop, protocol, self.ssl,
                 waiter,
                 True,  # server_side

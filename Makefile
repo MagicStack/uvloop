@@ -9,7 +9,7 @@ _default: compile
 
 clean:
 	rm -fr dist/ doc/_build/ *.egg-info uvloop/loop.*.pyd
-	rm -fr build/lib.* build/temp.* build/libuv
+	#rm -fr build/lib.* build/temp.* build/libuv
 	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
