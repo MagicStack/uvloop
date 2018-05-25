@@ -1,4 +1,5 @@
 #include <errno.h>
+#include "Python.h"
 #include "uv.h"
 
 
@@ -26,4 +27,23 @@
 #  define EPOLL_CTL_DEL 2
 struct epoll_event {};
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {};
+#endif
+
+
+#if PY_VERSION_HEX < 0x03070000
+typedef struct {
+    PyObject_HEAD
+} PyContext;
+
+PyContext * PyContext_CopyCurrent(void) {
+    return NULL;
+};
+
+int PyContext_Enter(PyContext *ctx) {
+    return -1;
+}
+
+int PyContext_Exit(PyContext *ctx) {
+    return -1;
+}
 #endif
