@@ -42,6 +42,7 @@ cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
 cdef aio_get_running_loop = getattr(asyncio, '_get_running_loop', None)
 cdef aio_set_running_loop = getattr(asyncio, '_set_running_loop', None)
 cdef aio_debug_wrapper = getattr(asyncio.coroutines, 'debug_wrapper', None)
+cdef aio_AbstractChildWatcher = asyncio.AbstractChildWatcher
 
 cdef col_deque = collections.deque
 cdef col_Iterable = collections.abc.Iterable

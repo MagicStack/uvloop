@@ -68,6 +68,7 @@ cdef extern from "uv.h" nogil:
 
     cdef int SIGINT
     cdef int SIGHUP
+    cdef int SIGCHLD
     cdef int SIGKILL
     cdef int SIGTERM
 
