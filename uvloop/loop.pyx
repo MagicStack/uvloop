@@ -2272,7 +2272,10 @@ cdef class Loop:
             if sock.family == uv.AF_UNIX:
                 fut = self._sock_connect(sock, address)
             else:
-                _, _, _, _, address = (await self.getaddrinfo(*address[:2]))[0]
+                addrs = await self.getaddrinfo(
+                    *address[:2], family=sock.family)
+
+                _, _, _, _, address = addrs[0]
                 fut = self._sock_connect(sock, address)
             if fut is not None:
                 await fut
