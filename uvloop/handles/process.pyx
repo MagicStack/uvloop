@@ -10,6 +10,7 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close = set()
         self._preexec_fn = None
         self._restore_signals = True
+        self._kill_requested = False
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
@@ -182,7 +183,7 @@ cdef class UVProcess(UVHandle):
                 'UVProcess._close_after_spawn called after uv_spawn')
         self._fds_to_close.add(fd)
 
-    def __dealloc__(self):
+    cdef _dealloc_impl(self):
         if self.uv_opt_env is not NULL:
             PyMem_RawFree(self.uv_opt_env)
             self.uv_opt_env = NULL
@@ -190,6 +191,8 @@ cdef class UVProcess(UVHandle):
         if self.uv_opt_args is not NULL:
             PyMem_RawFree(self.uv_opt_args)
             self.uv_opt_args = NULL
+
+        UVHandle._dealloc_impl(self)
 
     cdef char** __to_cstring_array(self, list arr):
         cdef:
@@ -303,6 +306,8 @@ cdef class UVProcess(UVHandle):
     cdef _kill(self, int signum):
         cdef int err
         self._ensure_alive()
+        if signum in {uv.SIGKILL, uv.SIGTERM}:
+            self._kill_requested = True
         err = uv.uv_process_kill(<uv.uv_process_t*>self._handle, signum)
         if err < 0:
             raise convert_error(err)
@@ -532,6 +537,11 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 self._pending_calls.append((_CALL_CONNECTION_LOST, None, None))
 
+    cdef _warn_unclosed(self):
+        if self._kill_requested:
+            return
+        super()._warn_unclosed()
+
     def __stdio_inited(self, waiter, stdio_fut):
         exc = stdio_fut.exception()
         if exc is not None:
@@ -545,6 +555,21 @@ cdef class UVProcessTransport(UVProcess):
                                   "UVProcessTransport._call_connection_made",
                                   <method1_t>self._call_connection_made,
                                   self, waiter))
+
+    cdef _dealloc_impl(self):
+        cdef int fix_needed
+
+        if UVLOOP_DEBUG:
+            # Check when __dealloc__ will simply call uv.uv_close()
+            # directly, thus *skipping* incrementing the debug counter;
+            # we need to fix that.
+            fix_needed = not self._closed and self._inited
+
+        UVProcess._dealloc_impl(self)
+
+        if UVLOOP_DEBUG and fix_needed and self._kill_requested:
+            self._loop._debug_handles_closed.update([
+                self.__class__.__name__])
 
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
@@ -628,7 +653,14 @@ cdef class UVProcessTransport(UVProcess):
         if self._stderr is not None:
             self._stderr.close()
 
-        self._close()
+        if self._returncode is not None:
+            # The process is dead, just close the UV handle.
+            #
+            # (If "self._returncode is None", the process should have been
+            # killed already and we're just waiting for a SIGCHLD; after
+            # which the transport will be GC'ed and the uvhandle will be
+            # closed in UVHandle.__dealloc__.)
+            self._close()
 
     def get_extra_info(self, name, default=None):
         return default

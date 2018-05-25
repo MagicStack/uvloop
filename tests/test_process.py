@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import gc
 import os
 import pathlib
 import signal
@@ -574,11 +575,40 @@ class _AsyncioTests:
             except asyncio.CancelledError:
                 pass
 
+            yield from asyncio.sleep(0.3, loop=self.loop)
+            gc.collect()
+
         # ignore the log:
         # "Exception during subprocess creation, kill the subprocess"
         with tb.disable_logger():
             self.loop.run_until_complete(cancel_make_transport())
             tb.run_briefly(self.loop)
+
+    def test_close_gets_process_closed(self):
+
+        loop = self.loop
+
+        class Protocol(asyncio.SubprocessProtocol):
+
+            def __init__(self):
+                self.closed = loop.create_future()
+
+            def connection_lost(self, exc):
+                self.closed.set_result(1)
+
+        @asyncio.coroutine
+        def test_subprocess():
+            transport, protocol = yield from loop.subprocess_exec(
+                Protocol, *self.PROGRAM_BLOCKED)
+            pid = transport.get_pid()
+            transport.close()
+            self.assertIsNone(transport.get_returncode())
+            yield from protocol.closed
+            self.assertIsNotNone(transport.get_returncode())
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
+
+        loop.run_until_complete(test_subprocess())
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
