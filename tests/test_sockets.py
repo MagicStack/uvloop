@@ -116,6 +116,22 @@ class _TestSockets:
 
             self.loop.run_until_complete(run())
 
+    def test_socket_ipv4_nameaddr(self):
+        async def run():
+            sock = socket.socket(socket.AF_INET)
+            with sock:
+                sock.setblocking(False)
+                await self.loop.sock_connect(sock, ('localhost', 0))
+
+        with self.assertRaises(OSError):
+            # Regression test: sock_connect(sock) wasn't calling
+            # getaddrinfo() with `family=sock.family`, which resulted
+            # in `socket.connect()` being called with an IPv6 address
+            # for IPv4 sockets, which used to cause a TypeError.
+            # Here we expect that that is fixed so we should get an
+            # OSError instead.
+            self.loop.run_until_complete(run())
+
     def test_socket_blocking_error(self):
         self.loop.set_debug(True)
         sock = socket.socket()
