@@ -125,13 +125,16 @@ class Test_UV_Context(_ContextBaseTests, tb.UVTestCase):
         def cb():
             pass
 
-        with self.assertRaisesRegex(RuntimeError, 'requires Python 3.7'):
+        with self.assertRaisesRegex(NotImplementedError,
+                                    'requires Python 3.7'):
             self.loop.call_soon(cb, context=1)
 
-        with self.assertRaisesRegex(RuntimeError, 'requires Python 3.7'):
+        with self.assertRaisesRegex(NotImplementedError,
+                                    'requires Python 3.7'):
             self.loop.call_soon_threadsafe(cb, context=1)
 
-        with self.assertRaisesRegex(RuntimeError, 'requires Python 3.7'):
+        with self.assertRaisesRegex(NotImplementedError,
+                                    'requires Python 3.7'):
             self.loop.call_later(0.1, cb, context=1)
 
 

@@ -21,7 +21,8 @@ cdef class Handle:
             self.context = context
         else:
             if context is not None:
-                raise RuntimeError('"context" argument requires Python 3.7')
+                raise NotImplementedError(
+                    '"context" argument requires Python 3.7')
             self.context = None
 
     def __dealloc__(self):
@@ -182,7 +183,8 @@ cdef class TimerHandle:
             self.context = context
         else:
             if context is not None:
-                raise RuntimeError('"context" argument requires Python 3.7')
+                raise NotImplementedError(
+                    '"context" argument requires Python 3.7')
             self.context = None
 
         if loop._debug:
