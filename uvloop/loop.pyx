@@ -40,8 +40,9 @@ include "includes/stdlib.pxi"
 
 include "errors.pyx"
 
-cdef int PY37
-PY37 = PY_VERSION_HEX >= 0x03070000
+cdef:
+    int PY37 = PY_VERSION_HEX >= 0x03070000
+    int PY36 = PY_VERSION_HEX >= 0x03060000
 
 
 cdef _is_sock_stream(sock_type):
@@ -1034,19 +1035,19 @@ cdef class Loop:
 
             if enabled:
                 if current_wrapper not in (None, wrapper):
-                    warnings.warn(
+                    _warn_with_source(
                         "loop.set_debug(True): cannot set debug coroutine "
                         "wrapper; another wrapper is already set %r" %
-                        current_wrapper, RuntimeWarning)
+                        current_wrapper, RuntimeWarning, self)
                 else:
                     sys_set_coroutine_wrapper(wrapper)
                     self._coroutine_debug_set = True
             else:
                 if current_wrapper not in (None, wrapper):
-                    warnings.warn(
+                    _warn_with_source(
                         "loop.set_debug(False): cannot unset debug coroutine "
                         "wrapper; another wrapper was set %r" %
-                        current_wrapper, RuntimeWarning)
+                        current_wrapper, RuntimeWarning, self)
                 else:
                     sys_set_coroutine_wrapper(None)
                     self._coroutine_debug_set = False
@@ -2547,8 +2548,31 @@ cdef class Loop:
 
         if (aio_iscoroutine(callback)
                 or aio_iscoroutinefunction(callback)):
-            raise TypeError("coroutines cannot be used "
-                            "with add_signal_handler()")
+            raise TypeError(
+                "coroutines cannot be used with add_signal_handler()")
+
+        if sig == uv.SIGCHLD:
+            if (hasattr(callback, '__self__') and
+                    isinstance(callback.__self__, aio_AbstractChildWatcher)):
+
+                _warn_with_source(
+                    "!!! asyncio is trying to install its ChildWatcher for "
+                    "SIGCHLD signal !!!\n\nThis is probably because a uvloop "
+                    "instance is used with asyncio.set_event_loop(). "
+                    "The correct way to use uvloop is to install its policy: "
+                    "`asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())`"
+                    "\n\n", RuntimeWarning, self)
+
+                # TODO: ideally we should always raise an error here,
+                # but that would be a backwards incompatible change,
+                # because we recommended using "asyncio.set_event_loop()"
+                # in our README.  Need to start a deprecation period
+                # at some point to turn this warning into an error.
+                return
+
+            raise RuntimeError(
+                'cannot add a signal handler for SIGCHLD: it is used '
+                'by the event loop to track subprocesses')
 
         self._check_signal(sig)
         self._check_closed()
@@ -2771,10 +2795,10 @@ cdef class Loop:
 
     def _asyncgen_firstiter_hook(self, agen):
         if self._asyncgens_shutdown_called:
-            warnings_warn(
+            _warn_with_source(
                 "asynchronous generator {!r} was scheduled after "
                 "loop.shutdown_asyncgens() call".format(agen),
-                ResourceWarning, source=self)
+                ResourceWarning, self)
 
         self._asyncgens.add(agen)
 
@@ -2907,6 +2931,13 @@ cdef _set_signal_wakeup_fd(fd):
         signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
         signal_set_wakeup_fd(fd)
+
+
+cdef _warn_with_source(msg, cls, source):
+    if PY36:
+        warnings_warn(msg, cls, source=source)
+    else:
+        warnings_warn(msg, cls)
 
 
 ########### Stuff for tests:

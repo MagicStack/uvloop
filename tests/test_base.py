@@ -461,56 +461,6 @@ class _TestBase:
                 self.mock_pattern('Unhandled error in exception handler'),
                 exc_info=mock.ANY)
 
-    def test_default_exc_handler_broken(self):
-        logger = logging.getLogger('asyncio')
-        _context = None
-
-        class Loop(uvloop.Loop):
-
-            _selector = mock.Mock()
-            _process_events = mock.Mock()
-
-            def default_exception_handler(self, context):
-                nonlocal _context
-                _context = context
-                # Simulates custom buggy "default_exception_handler"
-                raise ValueError('spam')
-
-        loop = Loop()
-        self.addCleanup(loop.close)
-        asyncio.set_event_loop(loop)
-
-        def run_loop():
-            def zero_error():
-                loop.stop()
-                1 / 0
-            loop.call_soon(zero_error)
-            loop.run_forever()
-
-        with mock.patch.object(logger, 'error') as log:
-            run_loop()
-            log.assert_called_with(
-                'Exception in default exception handler',
-                exc_info=True)
-
-        def custom_handler(loop, context):
-            raise ValueError('ham')
-
-        _context = None
-        loop.set_exception_handler(custom_handler)
-        with mock.patch.object(logger, 'error') as log:
-            run_loop()
-            log.assert_called_with(
-                self.mock_pattern('Exception in default exception.*'
-                                  'while handling.*in custom'),
-                exc_info=True)
-
-            # Check that original context was passed to default
-            # exception handler.
-            self.assertIn('context', _context)
-            self.assertIs(type(_context['context']['exception']),
-                          ZeroDivisionError)
-
     def test_set_task_factory_invalid(self):
         with self.assertRaisesRegex(
                 TypeError,
@@ -663,7 +613,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         fut.cancel()
 
     def test_loop_call_soon_handle_cancelled(self):
-        cb = lambda: False
+        cb = lambda: False  # NoQA
         handle = self.loop.call_soon(cb)
         self.assertFalse(handle.cancelled())
         handle.cancel()
@@ -675,7 +625,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertFalse(handle.cancelled())
 
     def test_loop_call_later_handle_cancelled(self):
-        cb = lambda: False
+        cb = lambda: False  # NoQA
         handle = self.loop.call_later(0.01, cb)
         self.assertFalse(handle.cancelled())
         handle.cancel()
@@ -691,6 +641,58 @@ class TestBaseUV(_TestBase, UVTestCase):
         for fd in {0, 1, 2}:
             flags = fcntl.fcntl(fd, fcntl.F_GETFD)
             self.assertFalse(flags & fcntl.FD_CLOEXEC)
+
+    def test_default_exc_handler_broken(self):
+        logger = logging.getLogger('asyncio')
+        _context = None
+
+        class Loop(uvloop.Loop):
+
+            _selector = mock.Mock()
+            _process_events = mock.Mock()
+
+            def default_exception_handler(self, context):
+                nonlocal _context
+                _context = context
+                # Simulates custom buggy "default_exception_handler"
+                raise ValueError('spam')
+
+        loop = Loop()
+        self.addCleanup(loop.close)
+        self.addCleanup(lambda: asyncio.set_event_loop(None))
+
+        asyncio.set_event_loop(loop)
+
+        def run_loop():
+            def zero_error():
+                loop.stop()
+                1 / 0
+            loop.call_soon(zero_error)
+            loop.run_forever()
+
+        with mock.patch.object(logger, 'error') as log:
+            run_loop()
+            log.assert_called_with(
+                'Exception in default exception handler',
+                exc_info=True)
+
+        def custom_handler(loop, context):
+            raise ValueError('ham')
+
+        _context = None
+        loop.set_exception_handler(custom_handler)
+        with mock.patch.object(logger, 'error') as log:
+            run_loop()
+            log.assert_called_with(
+                self.mock_pattern('Exception in default exception.*'
+                                  'while handling.*in custom'),
+                exc_info=True)
+
+            # Check that original context was passed to default
+            # exception handler.
+            self.assertIn('context', _context)
+            self.assertIs(type(_context['context']['exception']),
+                          ZeroDivisionError)
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):

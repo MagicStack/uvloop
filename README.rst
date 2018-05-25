@@ -52,14 +52,6 @@ loop policy:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-Alternatively, you can create an instance of the loop
-manually, using:
-
-.. code:: python
-
-    loop = uvloop.new_event_loop()
-    asyncio.set_event_loop(loop)
-
 
 Development of uvloop
 ---------------------
