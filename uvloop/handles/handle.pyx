@@ -55,7 +55,7 @@ cdef class UVHandle:
                 '{} is open in __dealloc__ with loop set to NULL'
                 .format(self.__class__.__name__))
 
-        if self._closed == 1:
+        if self._closed:
             # So _handle is not NULL and self._closed == 1?
             raise RuntimeError(
                 '{}.__dealloc__: _handle is NULL, _closed == 1'.format(

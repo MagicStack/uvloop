@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import gc
 import os
 import pathlib
 import signal
@@ -573,6 +574,9 @@ class _AsyncioTests:
                 yield from task
             except asyncio.CancelledError:
                 pass
+
+            yield from asyncio.sleep(0.3, loop=self.loop)
+            gc.collect()
 
         # ignore the log:
         # "Exception during subprocess creation, kill the subprocess"

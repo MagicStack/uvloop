@@ -183,7 +183,7 @@ cdef class UVProcess(UVHandle):
                 'UVProcess._close_after_spawn called after uv_spawn')
         self._fds_to_close.add(fd)
 
-    def __dealloc__(self):
+    cdef _dealloc_impl(self):
         if self.uv_opt_env is not NULL:
             PyMem_RawFree(self.uv_opt_env)
             self.uv_opt_env = NULL
@@ -191,6 +191,8 @@ cdef class UVProcess(UVHandle):
         if self.uv_opt_args is not NULL:
             PyMem_RawFree(self.uv_opt_args)
             self.uv_opt_args = NULL
+
+        UVHandle._dealloc_impl(self)
 
     cdef char** __to_cstring_array(self, list arr):
         cdef:
@@ -553,6 +555,21 @@ cdef class UVProcessTransport(UVProcess):
                                   "UVProcessTransport._call_connection_made",
                                   <method1_t>self._call_connection_made,
                                   self, waiter))
+
+    cdef _dealloc_impl(self):
+        cdef int fix_needed
+
+        if UVLOOP_DEBUG:
+            # Check when __dealloc__ will simply call uv.uv_close()
+            # directly, thus *skipping* incrementing the debug counter;
+            # we need to fix that.
+            fix_needed = not self._closed and self._inited
+
+        UVProcess._dealloc_impl(self)
+
+        if UVLOOP_DEBUG and fix_needed and self._kill_requested:
+            self._loop._debug_handles_closed.update([
+                self.__class__.__name__])
 
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,
