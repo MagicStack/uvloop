@@ -557,6 +557,10 @@ class _AsyncioTests:
             except asyncio.CancelledError:
                 pass
 
+            # Give the process handler some time to close itself
+            yield from asyncio.sleep(0.3, loop=self.loop)
+            gc.collect()
+
         # ignore the log:
         # "Exception during subprocess creation, kill the subprocess"
         with tb.disable_logger():
@@ -575,6 +579,7 @@ class _AsyncioTests:
             except asyncio.CancelledError:
                 pass
 
+            # Give the process handler some time to close itself
             yield from asyncio.sleep(0.3, loop=self.loop)
             gc.collect()
 

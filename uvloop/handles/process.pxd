@@ -20,8 +20,6 @@ cdef class UVProcess(UVHandle):
         char *uv_opt_file
         bytes __cwd
 
-        bint _kill_requested
-
     cdef _init(self, Loop loop, list args, dict env, cwd,
                start_new_session,
                _stdin, _stdout, _stderr, pass_fds,

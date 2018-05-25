@@ -10,7 +10,6 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close = set()
         self._preexec_fn = None
         self._restore_signals = True
-        self._kill_requested = False
 
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
@@ -115,6 +114,14 @@ cdef class UVProcess(UVHandle):
         # after the process is finished.
         self._pid = (<uv.uv_process_t*>self._handle).pid
 
+        # Track the process handle (create a strong ref to it)
+        # to guarantee that __dealloc__ doesn't happen in an
+        # uncontrolled fashion.  We want to wait until the process
+        # exits and libuv calls __uvprocess_on_exit_callback,
+        # which will call `UVProcess._close()`, which will, in turn,
+        # untrack this handle.
+        self._loop._track_process(self)
+
         for fd in restore_inheritable:
             os_set_inheritable(fd, False)
 
@@ -133,7 +140,7 @@ cdef class UVProcess(UVHandle):
                 exc_name, exc_msg = errpipe_data.split(b':', 1)
                 exc_name = exc_name.decode()
                 exc_msg = exc_msg.decode()
-            except:
+            except Exception:
                 self._close()
                 raise subprocess_SubprocessError(
                     'Bad exception data from child: {!r}'.format(
@@ -306,8 +313,6 @@ cdef class UVProcess(UVHandle):
     cdef _kill(self, int signum):
         cdef int err
         self._ensure_alive()
-        if signum in {uv.SIGKILL, uv.SIGTERM}:
-            self._kill_requested = True
         err = uv.uv_process_kill(<uv.uv_process_t*>self._handle, signum)
         if err < 0:
             raise convert_error(err)
@@ -322,6 +327,13 @@ cdef class UVProcess(UVHandle):
             self._returncode = exit_status
 
         self._close()
+
+    cdef _close(self):
+        try:
+            if self._loop is not None:
+                self._loop._untrack_process(self)
+        finally:
+            UVHandle._close(self)
 
 
 DEF _CALL_PIPE_DATA_RECEIVED = 0
@@ -359,6 +371,8 @@ cdef class UVProcessTransport(UVProcess):
             if not waiter.cancelled():
                 waiter.set_result(self._returncode)
         self._exit_waiters.clear()
+
+        self._close()
 
     cdef _check_proc(self):
         if not self._is_alive() or self._returncode is not None:
@@ -537,11 +551,6 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 self._pending_calls.append((_CALL_CONNECTION_LOST, None, None))
 
-    cdef _warn_unclosed(self):
-        if self._kill_requested:
-            return
-        super()._warn_unclosed()
-
     def __stdio_inited(self, waiter, stdio_fut):
         exc = stdio_fut.exception()
         if exc is not None:
@@ -555,21 +564,6 @@ cdef class UVProcessTransport(UVProcess):
                                   "UVProcessTransport._call_connection_made",
                                   <method1_t>self._call_connection_made,
                                   self, waiter))
-
-    cdef _dealloc_impl(self):
-        cdef int fix_needed
-
-        if UVLOOP_DEBUG:
-            # Check when __dealloc__ will simply call uv.uv_close()
-            # directly, thus *skipping* incrementing the debug counter;
-            # we need to fix that.
-            fix_needed = not self._closed and self._inited
-
-        UVProcess._dealloc_impl(self)
-
-        if UVLOOP_DEBUG and fix_needed and self._kill_requested:
-            self._loop._debug_handles_closed.update([
-                self.__class__.__name__])
 
     @staticmethod
     cdef UVProcessTransport new(Loop loop, protocol, args, env,

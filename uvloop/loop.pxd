@@ -58,6 +58,7 @@ cdef class Loop:
         set _servers
 
         object _transports
+        set _processes
         dict _fd_to_reader_fileobj
         dict _fd_to_writer_fileobj
 
@@ -169,6 +170,9 @@ cdef class Loop:
     cdef _track_transport(self, UVBaseTransport transport)
     cdef _fileobj_to_fd(self, fileobj)
     cdef _ensure_fd_no_transport(self, fd)
+
+    cdef _track_process(self, UVProcess proc)
+    cdef _untrack_process(self, UVProcess proc)
 
     cdef _new_reader_future(self, sock)
     cdef _new_writer_future(self, sock)

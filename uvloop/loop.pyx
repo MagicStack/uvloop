@@ -101,6 +101,7 @@ cdef class Loop:
         self._stopping = 0
 
         self._transports = weakref_WeakValueDictionary()
+        self._processes = set()
 
         # Used to keep a reference (and hence keep the fileobj alive)
         # for as long as its registered by add_reader or add_writer.
@@ -612,6 +613,12 @@ cdef class Loop:
 
     cdef _track_transport(self, UVBaseTransport transport):
         self._transports[transport._fileno()] = transport
+
+    cdef _track_process(self, UVProcess proc):
+        self._processes.add(proc)
+
+    cdef _untrack_process(self, UVProcess proc):
+        self._processes.discard(proc)
 
     cdef _fileobj_to_fd(self, fileobj):
         """Return a file descriptor from a file object.
