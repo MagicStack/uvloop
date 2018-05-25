@@ -6,14 +6,19 @@ cimport cython
 from .includes.debug cimport UVLOOP_DEBUG
 from .includes cimport uv
 from .includes cimport system
-from .includes.python cimport PyMem_RawMalloc, PyMem_RawFree, \
+from .includes.python cimport PY_VERSION_HEX, \
+                              PyMem_RawMalloc, PyMem_RawFree, \
                               PyMem_RawCalloc, PyMem_RawRealloc, \
                               PyUnicode_EncodeFSDefault, \
                               PyErr_SetInterrupt, \
                               PyOS_AfterFork, \
                               _PyImport_AcquireLock, \
                               _PyImport_ReleaseLock, \
-                              _Py_RestoreSignals
+                              _Py_RestoreSignals, \
+                              PyContext, \
+                              PyContext_CopyCurrent, \
+                              PyContext_Enter, \
+                              PyContext_Exit
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
@@ -34,6 +39,9 @@ include "includes/consts.pxi"
 include "includes/stdlib.pxi"
 
 include "errors.pyx"
+
+cdef int PY37
+PY37 = PY_VERSION_HEX >= 0x03070000
 
 
 cdef _is_sock_stream(sock_type):
@@ -588,9 +596,9 @@ cdef class Loop:
         if self.handler_check__exec_writes.running:
             self.handler_check__exec_writes.stop()
 
-    cdef inline _call_soon(self, object callback, object args):
+    cdef inline _call_soon(self, object callback, object args, object context):
         cdef Handle handle
-        handle = new_Handle(self, callback, args)
+        handle = new_Handle(self, callback, args, context)
         self._call_soon_handle(handle)
         return handle
 
@@ -601,8 +609,9 @@ cdef class Loop:
         if not self.handler_idle.running:
             self.handler_idle.start()
 
-    cdef _call_later(self, uint64_t delay, object callback, object args):
-        return TimerHandle(self, callback, args, delay)
+    cdef _call_later(self, uint64_t delay, object callback, object args,
+                     object context):
+        return TimerHandle(self, callback, args, delay, context)
 
     cdef void _handle_exception(self, object ex):
         if isinstance(ex, Exception):
@@ -1008,7 +1017,7 @@ cdef class Loop:
         if self._coroutine_debug_set == enabled:
             return
 
-        if sys_version_info >= (3, 7, 0):
+        if PY37:
             if enabled:
                 self._coroutine_origin_tracking_saved_depth = (
                     sys.get_coroutine_origin_tracking_depth())
@@ -1210,15 +1219,15 @@ cdef class Loop:
         if self._debug == 1:
             self._check_thread()
         if args:
-            return self._call_soon(callback, args)
+            return self._call_soon(callback, args, context)
         else:
-            return self._call_soon(callback, None)
+            return self._call_soon(callback, None, context)
 
     def call_soon_threadsafe(self, callback, *args, context=None):
         """Like call_soon(), but thread-safe."""
         if not args:
             args = None
-        handle = self._call_soon(callback, args)
+        handle = self._call_soon(callback, args, context)
         self.handler_async.send()
         return handle
 
@@ -1255,16 +1264,17 @@ cdef class Loop:
         if not args:
             args = None
         if when == 0:
-            return self._call_soon(callback, args)
+            return self._call_soon(callback, args, context)
         else:
-            return self._call_later(when, callback, args)
+            return self._call_later(when, callback, args, context)
 
     def call_at(self, when, callback, *args, context=None):
         """Like call_later(), but uses an absolute time.
 
         Absolute time corresponds to the event loop's time() method.
         """
-        return self.call_later(when - self.time(), callback, *args)
+        return self.call_later(
+            when - self.time(), callback, *args, context=context)
 
     def time(self):
         """Return the time according to the event loop's clock.
@@ -1441,7 +1451,7 @@ cdef class Loop:
         if sl > 2:
             flowinfo = sockaddr[2]
             if flowinfo < 0 or flowinfo > 0xfffff:
-                if sys_version_info >= (3, 7, 0):
+                if PY37:
                     msg = 'getnameinfo(): flowinfo must be 0-1048575.'
                 else:
                     msg = 'getsockaddrarg: flowinfo must be 0-1048575.'
@@ -2134,7 +2144,7 @@ cdef class Loop:
         """Add a reader callback."""
         if len(args) == 0:
             args = None
-        self._add_reader(fileobj, new_Handle(self, callback, args))
+        self._add_reader(fileobj, new_Handle(self, callback, args, None))
 
     def remove_reader(self, fileobj):
         """Remove a reader callback."""
@@ -2144,7 +2154,7 @@ cdef class Loop:
         """Add a writer callback.."""
         if len(args) == 0:
             args = None
-        self._add_writer(fileobj, new_Handle(self, callback, args))
+        self._add_writer(fileobj, new_Handle(self, callback, args, None))
 
     def remove_writer(self, fileobj):
         """Remove a writer callback."""
@@ -2551,7 +2561,7 @@ cdef class Loop:
         except (ValueError, OSError) as exc:
             raise RuntimeError(str(exc))
 
-        h = new_Handle(self, callback, args or None)
+        h = new_Handle(self, callback, args or None, None)
         self._signal_handlers[sig] = h
 
         try:
@@ -2893,7 +2903,7 @@ cdef __install_pymem():
 
 
 cdef _set_signal_wakeup_fd(fd):
-    if sys_version_info >= (3, 7, 0) and fd >= 0:
+    if PY37 and fd >= 0:
         signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
         signal_set_wakeup_fd(fd)
