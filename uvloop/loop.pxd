@@ -62,6 +62,7 @@ cdef class Loop:
         dict _fd_to_reader_fileobj
         dict _fd_to_writer_fileobj
 
+        set _signals
         dict _signal_handlers
         object _ssock
         object _csock
@@ -199,7 +200,8 @@ cdef class Loop:
 
     cdef _handle_signal(self, sig)
     cdef _read_from_self(self)
-    cdef _process_self_data(self, data)
+    cdef inline _ceval_process_signals(self)
+    cdef _invoke_signals(self, bytes data)
 
     cdef _set_coroutine_debug(self, bint enabled)
 

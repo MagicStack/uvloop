@@ -27,8 +27,6 @@ from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
                      Py_buffer, PyBytes_AsString, PyBytes_CheckExact, \
                      Py_SIZE, PyBytes_AS_STRING
 
-from cpython cimport PyErr_CheckSignals
-
 from . import _noop
 
 
@@ -149,6 +147,7 @@ cdef class Loop:
                 self, "loop._exec_queued_writes",
                 <method_t>self._exec_queued_writes, self))
 
+        self._signals = set()
         self._ssock = self._csock = None
         self._signal_handlers = {}
         self._listening_signals = False
@@ -234,7 +233,7 @@ cdef class Loop:
         self._ssock.setblocking(False)
         self._csock.setblocking(False)
         try:
-            signal_set_wakeup_fd(self._csock.fileno())
+            _set_signal_wakeup_fd(self._csock.fileno())
         except (OSError, ValueError):
             # Not the main thread
             self._ssock.close()
@@ -290,23 +289,54 @@ cdef class Loop:
 
         self._listening_signals = False
 
+    def __sighandler(self, signum, frame):
+        self._signals.add(signum)
+
+    cdef inline _ceval_process_signals(self):
+        # Invoke CPython eval loop to let process signals.
+        PyErr_CheckSignals()
+        # Calling a pure-Python function will invoke
+        # _PyEval_EvalFrameDefault which will process
+        # pending signal callbacks.
+        _noop.noop()  # Might raise ^C
+
     cdef _read_from_self(self):
+        cdef bytes sigdata
+        sigdata = b''
         while True:
             try:
-                data = self._ssock.recv(4096)
+                data = self._ssock.recv(65536)
                 if not data:
                     break
-                self._process_self_data(data)
+                sigdata += data
             except InterruptedError:
                 continue
             except BlockingIOError:
                 break
+        if sigdata:
+            self._invoke_signals(sigdata)
 
-    cdef _process_self_data(self, data):
+    cdef _invoke_signals(self, bytes data):
+        cdef set sigs
+
+        self._ceval_process_signals()
+
+        sigs = self._signals.copy()
+        self._signals.clear()
         for signum in data:
             if not signum:
-                # ignore null bytes written by _write_to_self()
+                # ignore null bytes written by set_wakeup_fd()
                 continue
+            sigs.discard(signum)
+            self._handle_signal(signum)
+
+        for signum in sigs:
+            # Since not all signals are registered by add_signal_handler()
+            # (for instance, we use the default SIGINT handler) not all
+            # signals will trigger loop.__sighandler() callback.  Therefore
+            # we combine two datasources: one is self-pipe, one is data
+            # from __sighandler; this ensures that signals shouldn't be
+            # lost even if set_wakeup_fd() couldn't write to the self-pipe.
             self._handle_signal(signum)
 
     cdef _handle_signal(self, sig):
@@ -318,11 +348,7 @@ cdef class Loop:
             handle = None
 
         if handle is None:
-            # Some signal that we aren't listening through
-            # add_signal_handler.  Invoke CPython eval loop
-            # to let it being processed.
-            PyErr_CheckSignals()
-            _noop.noop()
+            self._ceval_process_signals()
             return
 
         if handle._cancelled:
@@ -2516,13 +2542,12 @@ cdef class Loop:
 
         self._check_signal(sig)
         self._check_closed()
-
         try:
             # set_wakeup_fd() raises ValueError if this is not the
             # main thread.  By calling it early we ensure that an
             # event loop running in another thread cannot add a signal
             # handler.
-            signal_set_wakeup_fd(self._csock.fileno())
+            _set_signal_wakeup_fd(self._csock.fileno())
         except (ValueError, OSError) as exc:
             raise RuntimeError(str(exc))
 
@@ -2532,7 +2557,7 @@ cdef class Loop:
         try:
             # Register a dummy signal handler to ask Python to write the signal
             # number in the wakeup file descriptor.
-            signal_signal(sig, _sighandler_noop)
+            signal_signal(sig, self.__sighandler)
 
             # Set SA_RESTART to limit EINTR occurrences.
             signal_siginterrupt(sig, False)
@@ -2867,9 +2892,11 @@ cdef __install_pymem():
         raise convert_error(err)
 
 
-def _sighandler_noop(signum, frame):
-    """Dummy signal handler."""
-    pass
+cdef _set_signal_wakeup_fd(fd):
+    if sys_version_info >= (3, 7, 0) and fd >= 0:
+        signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
+    else:
+        signal_set_wakeup_fd(fd)
 
 
 ########### Stuff for tests:
