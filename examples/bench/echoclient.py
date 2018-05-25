@@ -5,6 +5,7 @@
 import argparse
 import concurrent.futures
 import socket
+import ssl
 import time
 
 
@@ -22,7 +23,16 @@ if __name__ == '__main__':
                         help='number of workers')
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str,
                         help='address:port of echoserver')
+    parser.add_argument('--ssl', default=False, action='store_true')
     args = parser.parse_args()
+
+    client_context = None
+    if args.ssl:
+        print('with SSL')
+        client_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(client_context, 'check_hostname'):
+            client_context.check_hostname = False
+        client_context.verify_mode = ssl.CERT_NONE
 
     unix = False
     if args.addr.startswith('file:'):
@@ -56,7 +66,11 @@ if __name__ == '__main__':
         except (OSError, NameError):
             pass
 
+        if client_context:
+            sock = client_context.wrap_socket(sock)
+
         sock.connect(addr)
+
         while n > 0:
             sock.sendall(msg)
             nrecv = 0
