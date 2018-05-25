@@ -2,9 +2,7 @@ import argparse
 import asyncio
 import gc
 import os.path
-import socket as socket_module
-
-from socket import *
+import socket
 
 
 PRINT = 0
@@ -12,10 +10,10 @@ PRINT = 0
 
 async def echo_server(loop, address, unix):
     if unix:
-        sock = socket(AF_UNIX, SOCK_STREAM)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     else:
-        sock = socket(AF_INET, SOCK_STREAM)
-        sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(address)
     sock.listen(5)
     sock.setblocking(False)
@@ -31,7 +29,7 @@ async def echo_server(loop, address, unix):
 
 async def echo_client(loop, client):
     try:
-        client.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     except (OSError, NameError):
         pass
 
@@ -48,7 +46,7 @@ async def echo_client(loop, client):
 async def echo_client_streams(reader, writer):
     sock = writer.get_extra_info('socket')
     try:
-        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     except (OSError, NameError):
         pass
     if PRINT:

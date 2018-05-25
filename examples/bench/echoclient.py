@@ -3,10 +3,9 @@
 
 
 import argparse
+import concurrent.futures
+import socket
 import time
-
-from concurrent.futures import ProcessPoolExecutor
-from socket import *
 
 
 if __name__ == '__main__':
@@ -48,12 +47,12 @@ if __name__ == '__main__':
             n //= args.mpr
 
         if unix:
-            sock = socket(AF_UNIX, SOCK_STREAM)
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         else:
-            sock = socket(AF_INET, SOCK_STREAM)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except (OSError, NameError):
             pass
 
@@ -73,10 +72,10 @@ if __name__ == '__main__':
     NMESSAGES = args.num
     start = time.time()
     for _ in range(TIMES):
-        with ProcessPoolExecutor(max_workers=N) as e:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=N) as e:
             for _ in range(N):
                 e.submit(run_test, NMESSAGES)
     end = time.time()
     duration = end-start
-    print(NMESSAGES*N*TIMES,'in', duration)
-    print(NMESSAGES*N*TIMES/duration, 'requests/sec')
+    print(NMESSAGES * N * TIMES, 'in', duration)
+    print(NMESSAGES * N * TIMES / duration, 'requests/sec')
