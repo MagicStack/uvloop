@@ -131,7 +131,7 @@ cdef class _SSLPipe:
         ssldata, appdata = self.feed_ssldata(b'')
         assert appdata == [] or appdata == [b'']
 
-    cdef feed_ssldata(self, data, only_handshake=False):
+    cdef feed_ssldata(self, data, bint only_handshake=False):
         """Feed SSL record level data into the pipe.
 
         The data must be a bytes instance. It is OK to send an empty bytes
@@ -500,8 +500,7 @@ class SSLProtocol(object):
             self._abort()
             return
 
-        for chunk in ssldata:
-            self._transport.write(chunk)
+        self._transport.writelines(ssldata)
 
         for chunk in appdata:
             if chunk:
@@ -641,8 +640,7 @@ class SSLProtocol(object):
                     ssldata = sslpipe.shutdown(self._finalize)
                     offset = 1
 
-                for chunk in ssldata:
-                    self._transport.write(chunk)
+                self._transport.writelines(ssldata)
 
                 if offset < len(data):
                     self._write_backlog[0] = (data, offset)
