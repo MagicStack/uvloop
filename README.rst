@@ -37,7 +37,7 @@ echo protocol.  Read more about uvloop
 Installation
 ------------
 
-uvloop requires Python 3.5 and is available on PyPI.
+uvloop requires Python 3.5 or greater and is available on PyPI.
 Use pip to install it::
 
     $ pip install uvloop
@@ -53,23 +53,40 @@ loop policy:
 
     import asyncio
     import uvloop
+
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
-Development of uvloop
----------------------
+Building From Source
+--------------------
 
-To build uvloop, you'll need Cython and Python 3.5.  The best way
-is to create a virtual env, so that you'll have ``cython`` and
-``python`` commands pointing to the correct tools.
+To build uvloop, you'll need Python 3.5 or greater:
 
-1. ``git clone --recursive git@github.com:MagicStack/uvloop.git``
+1. Clone the repository:
 
-2. ``cd uvloop``
+   .. code::
 
-3. ``make``
+    $ git clone --recursive git@github.com:MagicStack/uvloop.git
+    $ cd uvloop
 
-4. ``make test``
+2. Create a virtual environment and activate it, for example:
+
+   .. code::
+
+    $ python3.7 -m venv uvloop-dev
+    $ source uvloop-dev/bin/activate
+
+3. Install development dependencies:
+
+   ..  code::
+
+    $ pip install -r requirements.dev.txt
+
+4. Build and run tests:
+
+   .. code::
+
+    $ make && make test
 
 
 License
