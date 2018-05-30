@@ -6,17 +6,18 @@ import sys
 
 
 def main():
-    setup_py = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                            'setup.py')
+    version_file = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 'uvloop', '__init__.py')
 
-    with open(setup_py, 'r') as f:
+    with open(version_file, 'r') as f:
         for line in f:
-            if line.startswith('VERSION ='):
+            if line.startswith('__version__ ='):
                 _, _, version = line.partition('=')
                 print(version.strip(" \n'\""))
                 return 0
 
-    print('could not find package version in setup.py', file=sys.stderr)
+    print('could not find package version in uvloop/__init__.py',
+          file=sys.stderr)
     return 1
 
 
