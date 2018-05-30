@@ -6,6 +6,11 @@ import subprocess
 import sys
 
 
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext as build_ext
+from setuptools.command.sdist import sdist as sdist
+
+
 if sys.platform in ('win32', 'cygwin', 'cli'):
     raise RuntimeError('uvloop does not support Windows at the moment')
 
@@ -15,11 +20,6 @@ if vi < (3, 5):
 if vi[:2] == (3, 6):
     if vi.releaselevel == 'beta' and vi.serial < 3:
         raise RuntimeError('uvloop requires Python 3.5 or 3.6b3 or greater')
-
-
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext as build_ext
-from setuptools.command.sdist import sdist as sdist
 
 
 VERSION = '0.9.2.dev0'
@@ -117,9 +117,9 @@ class uvloop_build_ext(build_ext):
                 raise RuntimeError(
                     'please install Cython to compile uvloop from source')
 
-            if Cython.__version__ < '0.24':
+            if Cython.__version__ < '0.28':
                 raise RuntimeError(
-                    'uvloop requires Cython version 0.24 or greater')
+                    'uvloop requires Cython version 0.28 or greater')
 
             from Cython.Build import cythonize
 
