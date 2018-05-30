@@ -36,14 +36,17 @@ typedef struct {
 } PyContext;
 
 PyContext * PyContext_CopyCurrent(void) {
+    abort();
     return NULL;
 };
 
 int PyContext_Enter(PyContext *ctx) {
+    abort();
     return -1;
 }
 
 int PyContext_Exit(PyContext *ctx) {
+    abort();
     return -1;
 }
 #endif
