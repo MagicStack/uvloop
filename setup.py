@@ -22,7 +22,6 @@ if vi[:2] == (3, 6):
         raise RuntimeError('uvloop requires Python 3.5 or 3.6b3 or greater')
 
 
-VERSION = '0.9.2.dev0'
 CFLAGS = ['-O2']
 LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
 LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
@@ -209,6 +208,18 @@ class uvloop_build_ext(build_ext):
 
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
     readme = f.read()
+
+
+with open(os.path.join(
+        os.path.dirname(__file__), 'uvloop', '__init__.py')) as f:
+    for line in f:
+        if line.startswith('__version__ ='):
+            _, _, version = line.partition('=')
+            VERSION = version.strip(" \n'\"")
+            break
+    else:
+        raise RuntimeError(
+            'unable to read the version from uvloop/__init__.py')
 
 
 setup(
