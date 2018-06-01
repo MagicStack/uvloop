@@ -470,7 +470,8 @@ class SSLProtocol(object):
             # Most likely an exception occurred while in SSL handshake.
             # Just mark the app transport as closed so that its __del__
             # doesn't complain.
-            self._app_transport._closed = True
+            if self._app_transport is not None:
+                self._app_transport._closed = True
 
         self._transport = None
         self._app_transport = None
