@@ -2419,7 +2419,7 @@ cdef class Loop:
         try:
             await waiter
         except Exception:
-            transport.close()
+            transport._close()
             raise
 
         if ssl:
@@ -2553,7 +2553,7 @@ cdef class Loop:
             transp._init_protocol()
             await waiter
         except Exception:
-            transp.close()
+            transp._close()
             raise
         transp._attach_fileobj(pipe)
         return transp, proto
@@ -2578,7 +2578,7 @@ cdef class Loop:
             transp._init_protocol()
             await waiter
         except Exception:
-            transp.close()
+            transp._close()
             raise
         transp._attach_fileobj(pipe)
         return transp, proto
