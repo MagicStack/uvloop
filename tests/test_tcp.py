@@ -631,6 +631,8 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
     def test_create_server_buffered_1(self):
         SIZE = 123123
+        eof = False
+        done = False
 
         class Proto(asyncio.BaseProtocol):
             def connection_made(self, tr):
@@ -639,7 +641,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
                 self.data = bytearray(50)
                 self.buf = memoryview(self.data)
 
-            def get_buffer(self):
+            def get_buffer(self, sizehint):
                 return self.buf
 
             def buffer_updated(self, nbytes):
@@ -648,7 +650,12 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
                     self.tr.write(b'hello')
 
             def eof_received(self):
-                pass
+                nonlocal eof
+                eof = True
+
+            def connection_lost(self, exc):
+                nonlocal done
+                done = exc
 
         async def test():
             port = tb.find_free_port()
@@ -666,13 +673,15 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             await srv.wait_closed()
 
         self.loop.run_until_complete(test())
+        self.assertTrue(eof)
+        self.assertIsNone(done)
 
     def test_create_server_buffered_2(self):
         class ProtoExc(asyncio.BaseProtocol):
             def __init__(self):
                 self._lost_exc = None
 
-            def get_buffer(self):
+            def get_buffer(self, sizehint):
                 1 / 0
 
             def buffer_updated(self, nbytes):
@@ -688,7 +697,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             def __init__(self):
                 self._lost_exc = None
 
-            def get_buffer(self):
+            def get_buffer(self, sizehint):
                 return bytearray(0)
 
             def buffer_updated(self, nbytes):
@@ -704,7 +713,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             def __init__(self):
                 self._lost_exc = None
 
-            def get_buffer(self):
+            def get_buffer(self, sizehint):
                 return memoryview(bytearray(0))
 
             def buffer_updated(self, nbytes):
@@ -720,7 +729,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             def __init__(self):
                 self._lost_exc = None
 
-            def get_buffer(self):
+            def get_buffer(self, sizehint):
                 return memoryview(bytearray(100))
 
             def buffer_updated(self, nbytes):

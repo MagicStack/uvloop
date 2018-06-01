@@ -909,7 +909,7 @@ cdef void __uv_stream_buffered_alloc(uv.uv_handle_t* stream,
 
     sc._read_pybuf_acquired = 0
     try:
-        buf = sc._protocol_get_buffer()
+        buf = sc._protocol_get_buffer(suggested_size)
         PyObject_GetBuffer(buf, pybuf, PyBUF_WRITABLE)
         got_buf = 1
     except BaseException as exc:
