@@ -571,7 +571,9 @@ class SSLProtocol(object):
 
     def _check_handshake_timeout(self):
         if self._in_handshake is True:
-            aio_logger.warning("%r stalled during handshake", self)
+            aio_logger.warning(
+                "SSL handshake for %r is taking longer than %r seconds: "
+                "aborting the connection", self, self._ssl_handshake_timeout)
             self._abort()
 
     def _on_handshake_complete(self, handshake_exc):
