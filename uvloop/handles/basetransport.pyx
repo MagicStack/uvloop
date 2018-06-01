@@ -201,8 +201,7 @@ cdef class UVBaseTransport(UVSocketHandle):
             if self._protocol_connected:
                 self._protocol.connection_lost(exc)
         finally:
-            self._protocol = None
-            self._protocol_data_received = None
+            self._clear_protocol()
 
             self._close()
 
@@ -223,13 +222,17 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         self._waiter = waiter
 
-    cdef inline _set_protocol(self, object protocol):
+    cdef _set_protocol(self, object protocol):
         self._protocol = protocol
         # Store a reference to the bound method directly
         try:
             self._protocol_data_received = protocol.data_received
         except AttributeError:
             pass
+
+    cdef _clear_protocol(self):
+        self._protocol = None
+        self._protocol_data_received = None
 
     cdef inline _init_protocol(self):
         self._loop._track_transport(self)
@@ -263,6 +266,9 @@ cdef class UVBaseTransport(UVSocketHandle):
 
     def set_protocol(self, protocol):
         self._set_protocol(protocol)
+        if self._is_reading():
+            self._stop_reading()
+            self._start_reading()
 
     def _force_close(self, exc):
         # Used by SSLProto.  Might be removed in the future.
