@@ -196,7 +196,7 @@ cdef class _SSLPipe:
                 # Drain possible plaintext data after close_notify.
                 appdata.append(self._incoming.read())
         except (ssl_SSLError, ssl_CertificateError) as exc:
-            errno = <int>exc.errno
+            errno = <int>getattr(exc, 'errno', 0)  # SSL_ERROR_NONE = 0
             if errno not in (ssl_SSL_ERROR_WANT_READ, ssl_SSL_ERROR_WANT_WRITE,
                              ssl_SSL_ERROR_SYSCALL):
                 if self._state is _DO_HANDSHAKE and self._handshake_cb:
@@ -244,7 +244,7 @@ cdef class _SSLPipe:
                 if offset < len(view):
                     offset += self._sslobj.write(view[offset:])
             except ssl_SSLError as exc:
-                errno = <int>exc.errno
+                errno = <int>getattr(exc, 'errno', 0)  # SSL_ERROR_NONE = 0
                 # It is not allowed to call write() after unwrap() until the
                 # close_notify is acknowledged. We return the condition to the
                 # caller as a short write.
@@ -495,8 +495,9 @@ class SSLProtocol(object):
             ssldata, appdata = (<_SSLPipe>self._sslpipe).feed_ssldata(data)
         except ssl_SSLError as e:
             if self._loop.get_debug():
-                aio_logger.warning('%r: SSL error %s (reason %s)',
-                                   self, e.errno, e.reason)
+                aio_logger.warning('%r: SSL error errno:%s (reason %s)',
+                                   self, getattr(e, 'errno', 'missing'),
+                                   e.reason)
             self._abort()
             return
 
