@@ -1255,8 +1255,58 @@ class _TestSSL(tb.SSLTestCase):
                              max_clients=1,
                              backlog=1) as srv:
 
-            with self.assertRaises(ssl.SSLCertVerificationError):
+            exc_type = ssl.SSLError
+            if self.PY37:
+                exc_type = ssl.SSLCertVerificationError
+            with self.assertRaises(exc_type):
                 self.loop.run_until_complete(client(srv.addr))
+
+    def test_ssl_handshake_timeout(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest()
+
+        # bpo-29970: Check that a connection is aborted if handshake is not
+        # completed in timeout period, instead of remaining open indefinitely
+        client_sslctx = self._create_client_ssl_context()
+
+        # silence error logger
+        messages = []
+        self.loop.set_exception_handler(lambda loop, ctx: messages.append(ctx))
+
+        server_side_aborted = False
+
+        def server(sock):
+            nonlocal server_side_aborted
+            try:
+                sock.recv_all(1024 * 1024)
+            except ConnectionAbortedError:
+                server_side_aborted = True
+            finally:
+                sock.close()
+
+        async def client(addr):
+            await asyncio.wait_for(
+                self.loop.create_connection(
+                    asyncio.Protocol,
+                    *addr,
+                    ssl=client_sslctx,
+                    server_hostname='',
+                    ssl_handshake_timeout=10.0),
+                0.5,
+                loop=self.loop)
+
+        with self.tcp_server(server,
+                             max_clients=1,
+                             backlog=1) as srv:
+
+            with self.assertRaises(asyncio.TimeoutError):
+                self.loop.run_until_complete(client(srv.addr))
+
+        self.assertTrue(server_side_aborted)
+
+        # Python issue #23197: cancelling a handshake must not raise an
+        # exception or log an error, even if the handshake failed
+        self.assertEqual(messages, [])
 
     def test_ssl_connect_accepted_socket(self):
         server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)

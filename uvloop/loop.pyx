@@ -1087,7 +1087,7 @@ cdef class Loop:
             raise OSError(err.errno, 'error while attempting '
                           'to bind on address %r: %s'
                           % (pyaddr, err.strerror.lower()))
-        except:
+        except Exception:
             tcp._close()
             raise
 
@@ -1625,7 +1625,7 @@ cdef class Loop:
             try:
                 tcp._open(sock.fileno())
                 tcp.listen(backlog)
-            except:
+            except Exception:
                 tcp._close()
                 raise
 
@@ -1794,7 +1794,7 @@ cdef class Loop:
                         tr._close()
                         tr = None
                     exceptions.append(exc)
-                except:
+                except Exception:
                     if tr is not None:
                         tr._close()
                         tr = None
@@ -1832,7 +1832,7 @@ cdef class Loop:
                 tr._open(sock.fileno())
                 tr._init_protocol()
                 await waiter
-            except:
+            except Exception:
                 # It's OK to call `_close()` here, as opposed to
                 # `_force_close()` or `close()` as we want to terminate the
                 # transport immediately.  The `waiter` can only be waken
@@ -1844,7 +1844,11 @@ cdef class Loop:
             tr._attach_fileobj(sock)
 
         if ssl:
-            await ssl_waiter
+            try:
+                await ssl_waiter
+            except Exception:
+                tr._close()
+                raise
             return protocol._app_transport, app_protocol
         else:
             return tr, protocol
@@ -1934,7 +1938,7 @@ cdef class Loop:
                     raise OSError(errno.EADDRINUSE, msg) from None
                 else:
                     raise
-            except:
+            except Exception:
                 sock.close()
                 raise
 
@@ -1957,14 +1961,14 @@ cdef class Loop:
 
         try:
             pipe._open(sock.fileno())
-        except:
+        except Exception:
             pipe._close()
             sock.close()
             raise
 
         try:
             pipe.listen(backlog)
-        except:
+        except Exception:
             pipe._close()
             raise
 
@@ -2026,7 +2030,7 @@ cdef class Loop:
             tr.connect(path)
             try:
                 await waiter
-            except:
+            except Exception:
                 tr._close()
                 raise
 
@@ -2049,14 +2053,18 @@ cdef class Loop:
                 tr._open(sock.fileno())
                 tr._init_protocol()
                 await waiter
-            except:
+            except Exception:
                 tr._close()
                 raise
 
             tr._attach_fileobj(sock)
 
         if ssl:
-            await ssl_waiter
+            try:
+                await ssl_waiter
+            except Exception:
+                tr._close()
+                raise
             return protocol._app_transport, app_protocol
         else:
             return tr, protocol
@@ -2408,7 +2416,11 @@ cdef class Loop:
         transport._init_protocol()
         transport._attach_fileobj(sock)
 
-        await waiter
+        try:
+            await waiter
+        except Exception:
+            transport.close()
+            raise
 
         if ssl:
             return protocol._app_transport, protocol
@@ -2488,7 +2500,7 @@ cdef class Loop:
 
         try:
             await waiter
-        except:
+        except Exception:
             proc.close()
             raise
 
@@ -2540,7 +2552,7 @@ cdef class Loop:
             transp._open(pipe.fileno())
             transp._init_protocol()
             await waiter
-        except:
+        except Exception:
             transp.close()
             raise
         transp._attach_fileobj(pipe)
@@ -2565,7 +2577,7 @@ cdef class Loop:
             transp._open(pipe.fileno())
             transp._init_protocol()
             await waiter
-        except:
+        except Exception:
             transp.close()
             raise
         transp._attach_fileobj(pipe)
@@ -2803,7 +2815,7 @@ cdef class Loop:
                     if sock is not None:
                         sock.close()
                     exceptions.append(exc)
-                except:
+                except Exception:
                     if sock is not None:
                         sock.close()
                     raise
@@ -2821,7 +2833,12 @@ cdef class Loop:
         udp._set_waiter(waiter)
         udp._init_protocol()
 
-        await waiter
+        try:
+            await waiter
+        except Exception:
+            udp.close()
+            raise
+
         return udp, protocol
 
     def _asyncgen_finalizer_hook(self, agen):

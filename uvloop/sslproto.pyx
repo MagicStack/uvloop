@@ -424,7 +424,7 @@ class SSLProtocol(object):
         self._waiter = waiter
         self._loop = loop
         self._app_protocol = app_protocol
-        self._app_transport = _SSLProtocolTransport(self._loop, self)
+        self._app_transport = None
         # _SSLPipe instance (None until the connection is made)
         self._sslpipe = None
         self._session_established = False
@@ -466,12 +466,6 @@ class SSLProtocol(object):
         if self._session_established:
             self._session_established = False
             self._loop.call_soon(self._app_protocol.connection_lost, exc)
-        else:
-            # Most likely an exception occurred while in SSL handshake.
-            # Just mark the app transport as closed so that its __del__
-            # doesn't complain.
-            if self._app_transport is not None:
-                self._app_transport._closed = True
 
         self._transport = None
         self._app_transport = None
@@ -617,8 +611,10 @@ class SSLProtocol(object):
         self._extra.update(peercert=peercert,
                            cipher=sslobj.cipher(),
                            compression=sslobj.compression(),
-                           ssl_object=sslobj,
-                           )
+                           ssl_object=sslobj)
+
+        self._app_transport = _SSLProtocolTransport(self._loop, self)
+
         if self._call_connection_made:
             self._app_protocol.connection_made(self._app_transport)
         self._wakeup_waiter()
@@ -684,7 +680,7 @@ class SSLProtocol(object):
                             ConnectionAbortedError)):
             if self._loop.get_debug():
                 aio_logger.debug("%r: %s", self, message, exc_info=True)
-        else:
+        elif not isinstance(exc, aio_CancelledError):
             self._loop.call_exception_handler({
                 'message': message,
                 'exception': exc,
