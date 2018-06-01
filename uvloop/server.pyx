@@ -41,7 +41,7 @@ cdef class Server:
 
     @cython.iterable_coroutine
     async def wait_closed(self):
-        if self._servers is None or self._waiters is None:
+        if self._waiters is None:
             return
         waiter = self._loop._new_future()
         self._waiters.append(waiter)
