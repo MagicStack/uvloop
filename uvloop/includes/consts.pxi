@@ -15,4 +15,5 @@ DEF LOG_THRESHOLD_FOR_CONNLOST_WRITES = 5
 
 
 # Number of seconds to wait for SSL handshake to complete
-DEF SSL_HANDSHAKE_TIMEOUT = 10.0
+# The default timeout matches that of Nginx.
+DEF SSL_HANDSHAKE_TIMEOUT = 60.0
