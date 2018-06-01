@@ -216,7 +216,7 @@ cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
     try:
         transport._on_connect(exc)
     except BaseException as ex:
-        wrapper.transport._error(ex, False)
+        wrapper.transport._fatal_error(ex, False)
     finally:
         wrapper.on_done()
 

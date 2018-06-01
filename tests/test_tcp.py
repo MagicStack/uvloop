@@ -629,6 +629,154 @@ class _TestTCP:
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
+    def test_create_server_buffered_1(self):
+        SIZE = 123123
+
+        class Proto(asyncio.BaseProtocol):
+            def connection_made(self, tr):
+                self.tr = tr
+                self.recvd = b''
+                self.data = bytearray(50)
+                self.buf = memoryview(self.data)
+
+            def get_buffer(self):
+                return self.buf
+
+            def buffer_updated(self, nbytes):
+                self.recvd += self.buf[:nbytes]
+                if self.recvd == b'a' * SIZE:
+                    self.tr.write(b'hello')
+
+            def eof_received(self):
+                pass
+
+        async def test():
+            port = tb.find_free_port()
+            srv = await self.loop.create_server(Proto, '127.0.0.1', port)
+
+            s = socket.socket(socket.AF_INET)
+            with s:
+                s.setblocking(False)
+                await self.loop.sock_connect(s, ('127.0.0.1', port))
+                await self.loop.sock_sendall(s, b'a' * SIZE)
+                d = await self.loop.sock_recv(s, 100)
+                self.assertEqual(d, b'hello')
+
+            srv.close()
+            await srv.wait_closed()
+
+        self.loop.run_until_complete(test())
+
+    def test_create_server_buffered_2(self):
+        class ProtoExc(asyncio.BaseProtocol):
+            def __init__(self):
+                self._lost_exc = None
+
+            def get_buffer(self):
+                1 / 0
+
+            def buffer_updated(self, nbytes):
+                pass
+
+            def connection_lost(self, exc):
+                self._lost_exc = exc
+
+            def eof_received(self):
+                pass
+
+        class ProtoZeroBuf1(asyncio.BaseProtocol):
+            def __init__(self):
+                self._lost_exc = None
+
+            def get_buffer(self):
+                return bytearray(0)
+
+            def buffer_updated(self, nbytes):
+                pass
+
+            def connection_lost(self, exc):
+                self._lost_exc = exc
+
+            def eof_received(self):
+                pass
+
+        class ProtoZeroBuf2(asyncio.BaseProtocol):
+            def __init__(self):
+                self._lost_exc = None
+
+            def get_buffer(self):
+                return memoryview(bytearray(0))
+
+            def buffer_updated(self, nbytes):
+                pass
+
+            def connection_lost(self, exc):
+                self._lost_exc = exc
+
+            def eof_received(self):
+                pass
+
+        class ProtoUpdatedError(asyncio.BaseProtocol):
+            def __init__(self):
+                self._lost_exc = None
+
+            def get_buffer(self):
+                return memoryview(bytearray(100))
+
+            def buffer_updated(self, nbytes):
+                raise RuntimeError('oups')
+
+            def connection_lost(self, exc):
+                self._lost_exc = exc
+
+            def eof_received(self):
+                pass
+
+        async def test(proto_factory, exc_type, exc_re):
+            port = tb.find_free_port()
+            proto = proto_factory()
+            srv = await self.loop.create_server(
+                lambda: proto, '127.0.0.1', port)
+
+            try:
+                s = socket.socket(socket.AF_INET)
+                with s:
+                    s.setblocking(False)
+                    await self.loop.sock_connect(s, ('127.0.0.1', port))
+                    await self.loop.sock_sendall(s, b'a')
+                    d = await self.loop.sock_recv(s, 100)
+                    if not d:
+                        raise ConnectionResetError
+            except ConnectionResetError:
+                pass
+            else:
+                self.fail("server didn't abort the connection")
+                return
+            finally:
+                srv.close()
+                await srv.wait_closed()
+
+            if proto._lost_exc is None:
+                self.fail("connection_lost() was not called")
+                return
+
+            with self.assertRaisesRegex(exc_type, exc_re):
+                raise proto._lost_exc
+
+        self.loop.set_exception_handler(lambda loop, ctx: None)
+
+        self.loop.run_until_complete(
+            test(ProtoExc, RuntimeError, 'unhandled error .* get_buffer'))
+
+        self.loop.run_until_complete(
+            test(ProtoZeroBuf1, RuntimeError, 'unhandled error .* get_buffer'))
+
+        self.loop.run_until_complete(
+            test(ProtoZeroBuf2, RuntimeError, 'unhandled error .* get_buffer'))
+
+        self.loop.run_until_complete(
+            test(ProtoUpdatedError, RuntimeError, r'^oups$'))
+
     def test_transport_get_extra_info(self):
         # This tests is only for uvloop.  asyncio should pass it
         # too in Python 3.6.
