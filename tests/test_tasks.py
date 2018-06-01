@@ -1,9 +1,13 @@
 # LICENSE: PSF.
 
 import asyncio
+import sys
+import unittest
 
 from uvloop import _testbase as tb
-from uvloop import tracing, TracingCollector
+
+
+PY37 = sys.version_info >= (3, 7, 0)
 
 
 class Dummy:
@@ -350,7 +354,9 @@ class Test_UV_UV_Tasks(_TestTasks, tb.UVTestCase):
     def create_task(self, coro):
         return self.loop.create_task(coro)
 
+    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_create_task_tracing(self):
+        from uvloop import tracing, TracingCollector
 
         @asyncio.coroutine
         def coro():
