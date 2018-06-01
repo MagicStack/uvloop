@@ -1,13 +1,19 @@
 import asyncio
 
 from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
+from sys import version_info
 
 from . import includes as __includes  # NOQA
 from . import _patch  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
 
+PY37 = version_info >= (3, 7, 0)
 
-__all__ = ('new_event_loop', 'EventLoopPolicy')
+if PY37:
+    from .loop import tracing, TracingCollector
+    __all__ = ('new_event_loop', 'EventLoopPolicy', 'tracing', 'TracingCollector')
+else:
+    __all__ = ('new_event_loop', 'EventLoopPolicy')
 
 
 class Loop(__BaseLoop, asyncio.AbstractEventLoop):

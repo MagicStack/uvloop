@@ -18,7 +18,9 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyContext, \
                               PyContext_CopyCurrent, \
                               PyContext_Enter, \
-                              PyContext_Exit
+                              PyContext_Exit, \
+                              PyContextVar, \
+                              PyContextVar_Get
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
@@ -43,6 +45,7 @@ include "errors.pyx"
 cdef:
     int PY37 = PY_VERSION_HEX >= 0x03070000
     int PY36 = PY_VERSION_HEX >= 0x03060000
+
 
 
 cdef _is_sock_stream(sock_type):
@@ -821,13 +824,17 @@ cdef class Loop:
                 except Exception as ex:
                     if not fut.cancelled():
                         fut.set_exception(ex)
+                    __send_trace(TRACE_DNS_REQUEST_END, None)
                 else:
                     if not fut.cancelled():
                         fut.set_result(data)
+                    __send_trace(TRACE_DNS_REQUEST_END, data)
             else:
                 if not fut.cancelled():
                     fut.set_exception(result)
+                __send_trace(TRACE_DNS_REQUEST_END, result)
 
+        __send_trace(TRACE_DNS_REQUEST_BEGIN, host, port, family, type, proto, flags)
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
 
@@ -1361,6 +1368,7 @@ cdef class Loop:
             task = aio_Task(coro, loop=self)
         else:
             task = self._task_factory(self, coro)
+        __send_trace(TRACE_TASK_CREATED, task)
         return task
 
     def set_task_factory(self, factory):
@@ -2875,6 +2883,8 @@ include "sslproto.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
+
+include "tracing.pyx"
 
 
 # Used in UVProcess
