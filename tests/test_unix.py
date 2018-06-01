@@ -155,6 +155,16 @@ class _TestUnix:
                 self.loop.run_until_complete(
                     self.loop.create_unix_server(object, sock_name))
 
+    def test_create_unix_server_3(self):
+        if self.implementation == 'asyncio' and not self.PY37:
+            raise unittest.SkipTest()
+
+        with self.assertRaisesRegex(
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
+            self.loop.run_until_complete(
+                self.loop.create_unix_server(
+                    lambda: None, path='/tmp/a', ssl_handshake_timeout=10))
+
     def test_create_unix_server_existing_path_sock(self):
         with self.unix_sock_name() as path:
             sock = socket.socket(socket.AF_UNIX)
@@ -363,7 +373,18 @@ class _TestUnix:
         self.assertIn(excs[0].__class__,
                       (BrokenPipeError, ConnectionResetError))
 
-    @unittest.skipUnless(sys.version_info < (3, 7), 'Python version must be < 3.7')
+    def test_create_unix_connection_6(self):
+        if self.implementation == 'asyncio' and not self.PY37:
+            raise unittest.SkipTest()
+
+        with self.assertRaisesRegex(
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
+            self.loop.run_until_complete(
+                self.loop.create_unix_connection(
+                    lambda: None, path='/tmp/a', ssl_handshake_timeout=10))
+
+    @unittest.skipUnless(sys.version_info < (3, 7),
+                         'Python version must be < 3.7')
     def test_transport_unclosed_warning(self):
         async def test(sock):
             return await self.loop.create_unix_connection(
@@ -523,6 +544,10 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
+            extras = {}
+            if self.implementation != 'asyncio' or self.PY37:
+                extras = dict(ssl_handshake_timeout=10.0)
+
             with tempfile.TemporaryDirectory() as td:
                 sock_name = os.path.join(td, 'sock')
 
@@ -530,7 +555,8 @@ class _TestSSL(tb.SSLTestCase):
                     handle_client,
                     sock_name,
                     ssl=sslctx,
-                    loop=self.loop)
+                    loop=self.loop,
+                    **extras)
 
                 try:
                     tasks = []
@@ -584,11 +610,16 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
+            extras = {}
+            if self.implementation != 'asyncio' or self.PY37:
+                extras = dict(ssl_handshake_timeout=10.0)
+
             reader, writer = await asyncio.open_unix_connection(
                 addr,
                 ssl=client_sslctx,
                 server_hostname='',
-                loop=self.loop)
+                loop=self.loop,
+                **extras)
 
             writer.write(A_DATA)
             self.assertEqual(await reader.readexactly(2), b'OK')

@@ -466,6 +466,12 @@ class SSLProtocol(object):
         if self._session_established:
             self._session_established = False
             self._loop.call_soon(self._app_protocol.connection_lost, exc)
+        else:
+            # Most likely an exception occurred while in SSL handshake.
+            # Just mark the app transport as closed so that its __del__
+            # doesn't complain.
+            self._app_transport._closed = True
+
         self._transport = None
         self._app_transport = None
         self._wakeup_waiter(exc)
@@ -494,11 +500,11 @@ class SSLProtocol(object):
         try:
             ssldata, appdata = (<_SSLPipe>self._sslpipe).feed_ssldata(data)
         except ssl_SSLError as e:
-            if self._loop.get_debug():
-                aio_logger.warning('%r: SSL error errno:%s (reason %s)',
-                                   self, getattr(e, 'errno', 'missing'),
-                                   e.reason)
-            self._abort()
+            msg = (
+                f'{self}: SSL error errno:{getattr(e, "errno", "missing")} '
+                f'reason: {getattr(e, "reason", "missing")}'
+            )
+            self._fatal_error(e, msg)
             return
 
         self._transport.writelines(ssldata)
@@ -540,6 +546,9 @@ class SSLProtocol(object):
         else:
             return default
 
+    def _mark_closed(self):
+        self._closed = True
+
     def _start_shutdown(self):
         if self._in_shutdown:
             return
@@ -571,10 +580,12 @@ class SSLProtocol(object):
 
     def _check_handshake_timeout(self):
         if self._in_handshake is True:
-            aio_logger.warning(
-                "SSL handshake for %r is taking longer than %r seconds: "
-                "aborting the connection", self, self._ssl_handshake_timeout)
-            self._abort()
+            msg = (
+                f"SSL handshake for {self} is taking longer than "
+                f"{self._ssl_handshake_timeout} seconds: "
+                f"aborting the connection"
+            )
+            self._fatal_error(ConnectionAbortedError(msg))
 
     def _on_handshake_complete(self, handshake_exc):
         self._in_handshake = False
@@ -586,21 +597,16 @@ class SSLProtocol(object):
                 raise handshake_exc
 
             peercert = sslobj.getpeercert()
-        except BaseException as exc:
-            if self._loop.get_debug():
-                if isinstance(exc, ssl_CertificateError):
-                    aio_logger.warning("%r: SSL handshake failed "
-                                       "on verifying the certificate",
-                                       self, exc_info=True)
-                else:
-                    aio_logger.warning("%r: SSL handshake failed",
-                                       self, exc_info=True)
-            self._transport.close()
-            if isinstance(exc, Exception):
-                self._wakeup_waiter(exc)
-                return
+        except Exception as exc:
+            if isinstance(exc, ssl_CertificateError):
+                msg = (
+                    f'{self}: SSL handshake failed on verifying '
+                    f'the certificate'
+                )
             else:
-                raise
+                msg = f'{self}: SSL handshake failed'
+            self._fatal_error(exc, msg)
+            return
 
         if self._loop.get_debug():
             dt = self._loop.time() - self._handshake_start_time
@@ -669,7 +675,9 @@ class SSLProtocol(object):
                 raise
 
     def _fatal_error(self, exc, message='Fatal error on transport'):
-        # Should be called from exception handler only.
+        if self._transport:
+            self._transport._force_close(exc)
+
         if isinstance(exc, (BrokenPipeError,
                             ConnectionResetError,
                             ConnectionAbortedError)):
@@ -682,8 +690,6 @@ class SSLProtocol(object):
                 'transport': self._transport,
                 'protocol': self,
             })
-        if self._transport:
-            self._transport._force_close(exc)
 
     def _finalize(self):
         self._sslpipe = None

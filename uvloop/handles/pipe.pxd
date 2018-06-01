@@ -4,7 +4,7 @@ cdef class UnixServer(UVStreamServer):
 
     @staticmethod
     cdef UnixServer new(Loop loop, object protocol_factory, Server server,
-                        object ssl)
+                        object ssl, object ssl_handshake_timeout)
 
 
 cdef class UnixTransport(UVStream):

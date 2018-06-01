@@ -167,7 +167,8 @@ cdef class Loop:
                         Server server,
                         object ssl,
                         bint reuse_port,
-                        object backlog)
+                        object backlog,
+                        object ssl_handshake_timeout)
 
     cdef _track_transport(self, UVBaseTransport transport)
     cdef _fileobj_to_fd(self, fileobj)

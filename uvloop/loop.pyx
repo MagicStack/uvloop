@@ -1058,13 +1058,14 @@ cdef class Loop:
                         Server server,
                         object ssl,
                         bint reuse_port,
-                        object backlog):
+                        object backlog,
+                        object ssl_handshake_timeout):
         cdef:
             TCPServer tcp
             int bind_flags
 
         tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                            addr.sa_family)
+                            addr.sa_family, ssl_handshake_timeout)
 
         if reuse_port:
             self._sock_set_reuseport(tcp._fileno())
@@ -1501,7 +1502,8 @@ cdef class Loop:
                             backlog=100,
                             ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
-                            reuse_port=None):
+                            reuse_port=None,
+                            ssl_handshake_timeout=None):
         """A coroutine which creates a TCP server bound to host and port.
 
         The return value is a Server object which can be used to stop
@@ -1536,6 +1538,10 @@ cdef class Loop:
         the same port as other existing endpoints are bound to, so long as
         they all set this flag when being created. This option is not
         supported on Windows.
+
+        ssl_handshake_timeout is the time in seconds that an SSL server
+        will wait for completion of the SSL handshake before aborting the
+        connection. Default is 60s.
         """
         cdef:
             TCPServer tcp
@@ -1551,8 +1557,13 @@ cdef class Loop:
 
         server = Server(self)
 
-        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
-            raise TypeError('ssl argument must be an SSLContext or None')
+        if ssl is not None:
+            if not isinstance(ssl, ssl_SSLContext):
+                raise TypeError('ssl argument must be an SSLContext or None')
+        else:
+            if ssl_handshake_timeout is not None:
+                raise ValueError(
+                    'ssl_handshake_timeout is only meaningful with ssl')
 
         if host is not None or port is not None:
             if sock is not None:
@@ -1587,7 +1598,7 @@ cdef class Loop:
 
                         tcp = self._create_server(
                             addrinfo.ai_addr, protocol_factory, server,
-                            ssl, reuse_port, backlog)
+                            ssl, reuse_port, backlog, ssl_handshake_timeout)
 
                         server._add_server(<TCPServer>tcp)
 
@@ -1609,7 +1620,7 @@ cdef class Loop:
             sock.setblocking(False)
 
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                                uv.AF_UNSPEC)
+                                uv.AF_UNSPEC, ssl_handshake_timeout)
 
             try:
                 tcp._open(sock.fileno())
@@ -1627,7 +1638,8 @@ cdef class Loop:
     @cython.iterable_coroutine
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
-                                local_addr=None, server_hostname=None):
+                                local_addr=None, server_hostname=None,
+                                ssl_handshake_timeout=None):
         """Connect to a TCP server.
 
         Create a streaming transport connection to a given Internet host and
@@ -1680,10 +1692,14 @@ cdef class Loop:
             sslcontext = None if isinstance(ssl, bool) else ssl
             protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
-                False, server_hostname)
+                False, server_hostname,
+                ssl_handshake_timeout=ssl_handshake_timeout)
         else:
             if server_hostname is not None:
                 raise ValueError('server_hostname is only meaningful with ssl')
+            if ssl_handshake_timeout is not None:
+                raise ValueError(
+                    'ssl_handshake_timeout is only meaningful with ssl')
 
         if host is not None or port is not None:
             if sock is not None:
@@ -1835,7 +1851,8 @@ cdef class Loop:
 
     @cython.iterable_coroutine
     async def create_unix_server(self, protocol_factory, path=None,
-                                 *, backlog=100, sock=None, ssl=None):
+                                 *, backlog=100, sock=None, ssl=None,
+                                 ssl_handshake_timeout=None):
         """A coroutine which creates a UNIX Domain Socket server.
 
         The return value is a Server object, which can be used to stop
@@ -1852,13 +1869,22 @@ cdef class Loop:
 
         ssl can be set to an SSLContext to enable SSL over the
         accepted connections.
+
+        ssl_handshake_timeout is the time in seconds that an SSL server
+        will wait for completion of the SSL handshake before aborting the
+        connection. Default is 60s.
         """
         cdef:
             UnixServer pipe
             Server server = Server(self)
 
-        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
-            raise TypeError('ssl argument must be an SSLContext or None')
+        if ssl is not None:
+            if not isinstance(ssl, ssl_SSLContext):
+                raise TypeError('ssl argument must be an SSLContext or None')
+        else:
+            if ssl_handshake_timeout is not None:
+                raise ValueError(
+                    'ssl_handshake_timeout is only meaningful with ssl')
 
         if path is not None:
             if sock is not None:
@@ -1926,7 +1952,8 @@ cdef class Loop:
             # we want Python socket object to notice that.
             sock.setblocking(False)
 
-        pipe = UnixServer.new(self, protocol_factory, server, ssl)
+        pipe = UnixServer.new(
+            self, protocol_factory, server, ssl, ssl_handshake_timeout)
 
         try:
             pipe._open(sock.fileno())
@@ -1948,7 +1975,8 @@ cdef class Loop:
     @cython.iterable_coroutine
     async def create_unix_connection(self, protocol_factory, path=None, *,
                                      ssl=None, sock=None,
-                                     server_hostname=None):
+                                     server_hostname=None,
+                                     ssl_handshake_timeout=None):
 
         cdef:
             UnixTransport tr
@@ -1967,10 +1995,14 @@ cdef class Loop:
             sslcontext = None if isinstance(ssl, bool) else ssl
             protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
-                False, server_hostname)
+                False, server_hostname,
+                ssl_handshake_timeout=ssl_handshake_timeout)
         else:
             if server_hostname is not None:
                 raise ValueError('server_hostname is only meaningful with ssl')
+            if ssl_handshake_timeout is not None:
+                raise ValueError(
+                    'ssl_handshake_timeout is only meaningful with ssl')
 
         if path is not None:
             if sock is not None:
@@ -2321,7 +2353,7 @@ cdef class Loop:
 
     @cython.iterable_coroutine
     async def connect_accepted_socket(self, protocol_factory, sock, *,
-                                      ssl=None):
+                                      ssl=None, ssl_handshake_timeout=None):
         """Handle an accepted connection.
 
         This is used by servers that accept connections outside of
@@ -2334,8 +2366,14 @@ cdef class Loop:
         cdef:
             UVStream transport = None
 
-        if ssl is not None and not isinstance(ssl, ssl_SSLContext):
-            raise TypeError('ssl argument must be an SSLContext or None')
+        if ssl is not None:
+            if not isinstance(ssl, ssl_SSLContext):
+                raise TypeError('ssl argument must be an SSLContext or None')
+        else:
+            if ssl_handshake_timeout is not None:
+                raise ValueError(
+                    'ssl_handshake_timeout is only meaningful with ssl')
+
         if not _is_sock_stream(sock.type):
             raise ValueError(
                 'A Stream Socket was expected, got {!r}'.format(sock))
@@ -2350,8 +2388,9 @@ cdef class Loop:
         else:
             protocol = SSLProtocol(
                 self, app_protocol, ssl, waiter,
-                True,  # server_side
-                None)  # server_hostname
+                server_side=True,
+                server_hostname=None,
+                ssl_handshake_timeout=ssl_handshake_timeout)
             transport_waiter = None
 
         if sock.family == uv.AF_UNIX:

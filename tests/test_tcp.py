@@ -318,6 +318,16 @@ class _TestTCP:
 
         self.loop.run_until_complete(test())
 
+    def test_create_server_8(self):
+        if self.implementation == 'asyncio' and not self.PY37:
+            raise unittest.SkipTest()
+
+        with self.assertRaisesRegex(
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
+            self.loop.run_until_complete(
+                self.loop.create_server(
+                    lambda: None, host='::', port=0, ssl_handshake_timeout=10))
+
     def test_create_connection_open_con_addr(self):
         async def client(addr):
             reader, writer = await asyncio.open_connection(
@@ -500,6 +510,16 @@ class _TestTCP:
                              max_clients=1,
                              backlog=1) as srv:
             self.loop.run_until_complete(client(srv.addr))
+
+    def test_create_connection_6(self):
+        if self.implementation == 'asyncio' and not self.PY37:
+            raise unittest.SkipTest()
+
+        with self.assertRaisesRegex(
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
+            self.loop.run_until_complete(
+                self.loop.create_connection(
+                    lambda: None, host='::', port=0, ssl_handshake_timeout=10))
 
     def test_transport_shutdown(self):
         CNT = 0           # number of clients that were successful
@@ -855,6 +875,17 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         srv.close()
         self.loop.run_until_complete(srv.wait_closed())
 
+    def test_connect_accepted_socket_ssl_args(self):
+        if self.implementation == 'asyncio' and not self.PY37:
+            raise unittest.SkipTest()
+
+        with self.assertRaisesRegex(
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
+            with socket.socket() as s:
+                self.loop.run_until_complete(
+                    self.loop.connect_accepted_socket(
+                        (lambda: None), s, ssl_handshake_timeout=10.0))
+
     def test_connect_accepted_socket(self, server_ssl=None, client_ssl=None):
         loop = self.loop
 
@@ -898,9 +929,15 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         conn, _ = lsock.accept()
         proto = MyProto(loop=loop)
         proto.loop = loop
+
+        extras = {}
+        if server_ssl and (self.implementation != 'asyncio' or self.PY37):
+            extras = dict(ssl_handshake_timeout=10.0)
+
         f = loop.create_task(
             loop.connect_accepted_socket(
-                (lambda: proto), conn, ssl=server_ssl))
+                (lambda: proto), conn, ssl=server_ssl,
+                **extras))
         loop.run_forever()
         conn.close()
         lsock.close()
@@ -1017,12 +1054,17 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
+            extras = {}
+            if self.implementation != 'asyncio' or self.PY37:
+                extras = dict(ssl_handshake_timeout=10.0)
+
             srv = await asyncio.start_server(
                 handle_client,
                 '127.0.0.1', 0,
                 family=socket.AF_INET,
                 ssl=sslctx,
-                loop=self.loop)
+                loop=self.loop,
+                **extras)
 
             try:
                 srv_socks = srv.sockets
@@ -1080,11 +1122,16 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
+            extras = {}
+            if self.implementation != 'asyncio' or self.PY37:
+                extras = dict(ssl_handshake_timeout=10.0)
+
             reader, writer = await asyncio.open_connection(
                 *addr,
                 ssl=client_sslctx,
                 server_hostname='',
-                loop=self.loop)
+                loop=self.loop,
+                **extras)
 
             writer.write(A_DATA)
             self.assertEqual(await reader.readexactly(2), b'OK')
@@ -1139,6 +1186,77 @@ class _TestSSL(tb.SSLTestCase):
 
         with self._silence_eof_received_warning():
             run(client_sock)
+
+    def test_create_connection_ssl_slow_handshake(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest()
+
+        client_sslctx = self._create_client_ssl_context()
+
+        # silence error logger
+        self.loop.set_exception_handler(lambda *args: None)
+
+        def server(sock):
+            try:
+                sock.recv_all(1024 * 1024)
+            except ConnectionAbortedError:
+                pass
+            finally:
+                sock.close()
+
+        async def client(addr):
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                loop=self.loop,
+                ssl_handshake_timeout=1.0)
+
+        with self.tcp_server(server,
+                             max_clients=1,
+                             backlog=1) as srv:
+
+            with self.assertRaisesRegex(
+                    ConnectionAbortedError,
+                    r'SSL handshake.*is taking longer'):
+
+                self.loop.run_until_complete(client(srv.addr))
+
+    def test_create_connection_ssl_failed_certificate(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest()
+
+        # silence error logger
+        self.loop.set_exception_handler(lambda *args: None)
+
+        sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
+        client_sslctx = self._create_client_ssl_context(disable_verify=False)
+
+        def server(sock):
+            try:
+                sock.starttls(
+                    sslctx,
+                    server_side=True)
+                sock.connect()
+            except ssl.SSLError:
+                pass
+            finally:
+                sock.close()
+
+        async def client(addr):
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                loop=self.loop,
+                ssl_handshake_timeout=1.0)
+
+        with self.tcp_server(server,
+                             max_clients=1,
+                             backlog=1) as srv:
+
+            with self.assertRaises(ssl.SSLCertVerificationError):
+                self.loop.run_until_complete(client(srv.addr))
 
     def test_ssl_connect_accepted_socket(self):
         server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)

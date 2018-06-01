@@ -13,6 +13,7 @@ import re
 import select
 import socket
 import ssl
+import sys
 import tempfile
 import threading
 import time
@@ -88,6 +89,9 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             # Disable `_get_running_loop`.
             self._get_running_loop = asyncio.events._get_running_loop
             asyncio.events._get_running_loop = lambda: None
+
+        self.PY37 = sys.version_info[:2] >= (3, 7)
+        self.PY36 = sys.version_info[:2] >= (3, 6)
 
     def tearDown(self):
         self.loop.close()
@@ -268,10 +272,11 @@ class SSLTestCase:
         sslcontext.load_cert_chain(certfile, keyfile)
         return sslcontext
 
-    def _create_client_ssl_context(self):
+    def _create_client_ssl_context(self, *, disable_verify=True):
         sslcontext = ssl.create_default_context()
         sslcontext.check_hostname = False
-        sslcontext.verify_mode = ssl.CERT_NONE
+        if disable_verify:
+            sslcontext.verify_mode = ssl.CERT_NONE
         return sslcontext
 
     @contextlib.contextmanager
