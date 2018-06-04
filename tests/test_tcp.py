@@ -158,7 +158,8 @@ class _TestTCP:
                 loop=self.loop,
                 sock=sock)
 
-            self.assertIs(srv.get_loop(), self.loop)
+            if self.PY37:
+                self.assertIs(srv.get_loop(), self.loop)
 
             srv_socks = srv.sockets
             self.assertTrue(srv_socks)
