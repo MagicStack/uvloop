@@ -39,6 +39,9 @@ cdef class Server:
     def __repr__(self):
         return '<%s sockets=%r>' % (self.__class__.__name__, self.sockets)
 
+    def get_loop(self):
+        return self._loop
+
     @cython.iterable_coroutine
     async def wait_closed(self):
         if self._waiters is None:
