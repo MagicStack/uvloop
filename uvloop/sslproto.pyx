@@ -383,6 +383,7 @@ class _SSLProtocolTransport(aio_FlowControlMixin, aio_Transport):
         called with None as its argument.
         """
         self._ssl_protocol._abort()
+        self._closed = True
 
 
 class SSLProtocol(object):
