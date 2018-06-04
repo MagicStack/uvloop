@@ -126,7 +126,6 @@ cdef class UVBaseTransport(UVSocketHandle):
             self._waiter = None
 
     cdef _call_connection_made(self):
-        cdef Py_ssize_t _loop_ready_len
         if self._protocol is None:
             raise RuntimeError(
                 'protocol is not set, cannot call connection_made()')
@@ -141,8 +140,6 @@ cdef class UVBaseTransport(UVSocketHandle):
             # the actual `_call_connection_made`.
             self._wakeup_waiter()
             return
-
-        _loop_ready_len = self._loop._ready_len
 
         # Set _protocol_connected to 1 before calling "connection_made":
         # if transport is aborted or closed, "connection_lost" will
@@ -161,24 +158,7 @@ cdef class UVBaseTransport(UVSocketHandle):
             self._wakeup_waiter()
             return
 
-        if _loop_ready_len == self._loop._ready_len:
-            # No new calls were scheduled by 'protocol.connection_made',
-            # so it's safe to start reading right now.
-            self._start_reading()
-        else:
-            # In asyncio we'd just call start_reading() right after we
-            # call protocol.connection_made().  However, that breaks
-            # SSLProtocol in uvloop, which does some initialization
-            # with loop.call_soon in its connection_made.  It appears,
-            # that uvloop can call protocol.data_received() *before* it
-            # calls the handlers that connection_made set up.
-            # That's why we're using another call_soon here.
-            self._loop._call_soon_handle(
-                new_MethodHandle(self._loop,
-                                 "UVTransport._start_reading",
-                                 <method_t>self._start_reading,
-                                 self))
-
+        self._start_reading()
         self._wakeup_waiter()
 
     cdef _call_connection_lost(self, exc):
