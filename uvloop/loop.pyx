@@ -1494,6 +1494,50 @@ cdef class Loop:
         return await self._getnameinfo(ai.ai_addr, flags)
 
     @cython.iterable_coroutine
+    async def start_tls(self, transport, protocol, sslcontext, *,
+                        server_side=False,
+                        server_hostname=None,
+                        ssl_handshake_timeout=None):
+        """Upgrade transport to TLS.
+
+        Return a new transport that *protocol* should start using
+        immediately.
+        """
+        if not isinstance(sslcontext, ssl_SSLContext):
+            raise TypeError(
+                f'sslcontext is expected to be an instance of ssl.SSLContext, '
+                f'got {sslcontext!r}')
+
+        if not isinstance(transport, (TCPTransport, UnixTransport)):
+            raise TypeError(
+                f'transport {transport!r} is not supported by start_tls()')
+
+        waiter = self._new_future()
+        ssl_protocol = SSLProtocol(
+            self, protocol, sslcontext, waiter,
+            server_side, server_hostname,
+            ssl_handshake_timeout=ssl_handshake_timeout,
+            call_connection_made=False)
+
+        # Pause early so that "ssl_protocol.data_received()" doesn't
+        # have a chance to get called before "ssl_protocol.connection_made()".
+        transport.pause_reading()
+
+        transport.set_protocol(ssl_protocol)
+        conmade_cb = self.call_soon(ssl_protocol.connection_made, transport)
+        resume_cb = self.call_soon(transport.resume_reading)
+
+        try:
+            await waiter
+        except Exception:
+            transport.close()
+            conmade_cb.cancel()
+            resume_cb.cancel()
+            raise
+
+        return ssl_protocol._app_transport
+
+    @cython.iterable_coroutine
     async def create_server(self, protocol_factory, host=None, port=None,
                             *,
                             int family=uv.AF_UNSPEC,

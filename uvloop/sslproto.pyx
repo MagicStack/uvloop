@@ -280,7 +280,7 @@ class _SSLProtocolTransport(aio_FlowControlMixin, aio_Transport):
         return self._ssl_protocol._get_extra_info(name, default)
 
     def set_protocol(self, protocol):
-        self._ssl_protocol._app_protocol = protocol
+        self._ssl_protocol._set_app_protocol(protocol)
 
     def get_protocol(self):
         return self._ssl_protocol._app_protocol
@@ -423,7 +423,7 @@ class SSLProtocol(object):
 
         self._waiter = waiter
         self._loop = loop
-        self._app_protocol = app_protocol
+        self._set_app_protocol(app_protocol)
         self._app_transport = None
         # _SSLPipe instance (None until the connection is made)
         self._sslpipe = None
@@ -434,6 +434,13 @@ class SSLProtocol(object):
         self._transport = None
         self._call_connection_made = call_connection_made
         self._ssl_handshake_timeout = ssl_handshake_timeout
+
+    def _set_app_protocol(self, app_protocol):
+        self._app_protocol = app_protocol
+        self._app_protocol_is_buffer = (
+            not hasattr(app_protocol, 'data_received') and
+            hasattr(app_protocol, 'get_buffer')
+        )
 
     def _wakeup_waiter(self, exc=None):
         if self._waiter is None:
@@ -506,7 +513,16 @@ class SSLProtocol(object):
 
         for chunk in appdata:
             if chunk:
-                self._app_protocol.data_received(chunk)
+                try:
+                    if self._app_protocol_is_buffer:
+                        _feed_data_to_bufferred_proto(
+                            self._app_protocol, chunk)
+                    else:
+                        self._app_protocol.data_received(chunk)
+                except Exception as ex:
+                    self._fatal_error(
+                        ex, 'application protocol failed to receive SSL data')
+                    return
             else:
                 self._start_shutdown()
                 break
@@ -694,3 +710,22 @@ class SSLProtocol(object):
                 self._transport.abort()
         finally:
             self._finalize()
+
+
+cdef _feed_data_to_bufferred_proto(proto, data):
+    data_len = len(data)
+    while data_len:
+        buf = proto.get_buffer(data_len)
+        buf_len = len(buf)
+        if not buf_len:
+            raise RuntimeError('get_buffer() returned an empty buffer')
+
+        if buf_len >= data_len:
+            buf[:data_len] = data
+            proto.buffer_updated(data_len)
+            return
+        else:
+            buf[:buf_len] = data[:buf_len]
+            proto.buffer_updated(buf_len)
+            data = data[buf_len:]
+            data_len = len(data)
