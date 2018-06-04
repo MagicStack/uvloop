@@ -496,7 +496,7 @@ class SSLProtocol(object):
             ssldata, appdata = (<_SSLPipe>self._sslpipe).feed_ssldata(data)
         except ssl_SSLError as e:
             msg = (
-                f'{self}: SSL error errno:{getattr(e, "errno", "missing")} '
+                f'SSL error errno:{getattr(e, "errno", "missing")} '
                 f'reason: {getattr(e, "reason", "missing")}'
             )
             self._fatal_error(e, msg)
@@ -576,7 +576,7 @@ class SSLProtocol(object):
     def _check_handshake_timeout(self):
         if self._in_handshake is True:
             msg = (
-                f"SSL handshake for {self} is taking longer than "
+                f"SSL handshake is taking longer than "
                 f"{self._ssl_handshake_timeout} seconds: "
                 f"aborting the connection"
             )
@@ -594,12 +594,9 @@ class SSLProtocol(object):
             peercert = sslobj.getpeercert()
         except Exception as exc:
             if isinstance(exc, ssl_CertificateError):
-                msg = (
-                    f'{self}: SSL handshake failed on verifying '
-                    f'the certificate'
-                )
+                msg = 'SSL handshake failed on verifying the certificate'
             else:
-                msg = f'{self}: SSL handshake failed'
+                msg = 'SSL handshake failed'
             self._fatal_error(exc, msg)
             return
 
@@ -661,15 +658,12 @@ class SSLProtocol(object):
                 # delete it and reduce the outstanding buffer size.
                 del self._write_backlog[0]
                 self._write_buffer_size -= len(data)
-        except BaseException as exc:
+        except Exception as exc:
             if self._in_handshake:
-                # BaseExceptions will be re-raised in _on_handshake_complete.
+                # Exceptions will be re-raised in _on_handshake_complete.
                 self._on_handshake_complete(exc)
             else:
                 self._fatal_error(exc, 'Fatal error on SSL transport')
-            if not isinstance(exc, Exception):
-                # BaseException
-                raise
 
     def _fatal_error(self, exc, message='Fatal error on transport'):
         if self._transport:
