@@ -875,6 +875,10 @@ cdef class Loop:
         cdef:
             Handle handle
 
+        if fut.cancelled():
+            self._remove_reader(sock)
+            return
+
         try:
             data = sock.recv(n)
         except (BlockingIOError, InterruptedError):
@@ -891,6 +895,10 @@ cdef class Loop:
     cdef _sock_recv_into(self, fut, sock, buf):
         cdef:
             Handle handle
+
+        if fut.cancelled():
+            self._remove_reader(sock)
+            return
 
         try:
             data = sock.recv_into(buf)
@@ -909,6 +917,10 @@ cdef class Loop:
         cdef:
             Handle handle
             int n
+
+        if fut.cancelled():
+            self._remove_writer(sock)
+            return
 
         try:
             n = sock.send(data)
@@ -942,6 +954,10 @@ cdef class Loop:
     cdef _sock_accept(self, fut, sock):
         cdef:
             Handle handle
+
+        if fut.cancelled():
+            self._remove_reader(sock)
+            return
 
         try:
             conn, address = sock.accept()
