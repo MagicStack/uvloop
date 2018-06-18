@@ -76,6 +76,10 @@ cdef class Handle:
                 (<method3_t>self.callback)(
                     self.arg1, self.arg2, self.arg3, self.arg4)
 
+            elif cb_type == 6:
+                (<method4_t>self.callback)(
+                    self.arg1, self.arg2, self.arg3, self.arg4, self.arg5)
+
             else:
                 raise RuntimeError('invalid Handle.cb_type: {}'.format(
                     cb_type))
@@ -106,7 +110,7 @@ cdef class Handle:
     cdef _cancel(self):
         self._cancelled = 1
         self.callback = NULL
-        self.arg2 = self.arg3 = self.arg4 = None
+        self.arg2 = self.arg3 = self.arg4 = self.arg5 = None
 
     cdef _format_handle(self):
         # Mirrors `asyncio.base_events._format_handle`.
@@ -379,6 +383,26 @@ cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
     handle.arg2 = arg1
     handle.arg3 = arg2
     handle.arg4 = arg3
+
+    return handle
+
+cdef new_MethodHandle4(Loop loop, str name, method4_t callback, object ctx,
+                       object arg1, object arg2, object arg3, object arg4):
+
+    cdef Handle handle
+    handle = Handle.__new__(Handle)
+    handle._set_loop(loop)
+    handle._set_context(None)
+
+    handle.cb_type = 6
+    handle.meth_name = name
+
+    handle.callback = <void*> callback
+    handle.arg1 = ctx
+    handle.arg2 = arg1
+    handle.arg3 = arg2
+    handle.arg4 = arg3
+    handle.arg5 = arg4
 
     return handle
 
