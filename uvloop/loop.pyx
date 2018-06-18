@@ -2277,6 +2277,12 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
+        # Remove the callback early. It should be rare that the
+        # selector says the fd is ready but the call still returns
+        # EAGAIN, and I am willing to take a hit in that case in
+        # order to simplify the common case.
+        self._remove_reader(sock)
+
         fut = self._new_reader_future(sock)
         handle = new_MethodHandle3(
             self,
@@ -2302,6 +2308,12 @@ cdef class Loop:
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
+        # Remove the callback early. It should be rare that the
+        # selector says the fd is ready but the call still returns
+        # EAGAIN, and I am willing to take a hit in that case in
+        # order to simplify the common case.
+        self._remove_reader(sock)
 
         fut = self._new_reader_future(sock)
         handle = new_MethodHandle3(
@@ -2354,6 +2366,12 @@ cdef class Loop:
                     data = memoryview(data)
                 data = data[n:]
 
+            # Remove the callback early. It should be rare that the
+            # selector says the fd is ready but the call still returns
+            # EAGAIN, and I am willing to take a hit in that case in
+            # order to simplify the common case.
+            self._remove_writer(sock)
+
             fut = self._new_writer_future(sock)
             handle = new_MethodHandle3(
                 self,
@@ -2383,6 +2401,12 @@ cdef class Loop:
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
+
+        # Remove the callback early. It should be rare that the
+        # selector says the fd is ready but the call still returns
+        # EAGAIN, and I am willing to take a hit in that case in
+        # order to simplify the common case.
+        self._remove_reader(sock)
 
         fut = self._new_reader_future(sock)
         handle = new_MethodHandle2(
