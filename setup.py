@@ -31,7 +31,7 @@ def _libuv_build_env():
     env = os.environ.copy()
 
     cur_cflags = env.get('CFLAGS', '')
-    if not re.search('-O\d', cur_cflags):
+    if not re.search(r'-O\d', cur_cflags):
         cur_cflags += ' -O2'
 
     env['CFLAGS'] = (cur_cflags + ' -fPIC ' + env.get('ARCHFLAGS', ''))
