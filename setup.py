@@ -40,9 +40,17 @@ def _libuv_build_env():
 
 
 def _libuv_autogen(env):
-    if not os.path.exists(os.path.join(LIBUV_DIR, 'configure')):
-        subprocess.run(
-            ['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env, check=True)
+    if os.path.exists(os.path.join(LIBUV_DIR, 'configure')):
+        # No need to use autogen, the configure script is there.
+        return
+
+    if not os.path.exists(os.path.join(LIBUV_DIR, 'autogen.sh')):
+        raise RuntimeError(
+            'the libuv submodule has not been checked out; '
+            'try running "git submodule init; git submodule update"')
+
+    subprocess.run(
+        ['/bin/sh', 'autogen.sh'], cwd=LIBUV_DIR, env=env, check=True)
 
 
 class uvloop_sdist(sdist):
