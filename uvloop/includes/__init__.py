@@ -1,3 +1,5 @@
+# flake8: noqa
+
 # These have to be synced with the stdlib.pxi
 import asyncio
 import collections
