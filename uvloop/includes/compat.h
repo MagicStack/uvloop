@@ -35,6 +35,10 @@ typedef struct {
     PyObject_HEAD
 } PyContext;
 
+typedef struct {
+    PyObject_HEAD
+} PyContextVar;
+
 PyContext * PyContext_CopyCurrent(void) {
     abort();
     return NULL;
@@ -47,6 +51,10 @@ int PyContext_Enter(PyContext *ctx) {
 
 int PyContext_Exit(PyContext *ctx) {
     abort();
+    return -1;
+}
+
+int PyContextVar_Get(PyContextVar *var, PyObject *default_value, PyObject **value) {
     return -1;
 }
 #endif

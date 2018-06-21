@@ -249,6 +249,7 @@ cdef class AddrInfoRequest(UVRequest):
     cdef:
         system.addrinfo hints
         object callback
+        object context
         uv.uv_getaddrinfo_t _req_data
 
     def __cinit__(self, Loop loop,
@@ -277,6 +278,11 @@ cdef class AddrInfoRequest(UVRequest):
             ex = socket_gaierror(socket_EAI_NONAME, msg)
             callback(ex)
             return
+
+        if PY37:
+            self.context = <object>PyContext_CopyCurrent()
+        else:
+            self.context = None
 
         memset(&self.hints, 0, sizeof(system.addrinfo))
         self.hints.ai_flags = flags
@@ -336,6 +342,9 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
         object callback = request.callback
         AddrInfo ai
 
+    if PY37:
+        PyContext_Enter(<PyContext*>request.context)
+
     try:
         if status < 0:
             callback(convert_error(status))
@@ -347,6 +356,8 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
         loop._handle_exception(ex)
     finally:
         request.on_done()
+        if PY37:
+            PyContext_Exit(<PyContext*>request.context)
 
 
 cdef void __on_nameinfo_resolved(uv.uv_getnameinfo_t* req,

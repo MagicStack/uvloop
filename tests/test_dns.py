@@ -1,8 +1,12 @@
 import asyncio
 import socket
+import sys
 import unittest
 
 from uvloop import _testbase as tb
+
+
+PY37 = sys.version_info >= (3, 7, 0)
 
 
 class BaseTestDNS:
@@ -176,6 +180,57 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
             self.loop.run_until_complete(run())
         finally:
             self.loop.close()
+
+    @unittest.skipUnless(PY37, 'requires Python 3.7')
+    def test_getaddrinfo_tracing(self):
+        from time import monotonic
+        from uvloop import start_tracing, stop_tracing
+        from uvloop.tracing import Tracer, Span
+
+        class DummySpan(Span):
+            def __init__(self, name, parent=None):
+                self.name = name
+                self.parent = parent
+                self.start_time = monotonic()
+                self.finish_time = None
+                self.children = []
+                self.tags = {}
+
+            def set_tag(self, key, value):
+                self.tags[key] = value
+
+            def finish(self, finish_time=None):
+                self.finish_time = finish_time or monotonic()
+
+            @property
+            def is_finished(self):
+                return self.finish_time is not None
+
+
+        class DummyTracer(Tracer):
+            def start_span(self, name, parent_span):
+                span = DummySpan(name, parent_span)
+                parent_span.children.append(span)
+                return span
+
+        root_span = DummySpan('root')
+        start_tracing(DummyTracer(), root_span)
+        self.loop.run_until_complete(
+            self.loop.getaddrinfo('example.com', 80)
+        )
+        root_span.finish()
+        assert root_span.children
+        assert root_span.children[0].name == 'getaddrinfo'
+        assert root_span.children[0].tags['host'] == b'example.com'
+        assert root_span.children[0].tags['port'] == b'80'
+        assert root_span.children[0].is_finished
+        assert root_span.children[0].start_time < root_span.children[0].finish_time
+
+        stop_tracing()
+        self.loop.run_until_complete(
+            self.loop.getaddrinfo('example.com', 80)
+        )
+        assert len(root_span.children) == 1
 
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):

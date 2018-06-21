@@ -18,7 +18,9 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyContext, \
                               PyContext_CopyCurrent, \
                               PyContext_Enter, \
-                              PyContext_Exit
+                              PyContext_Exit, \
+			      PyContextVar, \
+			      PyContextVar_Get
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
@@ -821,12 +823,25 @@ cdef class Loop:
                 except Exception as ex:
                     if not fut.cancelled():
                         fut.set_exception(ex)
+
                 else:
                     if not fut.cancelled():
                         fut.set_result(data)
+
             else:
                 if not fut.cancelled():
                     fut.set_exception(result)
+
+            traced_context = __traced_context()
+            if traced_context:
+                traced_context.current_span().finish()
+
+        traced_context = __traced_context()
+        if traced_context:
+            traced_context.start_span(
+                "getaddrinfo",
+                tags={'host': host, 'port': port}
+            )
 
         AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
         return fut
@@ -2975,6 +2990,8 @@ include "sslproto.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
+
+include "tracing.pyx"
 
 
 # Used in UVProcess
