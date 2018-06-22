@@ -45,7 +45,7 @@ cdef class Loop:
         bint _running
         bint _stopping
 
-        long _thread_id
+        uint64_t _thread_id
         bint _thread_is_main
 
         object _task_factory

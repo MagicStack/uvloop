@@ -638,7 +638,7 @@ cdef class Loop:
     cdef inline _check_thread(self):
         if self._thread_id == 0:
             return
-        cdef long thread_id = PyThread_get_thread_ident()
+        cdef uint64_t thread_id = PyThread_get_thread_ident()
         if thread_id != self._thread_id:
             raise RuntimeError(
                 "Non-thread-safe operation invoked on an event loop other "
