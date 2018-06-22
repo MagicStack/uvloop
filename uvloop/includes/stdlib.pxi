@@ -125,7 +125,7 @@ cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
 cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
 cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
-cdef long MAIN_THREAD_ID = <long>threading.main_thread().ident
+cdef uint64_t MAIN_THREAD_ID = <long>threading.main_thread().ident
 
 cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT
