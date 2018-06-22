@@ -82,6 +82,16 @@ cdef inline socket_dec_io_ref(sock):
         sock._decref_socketios()
 
 
+class sync_cancel_Future(aio_Future):
+    def __init__(self, callback, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._callback = callback
+
+    def cancel(self):
+        super().cancel()
+        self._callback(self)
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -858,8 +868,7 @@ cdef class Loop:
             if fut.cancelled() and sock.fileno() != -1:
                 self._remove_reader(sock)
 
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
+        fut = sync_cancel_Future(callback=_on_cancel, loop=self)
         return fut
 
     cdef _new_writer_future(self, sock):
@@ -867,85 +876,59 @@ cdef class Loop:
             if fut.cancelled() and sock.fileno() != -1:
                 self._remove_writer(sock)
 
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
+        fut = sync_cancel_Future(callback=_on_cancel, loop=self)
         return fut
 
-    cdef _sock_recv(self, fut, registered_fd, sock, n):
+    cdef _sock_recv(self, fut, sock, n):
         cdef:
             Handle handle
-
-        if registered_fd:
-            # Remove the callback early. It should be rare that the
-            # selector says the fd is ready but the call still returns
-            # EAGAIN, and I am willing to take a hit in that case in
-            # order to simplify the common case.
-            self.remove_reader(registered_fd)
-        if fut.cancelled():
-            return
 
         try:
             data = sock.recv(n)
         except (BlockingIOError, InterruptedError):
-            fd = sock.fileno()
-            handle = new_MethodHandle4(
-                self,
-                "Loop._sock_recv",
-                <method4_t>self._sock_recv,
-                self,
-                fut, fd, sock, n)
-            self._add_reader(sock, handle)
+            # No need to re-add the reader, let's just wait until
+            # the poll handler calls this callback again.
+            pass
         except Exception as exc:
             fut.set_exception(exc)
+            self._remove_reader(sock)
         else:
             fut.set_result(data)
+            self._remove_reader(sock)
 
-    cdef _sock_recv_into(self, fut, registered_fd, sock, buf):
+    cdef _sock_recv_into(self, fut, sock, buf):
         cdef:
             Handle handle
-
-        if registered_fd:
-            # Remove the callback early. It should be rare that the
-            # selector says the fd is ready but the call still returns
-            # EAGAIN, and I am willing to take a hit in that case in
-            # order to simplify the common case.
-            self.remove_reader(registered_fd)
-        if fut.cancelled():
-            return
 
         try:
             data = sock.recv_into(buf)
         except (BlockingIOError, InterruptedError):
-            fd = sock.fileno()
-            handle = new_MethodHandle4(
-                self,
-                "Loop._sock_recv_into",
-                <method4_t>self._sock_recv_into,
-                self,
-                fut, fd, sock, buf)
-            self._add_reader(sock, handle)
+            # No need to re-add the reader, let's just wait until
+            # the poll handler calls this callback again.
+            pass
         except Exception as exc:
             fut.set_exception(exc)
+            self._remove_reader(sock)
         else:
             fut.set_result(data)
+            self._remove_reader(sock)
 
-    cdef _sock_sendall(self, fut, registered_fd, sock, data):
+    cdef _sock_sendall(self, fut, sock, data):
         cdef:
             Handle handle
             int n
 
-        if registered_fd:
-            self._remove_writer(registered_fd)
-        if fut.cancelled():
-            return
-
         try:
             n = sock.send(data)
         except (BlockingIOError, InterruptedError):
-            n = 0
+            # Try next time.
+            return
         except Exception as exc:
             fut.set_exception(exc)
+            self._remove_writer(sock)
             return
+
+        self._remove_writer(sock)
 
         if n == len(data):
             fut.set_result(None)
@@ -955,40 +938,32 @@ cdef class Loop:
                     data = memoryview(data)
                 data = data[n:]
 
-            fd = sock.fileno()
-            handle = new_MethodHandle4(
+            handle = new_MethodHandle3(
                 self,
                 "Loop._sock_sendall",
-                <method4_t>self._sock_sendall,
+                <method3_t>self._sock_sendall,
                 self,
-                fut, fd, sock, data)
+                fut, sock, data)
 
             self._add_writer(sock, handle)
 
-    cdef _sock_accept(self, fut, registered, sock):
+    cdef _sock_accept(self, fut, sock):
         cdef:
             Handle handle
-
-        if registered:
-            self._remove_reader(sock)
-        if fut.cancelled():
-            return
 
         try:
             conn, address = sock.accept()
             conn.setblocking(False)
         except (BlockingIOError, InterruptedError):
-            handle = new_MethodHandle3(
-                self,
-                "Loop._sock_accept",
-                <method3_t>self._sock_accept,
-                self,
-                fut, True, sock)
-            self._add_reader(sock, handle)
+            # There is an active reader for _sock_accept, so
+            # do nothing, it will be called again.
+            pass
         except Exception as exc:
             fut.set_exception(exc)
+            self._remove_reader(sock)
         else:
             fut.set_result((conn, address))
+            self._remove_reader(sock)
 
     cdef _sock_connect(self, sock, address):
         cdef:
@@ -2295,7 +2270,14 @@ cdef class Loop:
             raise ValueError("the socket must be non-blocking")
 
         fut = self._new_reader_future(sock)
-        self._sock_recv(fut, 0, sock, n)
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_recv",
+            <method3_t>self._sock_recv,
+            self,
+            fut, sock, n)
+
+        self._add_reader(sock, handle)
         return await fut
 
     @cython.iterable_coroutine
@@ -2314,7 +2296,14 @@ cdef class Loop:
             raise ValueError("the socket must be non-blocking")
 
         fut = self._new_reader_future(sock)
-        self._sock_recv_into(fut, 0, sock, buf)
+        handle = new_MethodHandle3(
+            self,
+            "Loop._sock_recv_into",
+            <method3_t>self._sock_recv_into,
+            self,
+            fut, sock, buf)
+
+        self._add_reader(sock, handle)
         return await fut
 
     @cython.iterable_coroutine
@@ -2336,13 +2325,36 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
+        if not data:
+            return
+
         socket_inc_io_ref(sock)
         try:
-            fut = self._new_writer_future(sock)
-            if data:
-                self._sock_sendall(fut, 0, sock, data)
+            try:
+                n = sock.send(data)
+            except (BlockingIOError, InterruptedError):
+                pass
             else:
-                fut.set_result(None)
+                if UVLOOP_DEBUG:
+                    # This can be a partial success, i.e. only part
+                    # of the data was sent
+                    self._sock_try_write_total += 1
+
+                if n == len(data):
+                    return
+                if not isinstance(data, memoryview):
+                    data = memoryview(data)
+                data = data[n:]
+
+            fut = self._new_writer_future(sock)
+            handle = new_MethodHandle3(
+                self,
+                "Loop._sock_sendall",
+                <method3_t>self._sock_sendall,
+                self,
+                fut, sock, data)
+
+            self._add_writer(sock, handle)
             return await fut
         finally:
             socket_dec_io_ref(sock)
@@ -2365,7 +2377,14 @@ cdef class Loop:
             raise ValueError("the socket must be non-blocking")
 
         fut = self._new_reader_future(sock)
-        self._sock_accept(fut, False, sock)
+        handle = new_MethodHandle2(
+            self,
+            "Loop._sock_accept",
+            <method2_t>self._sock_accept,
+            self,
+            fut, sock)
+
+        self._add_reader(sock, handle)
         return await fut
 
     @cython.iterable_coroutine

@@ -27,7 +27,6 @@ ctypedef object (*method_t)(object)
 ctypedef object (*method1_t)(object, object)
 ctypedef object (*method2_t)(object, object, object)
 ctypedef object (*method3_t)(object, object, object, object)
-ctypedef object (*method4_t)(object, object, object, object, object)
 
 
 
@@ -186,10 +185,10 @@ cdef class Loop:
     cdef _add_writer(self, fd, Handle handle)
     cdef _remove_writer(self, fd)
 
-    cdef _sock_recv(self, fut, registered_fd, sock, n)
-    cdef _sock_recv_into(self, fut, registered_fd, sock, buf)
-    cdef _sock_sendall(self, fut, registered_fd, sock, data)
-    cdef _sock_accept(self, fut, registered, sock)
+    cdef _sock_recv(self, fut, sock, n)
+    cdef _sock_recv_into(self, fut, sock, buf)
+    cdef _sock_sendall(self, fut, sock, data)
+    cdef _sock_accept(self, fut, sock)
 
     cdef _sock_connect(self, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)

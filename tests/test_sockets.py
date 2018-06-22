@@ -189,6 +189,34 @@ class _TestSockets:
             self.assertEqual(sock.fileno(), -1)
             self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
+    def test_sock_send_before_cancel(self):
+        sock_conn = None
+
+        async def server():
+            nonlocal sock_conn
+            sock_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_server.setblocking(False)
+            with sock_server:
+                sock_server.bind(('127.0.0.1', 0))
+                sock_server.listen()
+                fut = asyncio.ensure_future(client(sock_server.getsockname()), loop=self.loop)
+                sock_conn, _ = await self.loop.sock_accept(sock_server)
+                with sock_conn:
+                    await fut
+
+        async def client(addr):
+            sock_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_client.setblocking(False)
+            with sock_client:
+                await self.loop.sock_connect(sock_client, addr)
+                _, running = await asyncio.wait([self.loop.sock_recv(sock_client, 1)], timeout=1, loop=self.loop)
+                # server can send the data in a random time, even before the previous result future has cancelled
+                await self.loop.sock_sendall(sock_conn, b'1')
+                [r.cancel() for r in running]
+                data = await asyncio.wait_for(self.loop.sock_recv(sock_client, 1), timeout=1, loop=self.loop)
+                self.assertEqual(data, b'1')
+
+        self.loop.run_until_complete(server())
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
 
