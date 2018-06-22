@@ -204,7 +204,7 @@ cdef class UVProcess(UVHandle):
     cdef char** __to_cstring_array(self, list arr):
         cdef:
             int i
-            int arr_len = len(arr)
+            ssize_t arr_len = len(arr)
             bytes el
 
             char **ret

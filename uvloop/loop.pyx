@@ -2312,7 +2312,7 @@ cdef class Loop:
         """
         cdef:
             Handle handle
-            int n
+            ssize_t n
 
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")

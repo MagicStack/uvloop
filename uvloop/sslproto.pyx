@@ -23,7 +23,7 @@ cdef:
     str _SHUTDOWN = "SHUTDOWN"
 
 
-cdef int READ_MAX_SIZE = 256 * 1024
+cdef ssize_t READ_MAX_SIZE = 256 * 1024
 
 
 @cython.no_gc_clear
