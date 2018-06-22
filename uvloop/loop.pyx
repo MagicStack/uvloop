@@ -82,6 +82,16 @@ cdef inline socket_dec_io_ref(sock):
         sock._decref_socketios()
 
 
+class sync_cancel_Future(aio_Future):
+    def __init__(self, callback, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._callback = callback
+
+    def cancel(self):
+        super().cancel()
+        self._callback(self)
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -858,8 +868,7 @@ cdef class Loop:
             if fut.cancelled() and sock.fileno() != -1:
                 self._remove_reader(sock)
 
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
+        fut = sync_cancel_Future(callback=_on_cancel, loop=self)
         return fut
 
     cdef _new_writer_future(self, sock):
@@ -867,8 +876,7 @@ cdef class Loop:
             if fut.cancelled() and sock.fileno() != -1:
                 self._remove_writer(sock)
 
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
+        fut = sync_cancel_Future(callback=_on_cancel, loop=self)
         return fut
 
     cdef _sock_recv(self, fut, sock, n):
