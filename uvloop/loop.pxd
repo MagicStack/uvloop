@@ -177,12 +177,12 @@ cdef class Loop:
     cdef _track_process(self, UVProcess proc)
     cdef _untrack_process(self, UVProcess proc)
 
-    cdef _new_reader_future(self, sock)
-    cdef _new_writer_future(self, sock)
     cdef _add_reader(self, fd, Handle handle)
+    cdef _has_reader(self, fd)
     cdef _remove_reader(self, fd)
 
     cdef _add_writer(self, fd, Handle handle)
+    cdef _has_writer(self, fd)
     cdef _remove_writer(self, fd)
 
     cdef _sock_recv(self, fut, sock, n)
