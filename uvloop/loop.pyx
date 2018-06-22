@@ -742,6 +742,20 @@ cdef class Loop:
 
         return result
 
+    cdef _has_reader(self, fileobj):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+        fd = self._fileobj_to_fd(fileobj)
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        return poll.is_reading()
+
     cdef _add_writer(self, fileobj, Handle handle):
         cdef:
             UVPoll poll
@@ -790,6 +804,20 @@ cdef class Loop:
             poll._close()
 
         return result
+
+    cdef _has_writer(self, fileobj):
+        cdef:
+            UVPoll poll
+
+        self._check_closed()
+        fd = self._fileobj_to_fd(fileobj)
+
+        try:
+            poll = <UVPoll>(self._polls[fd])
+        except KeyError:
+            return False
+
+        return poll.is_writing()
 
     cdef _getaddrinfo(self, object host, object port,
                       int family, int type,
@@ -845,35 +873,17 @@ cdef class Loop:
         nr.query(addr, flags)
         return fut
 
-    cdef _new_reader_future(self, sock):
-        def _on_cancel(fut):
-            # Check if the future was cancelled and if the socket
-            # is still open, i.e.
-            #
-            #    loop.remove_reader(sock)
-            #    sock.close()
-            #    fut.cancel()
-            #
-            # wasn't called by the user.
-            if fut.cancelled() and sock.fileno() != -1:
-                self._remove_reader(sock)
-
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
-        return fut
-
-    cdef _new_writer_future(self, sock):
-        def _on_cancel(fut):
-            if fut.cancelled() and sock.fileno() != -1:
-                self._remove_writer(sock)
-
-        fut = self._new_future()
-        fut.add_done_callback(_on_cancel)
-        return fut
-
     cdef _sock_recv(self, fut, sock, n):
-        cdef:
-            Handle handle
+        if UVLOOP_DEBUG:
+            if fut.cancelled():
+                # Shouldn't happen with _SyncSocketReaderFuture.
+                raise RuntimeError(
+                    f'_sock_recv is called on a cancelled Future')
+
+            if not self._has_reader(sock):
+                raise RuntimeError(
+                    f'socket {sock!r} does not have a reader '
+                    f'in the _sock_recv callback')
 
         try:
             data = sock.recv(n)
@@ -889,8 +899,16 @@ cdef class Loop:
             self._remove_reader(sock)
 
     cdef _sock_recv_into(self, fut, sock, buf):
-        cdef:
-            Handle handle
+        if UVLOOP_DEBUG:
+            if fut.cancelled():
+                # Shouldn't happen with _SyncSocketReaderFuture.
+                raise RuntimeError(
+                    f'_sock_recv_into is called on a cancelled Future')
+
+            if not self._has_reader(sock):
+                raise RuntimeError(
+                    f'socket {sock!r} does not have a reader '
+                    f'in the _sock_recv_into callback')
 
         try:
             data = sock.recv_into(buf)
@@ -909,6 +927,17 @@ cdef class Loop:
         cdef:
             Handle handle
             int n
+
+        if UVLOOP_DEBUG:
+            if fut.cancelled():
+                # Shouldn't happen with _SyncSocketReaderFuture.
+                raise RuntimeError(
+                    f'_sock_sendall is called on a cancelled Future')
+
+            if not self._has_writer(sock):
+                raise RuntimeError(
+                    f'socket {sock!r} does not have a writer '
+                    f'in the _sock_sendall callback')
 
         try:
             n = sock.send(data)
@@ -940,9 +969,6 @@ cdef class Loop:
             self._add_writer(sock, handle)
 
     cdef _sock_accept(self, fut, sock):
-        cdef:
-            Handle handle
-
         try:
             conn, address = sock.accept()
             conn.setblocking(False)
@@ -2261,7 +2287,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_reader_future(sock)
+        fut = _SyncSocketReaderFuture(sock, self)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_recv",
@@ -2287,7 +2313,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_reader_future(sock)
+        fut = _SyncSocketReaderFuture(sock, self)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_recv_into",
@@ -2338,7 +2364,7 @@ cdef class Loop:
                     data = memoryview(data)
                 data = data[n:]
 
-            fut = self._new_writer_future(sock)
+            fut = _SyncSocketWriterFuture(sock, self)
             handle = new_MethodHandle3(
                 self,
                 "Loop._sock_sendall",
@@ -2368,7 +2394,7 @@ cdef class Loop:
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
 
-        fut = self._new_reader_future(sock)
+        fut = _SyncSocketReaderFuture(sock, self)
         handle = new_MethodHandle2(
             self,
             "Loop._sock_accept",
@@ -2950,6 +2976,36 @@ cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
 
 cdef inline void __loop_free_buffer(Loop loop):
     loop._recv_buffer_in_use = 0
+
+
+class _SyncSocketReaderFuture(aio_Future):
+
+    def __init__(self, sock, loop):
+        aio_Future.__init__(self, loop=loop)
+        self.__sock = sock
+        self.__loop = loop
+
+    def cancel(self):
+        if self.__sock is not None and self.__sock.fileno() != -1:
+            self.__loop.remove_reader(self.__sock)
+            self.__sock = None
+
+        aio_Future.cancel(self)
+
+
+class _SyncSocketWriterFuture(aio_Future):
+
+    def __init__(self, sock, loop):
+        aio_Future.__init__(self, loop=loop)
+        self.__sock = sock
+        self.__loop = loop
+
+    def cancel(self):
+        if self.__sock is not None and self.__sock.fileno() != -1:
+            self.__loop.remove_writer(self.__sock)
+            self.__sock = None
+
+        aio_Future.cancel(self)
 
 
 include "cbhandles.pyx"

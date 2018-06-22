@@ -189,6 +189,91 @@ class _TestSockets:
             self.assertEqual(sock.fileno(), -1)
             self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
+    def test_sock_cancel_add_reader_race(self):
+        srv_sock_conn = None
+
+        async def server():
+            nonlocal srv_sock_conn
+            sock_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_server.setblocking(False)
+            with sock_server:
+                sock_server.bind(('127.0.0.1', 0))
+                sock_server.listen()
+                fut = asyncio.ensure_future(
+                    client(sock_server.getsockname()), loop=self.loop)
+                srv_sock_conn, _ = await self.loop.sock_accept(sock_server)
+                srv_sock_conn.setsockopt(
+                    socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                with srv_sock_conn:
+                    await fut
+
+        async def client(addr):
+            sock_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_client.setblocking(False)
+            with sock_client:
+                await self.loop.sock_connect(sock_client, addr)
+                _, pending_read_futs = await asyncio.wait(
+                    [self.loop.sock_recv(sock_client, 1)],
+                    timeout=1, loop=self.loop)
+
+                async def send_server_data():
+                    # Wait a little bit to let reader future cancel and
+                    # schedule the removal of the reader callback.  Right after
+                    # "rfut.cancel()" we will call "loop.sock_recv()", which
+                    # will add a reader.  This will make a race between
+                    # remove- and add-reader.
+                    await asyncio.sleep(0.1, loop=self.loop)
+                    await self.loop.sock_sendall(srv_sock_conn, b'1')
+                self.loop.create_task(send_server_data())
+
+                for rfut in pending_read_futs:
+                    rfut.cancel()
+
+                data = await self.loop.sock_recv(sock_client, 1)
+
+                self.assertEqual(data, b'1')
+
+        self.loop.run_until_complete(server())
+
+    def test_sock_send_before_cancel(self):
+        srv_sock_conn = None
+
+        async def server():
+            nonlocal srv_sock_conn
+            sock_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_server.setblocking(False)
+            with sock_server:
+                sock_server.bind(('127.0.0.1', 0))
+                sock_server.listen()
+                fut = asyncio.ensure_future(
+                    client(sock_server.getsockname()), loop=self.loop)
+                srv_sock_conn, _ = await self.loop.sock_accept(sock_server)
+                with srv_sock_conn:
+                    await fut
+
+        async def client(addr):
+            await asyncio.sleep(0.01, loop=self.loop)
+            sock_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock_client.setblocking(False)
+            with sock_client:
+                await self.loop.sock_connect(sock_client, addr)
+                _, pending_read_futs = await asyncio.wait(
+                    [self.loop.sock_recv(sock_client, 1)],
+                    timeout=1, loop=self.loop)
+
+                # server can send the data in a random time, even before
+                # the previous result future has cancelled.
+                await self.loop.sock_sendall(srv_sock_conn, b'1')
+
+                for rfut in pending_read_futs:
+                    rfut.cancel()
+
+                data = await self.loop.sock_recv(sock_client, 1)
+
+                self.assertEqual(data, b'1')
+
+        self.loop.run_until_complete(server())
+
 
 class TestUVSockets(_TestSockets, tb.UVTestCase):
 
