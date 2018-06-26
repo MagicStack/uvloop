@@ -423,7 +423,11 @@ cdef class Loop:
         self._stopping = 1
         if not self.handler_idle.running:
             self.handler_idle.start()
-
+    
+    def _run_once(self):
+        # Run an interation of the event loop
+        self._on_idle()
+        
     cdef __run(self, uv.uv_run_mode mode):
         # Although every UVHandle holds a reference to the loop,
         # we want to do everything to ensure that the loop will
