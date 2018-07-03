@@ -471,6 +471,57 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
         finally:
             os.unlink(fn)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'requires epoll')
+    def test_epollhup(self):
+        SIZE = 50
+        eof = False
+        done = False
+        recvd = b''
+
+        class Proto(asyncio.BaseProtocol):
+            def connection_made(self, tr):
+                tr.write(b'hello')
+                self.data = bytearray(SIZE)
+                self.buf = memoryview(self.data)
+
+            def get_buffer(self, sizehint):
+                return self.buf
+
+            def buffer_updated(self, nbytes):
+                nonlocal recvd
+                recvd += self.buf[:nbytes]
+
+            def eof_received(self):
+                nonlocal eof
+                eof = True
+
+            def connection_lost(self, exc):
+                nonlocal done
+                done = exc
+
+        async def test():
+            with tempfile.TemporaryDirectory() as td:
+                sock_name = os.path.join(td, 'sock')
+                srv = await self.loop.create_unix_server(Proto, sock_name)
+
+                s = socket.socket(socket.AF_UNIX)
+                with s:
+                    s.setblocking(False)
+                    await self.loop.sock_connect(s, sock_name)
+                    d = await self.loop.sock_recv(s, 100)
+                    self.assertEqual(d, b'hello')
+
+                    # IMPORTANT: overflow recv buffer and close immediately
+                    await self.loop.sock_sendall(s, b'a' * (SIZE + 1))
+
+                srv.close()
+                await srv.wait_closed()
+
+        self.loop.run_until_complete(test())
+        self.assertTrue(eof)
+        self.assertIsNone(done)
+        self.assertEqual(recvd, b'a' * (SIZE + 1))
+
 
 class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
     pass

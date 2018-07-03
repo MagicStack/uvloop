@@ -953,7 +953,12 @@ cdef void __uv_stream_buffered_on_read(uv.uv_stream_t* stream,
         return
 
     try:
-        if not sc._read_pybuf_acquired:
+        if nread > 0 and not sc._read_pybuf_acquired:
+            # From libuv docs:
+            #     nread is > 0 if there is data available or < 0 on error. When
+            #     we’ve reached EOF, nread will be set to UV_EOF. When
+            #     nread < 0, the buf parameter might not point to a valid
+            #     buffer; in that case buf.len and buf.base are both set to 0.
             raise RuntimeError(
                 f'no python buffer is allocated in on_read; nread={nread}')
 
