@@ -3,7 +3,7 @@ language: generic
 env:
     global:
         - PYMODULE=uvloop
-        - RELEASE_PYTHON_VERSIONS="3.5 3.6"
+        - RELEASE_PYTHON_VERSIONS="3.5 3.6 3.7"
 
         - S3_UPLOAD_USERNAME=oss-ci-bot
         - S3_UPLOAD_BUCKET=magicstack-oss-releases
@@ -80,8 +80,6 @@ matrix:
           python: "3.7"
           services: [docker]
           env: BUILD=tests,wheels,release
-
-cache:
 
 cache:
     pip
