@@ -3,7 +3,7 @@ language: generic
 env:
     global:
         - PYMODULE=uvloop
-        - RELEASE_PYTHON_VERSIONS="3.5 3.6"
+        - RELEASE_PYTHON_VERSIONS="3.5 3.6 3.7"
 
         - S3_UPLOAD_USERNAME=oss-ci-bot
         - S3_UPLOAD_BUCKET=magicstack-oss-releases
@@ -37,9 +37,12 @@ matrix:
 
         - os: osx
           osx_image: xcode7.3
-          # Travis macOS env does not support Python yet,
-          # so we have to set things up manually in install.sh.
           env: BUILD=tests,wheels PYTHON_VERSION=3.6.5
+          branches: {only: [releases]}
+
+        - os: osx
+          osx_image: xcode7.3
+          env: BUILD=tests,wheels PYTHON_VERSION=3.7.0
           branches: {only: [releases]}
 
         - os: linux
@@ -54,6 +57,13 @@ matrix:
           sudo: false
           language: python
           python: "3.6"
+          env: BUILD=tests
+
+        - os: linux
+          dist: xenial
+          sudo: required
+          language: python
+          python: "3.7"
           env: BUILD=tests
 
         - os: linux

@@ -1,9 +1,6 @@
 .. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
     :target: https://travis-ci.org/MagicStack/uvloop
 
-.. image:: https://ci.appveyor.com/api/projects/status/4apd79e5jqrwwe40/branch/master?svg=true
-    :target: https://ci.appveyor.com/project/MagicStack/uvloop
-
 .. image:: https://img.shields.io/pypi/v/uvloop.svg
     :target: https://pypi.python.org/pypi/uvloop
 
