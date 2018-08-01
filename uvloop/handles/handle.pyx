@@ -26,9 +26,6 @@ cdef class UVHandle:
                 self.__class__.__name__))
 
     def __dealloc__(self):
-        self._dealloc_impl()
-
-    cdef _dealloc_impl(self):
         if UVLOOP_DEBUG:
             if self._loop is not None:
                 self._loop._debug_handles_current.subtract([
@@ -40,9 +37,6 @@ cdef class UVHandle:
                     .format(self.__class__.__name__))
 
         if self._handle is NULL:
-            if UVLOOP_DEBUG:
-                if self._has_handle == 0:
-                    self._loop._debug_uv_handles_freed += 1
             return
 
         # -> When we're at this point, something is wrong <-

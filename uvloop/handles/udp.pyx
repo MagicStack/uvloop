@@ -100,17 +100,13 @@ cdef class UDPTransport(UVBaseTransport):
         udp._init(loop, sock, r_addr)
         return udp
 
-    cdef _dealloc_impl(self):
+    def __dealloc__(self):
+        if UVLOOP_DEBUG:
+            self._loop._debug_uv_handles_freed += 1
+
         if self._closed == 0:
             self._warn_unclosed()
             self._close()
-
-        # It is unsafe to call `self.poll._close()` here as
-        # we might be at the stage where all CPython objects
-        # are being freed, and `self.poll` points to some
-        # zombie Python object.  So we do nothing.
-
-        UVHandle._dealloc_impl(self)
 
     cdef _free(self):
         if self.poll is not None:
