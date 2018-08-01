@@ -44,7 +44,10 @@ cdef class Server:
 
     @cython.iterable_coroutine
     async def wait_closed(self):
-        if self._waiters is None:
+        # Do not remove `self._servers is None` below
+        # because close() method only closes server sockets
+        # and existing client connections are left open.
+        if self._servers is None or self._waiters is None:
             return
         waiter = self._loop._new_future()
         self._waiters.append(waiter)
