@@ -17,6 +17,10 @@ cdef extern from "Python.h":
 
 cdef extern from "includes/compat.h":
     ctypedef struct PyContext
+    ctypedef struct PyContextVar
+    ctypedef struct PyObject
     PyContext* PyContext_CopyCurrent() except NULL
     int PyContext_Enter(PyContext *) except -1
     int PyContext_Exit(PyContext *) except -1
+    int PyContextVar_Get(
+        PyContextVar *var, object default_value, PyObject **value) except -1
