@@ -24,7 +24,6 @@ cdef class UVHandle:
 
     cdef _warn_unclosed(self)
 
-    cdef _dealloc_impl(self)
     cdef _free(self)
     cdef _close(self)
 
