@@ -79,7 +79,7 @@ class _TestProcess:
         async def test():
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, '-c',
+                cmd, b'-W', b'ignore', '-c',
                 'import os,sys;sys.stdout.write(os.getenv("FRUIT"))',
                 stdout=subprocess.PIPE,
                 preexec_fn=lambda: os.putenv("FRUIT", "apple"),
@@ -100,7 +100,7 @@ class _TestProcess:
         async def test():
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, '-c', 'import time; time.sleep(10)',
+                cmd, b'-W', b'ignore', '-c', 'import time; time.sleep(10)',
                 preexec_fn=raise_it,
                 loop=self.loop)
 
@@ -126,7 +126,7 @@ class _TestProcess:
     def test_process_executable_1(self):
         async def test():
             proc = await asyncio.create_subprocess_exec(
-                b'doesnotexist', b'-c', b'print("spam")',
+                b'doesnotexist', b'-W', b'ignore', b'-c', b'print("spam")',
                 executable=sys.executable,
                 stdout=subprocess.PIPE,
                 loop=self.loop)
@@ -145,7 +145,7 @@ print(os.getpid())
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, b'-c', prog,
+                cmd, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 loop=self.loop)
@@ -177,7 +177,7 @@ exit(11)
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, b'-c', prog,
+                cmd, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -216,7 +216,7 @@ while True:
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, b'-c', prog,
+                cmd, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -260,7 +260,7 @@ print('err', file=sys.stderr, flush=True)
             '''
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, '-c', prog,
+                sys.executable, b'-W', b'ignore', b'-c', prog,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 loop=self.loop)
@@ -280,7 +280,7 @@ print('err', file=sys.stderr, flush=True)
             '''
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, '-c', prog,
+                sys.executable, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -316,7 +316,7 @@ print("OK")
                     tempfile.TemporaryFile() as non_inherited:
 
                 proc = await asyncio.create_subprocess_exec(
-                    sys.executable, '-c', prog, '--',
+                    sys.executable, b'-W', b'ignore', b'-c', prog, '--',
                     str(inherited.fileno()),
                     str(non_inherited.fileno()),
                     stdout=subprocess.PIPE,
@@ -334,17 +334,18 @@ print("OK")
 class _AsyncioTests:
 
     # Program blocking
-    PROGRAM_BLOCKED = [sys.executable, '-c', 'import time; time.sleep(3600)']
+    PROGRAM_BLOCKED = [sys.executable, b'-W', b'ignore',
+                       b'-c', b'import time; time.sleep(3600)']
 
     # Program copying input to output
     PROGRAM_CAT = [
-        sys.executable, '-c',
-        ';'.join(('import sys',
-                  'data = sys.stdin.buffer.read()',
-                  'sys.stdout.buffer.write(data)'))]
+        sys.executable, b'-c',
+        b';'.join((b'import sys',
+                   b'data = sys.stdin.buffer.read()',
+                   b'sys.stdout.buffer.write(data)'))]
 
     PROGRAM_ERROR = [
-        sys.executable, '-c', '1/0'
+        sys.executable, b'-W', b'ignore', b'-c', b'1/0'
     ]
 
     def test_stdin_not_inheritable(self):
@@ -354,7 +355,7 @@ class _AsyncioTests:
         def len_message(message):
             code = 'import sys; data = sys.stdin.read(); print(len(data))'
             proc = yield from asyncio.create_subprocess_exec(
-                sys.executable, '-c', code,
+                sys.executable, b'-W', b'ignore', b'-c', code,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -499,7 +500,7 @@ class _AsyncioTests:
 
     def test_send_signal(self):
         code = 'import time; print("sleeping", flush=True); time.sleep(3600)'
-        args = [sys.executable, '-c', code]
+        args = [sys.executable, b'-W', b'ignore', b'-c', code]
         create = asyncio.create_subprocess_exec(*args,
                                                 stdout=subprocess.PIPE,
                                                 loop=self.loop)
@@ -629,7 +630,7 @@ print('err', file=sys.stderr, flush=True)
             '''
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, '-c', prog,
+                sys.executable, b'-W', b'ignore', b'-c', prog,
                 loop=self.loop)
 
             out, err = await proc.communicate()

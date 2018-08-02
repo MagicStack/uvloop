@@ -40,7 +40,7 @@ run()
 """
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-c', PROG,
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
@@ -86,7 +86,7 @@ run()
 """
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-c', PROG,
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
@@ -127,7 +127,7 @@ finally:
 """
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-c', PROG,
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
@@ -177,7 +177,7 @@ finally:
 """
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-c', PROG,
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
@@ -236,7 +236,7 @@ finally:
 """
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-c', PROG,
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
