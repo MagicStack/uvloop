@@ -2,3 +2,4 @@ cython==0.28.3
 aiohttp
 tinys3
 twine
+psutil

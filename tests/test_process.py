@@ -10,10 +10,15 @@ import tempfile
 import time
 import unittest
 
+import psutil
+
 from uvloop import _testbase as tb
 
 
 class _TestProcess:
+    def get_num_fds(self):
+        return psutil.Process(os.getpid()).num_fds()
+
     def test_process_env_1(self):
         async def test():
             cmd = 'echo $FOO$BAR'
@@ -329,6 +334,46 @@ print("OK")
                 self.assertEqual(out, b'OK\n')
 
         self.loop.run_until_complete(test())
+
+    def test_subprocess_fd_leak_1(self):
+        async def main(n):
+            for i in range(n):
+                try:
+                    await asyncio.create_subprocess_exec(
+                        'nonexistant',
+                        loop=self.loop,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+                except FileNotFoundError:
+                    pass
+                await asyncio.sleep(0, loop=self.loop)
+
+        self.loop.run_until_complete(main(10))
+        num_fd_1 = self.get_num_fds()
+        self.loop.run_until_complete(main(10))
+        num_fd_2 = self.get_num_fds()
+
+        self.assertEqual(num_fd_1, num_fd_2)
+
+    def test_subprocess_fd_leak_2(self):
+        async def main(n):
+            for i in range(n):
+                try:
+                    p = await asyncio.create_subprocess_exec(
+                        'ls',
+                        loop=self.loop,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+                finally:
+                    await p.wait()
+                await asyncio.sleep(0, loop=self.loop)
+
+        self.loop.run_until_complete(main(10))
+        num_fd_1 = self.get_num_fds()
+        self.loop.run_until_complete(main(10))
+        num_fd_2 = self.get_num_fds()
+
+        self.assertEqual(num_fd_1, num_fd_2)
 
 
 class _AsyncioTests:
