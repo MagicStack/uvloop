@@ -1,4 +1,3 @@
-@cython.no_gc_clear
 cdef class UVHandle:
     """A base class for all libuv handles.
 
@@ -219,7 +218,6 @@ cdef class UVHandle:
             id(self))
 
 
-@cython.no_gc_clear
 cdef class UVSocketHandle(UVHandle):
 
     def __cinit__(self):
