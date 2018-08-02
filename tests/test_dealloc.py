@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, b'-c', prog,
+                cmd, b'-W', b'ignore', b'-c', prog,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 loop=self.loop)
