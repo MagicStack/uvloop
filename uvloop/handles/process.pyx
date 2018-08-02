@@ -79,10 +79,16 @@ cdef class UVProcess(UVHandle):
 
             if _PyImport_ReleaseLock() < 0:
                 # See CPython/posixmodule.c for details
-                self._abort_init()
+                if err < 0:
+                    self._abort_init()
+                else:
+                    self._close()
                 raise RuntimeError('not holding the import lock')
 
             if err < 0:
+                if UVLOOP_DEBUG and uv.uv_is_active(self._handle):
+                    raise RuntimeError(
+                        'active uv_process_t handle after failed uv_spawn')
                 self._abort_init()
                 raise convert_error(err)
 
@@ -109,6 +115,14 @@ cdef class UVProcess(UVHandle):
                 # Might be already closed
                 pass
 
+            fds_to_close = self._fds_to_close
+            self._fds_to_close = None
+            for fd in fds_to_close:
+                os_close(fd)
+
+            for fd in restore_inheritable:
+                os_set_inheritable(fd, False)
+
         # asyncio caches the PID in BaseSubprocessTransport,
         # so that the transport knows what the PID was even
         # after the process is finished.
@@ -121,14 +135,6 @@ cdef class UVProcess(UVHandle):
         # which will call `UVProcess._close()`, which will, in turn,
         # untrack this handle.
         self._loop._track_process(self)
-
-        for fd in restore_inheritable:
-            os_set_inheritable(fd, False)
-
-        fds_to_close = self._fds_to_close
-        self._fds_to_close = None
-        for fd in fds_to_close:
-            os_close(fd)
 
         if debug_flags & __PROCESS_DEBUG_SLEEP_AFTER_FORK:
             time_sleep(1)
@@ -216,7 +222,7 @@ cdef class UVProcess(UVHandle):
 
         for i in range(arr_len):
             el = arr[i]
-            # NB: PyBytes_AsSptring doesn't copy the data;
+            # NB: PyBytes_AsString doesn't copy the data;
             # we have to be careful when the "arr" is GCed,
             # and it shouldn't be ever mutated.
             ret[i] = PyBytes_AsString(el)
@@ -503,10 +509,12 @@ cdef class UVProcessTransport(UVProcess):
 
         assert len(io) == 3
         for idx in range(3):
+            iocnt = &self.iocnt[idx]
             if io[idx] is not None:
-                iocnt = &self.iocnt[idx]
                 iocnt.flags = uv.UV_INHERIT_FD
                 iocnt.data.fd = io[idx]
+            else:
+                iocnt.flags = uv.UV_IGNORE
 
     cdef _call_connection_made(self, waiter):
         try:

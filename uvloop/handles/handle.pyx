@@ -28,8 +28,9 @@ cdef class UVHandle:
     def __dealloc__(self):
         if UVLOOP_DEBUG:
             if self._loop is not None:
-                self._loop._debug_handles_current.subtract([
-                    self.__class__.__name__])
+                if self._inited:
+                    self._loop._debug_handles_current.subtract([
+                        self.__class__.__name__])
             else:
                 # No "@cython.no_gc_clear" decorator on this UVHandle
                 raise RuntimeError(
@@ -72,7 +73,7 @@ cdef class UVHandle:
         if self._handle == NULL:
             return
 
-        if UVLOOP_DEBUG:
+        if UVLOOP_DEBUG and self._inited:
             self._loop._debug_uv_handles_freed += 1
 
         PyMem_RawFree(self._handle)
@@ -99,16 +100,17 @@ cdef class UVHandle:
         if self._handle is not NULL:
             self._free()
 
-        self._closed = 1
-
-        if UVLOOP_DEBUG:
-            name = self.__class__.__name__
-            if self._inited:
-                raise RuntimeError(
-                    '_abort_init: {}._inited is set'.format(name))
-            if self._closed:
-                raise RuntimeError(
-                    '_abort_init: {}._closed is set'.format(name))
+        try:
+            if UVLOOP_DEBUG:
+                name = self.__class__.__name__
+                if self._inited:
+                    raise RuntimeError(
+                        '_abort_init: {}._inited is set'.format(name))
+                if self._closed:
+                    raise RuntimeError(
+                        '_abort_init: {}._closed is set'.format(name))
+        finally:
+            self._closed = 1
 
     cdef inline _finish_init(self):
         self._inited = 1
@@ -117,7 +119,10 @@ cdef class UVHandle:
         if self._loop._debug:
             self._source_traceback = extract_stack()
         if UVLOOP_DEBUG:
+            cls_name = self.__class__.__name__
             self._loop._debug_uv_handles_total += 1
+            self._loop._debug_handles_total.update([cls_name])
+            self._loop._debug_handles_current.update([cls_name])
 
     cdef inline _start_init(self, Loop loop):
         if UVLOOP_DEBUG:
@@ -125,10 +130,6 @@ cdef class UVHandle:
                 raise RuntimeError(
                     '{}._start_init can only be called once'.format(
                         self.__class__.__name__))
-
-            cls_name = self.__class__.__name__
-            loop._debug_handles_total.update([cls_name])
-            loop._debug_handles_current.update([cls_name])
 
         self._loop = loop
 

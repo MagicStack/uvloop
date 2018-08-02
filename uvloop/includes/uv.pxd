@@ -236,6 +236,7 @@ cdef extern from "uv.h" nogil:
     int uv_cancel(uv_req_t* req)
 
     # Generic handler functions
+    int uv_is_active(const uv_handle_t* handle)
     void uv_close(uv_handle_t* handle, uv_close_cb close_cb)
     int uv_is_closing(const uv_handle_t* handle)
     int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd)
