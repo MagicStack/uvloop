@@ -1,4 +1,4 @@
-cython==0.28.3
+cython==0.28.4
 aiohttp
 tinys3
 twine
