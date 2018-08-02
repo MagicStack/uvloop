@@ -11,6 +11,16 @@ cdef class UVProcess(UVHandle):
         self._preexec_fn = None
         self._restore_signals = True
 
+    cdef _close_process_handle(self):
+        # XXX: This is a workaround for a libuv bug:
+        # - https://github.com/libuv/libuv/issues/1933
+        # - https://github.com/libuv/libuv/pull/551
+        if self._handle is NULL:
+            return
+        self._handle.data = NULL
+        uv.uv_close(self._handle, __uv_close_process_handle_cb)
+        self._handle = NULL  # close callback will free() the memory
+
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
                _stdin, _stdout, _stderr,  # std* can be defined as macros in C
@@ -79,6 +89,7 @@ cdef class UVProcess(UVHandle):
 
             if _PyImport_ReleaseLock() < 0:
                 # See CPython/posixmodule.c for details
+                self._close_process_handle()
                 if err < 0:
                     self._abort_init()
                 else:
@@ -86,9 +97,7 @@ cdef class UVProcess(UVHandle):
                 raise RuntimeError('not holding the import lock')
 
             if err < 0:
-                if UVLOOP_DEBUG and uv.uv_is_active(self._handle):
-                    raise RuntimeError(
-                        'active uv_process_t handle after failed uv_spawn')
+                self._close_process_handle()
                 self._abort_init()
                 raise convert_error(err)
 
@@ -754,3 +763,7 @@ cdef __socketpair():
     os_set_inheritable(fds[1], False)
 
     return fds[0], fds[1]
+
+
+cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) with gil:
+    PyMem_RawFree(handle)
