@@ -27,8 +27,9 @@ message sizes.  The *sockets* benchmark uses ``loop.sock_recv()`` and
 ``loop.sock_sendall()`` methods; the *streams* benchmark uses asyncio
 high-level streams, created by the ``asyncio.start_server()`` function;
 and the *protocol* benchmark uses ``loop.create_server()`` with a simple
-echo protocol.  Read more about uvloop
-`performance <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_.
+echo protocol.  Read more about uvloop in a
+`blog post <http://magic.io/blog/uvloop-blazing-fast-python-networking/>`_
+about it.
 
 
 Installation
