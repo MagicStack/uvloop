@@ -1,4 +1,3 @@
-@cython.no_gc_clear
 cdef class UDPTransport(UVBaseTransport):
 
     def __cinit__(self):
