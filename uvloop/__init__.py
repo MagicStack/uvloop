@@ -7,7 +7,7 @@ from . import _patch  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
 
 
-__version__ = '0.10.3'
+__version__ = '0.10.4.dev0'
 __all__ = ('new_event_loop', 'EventLoopPolicy')
 
 
