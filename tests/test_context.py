@@ -3,6 +3,7 @@ import decimal
 import random
 import sys
 import unittest
+import weakref
 
 from uvloop import _testbase as tb
 
@@ -116,6 +117,29 @@ class _ContextBaseTests:
         self.loop.run_until_complete(main())
 
         self.assertEqual(cvar.get(), -1)
+
+    @unittest.skipUnless(PY37, 'requires Python 3.7')
+    def test_task_context_4(self):
+        import contextvars
+        cvar = contextvars.ContextVar('cvar', default='nope')
+
+        class TrackMe:
+            pass
+        tracked = TrackMe()
+        ref = weakref.ref(tracked)
+
+        async def sub():
+            cvar.set(tracked)
+            self.loop.call_soon(lambda: None)
+
+        async def main():
+            await self.loop.create_task(sub())
+
+        task = self.loop.create_task(main())
+        self.loop.run_until_complete(task)
+
+        del tracked
+        self.assertIsNone(ref())
 
 
 class Test_UV_Context(_ContextBaseTests, tb.UVTestCase):

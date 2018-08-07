@@ -15,9 +15,11 @@ cdef class Handle:
             self._source_traceback = extract_stack()
 
     cdef inline _set_context(self, object context):
+        cdef PyContext* current_context
+
         if PY37:
             if context is None:
-                context = <object>PyContext_CopyCurrent()
+                context = copy_current_context()
             self.context = context
         else:
             if context is not None:
@@ -179,7 +181,7 @@ cdef class TimerHandle:
 
         if PY37:
             if context is None:
-                context = <object>PyContext_CopyCurrent()
+                context = copy_current_context()
             self.context = context
         else:
             if context is not None:
@@ -400,3 +402,15 @@ cdef extract_stack():
 
     stack.reverse()
     return stack
+
+
+cdef copy_current_context():
+    cdef PyContext* current_context
+
+    if PY37:
+        current_context = PyContext_CopyCurrent()
+        py_context = <object>current_context
+        Py_XDECREF(<PyObject*>current_context)
+        return py_context
+
+    raise NotImplementedError('"contextvars" support requires Python 3.7+')
