@@ -57,6 +57,13 @@ matrix:
           env: BUILD=tests
 
         - os: linux
+          dist: xenial
+          sudo: required
+          language: python
+          python: "3.7"
+          env: BUILD=tests
+
+        - os: linux
           dist: trusty
           branches: {only: [releases]}
           sudo: required
