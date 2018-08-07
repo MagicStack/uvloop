@@ -129,11 +129,12 @@ class _ContextBaseTests:
         ref = weakref.ref(tracked)
 
         async def sub():
-            cvar.set(tracked)
+            cvar.set(tracked)  # NoQA
             self.loop.call_soon(lambda: None)
 
         async def main():
             await self.loop.create_task(sub())
+            await asyncio.sleep(0.01, loop=self.loop)
 
         task = self.loop.create_task(main())
         self.loop.run_until_complete(task)
