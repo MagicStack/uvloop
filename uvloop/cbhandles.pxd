@@ -1,6 +1,7 @@
 cdef class Handle:
     cdef:
         Loop loop
+        bint _context_copied
         object context
         bint _cancelled
 
@@ -28,6 +29,7 @@ cdef class TimerHandle:
         bint _cancelled
         UVTimer timer
         Loop loop
+        bint _context_copied
         object context
         object __weakref__
 

@@ -6,6 +6,8 @@ cdef class Handle:
         self.cb_type = 0
         self._source_traceback = None
 
+        self._context_copied = False
+
     cdef inline _set_loop(self, Loop loop):
         self.loop = loop
         if UVLOOP_DEBUG:
@@ -18,6 +20,7 @@ cdef class Handle:
         if PY37:
             if context is None:
                 context = <object>PyContext_CopyCurrent()
+                self._context_copied = True
             self.context = context
         else:
             if context is not None:
@@ -26,6 +29,8 @@ cdef class Handle:
             self.context = None
 
     def __dealloc__(self):
+        if self._context_copied:
+            Py_DECREF(self.context)
         if UVLOOP_DEBUG and self.loop is not None:
             self.loop._debug_cb_handles_count -= 1
         if self.loop is None:
@@ -180,6 +185,9 @@ cdef class TimerHandle:
         if PY37:
             if context is None:
                 context = <object>PyContext_CopyCurrent()
+                self._context_copied = True
+            else:
+                self._context_copied = False
             self.context = context
         else:
             if context is not None:
@@ -199,6 +207,8 @@ cdef class TimerHandle:
         loop._timers.add(self)
 
     def __dealloc__(self):
+        if self._context_copied:
+            Py_DECREF(self.context)
         if UVLOOP_DEBUG:
             self.loop._debug_cb_timer_handles_count -= 1
         if self.timer is not None:
