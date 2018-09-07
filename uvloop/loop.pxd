@@ -168,7 +168,8 @@ cdef class Loop:
                         object ssl,
                         bint reuse_port,
                         object backlog,
-                        object ssl_handshake_timeout)
+                        object ssl_handshake_timeout,
+                        object ssl_shutdown_timeout)
 
     cdef _track_transport(self, UVBaseTransport transport)
     cdef _fileobj_to_fd(self, fileobj)
@@ -226,6 +227,7 @@ include "handles/pipe.pxd"
 include "handles/process.pxd"
 
 include "request.pxd"
+include "sslproto.pxd"
 
 include "handles/udp.pxd"
 

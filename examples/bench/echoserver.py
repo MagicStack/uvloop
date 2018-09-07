@@ -74,6 +74,23 @@ class EchoProtocol(asyncio.Protocol):
         self.transport.write(data)
 
 
+class EchoBufferedProtocol(asyncio.BufferedProtocol):
+    def connection_made(self, transport):
+        self.transport = transport
+        # Here the buffer is intended to be copied, so that the outgoing buffer
+        # won't be wrongly updated by next read
+        self.buffer = bytearray(256 * 1024)
+
+    def connection_lost(self, exc):
+        self.transport = None
+
+    def get_buffer(self, sizehint):
+        return self.buffer
+
+    def buffer_updated(self, nbytes):
+        self.transport.write(self.buffer[:nbytes])
+
+
 async def print_debug(loop):
     while True:
         print(chr(27) + "[2J")  # clear screen
@@ -89,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str)
     parser.add_argument('--print', default=False, action='store_true')
     parser.add_argument('--ssl', default=False, action='store_true')
+    parser.add_argument('--buffered', default=False, action='store_true')
     args = parser.parse_args()
 
     if args.uvloop:
@@ -140,6 +158,10 @@ if __name__ == '__main__':
             print('cannot use --stream and --proto simultaneously')
             exit(1)
 
+        if args.buffered:
+            print('cannot use --stream and --buffered simultaneously')
+            exit(1)
+
         print('using asyncio/streams')
         if unix:
             coro = asyncio.start_unix_server(echo_client_streams,
@@ -155,12 +177,18 @@ if __name__ == '__main__':
             print('cannot use --stream and --proto simultaneously')
             exit(1)
 
-        print('using simple protocol')
+        if args.buffered:
+            print('using buffered protocol')
+            protocol = EchoBufferedProtocol
+        else:
+            print('using simple protocol')
+            protocol = EchoProtocol
+
         if unix:
-            coro = loop.create_unix_server(EchoProtocol, addr,
+            coro = loop.create_unix_server(protocol, addr,
                                            ssl=server_context)
         else:
-            coro = loop.create_server(EchoProtocol, *addr,
+            coro = loop.create_server(protocol, *addr,
                                       ssl=server_context)
         srv = loop.run_until_complete(coro)
     else:

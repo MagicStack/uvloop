@@ -6,10 +6,13 @@ cdef class UVStreamServer(UVSocketHandle):
         self._server = None
         self.ssl = None
         self.ssl_handshake_timeout = None
+        self.ssl_shutdown_timeout = None
         self.protocol_factory = None
 
     cdef inline _init(self, Loop loop, object protocol_factory,
-                      Server server, object ssl, object ssl_handshake_timeout):
+                      Server server, object ssl,
+                      object ssl_handshake_timeout,
+                      object ssl_shutdown_timeout):
 
         if ssl is not None:
             if not isinstance(ssl, ssl_SSLContext):
@@ -20,9 +23,13 @@ cdef class UVStreamServer(UVSocketHandle):
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         self.ssl = ssl
         self.ssl_handshake_timeout = ssl_handshake_timeout
+        self.ssl_shutdown_timeout = ssl_shutdown_timeout
 
         self._start_init(loop)
         self.protocol_factory = protocol_factory
@@ -67,7 +74,8 @@ cdef class UVStreamServer(UVSocketHandle):
                 waiter,
                 server_side=True,
                 server_hostname=None,
-                ssl_handshake_timeout=self.ssl_handshake_timeout)
+                ssl_handshake_timeout=self.ssl_handshake_timeout,
+                ssl_shutdown_timeout=self.ssl_shutdown_timeout)
 
             client = self._make_new_transport(ssl_protocol, None)
 

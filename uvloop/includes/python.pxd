@@ -14,6 +14,13 @@ cdef extern from "Python.h":
     int _PyImport_ReleaseLock()
     void _Py_RestoreSignals()
 
+    object PyMemoryView_FromMemory(char *mem, ssize_t size, int flags)
+    object PyMemoryView_FromObject(object obj)
+    int PyMemoryView_Check(object obj)
+
+    cdef enum:
+        PyBUF_WRITE
+
 
 cdef extern from "includes/compat.h":
     ctypedef struct PyContext

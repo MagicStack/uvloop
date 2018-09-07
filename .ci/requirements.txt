@@ -3,3 +3,4 @@ aiohttp
 tinys3
 twine
 psutil
+pyOpenSSL==18.0.0
