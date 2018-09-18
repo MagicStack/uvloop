@@ -120,6 +120,7 @@ cdef ssl_SSLContext = ssl.SSLContext
 cdef ssl_MemoryBIO = ssl.MemoryBIO
 cdef ssl_create_default_context = ssl.create_default_context
 cdef ssl_SSLError = ssl.SSLError
+cdef ssl_SSLAgainErrors = (ssl.SSLWantReadError, ssl.SSLSyscallError)
 cdef ssl_CertificateError = ssl.CertificateError
 cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
 cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE

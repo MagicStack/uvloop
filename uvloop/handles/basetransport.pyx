@@ -2,8 +2,8 @@ cdef class UVBaseTransport(UVSocketHandle):
 
     def __cinit__(self):
         # Flow control
-        self._high_water = FLOW_CONTROL_HIGH_WATER
-        self._low_water = FLOW_CONTROL_LOW_WATER
+        self._high_water = FLOW_CONTROL_HIGH_WATER * 1024
+        self._low_water = FLOW_CONTROL_HIGH_WATER // 4
 
         self._protocol = None
         self._protocol_connected = 0
@@ -58,25 +58,6 @@ cdef class UVBaseTransport(UVSocketHandle):
                 'transport': self,
                 'protocol': self._protocol,
             })
-
-    cdef inline _set_write_buffer_limits(self, int high=-1, int low=-1):
-        if high == -1:
-            if low == -1:
-                high = FLOW_CONTROL_HIGH_WATER
-            else:
-                high = FLOW_CONTROL_LOW_WATER
-
-        if low == -1:
-            low = high // 4
-
-        if not high >= low >= 0:
-            raise ValueError('high (%r) must be >= low (%r) must be >= 0' %
-                             (high, low))
-
-        self._high_water = high
-        self._low_water = low
-
-        self._maybe_pause_protocol()
 
     cdef inline _maybe_pause_protocol(self):
         cdef:
@@ -283,12 +264,10 @@ cdef class UVBaseTransport(UVSocketHandle):
     def set_write_buffer_limits(self, high=None, low=None):
         self._ensure_alive()
 
-        if high is None:
-            high = -1
-        if low is None:
-            low = -1
+        self._high_water, self._low_water = add_flowcontrol_defaults(
+            high, low, FLOW_CONTROL_HIGH_WATER)
 
-        self._set_write_buffer_limits(high, low)
+        self._maybe_pause_protocol()
 
     def get_write_buffer_limits(self):
         return (self._low_water, self._high_water)

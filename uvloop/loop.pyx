@@ -18,7 +18,10 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyContext, \
                               PyContext_CopyCurrent, \
                               PyContext_Enter, \
-                              PyContext_Exit
+                              PyContext_Exit, \
+                              PyMemoryView_FromMemory, PyBUF_WRITE, \
+                              PyMemoryView_FromObject, PyMemoryView_Check
+from .includes.flowcontrol cimport add_flowcontrol_defaults
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
@@ -1085,13 +1088,15 @@ cdef class Loop:
                         object ssl,
                         bint reuse_port,
                         object backlog,
-                        object ssl_handshake_timeout):
+                        object ssl_handshake_timeout,
+                        object ssl_shutdown_timeout):
         cdef:
             TCPServer tcp
             int bind_flags
 
         tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                            addr.sa_family, ssl_handshake_timeout)
+                            addr.sa_family,
+                            ssl_handshake_timeout, ssl_shutdown_timeout)
 
         if reuse_port:
             self._sock_set_reuseport(tcp._fileno())
@@ -1523,7 +1528,8 @@ cdef class Loop:
     async def start_tls(self, transport, protocol, sslcontext, *,
                         server_side=False,
                         server_hostname=None,
-                        ssl_handshake_timeout=None):
+                        ssl_handshake_timeout=None,
+                        ssl_shutdown_timeout=None):
         """Upgrade transport to TLS.
 
         Return a new transport that *protocol* should start using
@@ -1534,7 +1540,8 @@ cdef class Loop:
                 f'sslcontext is expected to be an instance of ssl.SSLContext, '
                 f'got {sslcontext!r}')
 
-        if not isinstance(transport, (TCPTransport, UnixTransport)):
+        if not isinstance(transport, (TCPTransport, UnixTransport,
+                                      _SSLProtocolTransport)):
             raise TypeError(
                 f'transport {transport!r} is not supported by start_tls()')
 
@@ -1543,6 +1550,7 @@ cdef class Loop:
             self, protocol, sslcontext, waiter,
             server_side, server_hostname,
             ssl_handshake_timeout=ssl_handshake_timeout,
+            ssl_shutdown_timeout=ssl_shutdown_timeout,
             call_connection_made=False)
 
         # Pause early so that "ssl_protocol.data_received()" doesn't
@@ -1561,7 +1569,7 @@ cdef class Loop:
             resume_cb.cancel()
             raise
 
-        return ssl_protocol._app_transport
+        return (<SSLProtocol>ssl_protocol)._app_transport
 
     @cython.iterable_coroutine
     async def create_server(self, protocol_factory, host=None, port=None,
@@ -1573,7 +1581,8 @@ cdef class Loop:
                             ssl=None,
                             reuse_address=None,  # ignored, libuv sets it
                             reuse_port=None,
-                            ssl_handshake_timeout=None):
+                            ssl_handshake_timeout=None,
+                            ssl_shutdown_timeout=None):
         """A coroutine which creates a TCP server bound to host and port.
 
         The return value is a Server object which can be used to stop
@@ -1612,6 +1621,10 @@ cdef class Loop:
         ssl_handshake_timeout is the time in seconds that an SSL server
         will wait for completion of the SSL handshake before aborting the
         connection. Default is 60s.
+
+        ssl_shutdown_timeout is the time in seconds that an SSL server
+        will wait for completion of the SSL shutdown before aborting the
+        connection. Default is 30s.
         """
         cdef:
             TCPServer tcp
@@ -1634,6 +1647,9 @@ cdef class Loop:
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         if host is not None or port is not None:
             if sock is not None:
@@ -1668,7 +1684,8 @@ cdef class Loop:
 
                         tcp = self._create_server(
                             addrinfo.ai_addr, protocol_factory, server,
-                            ssl, reuse_port, backlog, ssl_handshake_timeout)
+                            ssl, reuse_port, backlog,
+                            ssl_handshake_timeout, ssl_shutdown_timeout)
 
                         server._add_server(<TCPServer>tcp)
 
@@ -1690,7 +1707,8 @@ cdef class Loop:
             sock.setblocking(False)
 
             tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                                uv.AF_UNSPEC, ssl_handshake_timeout)
+                                uv.AF_UNSPEC,
+                                ssl_handshake_timeout, ssl_shutdown_timeout)
 
             try:
                 tcp._open(sock.fileno())
@@ -1709,7 +1727,8 @@ cdef class Loop:
     async def create_connection(self, protocol_factory, host=None, port=None, *,
                                 ssl=None, family=0, proto=0, flags=0, sock=None,
                                 local_addr=None, server_hostname=None,
-                                ssl_handshake_timeout=None):
+                                ssl_handshake_timeout=None,
+                                ssl_shutdown_timeout=None):
         """Connect to a TCP server.
 
         Create a streaming transport connection to a given Internet host and
@@ -1763,13 +1782,17 @@ cdef class Loop:
             protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
                 False, server_hostname,
-                ssl_handshake_timeout=ssl_handshake_timeout)
+                ssl_handshake_timeout=ssl_handshake_timeout,
+                ssl_shutdown_timeout=ssl_shutdown_timeout)
         else:
             if server_hostname is not None:
                 raise ValueError('server_hostname is only meaningful with ssl')
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         if host is not None or port is not None:
             if sock is not None:
@@ -1919,14 +1942,15 @@ cdef class Loop:
             except Exception:
                 tr._close()
                 raise
-            return protocol._app_transport, app_protocol
+            return (<SSLProtocol>protocol)._app_transport, app_protocol
         else:
             return tr, protocol
 
     @cython.iterable_coroutine
     async def create_unix_server(self, protocol_factory, path=None,
                                  *, backlog=100, sock=None, ssl=None,
-                                 ssl_handshake_timeout=None):
+                                 ssl_handshake_timeout=None,
+                                 ssl_shutdown_timeout=None):
         """A coroutine which creates a UNIX Domain Socket server.
 
         The return value is a Server object, which can be used to stop
@@ -1947,6 +1971,10 @@ cdef class Loop:
         ssl_handshake_timeout is the time in seconds that an SSL server
         will wait for completion of the SSL handshake before aborting the
         connection. Default is 60s.
+
+        ssl_shutdown_timeout is the time in seconds that an SSL server
+        will wait for completion of the SSL shutdown before aborting the
+        connection. Default is 30s.
         """
         cdef:
             UnixServer pipe
@@ -1959,6 +1987,9 @@ cdef class Loop:
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         if path is not None:
             if sock is not None:
@@ -2027,7 +2058,8 @@ cdef class Loop:
             sock.setblocking(False)
 
         pipe = UnixServer.new(
-            self, protocol_factory, server, ssl, ssl_handshake_timeout)
+            self, protocol_factory, server, ssl,
+            ssl_handshake_timeout, ssl_shutdown_timeout)
 
         try:
             pipe._open(sock.fileno())
@@ -2050,7 +2082,8 @@ cdef class Loop:
     async def create_unix_connection(self, protocol_factory, path=None, *,
                                      ssl=None, sock=None,
                                      server_hostname=None,
-                                     ssl_handshake_timeout=None):
+                                     ssl_handshake_timeout=None,
+                                     ssl_shutdown_timeout=None):
 
         cdef:
             UnixTransport tr
@@ -2070,13 +2103,17 @@ cdef class Loop:
             protocol = SSLProtocol(
                 self, app_protocol, sslcontext, ssl_waiter,
                 False, server_hostname,
-                ssl_handshake_timeout=ssl_handshake_timeout)
+                ssl_handshake_timeout=ssl_handshake_timeout,
+                ssl_shutdown_timeout=ssl_shutdown_timeout)
         else:
             if server_hostname is not None:
                 raise ValueError('server_hostname is only meaningful with ssl')
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         if path is not None:
             if sock is not None:
@@ -2135,7 +2172,7 @@ cdef class Loop:
             except Exception:
                 tr._close()
                 raise
-            return protocol._app_transport, app_protocol
+            return (<SSLProtocol>protocol)._app_transport, app_protocol
         else:
             return tr, protocol
 
@@ -2431,7 +2468,9 @@ cdef class Loop:
 
     @cython.iterable_coroutine
     async def connect_accepted_socket(self, protocol_factory, sock, *,
-                                      ssl=None, ssl_handshake_timeout=None):
+                                      ssl=None,
+                                      ssl_handshake_timeout=None,
+                                      ssl_shutdown_timeout=None):
         """Handle an accepted connection.
 
         This is used by servers that accept connections outside of
@@ -2451,6 +2490,9 @@ cdef class Loop:
             if ssl_handshake_timeout is not None:
                 raise ValueError(
                     'ssl_handshake_timeout is only meaningful with ssl')
+            if ssl_shutdown_timeout is not None:
+                raise ValueError(
+                    'ssl_shutdown_timeout is only meaningful with ssl')
 
         if not _is_sock_stream(sock.type):
             raise ValueError(
@@ -2468,7 +2510,8 @@ cdef class Loop:
                 self, app_protocol, ssl, waiter,
                 server_side=True,
                 server_hostname=None,
-                ssl_handshake_timeout=ssl_handshake_timeout)
+                ssl_handshake_timeout=ssl_handshake_timeout,
+                ssl_shutdown_timeout=ssl_shutdown_timeout)
             transport_waiter = None
 
         if sock.family == uv.AF_UNIX:
@@ -2493,7 +2536,7 @@ cdef class Loop:
             raise
 
         if ssl:
-            return protocol._app_transport, protocol
+            return (<SSLProtocol>protocol)._app_transport, protocol
         else:
             return transport, protocol
 

@@ -2,6 +2,7 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef:
         object ssl
         object ssl_handshake_timeout
+        object ssl_shutdown_timeout
         object protocol_factory
         bint opened
         Server _server
@@ -9,7 +10,9 @@ cdef class UVStreamServer(UVSocketHandle):
     # All "inline" methods are final
 
     cdef inline _init(self, Loop loop, object protocol_factory,
-                      Server server, object ssl, object ssl_handshake_timeout)
+                      Server server, object ssl,
+                      object ssl_handshake_timeout,
+                      object ssl_shutdown_timeout)
 
     cdef inline _mark_as_open(self)
 

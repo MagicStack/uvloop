@@ -59,12 +59,13 @@ cdef class TCPServer(UVStreamServer):
     @staticmethod
     cdef TCPServer new(Loop loop, object protocol_factory, Server server,
                        object ssl, unsigned int flags,
-                       object ssl_handshake_timeout):
+                       object ssl_handshake_timeout,
+                       object ssl_shutdown_timeout):
 
         cdef TCPServer handle
         handle = TCPServer.__new__(TCPServer)
         handle._init(loop, protocol_factory, server,
-                     ssl, ssl_handshake_timeout)
+                     ssl, ssl_handshake_timeout, ssl_shutdown_timeout)
         __tcp_init_uv_handle(<UVStream>handle, loop, flags)
         return handle
 

@@ -21,7 +21,6 @@ cdef class UVBaseTransport(UVSocketHandle):
 
     # All "inline" methods are final
 
-    cdef inline _set_write_buffer_limits(self, int high=*, int low=*)
     cdef inline _maybe_pause_protocol(self)
     cdef inline _maybe_resume_protocol(self)
 
