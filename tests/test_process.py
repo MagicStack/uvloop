@@ -375,6 +375,40 @@ print("OK")
 
         self.assertEqual(num_fd_1, num_fd_2)
 
+    def test_subprocess_invalid_stdin(self):
+        fd = None
+        for tryfd in range(10000, 1000, -1):
+            try:
+                tryfd = os.dup(tryfd)
+            except OSError:
+                fd = tryfd
+                break
+            else:
+                os.close(tryfd)
+        else:
+            self.fail('could not find a free FD')
+
+        async def main():
+            with self.assertRaises(OSError):
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    loop=self.loop,
+                    stdin=fd)
+
+            with self.assertRaises(OSError):
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    loop=self.loop,
+                    stdout=fd)
+
+            with self.assertRaises(OSError):
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    loop=self.loop,
+                    stderr=fd)
+
+        self.loop.run_until_complete(main())
+
 
 class _AsyncioTests:
 
