@@ -2356,9 +2356,15 @@ class _TestSSL(tb.SSLTestCase):
                 try:
                     sock.unwrap()
                     break
+                except ssl.SSLError as ex:
+                    # Since OpenSSL 1.1.1, it raises "application data after
+                    # close notify"
+                    if ex.reason == 'KRB5_S_INIT':
+                        break
                 except OSError as ex:
-                    if ex.errno == 0:
-                        pass
+                    # OpenSSL < 1.1.1
+                    if ex.errno != 0:
+                        raise
             sock.close()
 
         async def client(addr):
@@ -2523,8 +2529,15 @@ class _TestSSL(tb.SSLTestCase):
                         sock.send(outgoing.read())
                     break
 
-            incoming.write(sock.recv(16384))
-            self.assertEqual(sslobj.read(4), b'ping')
+            while True:
+                try:
+                    data = sslobj.read(4)
+                except ssl.SSLWantReadError:
+                    incoming.write(sock.recv(16384))
+                else:
+                    break
+
+            self.assertEqual(data, b'ping')
             sslobj.write(b'pong')
             sock.send(outgoing.read())
 
