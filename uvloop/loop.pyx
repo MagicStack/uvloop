@@ -15,10 +15,9 @@ from .includes.python cimport PY_VERSION_HEX, \
                               _PyImport_AcquireLock, \
                               _PyImport_ReleaseLock, \
                               _Py_RestoreSignals, \
-                              PyContext, \
-                              PyContext_CopyCurrent, \
-                              PyContext_Enter, \
-                              PyContext_Exit, \
+                              Context_CopyCurrent, \
+                              Context_Enter, \
+                              Context_Exit, \
                               PyMemoryView_FromMemory, PyBUF_WRITE, \
                               PyMemoryView_FromObject, PyMemoryView_Check
 from .includes.flowcontrol cimport add_flowcontrol_defaults
