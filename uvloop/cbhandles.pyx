@@ -15,11 +15,9 @@ cdef class Handle:
             self._source_traceback = extract_stack()
 
     cdef inline _set_context(self, object context):
-        cdef PyContext* current_context
-
         if PY37:
             if context is None:
-                context = copy_current_context()
+                context = Context_CopyCurrent()
             self.context = context
         else:
             if context is not None:
@@ -54,7 +52,7 @@ cdef class Handle:
         try:
             if PY37:
                 assert self.context is not None
-                PyContext_Enter(<PyContext*>self.context)
+                Context_Enter(self.context)
 
             if cb_type == 1:
                 callback = self.arg1
@@ -103,7 +101,7 @@ cdef class Handle:
             context = self.context
             Py_DECREF(self)
             if PY37:
-                PyContext_Exit(<PyContext*>context)
+                Context_Exit(context)
 
     cdef _cancel(self):
         self._cancelled = 1
@@ -181,7 +179,7 @@ cdef class TimerHandle:
 
         if PY37:
             if context is None:
-                context = copy_current_context()
+                context = Context_CopyCurrent()
             self.context = context
         else:
             if context is not None:
@@ -239,7 +237,7 @@ cdef class TimerHandle:
         try:
             if PY37:
                 assert self.context is not None
-                PyContext_Enter(<PyContext*>self.context)
+                Context_Enter(self.context)
 
             if args is not None:
                 callback(*args)
@@ -267,7 +265,7 @@ cdef class TimerHandle:
             context = self.context
             Py_DECREF(self)
             if PY37:
-                PyContext_Exit(<PyContext*>context)
+                Context_Exit(context)
 
     # Public API
 
@@ -402,15 +400,3 @@ cdef extract_stack():
 
     stack.reverse()
     return stack
-
-
-cdef copy_current_context():
-    cdef PyContext* current_context
-
-    if PY37:
-        current_context = PyContext_CopyCurrent()
-        py_context = <object>current_context
-        Py_XDECREF(<PyObject*>current_context)
-        return py_context
-
-    raise NotImplementedError('"contextvars" support requires Python 3.7+')

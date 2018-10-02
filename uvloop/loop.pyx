@@ -12,10 +12,9 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyUnicode_EncodeFSDefault, \
                               PyErr_SetInterrupt, \
                               _Py_RestoreSignals, \
-                              PyContext, \
-                              PyContext_CopyCurrent, \
-                              PyContext_Enter, \
-                              PyContext_Exit, \
+                              Context_CopyCurrent, \
+                              Context_Enter, \
+                              Context_Exit, \
                               PyOS_AfterFork_Parent, PyOS_AfterFork_Child, \
                               PyOS_BeforeFork
 
