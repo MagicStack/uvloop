@@ -1445,7 +1445,7 @@ class _TestSSL(tb.SSLTestCase):
                     sslctx,
                     server_side=True)
                 sock.connect()
-            except ssl.SSLError:
+            except (ssl.SSLError, OSError):
                 pass
             finally:
                 sock.close()
@@ -2622,6 +2622,34 @@ class _TestSSL(tb.SSLTestCase):
 
         with self.tcp_server(run(eof_server)) as srv:
             self.loop.run_until_complete(client(srv.addr))
+
+    def test_connect_timeout_warning(self):
+        s = socket.socket(socket.AF_INET)
+        s.bind(('127.0.0.1', 0))
+        addr = s.getsockname()
+
+        async def test():
+            try:
+                await asyncio.wait_for(
+                    self.loop.create_connection(asyncio.Protocol,
+                                                *addr, ssl=True),
+                    0.1, loop=self.loop)
+            except (ConnectionRefusedError, asyncio.TimeoutError):
+                pass
+            else:
+                self.fail('TimeoutError is not raised')
+
+        with s:
+            try:
+                with self.assertWarns(ResourceWarning) as cm:
+                    self.loop.run_until_complete(test())
+                    gc.collect()
+                    gc.collect()
+                    gc.collect()
+            except AssertionError as e:
+                self.assertEqual(str(e), 'ResourceWarning not triggered')
+            else:
+                self.fail('Unexpected ResourceWarning: {}'.format(cm.warning))
 
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):

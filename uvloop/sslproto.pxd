@@ -27,6 +27,7 @@ cdef class SSLProtocol:
         object _waiter
         object _loop
         _SSLProtocolTransport _app_transport
+        bint _app_transport_created
 
         object _transport
         bint _call_connection_made
