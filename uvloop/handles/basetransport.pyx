@@ -40,9 +40,7 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         self._force_close(exc)
 
-        if not isinstance(exc, (BrokenPipeError,
-                                ConnectionResetError,
-                                ConnectionAbortedError)):
+        if not isinstance(exc, FATAL_SSL_ERROR_IGNORE):
 
             if throw or self._loop is None:
                 raise exc

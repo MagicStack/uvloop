@@ -829,9 +829,7 @@ cdef class SSLProtocol:
         if self._transport:
             self._transport._force_close(exc)
 
-        if isinstance(exc, (BrokenPipeError,
-                            ConnectionResetError,
-                            ConnectionAbortedError)):
+        if isinstance(exc, FATAL_SSL_ERROR_IGNORE):
             if self._loop.get_debug():
                 aio_logger.debug("%r: %s", self, message, exc_info=True)
         elif not isinstance(exc, aio_CancelledError):

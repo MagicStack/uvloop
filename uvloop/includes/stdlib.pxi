@@ -126,6 +126,13 @@ cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
 cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
 cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
+cdef FATAL_SSL_ERROR_IGNORE = (
+    BrokenPipeError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+    ssl.CertificateError,
+)
+
 cdef uint64_t MAIN_THREAD_ID = <uint64_t><int64_t>threading.main_thread().ident
 
 cdef int subprocess_PIPE = subprocess.PIPE
