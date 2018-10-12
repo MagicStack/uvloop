@@ -1559,7 +1559,7 @@ cdef class Loop:
         transport.set_protocol(ssl_protocol)
         conmade_cb = self.call_soon(ssl_protocol.connection_made, transport)
         resume_cb = self.call_soon(transport.resume_reading)
-        app_transport = (<SSLProtocol>ssl_protocol)._app_transport
+        app_transport = ssl_protocol._get_app_transport()
 
         try:
             await waiter
@@ -1938,7 +1938,7 @@ cdef class Loop:
             tr._attach_fileobj(sock)
 
         if ssl:
-            app_transport = (<SSLProtocol>protocol)._app_transport
+            app_transport = protocol._get_app_transport()
             try:
                 await ssl_waiter
             except Exception:
@@ -2170,7 +2170,7 @@ cdef class Loop:
             tr._attach_fileobj(sock)
 
         if ssl:
-            app_transport = (<SSLProtocol>protocol)._app_transport
+            app_transport = protocol._get_app_transport()
             try:
                 await ssl_waiter
             except Exception:
@@ -2534,20 +2534,19 @@ cdef class Loop:
         transport._attach_fileobj(sock)
 
         if ssl:
-            app_transport = (<SSLProtocol>protocol)._app_transport
-
-        try:
-            await waiter
-        except Exception:
-            if ssl:
+            app_transport = protocol._get_app_transport()
+            try:
+                await waiter
+            except Exception:
                 app_transport.close()
-            else:
-                transport._close()
-            raise
-
-        if ssl:
+                raise
             return app_transport, protocol
         else:
+            try:
+                await waiter
+            except Exception:
+                transport._close()
+                raise
             return transport, protocol
 
     def run_in_executor(self, executor, func, *args):

@@ -49,10 +49,10 @@ cdef class _SSLProtocolTransport:
 
     def __dealloc__(self):
         if not self._closed:
-            _warn_with_source(
-                "unclosed transport {!r}".format(self),
-                ResourceWarning, self)
             self._closed = True
+            warnings_warn(
+                "unclosed transport <uvloop.loop._SSLProtocolTransport "
+                "object>", ResourceWarning)
 
     def is_reading(self):
         return not self._ssl_protocol._app_reading_paused
@@ -249,7 +249,8 @@ cdef class SSLProtocol:
         self._waiter = waiter
         self._loop = loop
         self._set_app_protocol(app_protocol)
-        self._app_transport = _SSLProtocolTransport(self._loop, self)
+        self._app_transport = None
+        self._app_transport_created = False
         # transport, ex: SelectorSocketTransport
         self._transport = None
         self._call_connection_made = call_connection_made
@@ -300,6 +301,14 @@ cdef class SSLProtocol:
             else:
                 self._waiter.set_result(None)
         self._waiter = None
+
+    def _get_app_transport(self):
+        if self._app_transport is None:
+            if self._app_transport_created:
+                raise RuntimeError('Creating _SSLProtocolTransport twice')
+            self._app_transport = _SSLProtocolTransport(self._loop, self)
+            self._app_transport_created = True
+        return self._app_transport
 
     def connection_made(self, transport):
         """Called when the low-level connection is made.
@@ -509,7 +518,7 @@ cdef class SSLProtocol:
                            compression=sslobj.compression(),
                            ssl_object=sslobj)
         if self._call_connection_made:
-            self._app_protocol.connection_made(self._app_transport)
+            self._app_protocol.connection_made(self._get_app_transport())
         self._wakeup_waiter()
         self._do_read()
 
