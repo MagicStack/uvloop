@@ -1,7 +1,10 @@
 import asyncio
+import os
 import socket
-import unittest
 import sys
+import tempfile
+import unittest
+import uuid
 
 from uvloop import _testbase as tb
 
@@ -155,6 +158,21 @@ class _TestUDP:
                 tr.close()
                 self.loop.run_until_complete(pr.done)
 
+    @unittest.skipIf(sys.version_info < (3, 5, 1),
+                     "asyncio in 3.5.0 doesn't have the 'sock' argument")
+    def test_create_datagram_endpoint_sock_unix_domain(self):
+        tmp_file = os.path.join(tempfile.gettempdir(),  str(uuid.uuid4()))
+        sock = socket.socket(socket.AF_UNIX, type=socket.SOCK_DGRAM)
+        sock.bind(tmp_file)
+
+        with sock:
+            f = self.loop.create_datagram_endpoint(
+                lambda: MyDatagramProto(loop=self.loop), sock=sock)
+            tr, pr = self.loop.run_until_complete(f)
+            self.assertIsInstance(pr, MyDatagramProto)
+            tr.sendto(b'HELLO', tmp_file)
+            tr.close()
+            self.loop.run_until_complete(pr.done)
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 

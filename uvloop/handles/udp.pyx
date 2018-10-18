@@ -1,3 +1,5 @@
+import socket
+
 cdef class UDPTransport(UVBaseTransport):
 
     def __cinit__(self):
@@ -141,7 +143,7 @@ cdef class UDPTransport(UVBaseTransport):
             raise ValueError(
                 'Invalid address: must be None or {}'.format(self.address))
 
-        if addr is not None:
+        if addr is not None and self.sock.family != socket.AF_UNIX:
             addrinfo = __static_getaddrinfo_pyaddr(
                 addr[0], addr[1],
                 uv.AF_UNSPEC, self.sock.type, self.sock.proto, 0)
