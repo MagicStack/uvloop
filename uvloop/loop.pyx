@@ -11,15 +11,14 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyMem_RawCalloc, PyMem_RawRealloc, \
                               PyUnicode_EncodeFSDefault, \
                               PyErr_SetInterrupt, \
-                              PyOS_AfterFork, \
-                              _PyImport_AcquireLock, \
-                              _PyImport_ReleaseLock, \
                               _Py_RestoreSignals, \
                               Context_CopyCurrent, \
                               Context_Enter, \
                               Context_Exit, \
                               PyMemoryView_FromMemory, PyBUF_WRITE, \
-                              PyMemoryView_FromObject, PyMemoryView_Check
+                              PyMemoryView_FromObject, PyMemoryView_Check, \
+                              PyOS_AfterFork_Parent, PyOS_AfterFork_Child, \
+                              PyOS_BeforeFork
 from .includes.flowcontrol cimport add_flowcontrol_defaults
 
 from libc.stdint cimport uint64_t
