@@ -1636,7 +1636,7 @@ cdef class Loop:
                 raise ValueError(
                     'host/port and sock can not be specified at the same time')
             return await self.create_unix_server(
-                protocol_factory, sock=sock, ssl=ssl)
+                protocol_factory, sock=sock, backlog=backlog, ssl=ssl)
 
         server = Server(self)
 
