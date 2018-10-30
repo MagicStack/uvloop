@@ -5,8 +5,6 @@ set -e -x
 # Compile wheels
 PYTHON="/opt/python/${PYTHON_VERSION}/bin/python"
 PIP="/opt/python/${PYTHON_VERSION}/bin/pip"
-${PIP} install --upgrade pip wheel
-${PIP} install --upgrade setuptools
 ${PIP} install -r /io/.ci/requirements.txt
 make -C /io/ PYTHON="${PYTHON}" ci-clean compile
 ${PIP} wheel /io/ -w /io/dist/
