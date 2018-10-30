@@ -9,9 +9,6 @@ cdef extern from "Python.h":
     object PyUnicode_EncodeFSDefault(object)
     void PyErr_SetInterrupt() nogil
 
-    void PyOS_AfterFork()
-    void _PyImport_AcquireLock()
-    int _PyImport_ReleaseLock()
     void _Py_RestoreSignals()
 
 
@@ -20,3 +17,7 @@ cdef extern from "includes/compat.h":
     PyContext* PyContext_CopyCurrent() except NULL
     int PyContext_Enter(PyContext *) except -1
     int PyContext_Exit(PyContext *) except -1
+
+    void PyOS_BeforeFork()
+    void PyOS_AfterFork_Parent()
+    void PyOS_AfterFork_Child()

@@ -11,14 +11,13 @@ from .includes.python cimport PY_VERSION_HEX, \
                               PyMem_RawCalloc, PyMem_RawRealloc, \
                               PyUnicode_EncodeFSDefault, \
                               PyErr_SetInterrupt, \
-                              PyOS_AfterFork, \
-                              _PyImport_AcquireLock, \
-                              _PyImport_ReleaseLock, \
                               _Py_RestoreSignals, \
                               PyContext, \
                               PyContext_CopyCurrent, \
                               PyContext_Enter, \
-                              PyContext_Exit
+                              PyContext_Exit, \
+                              PyOS_AfterFork_Parent, PyOS_AfterFork_Child, \
+                              PyOS_BeforeFork
 
 from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
