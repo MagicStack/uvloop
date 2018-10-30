@@ -77,7 +77,7 @@ cdef class UVProcess(UVHandle):
             __forking = 1
             __forking_loop = loop
 
-            _PyImport_AcquireLock()
+            PyOS_BeforeFork()
 
             err = uv.uv_spawn(loop.uvloop,
                               <uv.uv_process_t*>self._handle,
@@ -87,14 +87,7 @@ cdef class UVProcess(UVHandle):
             __forking_loop = None
             loop.active_process_handler = None
 
-            if _PyImport_ReleaseLock() < 0:
-                # See CPython/posixmodule.c for details
-                self._close_process_handle()
-                if err < 0:
-                    self._abort_init()
-                else:
-                    self._close()
-                raise RuntimeError('not holding the import lock')
+            PyOS_AfterFork_Parent()
 
             if err < 0:
                 self._close_process_handle()
@@ -176,7 +169,7 @@ cdef class UVProcess(UVHandle):
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        PyOS_AfterFork()
+        PyOS_AfterFork_Child()
 
         err = uv.uv_loop_fork(self._loop.uvloop)
         if err < 0:

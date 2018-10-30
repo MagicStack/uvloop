@@ -79,3 +79,26 @@ int Context_Exit(PyObject *ctx) {
 }
 
 #endif
+
+
+#if PY_VERSION_HEX < 0x03070000
+
+void PyOS_BeforeFork(void)
+{
+    _PyImport_AcquireLock();
+}
+
+void PyOS_AfterFork_Parent(void)
+{
+    if (_PyImport_ReleaseLock() <= 0) {
+        Py_FatalError("failed releasing import lock after fork");
+    }
+}
+
+
+void PyOS_AfterFork_Child(void)
+{
+    PyOS_AfterFork();
+}
+
+#endif
