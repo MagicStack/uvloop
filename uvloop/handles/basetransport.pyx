@@ -141,11 +141,6 @@ cdef class UVBaseTransport(UVSocketHandle):
 
     cdef _call_connection_lost(self, exc):
         if self._waiter is not None:
-            # This shouldn't ever happen!
-            self._loop.call_exception_handler({
-                'message': 'waiter is not None in {}._call_connection_lost'.
-                    format(self.__class__.__name__)
-            })
             if not self._waiter.done():
                 self._waiter.set_exception(exc)
             self._waiter = None
