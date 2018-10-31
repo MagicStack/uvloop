@@ -22,7 +22,7 @@ branches:
         - master
         - ci
         - releases
-        - /^v\d+(\.\d+)*$/
+        - /^v\d+(\.\d+)*(rc\d+)?$/
 
 matrix:
     fast_finish: true
