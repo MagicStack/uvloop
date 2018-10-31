@@ -1,4 +1,4 @@
-Cython==0.28.4
+Cython==0.29.0
 Sphinx>=1.4.1
 psutil
 pyOpenSSL==18.0.0
