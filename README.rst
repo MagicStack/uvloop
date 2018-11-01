@@ -54,6 +54,14 @@ loop policy:
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
+or, starting with uvloop 0.12:
+
+.. code:: python
+
+    import uvloop
+
+    uvloop.install()
+
 
 Building From Source
 --------------------
