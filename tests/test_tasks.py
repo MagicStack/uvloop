@@ -27,6 +27,18 @@ def format_coroutine(qualname, state, src, source_traceback, generator=False):
         return 'coro=<%s() %s at %s>' % (qualname, state, src)
 
 
+try:
+    all_tasks = asyncio.all_tasks
+except AttributeError:
+    all_tasks = asyncio.Task.all_tasks
+
+
+try:
+    current_task = asyncio.current_task
+except AttributeError:
+    current_task = asyncio.Task.current_task
+
+
 class _TestTasks:
 
     def test_task_basics(self):
@@ -88,7 +100,7 @@ class _TestTasks:
             return 12
 
         t = self.create_task(task())
-        self.assertEqual(asyncio.Task.all_tasks(loop=self.loop), {t})
+        self.assertEqual(all_tasks(loop=self.loop), {t})
         tb.run_briefly(self.loop)
 
         f.cancel()
@@ -239,42 +251,42 @@ class _TestTasks:
         self.assertFalse(fut.done())
 
     def test_task_current_task(self):
-        self.assertIsNone(asyncio.Task.current_task(loop=self.loop))
+        self.assertIsNone(current_task(loop=self.loop))
 
         @asyncio.coroutine
         def coro(loop):
-            self.assertTrue(asyncio.Task.current_task(loop=loop) is task)
+            self.assertTrue(current_task(loop=loop) is task)
 
         task = self.create_task(coro(self.loop))
         self.loop.run_until_complete(task)
-        self.assertIsNone(asyncio.Task.current_task(loop=self.loop))
+        self.assertIsNone(current_task(loop=self.loop))
 
     def test_task_current_task_with_interleaving_tasks(self):
-        self.assertIsNone(asyncio.Task.current_task(loop=self.loop))
+        self.assertIsNone(current_task(loop=self.loop))
 
         fut1 = self.create_future()
         fut2 = self.create_future()
 
         @asyncio.coroutine
         def coro1(loop):
-            self.assertTrue(asyncio.Task.current_task(loop=loop) is task1)
+            self.assertTrue(current_task(loop=loop) is task1)
             yield from fut1
-            self.assertTrue(asyncio.Task.current_task(loop=loop) is task1)
+            self.assertTrue(current_task(loop=loop) is task1)
             fut2.set_result(True)
 
         @asyncio.coroutine
         def coro2(loop):
-            self.assertTrue(asyncio.Task.current_task(loop=loop) is task2)
+            self.assertTrue(current_task(loop=loop) is task2)
             fut1.set_result(True)
             yield from fut2
-            self.assertTrue(asyncio.Task.current_task(loop=loop) is task2)
+            self.assertTrue(current_task(loop=loop) is task2)
 
         task1 = self.create_task(coro1(self.loop))
         task2 = self.create_task(coro2(self.loop))
 
         self.loop.run_until_complete(asyncio.wait((task1, task2),
                                                   loop=self.loop))
-        self.assertIsNone(asyncio.Task.current_task(loop=self.loop))
+        self.assertIsNone(current_task(loop=self.loop))
 
     def test_task_yield_future_passes_cancel(self):
         # Canceling outer() cancels inner() cancels waiter.
