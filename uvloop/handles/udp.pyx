@@ -1,4 +1,19 @@
-import socket
+import functools
+
+
+@functools.lru_cache()
+def validate_address(object addr, int sock_family, int sock_type,
+                     int sock_proto):
+    addrinfo = __static_getaddrinfo_pyaddr(
+        addr[0], addr[1],
+        uv.AF_UNSPEC, sock_type, sock_proto, 0)
+    if addrinfo is None:
+        raise ValueError(
+            'UDP.sendto(): address {!r} requires a DNS lookup'.format(addr))
+    if addrinfo[0] != sock_family:
+        raise ValueError(
+            'UDP.sendto(): {!r} socket family mismatch'.format(addr))
+
 
 cdef class UDPTransport(UVBaseTransport):
 
@@ -17,6 +32,9 @@ cdef class UDPTransport(UVBaseTransport):
             socket_inc_io_ref(sock)
 
             self.sock = sock
+            self.sock_family = sock.family
+            self.sock_proto = sock.proto
+            self.sock_type = sock.type
             self.address = r_addr
             self.poll = UVPoll.new(loop, sock.fileno())
             self._finish_init()
@@ -143,18 +161,9 @@ cdef class UDPTransport(UVBaseTransport):
             raise ValueError(
                 'Invalid address: must be None or {}'.format(self.address))
 
-        if addr is not None and self.sock.family != socket.AF_UNIX:
-            addrinfo = __static_getaddrinfo_pyaddr(
-                addr[0], addr[1],
-                uv.AF_UNSPEC, self.sock.type, self.sock.proto, 0)
-            if addrinfo is None:
-                raise ValueError(
-                    'UDP.sendto(): address {!r} requires a DNS lookup'.format(
-                        addr))
-            if addrinfo[0] != self.sock.family:
-                raise ValueError(
-                    'UDP.sendto(): {!r} socket family mismatch'.format(
-                        addr))
+        if addr is not None and self.sock_family != uv.AF_UNIX:
+            validate_address(addr, self.sock_family, self.sock_type,
+                             self.sock_proto)
 
         if self._conn_lost and self._address:
             if self._conn_lost >= LOG_THRESHOLD_FOR_CONNLOST_WRITES:

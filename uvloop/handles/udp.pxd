@@ -1,6 +1,9 @@
 cdef class UDPTransport(UVBaseTransport):
     cdef:
         object sock
+        int sock_family
+        int sock_proto
+        int sock_type
         UVPoll poll
         object address
         object buffer
