@@ -201,6 +201,19 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
 
+    def test_send_after_close(self):
+        coro = self.loop.create_datagram_endpoint(
+            asyncio.DatagramProtocol,
+            local_addr=('127.0.0.1', 0),
+            family=socket.AF_INET)
+
+        s_transport, _ = self.loop.run_until_complete(coro)
+
+        s_transport.close()
+        s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
+        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+        s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
+
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     pass
