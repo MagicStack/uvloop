@@ -165,7 +165,7 @@ cdef class UDPTransport(UVBaseTransport):
             validate_address(addr, self.sock_family, self.sock_type,
                              self.sock_proto)
 
-        if self._conn_lost and self._address:
+        if self._conn_lost:
             if self._conn_lost >= LOG_THRESHOLD_FOR_CONNLOST_WRITES:
                 aio_logger.warning('socket.send() raised exception.')
             self._conn_lost += 1
