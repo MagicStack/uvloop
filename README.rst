@@ -79,7 +79,7 @@ To build uvloop, you'll need Python 3.5 or greater:
     $ git clone --recursive git@github.com:MagicStack/uvloop.git
     $ cd uvloop
 
-2. Create a virtual environment and activate it, for example:
+2. Create a virtual environment and activate it:
 
    .. code::
 
@@ -96,7 +96,8 @@ To build uvloop, you'll need Python 3.5 or greater:
 
    .. code::
 
-    $ make && make test
+    $ make
+    $ make test
 
 
 License
