@@ -161,15 +161,6 @@ cdef class Loop:
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags)
 
-    cdef _create_server(self, system.sockaddr *addr,
-                        object protocol_factory,
-                        Server server,
-                        object ssl,
-                        bint reuse_port,
-                        object backlog,
-                        object ssl_handshake_timeout,
-                        object ssl_shutdown_timeout)
-
     cdef _track_transport(self, UVBaseTransport transport)
     cdef _fileobj_to_fd(self, fileobj)
     cdef _ensure_fd_no_transport(self, fd)

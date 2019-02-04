@@ -3,7 +3,9 @@ cdef class TCPServer(UVStreamServer):
 
     @staticmethod
     cdef TCPServer new(Loop loop, object protocol_factory, Server server,
-                       object ssl, unsigned int flags,
+                       unsigned int flags,
+                       object backlog,
+                       object ssl,
                        object ssl_handshake_timeout,
                        object ssl_shutdown_timeout)
 

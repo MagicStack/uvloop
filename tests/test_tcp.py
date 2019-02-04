@@ -129,6 +129,8 @@ class _TestTCP:
 
             srv_socks = srv.sockets
             self.assertTrue(srv_socks)
+            if self.has_start_serving():
+                self.assertTrue(srv.is_serving())
 
             addr = srv_socks[0].getsockname()
 
@@ -146,6 +148,9 @@ class _TestTCP:
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
                 self.assertEqual(srv_sock.fileno(), -1)
+
+            if self.has_start_serving():
+                self.assertFalse(srv.is_serving())
 
         async def start_server_sock():
             nonlocal CNT
@@ -167,6 +172,8 @@ class _TestTCP:
 
             srv_socks = srv.sockets
             self.assertTrue(srv_socks)
+            if self.has_start_serving():
+                self.assertTrue(srv.is_serving())
 
             tasks = []
             for _ in range(TOTAL_CNT):
@@ -182,6 +189,9 @@ class _TestTCP:
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
                 self.assertEqual(srv_sock.fileno(), -1)
+
+            if self.has_start_serving():
+                self.assertFalse(srv.is_serving())
 
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
@@ -206,6 +216,8 @@ class _TestTCP:
 
                 srv_socks = srv.sockets
                 self.assertTrue(srv_socks)
+                if self.has_start_serving():
+                    self.assertTrue(srv.is_serving())
 
                 host, port = srv_socks[0].getsockname()
                 self.assertNotEqual(0, port)
@@ -216,6 +228,9 @@ class _TestTCP:
                 # Check that the server cleaned-up proxy-sockets
                 for srv_sock in srv_socks:
                     self.assertEqual(srv_sock.fileno(), -1)
+
+                if self.has_start_serving():
+                    self.assertFalse(srv.is_serving())
 
         self.loop.run_until_complete(start_server_ephemeral_ports())
 
@@ -334,6 +349,60 @@ class _TestTCP:
             self.loop.run_until_complete(
                 self.loop.create_server(
                     lambda: None, host='::', port=0, ssl_handshake_timeout=10))
+
+    def test_create_server_9(self):
+        if not self.has_start_serving():
+            raise unittest.SkipTest()
+
+        async def handle_client(reader, writer):
+            pass
+
+        async def start_server():
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop,
+                start_serving=False)
+
+            await srv.start_serving()
+            self.assertTrue(srv.is_serving())
+
+            # call start_serving again
+            await srv.start_serving()
+            self.assertTrue(srv.is_serving())
+
+            srv.close()
+            await srv.wait_closed()
+            self.assertFalse(srv.is_serving())
+
+        self.loop.run_until_complete(start_server())
+
+    def test_create_server_10(self):
+        if not self.has_start_serving():
+            raise unittest.SkipTest()
+
+        async def handle_client(reader, writer):
+            pass
+
+        async def start_server():
+            srv = await asyncio.start_server(
+                handle_client,
+                '127.0.0.1', 0,
+                family=socket.AF_INET,
+                loop=self.loop,
+                start_serving=False)
+
+            fut = asyncio.ensure_future(srv.serve_forever(), loop=self.loop)
+            await asyncio.sleep(0, loop=self.loop)
+            self.assertTrue(srv.is_serving())
+
+            fut.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await fut
+            self.assertFalse(srv.is_serving())
+
+        self.loop.run_until_complete(start_server())
 
     def test_create_connection_open_con_addr(self):
         async def client(addr):

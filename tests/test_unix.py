@@ -66,6 +66,8 @@ class _TestUnix:
                 try:
                     srv_socks = srv.sockets
                     self.assertTrue(srv_socks)
+                    if self.has_start_serving():
+                        self.assertTrue(srv.is_serving())
 
                     tasks = []
                     for _ in range(TOTAL_CNT):
@@ -82,6 +84,9 @@ class _TestUnix:
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
+
+                    if self.has_start_serving():
+                        self.assertFalse(srv.is_serving())
 
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
@@ -100,6 +105,8 @@ class _TestUnix:
                 try:
                     srv_socks = srv.sockets
                     self.assertTrue(srv_socks)
+                    if self.has_start_serving():
+                        self.assertTrue(srv.is_serving())
 
                     tasks = []
                     for _ in range(TOTAL_CNT):
@@ -116,6 +123,9 @@ class _TestUnix:
                     # Check that the server cleaned-up proxy-sockets
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
+
+                    if self.has_start_serving():
+                        self.assertFalse(srv.is_serving())
 
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
