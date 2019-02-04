@@ -38,13 +38,14 @@ cdef class UnixServer(UVStreamServer):
 
     @staticmethod
     cdef UnixServer new(Loop loop, object protocol_factory, Server server,
+                        object backlog,
                         object ssl,
                         object ssl_handshake_timeout,
                         object ssl_shutdown_timeout):
 
         cdef UnixServer handle
         handle = UnixServer.__new__(UnixServer)
-        handle._init(loop, protocol_factory, server,
+        handle._init(loop, protocol_factory, server, backlog,
                      ssl, ssl_handshake_timeout, ssl_shutdown_timeout)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle

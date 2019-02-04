@@ -67,6 +67,10 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def mock_pattern(self, str):
         return MockPattern(str)
 
+    def has_start_serving(self):
+        return not (self.is_asyncio_loop() and
+                    sys.version_info[:2] in [(3, 5), (3, 6)])
+
     def is_asyncio_loop(self):
         return type(self.loop).__module__.startswith('asyncio.')
 

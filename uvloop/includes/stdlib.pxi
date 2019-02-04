@@ -66,6 +66,8 @@ cdef gc_disable = gc.disable
 cdef iter_chain = itertools.chain
 cdef inspect_isgenerator = inspect.isgenerator
 
+cdef int has_IPV6_V6ONLY = hasattr(socket, 'IPV6_V6ONLY')
+cdef int IPV6_V6ONLY = getattr(socket, 'IPV6_V6ONLY', -1)
 cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
 cdef int SO_BROADCAST = getattr(socket, 'SO_BROADCAST')
@@ -118,6 +120,7 @@ cdef sys_set_coroutine_wrapper = sys.set_coroutine_wrapper
 cdef sys_get_coroutine_wrapper = sys.get_coroutine_wrapper
 cdef sys_getframe = sys._getframe
 cdef sys_version_info = sys.version_info
+cdef str sys_platform = sys.platform
 
 cdef ssl_SSLContext = ssl.SSLContext
 cdef ssl_MemoryBIO = ssl.MemoryBIO

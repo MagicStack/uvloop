@@ -1084,48 +1084,6 @@ cdef class Loop:
                     sys_set_coroutine_wrapper(None)
                     self._coroutine_debug_set = False
 
-    cdef _create_server(self, system.sockaddr *addr,
-                        object protocol_factory,
-                        Server server,
-                        object ssl,
-                        bint reuse_port,
-                        object backlog,
-                        object ssl_handshake_timeout,
-                        object ssl_shutdown_timeout):
-        cdef:
-            TCPServer tcp
-            int bind_flags
-
-        tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                            addr.sa_family,
-                            ssl_handshake_timeout, ssl_shutdown_timeout)
-
-        if reuse_port:
-            self._sock_set_reuseport(tcp._fileno())
-
-        if addr.sa_family == uv.AF_INET6:
-            # Disable IPv4/IPv6 dual stack support (enabled by
-            # default on Linux) which makes a single socket
-            # listen on both address families.
-            bind_flags = uv.UV_TCP_IPV6ONLY
-        else:
-            bind_flags = 0
-
-        try:
-            tcp.bind(addr, bind_flags)
-            tcp.listen(backlog)
-        except OSError as err:
-            pyaddr = __convert_sockaddr_to_pyaddr(addr)
-            tcp._close()
-            raise OSError(err.errno, 'error while attempting '
-                          'to bind on address %r: %s'
-                          % (pyaddr, err.strerror.lower()))
-        except Exception:
-            tcp._close()
-            raise
-
-        return tcp
-
     def _get_backend_id(self):
         """This method is used by uvloop tests and is not part of the API."""
         return uv.uv_backend_fd(self.uvloop)
@@ -1584,10 +1542,11 @@ cdef class Loop:
                             sock=None,
                             backlog=100,
                             ssl=None,
-                            reuse_address=None,  # ignored, libuv sets it
+                            reuse_address=None,
                             reuse_port=None,
                             ssl_handshake_timeout=None,
-                            ssl_shutdown_timeout=None):
+                            ssl_shutdown_timeout=None,
+                            start_serving=True):
         """A coroutine which creates a TCP server bound to host and port.
 
         The return value is a Server object which can be used to stop
@@ -1641,7 +1600,8 @@ cdef class Loop:
                 raise ValueError(
                     'host/port and sock can not be specified at the same time')
             return await self.create_unix_server(
-                protocol_factory, sock=sock, backlog=backlog, ssl=ssl)
+                protocol_factory, sock=sock, backlog=backlog, ssl=ssl,
+                start_serving=start_serving)
 
         server = Server(self)
 
@@ -1661,6 +1621,8 @@ cdef class Loop:
                 raise ValueError(
                     'host/port and sock can not be specified at the same time')
 
+            if reuse_address is None:
+                reuse_address = os_name == 'posix' and sys_platform != 'cygwin'
             reuse_port = bool(reuse_port)
             if reuse_port and not has_SO_REUSEPORT:
                 raise ValueError(
@@ -1680,6 +1642,7 @@ cdef class Loop:
             infos = await aio_gather(*fs, loop=self)
 
             completed = False
+            sock = None
             try:
                 for info in infos:
                     addrinfo = (<AddrInfo>info).data
@@ -1687,18 +1650,64 @@ cdef class Loop:
                         if addrinfo.ai_family == uv.AF_UNSPEC:
                             raise RuntimeError('AF_UNSPEC in DNS results')
 
-                        tcp = self._create_server(
-                            addrinfo.ai_addr, protocol_factory, server,
-                            ssl, reuse_port, backlog,
-                            ssl_handshake_timeout, ssl_shutdown_timeout)
+                        try:
+                            sock = socket_socket(addrinfo.ai_family,
+                                                 addrinfo.ai_socktype,
+                                                 addrinfo.ai_protocol)
+                        except socket_error:
+                            # Assume it's a bad family/type/protocol
+                            # combination.
+                            if self._debug:
+                                aio_logger.warning(
+                                    'create_server() failed to create '
+                                    'socket.socket(%r, %r, %r)',
+                                    addrinfo.ai_family,
+                                    addrinfo.ai_socktype,
+                                    addrinfo.ai_protocol, exc_info=True)
+                            continue
 
-                        server._add_server(<TCPServer>tcp)
+                        if reuse_address:
+                            sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
+                        if reuse_port:
+                            sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEPORT, 1)
+                        # Disable IPv4/IPv6 dual stack support (enabled by
+                        # default on Linux) which makes a single socket
+                        # listen on both address families.
+                        if (addrinfo.ai_family == uv.AF_INET6 and
+                                has_IPV6_V6ONLY):
+                            sock.setsockopt(uv.IPPROTO_IPV6, IPV6_V6ONLY, 1)
+
+                        pyaddr = __convert_sockaddr_to_pyaddr(addrinfo.ai_addr)
+                        try:
+                            sock.bind(pyaddr)
+                        except OSError as err:
+                            raise OSError(
+                                err.errno, 'error while attempting '
+                                'to bind on address %r: %s'
+                                % (pyaddr, err.strerror.lower())) from None
+
+                        tcp = TCPServer.new(self, protocol_factory, server,
+                                            uv.AF_UNSPEC, backlog,
+                                            ssl, ssl_handshake_timeout,
+                                            ssl_shutdown_timeout)
+
+                        try:
+                            tcp._open(sock.fileno())
+                        except Exception:
+                            tcp._close()
+                            raise
+
+                        server._add_server(tcp)
+                        sock.detach()
+                        sock = None
 
                         addrinfo = addrinfo.ai_next
 
                 completed = True
             finally:
                 if not completed:
+                    if sock is not None:
+                        sock.close()
                     server.close()
         else:
             if sock is None:
@@ -1711,19 +1720,22 @@ cdef class Loop:
             # we want Python socket object to notice that.
             sock.setblocking(False)
 
-            tcp = TCPServer.new(self, protocol_factory, server, ssl,
-                                uv.AF_UNSPEC,
-                                ssl_handshake_timeout, ssl_shutdown_timeout)
+            tcp = TCPServer.new(self, protocol_factory, server,
+                                uv.AF_UNSPEC, backlog,
+                                ssl, ssl_handshake_timeout,
+                                ssl_shutdown_timeout)
 
             try:
                 tcp._open(sock.fileno())
-                tcp.listen(backlog)
             except Exception:
                 tcp._close()
                 raise
 
             tcp._attach_fileobj(sock)
             server._add_server(tcp)
+
+        if start_serving:
+            server._start_serving()
 
         server._ref()
         return server
@@ -1960,7 +1972,8 @@ cdef class Loop:
     async def create_unix_server(self, protocol_factory, path=None,
                                  *, backlog=100, sock=None, ssl=None,
                                  ssl_handshake_timeout=None,
-                                 ssl_shutdown_timeout=None):
+                                 ssl_shutdown_timeout=None,
+                                 start_serving=True):
         """A coroutine which creates a UNIX Domain Socket server.
 
         The return value is a Server object, which can be used to stop
@@ -2068,8 +2081,8 @@ cdef class Loop:
             sock.setblocking(False)
 
         pipe = UnixServer.new(
-            self, protocol_factory, server, ssl,
-            ssl_handshake_timeout, ssl_shutdown_timeout)
+            self, protocol_factory, server, backlog,
+            ssl, ssl_handshake_timeout, ssl_shutdown_timeout)
 
         try:
             pipe._open(sock.fileno())
@@ -2078,14 +2091,12 @@ cdef class Loop:
             sock.close()
             raise
 
-        try:
-            pipe.listen(backlog)
-        except Exception:
-            pipe._close()
-            raise
-
         pipe._attach_fileobj(sock)
         server._add_server(pipe)
+
+        if start_serving:
+            server._start_serving()
+
         return server
 
     @cython.iterable_coroutine
