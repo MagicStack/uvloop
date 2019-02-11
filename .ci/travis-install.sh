@@ -13,10 +13,10 @@ if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
     pyenv global ${PYTHON_VERSION}
     pyenv rehash
 
-    brew install gnu-sed --with-default-names
+    brew install gnu-sed
     brew outdated libtool || brew upgrade libtool
-    brew outdated autoconf || brew upgrade autoconf --with-default-names
-    brew outdated automake || brew upgrade automake --with-default-names
+    brew outdated autoconf || brew upgrade autoconf
+    brew outdated automake || brew upgrade automake
 fi
 
 pip install --upgrade setuptools pip wheel
