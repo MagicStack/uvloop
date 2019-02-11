@@ -56,6 +56,10 @@ cdef class Handle:
 
             if cb_type == 1:
                 callback = self.arg1
+                if callback is None:
+                    raise RuntimeError(
+                        'cannot run Handle; callback is not set')
+
                 args = self.arg2
 
                 if args is None:
@@ -106,11 +110,11 @@ cdef class Handle:
     cdef _cancel(self):
         self._cancelled = 1
         self.callback = NULL
-        self.arg2 = self.arg3 = self.arg4 = None
+        self.arg1 = self.arg2 = self.arg3 = self.arg4 = None
 
     cdef _format_handle(self):
         # Mirrors `asyncio.base_events._format_handle`.
-        if self.cb_type == 1:
+        if self.cb_type == 1 and self.arg1 is not None:
             cb = self.arg1
             if isinstance(getattr(cb, '__self__', None), aio_Task):
                 try:
@@ -135,7 +139,7 @@ cdef class Handle:
         if self._cancelled:
             info.append('cancelled')
 
-        if self.cb_type == 1:
+        if self.cb_type == 1 and self.arg1 is not None:
             func = self.arg1
             # Cython can unset func.__qualname__/__name__, hence the checks.
             if hasattr(func, '__qualname__') and func.__qualname__:
@@ -146,7 +150,7 @@ cdef class Handle:
                 cb_name = repr(func)
 
             info.append(cb_name)
-        else:
+        elif self.meth_name is not None:
             info.append(self.meth_name)
 
         if self._source_traceback is not None:
@@ -214,6 +218,7 @@ cdef class TimerHandle:
         if self.timer is None:
             return
 
+        self.callback = None
         self.args = None
 
         try:
@@ -225,10 +230,11 @@ cdef class TimerHandle:
     cdef _run(self):
         if self._cancelled == 1:
             return
+        if self.callback is None:
+            raise RuntimeError('cannot run TimerHandle; callback is not set')
 
         callback = self.callback
         args = self.args
-        self._clear()
 
         Py_INCREF(self)  # Since _run is a cdef and there's no BoundMethod,
                          # we guard 'self' manually.
@@ -275,15 +281,16 @@ cdef class TimerHandle:
         if self._cancelled:
             info.append('cancelled')
 
-        func = self.callback
-        if hasattr(func, '__qualname__'):
-            cb_name = getattr(func, '__qualname__')
-        elif hasattr(func, '__name__'):
-            cb_name = getattr(func, '__name__')
-        else:
-            cb_name = repr(func)
+        if self.callback is not None:
+            func = self.callback
+            if hasattr(func, '__qualname__'):
+                cb_name = getattr(func, '__qualname__')
+            elif hasattr(func, '__name__'):
+                cb_name = getattr(func, '__name__')
+            else:
+                cb_name = repr(func)
 
-        info.append(cb_name)
+            info.append(cb_name)
 
         if self._source_traceback is not None:
             frame = self._source_traceback[-1]
