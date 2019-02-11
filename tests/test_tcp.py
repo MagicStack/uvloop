@@ -2651,6 +2651,73 @@ class _TestSSL(tb.SSLTestCase):
             else:
                 self.fail('Unexpected ResourceWarning: {}'.format(cm.warning))
 
+    def test_handshake_timeout_handler_leak(self):
+        if self.implementation == 'asyncio':
+            # Okay this turns out to be an issue for asyncio.sslproto too
+            raise unittest.SkipTest()
+
+        s = socket.socket(socket.AF_INET)
+        s.bind(('127.0.0.1', 0))
+        s.listen(1)
+        addr = s.getsockname()
+
+        async def test(ctx):
+            try:
+                await asyncio.wait_for(
+                    self.loop.create_connection(asyncio.Protocol, *addr,
+                                                ssl=ctx),
+                    0.1, loop=self.loop)
+            except (ConnectionRefusedError, asyncio.TimeoutError):
+                pass
+            else:
+                self.fail('TimeoutError is not raised')
+
+        with s:
+            ctx = ssl.create_default_context()
+            self.loop.run_until_complete(test(ctx))
+            ctx = weakref.ref(ctx)
+
+        # SSLProtocol should be DECREF to 0
+        self.assertIsNone(ctx())
+
+    def test_shutdown_timeout_handler_leak(self):
+        loop = self.loop
+
+        def server(sock):
+            sslctx = self._create_server_ssl_context(self.ONLYCERT,
+                                                     self.ONLYKEY)
+            sock = sslctx.wrap_socket(sock, server_side=True)
+            sock.recv(32)
+            sock.close()
+
+        class Protocol(asyncio.Protocol):
+            def __init__(self):
+                self.fut = asyncio.Future(loop=loop)
+
+            def connection_lost(self, exc):
+                self.fut.set_result(None)
+
+        async def client(addr, ctx):
+            tr, pr = await loop.create_connection(Protocol, *addr, ssl=ctx)
+            tr.close()
+            await pr.fut
+
+        with self.tcp_server(server) as srv:
+            ctx = self._create_client_ssl_context()
+            loop.run_until_complete(client(srv.addr, ctx))
+            ctx = weakref.ref(ctx)
+
+        if self.implementation == 'asyncio':
+            # asyncio has no shutdown timeout, but it ends up with a circular
+            # reference loop - not ideal (introduces gc glitches), but at least
+            # not leaking
+            gc.collect()
+            gc.collect()
+            gc.collect()
+
+        # SSLProtocol should be DECREF to 0
+        self.assertIsNone(ctx())
+
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
     pass

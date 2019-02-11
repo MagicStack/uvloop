@@ -341,9 +341,9 @@ cdef class SSLProtocol:
         self._app_transport = None
         self._wakeup_waiter(exc)
 
-        if getattr(self, '_shutdown_timeout_handle', None):
+        if self._shutdown_timeout_handle:
             self._shutdown_timeout_handle.cancel()
-        if getattr(self, '_handshake_timeout_handle', None):
+        if self._handshake_timeout_handle:
             self._handshake_timeout_handle.cancel()
 
     def get_buffer(self, n):
@@ -453,8 +453,13 @@ cdef class SSLProtocol:
         self._set_state(DO_HANDSHAKE)
 
         # start handshake timeout count down
+        # XXX: This is a workaround to call cdef method and clear reference to
+        # self when the handle is cancelled (because uvloop currently clears
+        # only args, it'll be okay to remove the lambda x: x() after the fix to
+        # clear also the callback)
         self._handshake_timeout_handle = \
             self._loop.call_later(self._ssl_handshake_timeout,
+                                  lambda x: x(),
                                   lambda: self._check_handshake_timeout())
 
         try:
@@ -533,8 +538,13 @@ cdef class SSLProtocol:
             self._abort(None)
         else:
             self._set_state(FLUSHING)
+            # XXX: This is a workaround to call cdef method and clear reference
+            # to self when the handle is cancelled (because uvloop currently
+            # clears only args, it'll be okay to remove the lambda x: x() after
+            # the fix to clear also the callback)
             self._shutdown_timeout_handle = \
                 self._loop.call_later(self._ssl_shutdown_timeout,
+                                      lambda x: x(),
                                       lambda: self._check_shutdown_timeout())
             self._do_flush()
 
