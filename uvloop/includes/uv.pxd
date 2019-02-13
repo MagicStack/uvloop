@@ -4,12 +4,6 @@ from posix.types cimport gid_t, uid_t
 from . cimport system
 
 
-cdef extern from "includes/compat.h":
-    # Member of uv_poll_event, in compat.h for compatibility
-    # with libuv < v1.9.0
-    cdef int UV_DISCONNECT
-
-
 cdef extern from "uv.h" nogil:
     cdef int UV_TCP_IPV6ONLY
 
@@ -190,7 +184,7 @@ cdef extern from "uv.h" nogil:
     ctypedef enum uv_poll_event:
         UV_READABLE = 1,
         UV_WRITABLE = 2
-        # UV_DISCONNECT = 4 ; see compat.h for details
+        UV_DISCONNECT = 4
 
     ctypedef enum uv_membership:
         UV_LEAVE_GROUP = 0,

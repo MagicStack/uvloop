@@ -27,6 +27,10 @@ cdef class ReadUnixTransport(UVStream):
 
 cdef class WriteUnixTransport(UVStream):
 
+    cdef:
+        uv.uv_poll_t disconnect_listener
+        bint disconnect_listener_inited
+
     @staticmethod
     cdef WriteUnixTransport new(Loop loop, object protocol, Server server,
                                 object waiter)
