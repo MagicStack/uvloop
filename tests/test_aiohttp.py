@@ -101,7 +101,6 @@ class _TestAioHTTP:
         self.loop.run_until_complete(stop())
 
 
-
 @unittest.skipIf(skip_tests, "no aiohttp module")
 class Test_UV_AioHTTP(_TestAioHTTP, tb.UVTestCase):
     pass

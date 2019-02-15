@@ -1,8 +1,7 @@
 cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
     cdef int err
 
-    handle._handle = <uv.uv_handle_t*> \
-                        PyMem_RawMalloc(sizeof(uv.uv_pipe_t))
+    handle._handle = <uv.uv_handle_t*>PyMem_RawMalloc(sizeof(uv.uv_pipe_t))
     if handle._handle is NULL:
         handle._abort_init()
         raise MemoryError()
@@ -81,7 +80,7 @@ cdef class UnixTransport(UVStream):
 
     @staticmethod
     cdef UnixTransport new(Loop loop, object protocol, Server server,
-                             object waiter):
+                           object waiter):
 
         cdef UnixTransport handle
         handle = UnixTransport.__new__(UnixTransport)
@@ -106,7 +105,7 @@ cdef class ReadUnixTransport(UVStream):
 
     @staticmethod
     cdef ReadUnixTransport new(Loop loop, object protocol, Server server,
-                                 object waiter):
+                               object waiter):
         cdef ReadUnixTransport handle
         handle = ReadUnixTransport.__new__(ReadUnixTransport)
         handle._init(loop, protocol, server, waiter)
@@ -153,7 +152,7 @@ cdef class WriteUnixTransport(UVStream):
 
     @staticmethod
     cdef WriteUnixTransport new(Loop loop, object protocol, Server server,
-                                  object waiter):
+                                object waiter):
         cdef WriteUnixTransport handle
         handle = WriteUnixTransport.__new__(WriteUnixTransport)
 
@@ -275,4 +274,3 @@ cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
         wrapper.transport._fatal_error(ex, False)
     finally:
         wrapper.on_done()
-

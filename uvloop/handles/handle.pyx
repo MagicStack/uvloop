@@ -60,7 +60,7 @@ cdef class UVHandle:
         # errors during Handle.__cinit__/__init__ etc.
         if self._inited:
             self._handle.data = NULL
-            uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
+            uv.uv_close(self._handle, __uv_close_handle_cb)  # void; no errors
             self._handle = NULL
             self._warn_unclosed()
         else:
@@ -209,7 +209,7 @@ cdef class UVHandle:
         # We want the handle wrapper (UVHandle) to stay alive until
         # the closing callback fires.
         Py_INCREF(self)
-        uv.uv_close(self._handle, __uv_close_handle_cb) # void; no errors
+        uv.uv_close(self._handle, __uv_close_handle_cb)  # void; no errors
 
     def __repr__(self):
         return '<{} closed={} {:#x}>'.format(
@@ -291,8 +291,8 @@ cdef class UVSocketHandle(UVHandle):
             self._loop.call_exception_handler({
                 'exception': ex,
                 'transport': self,
-                'message': 'could not close attached file object {!r}'.
-                    format(self._fileobj)
+                'message': f'could not close attached file object '
+                           f'{self._fileobj!r}',
             })
         finally:
             self._fileobj = None
@@ -360,13 +360,18 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
                     h.__class__.__name__])
             h._free()
         finally:
-            Py_DECREF(h) # Was INCREFed in UVHandle._close
+            Py_DECREF(h)  # Was INCREFed in UVHandle._close
 
 
 cdef void __close_all_handles(Loop loop):
-    uv.uv_walk(loop.uvloop, __uv_walk_close_all_handles_cb, <void*>loop) # void
+    uv.uv_walk(loop.uvloop,
+               __uv_walk_close_all_handles_cb,
+               <void*>loop)  # void
 
-cdef void __uv_walk_close_all_handles_cb(uv.uv_handle_t* handle, void* arg) with gil:
+
+cdef void __uv_walk_close_all_handles_cb(
+        uv.uv_handle_t* handle, void* arg) with gil:
+
     cdef:
         Loop loop = <Loop>arg
         UVHandle h

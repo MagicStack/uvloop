@@ -38,7 +38,7 @@ cdef class UDPTransport(UVBaseTransport):
             self.address = r_addr
             self.poll = UVPoll.new(loop, sock.fileno())
             self._finish_init()
-        except:
+        except Exception:
             self._free()
             self._abort_init()
             raise

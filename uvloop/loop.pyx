@@ -6,19 +6,21 @@ cimport cython
 from .includes.debug cimport UVLOOP_DEBUG
 from .includes cimport uv
 from .includes cimport system
-from .includes.python cimport PY_VERSION_HEX, \
-                              PyMem_RawMalloc, PyMem_RawFree, \
-                              PyMem_RawCalloc, PyMem_RawRealloc, \
-                              PyUnicode_EncodeFSDefault, \
-                              PyErr_SetInterrupt, \
-                              _Py_RestoreSignals, \
-                              Context_CopyCurrent, \
-                              Context_Enter, \
-                              Context_Exit, \
-                              PyMemoryView_FromMemory, PyBUF_WRITE, \
-                              PyMemoryView_FromObject, PyMemoryView_Check, \
-                              PyOS_AfterFork_Parent, PyOS_AfterFork_Child, \
-                              PyOS_BeforeFork
+from .includes.python cimport (
+    PY_VERSION_HEX,
+    PyMem_RawMalloc, PyMem_RawFree,
+    PyMem_RawCalloc, PyMem_RawRealloc,
+    PyUnicode_EncodeFSDefault,
+    PyErr_SetInterrupt,
+    _Py_RestoreSignals,
+    Context_CopyCurrent,
+    Context_Enter,
+    Context_Exit,
+    PyMemoryView_FromMemory, PyBUF_WRITE,
+    PyMemoryView_FromObject, PyMemoryView_Check,
+    PyOS_AfterFork_Parent, PyOS_AfterFork_Child,
+    PyOS_BeforeFork
+)
 from .includes.flowcontrol cimport add_flowcontrol_defaults
 
 from libc.stdint cimport uint64_t
@@ -29,9 +31,11 @@ from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
-from cpython cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE, \
-                     Py_buffer, PyBytes_AsString, PyBytes_CheckExact, \
-                     Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
+from cpython cimport (
+    PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE,
+    Py_buffer, PyBytes_AsString, PyBytes_CheckExact,
+    Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
+)
 
 from . import _noop
 
@@ -94,8 +98,7 @@ cdef class Loop:
         # Install pthread_atfork handlers
         __install_atfork()
 
-        self.uvloop = <uv.uv_loop_t*> \
-                            PyMem_RawMalloc(sizeof(uv.uv_loop_t))
+        self.uvloop = <uv.uv_loop_t*>PyMem_RawMalloc(sizeof(uv.uv_loop_t))
         if self.uvloop is NULL:
             raise MemoryError()
 
@@ -368,8 +371,8 @@ cdef class Loop:
             self.handler_async.send()
 
     cdef _on_wake(self):
-        if (self._ready_len > 0 or self._stopping) \
-                            and not self.handler_idle.running:
+        if ((self._ready_len > 0 or self._stopping) and
+                not self.handler_idle.running):
             self.handler_idle.start()
 
     cdef _on_idle(self):
@@ -534,18 +537,17 @@ cdef class Loop:
 
         if self._timers:
             raise RuntimeError(
-                "new timers were queued during loop closing: {}"
-                    .format(self._timers))
+                f"new timers were queued during loop closing: {self._timers}")
 
         if self._polls:
             raise RuntimeError(
-                "new poll handles were queued during loop closing: {}"
-                    .format(self._polls))
+                f"new poll handles were queued during loop closing: "
+                f"{self._polls}")
 
         if self._ready:
             raise RuntimeError(
-                "new callbacks were queued during loop closing: {}"
-                    .format(self._ready))
+                f"new callbacks were queued during loop closing: "
+                f"{self._ready}")
 
         err = uv.uv_loop_close(self.uvloop)
         if err < 0:
@@ -607,7 +609,7 @@ cdef class Loop:
     cdef inline _call_soon_handle(self, Handle handle):
         self._check_closed()
         self._ready.append(handle)
-        self._ready_len += 1;
+        self._ready_len += 1
         if not self.handler_idle.running:
             self.handler_idle.start()
 
@@ -639,7 +641,10 @@ cdef class Loop:
     cdef inline _check_thread(self):
         if self._thread_id == 0:
             return
-        cdef uint64_t thread_id = <uint64_t><int64_t>PyThread_get_thread_ident()
+
+        cdef uint64_t thread_id
+        thread_id = <uint64_t><int64_t>PyThread_get_thread_ident()
+
         if thread_id != self._thread_id:
             raise RuntimeError(
                 "Non-thread-safe operation invoked on an event loop other "
@@ -1079,7 +1084,6 @@ cdef class Loop:
                     sys_set_coroutine_wrapper(None)
                     self._coroutine_debug_set = False
 
-
     cdef _create_server(self, system.sockaddr *addr,
                         object protocol_factory,
                         Server server,
@@ -1135,14 +1139,14 @@ cdef class Loop:
         if err < 0:
             raise convert_error(err)
 
-        ################### OS
+        # OS
 
         print('---- Process info: -----')
         print('Process memory:            {}'.format(rusage.ru_maxrss))
         print('Number of signals:         {}'.format(rusage.ru_nsignals))
         print('')
 
-        ################### Loop
+        # Loop
 
         print('--- Loop debug info: ---')
         print('Loop time:                 {}'.format(self.time()))
@@ -1231,11 +1235,12 @@ cdef class Loop:
 
     def __repr__(self):
         return '<{}.{} running={} closed={} debug={}>'.format(
-                    self.__class__.__module__,
-                    self.__class__.__name__,
-                    self.is_running(),
-                    self.is_closed(),
-                    self.get_debug())
+            self.__class__.__module__,
+            self.__class__.__name__,
+            self.is_running(),
+            self.is_closed(),
+            self.get_debug()
+        )
 
     def call_soon(self, callback, *args, context=None):
         """Arrange for a callback to be called as soon as possible.
@@ -1367,7 +1372,8 @@ cdef class Loop:
     def set_debug(self, enabled):
         self._debug = bool(enabled)
         if self.is_running():
-            self.call_soon_threadsafe(self._set_coroutine_debug, self, self._debug)
+            self.call_soon_threadsafe(
+                self._set_coroutine_debug, self, self._debug)
 
     def is_running(self):
         """Return whether the event loop is currently running."""
@@ -1436,7 +1442,7 @@ cdef class Loop:
         future.add_done_callback(done_cb)
         try:
             self.run_forever()
-        except:
+        except BaseException:
             if new_task and future.done() and not future.cancelled():
                 # The coroutine raised a BaseException. Consume the exception
                 # to not log a warning, the caller doesn't have access to the
@@ -1589,8 +1595,8 @@ cdef class Loop:
 
         If host is an empty string or None all interfaces are assumed
         and a list of multiple sockets will be returned (most likely
-        one for IPv4 and another one for IPv6). The host parameter can also be a
-        sequence (e.g. list) of hosts to bind to.
+        one for IPv4 and another one for IPv6). The host parameter can also be
+        a sequence (e.g. list) of hosts to bind to.
 
         family can be set to either AF_INET or AF_INET6 to force the
         socket to use IPv4 or IPv6. If not set it will be determined
@@ -1723,8 +1729,10 @@ cdef class Loop:
         return server
 
     @cython.iterable_coroutine
-    async def create_connection(self, protocol_factory, host=None, port=None, *,
-                                ssl=None, family=0, proto=0, flags=0, sock=None,
+    async def create_connection(self, protocol_factory, host=None, port=None,
+                                *,
+                                ssl=None,
+                                family=0, proto=0, flags=0, sock=None,
                                 local_addr=None, server_hostname=None,
                                 ssl_handshake_timeout=None,
                                 ssl_shutdown_timeout=None):
@@ -1803,8 +1811,9 @@ cdef class Loop:
             f1 = f2 = None
 
             addr = __static_getaddrinfo(
-                    host, port, family, uv.SOCK_STREAM,
-                    proto, <system.sockaddr*>&rai_addr_static)
+                host, port, family, uv.SOCK_STREAM,
+                proto, <system.sockaddr*>&rai_addr_static)
+
             if addr is None:
                 f1 = self._getaddrinfo(
                     host, port, family,
@@ -2583,10 +2592,8 @@ cdef class Loop:
                                start_new_session=False,
                                executable=None,
                                pass_fds=(),
-
                                # For tests only! Do not use in your code. Ever.
-                               __uvloop_sleep_after_fork=False
-                            ):
+                               __uvloop_sleep_after_fork=False):
 
         # TODO: Implement close_fds (might not be very important in
         # Python 3.5, since all FDs aren't inheritable by default.)
@@ -2643,7 +2650,7 @@ cdef class Loop:
                                            **kwargs)
 
     @cython.iterable_coroutine
-    async def subprocess_exec(self,  protocol_factory, program, *args,
+    async def subprocess_exec(self, protocol_factory, program, *args,
                               shell=False, **kwargs):
 
         if shell:
@@ -3145,7 +3152,7 @@ cdef _warn_with_source(msg, cls, source):
         warnings_warn(msg, cls)
 
 
-########### Stuff for tests:
+# Helpers for tests
 
 @cython.iterable_coroutine
 async def _test_coroutine_1():

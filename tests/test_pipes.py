@@ -224,12 +224,12 @@ class _BasePipeTest:
             return len(data)
 
         tb.run_until(self.loop, lambda: reader(data) >= 1,
-                             timeout=10)
+                     timeout=10)
         self.assertEqual(b'1', data)
 
         transport.write(b'2345')
         tb.run_until(self.loop, lambda: reader(data) >= 5,
-                             timeout=10)
+                     timeout=10)
         self.assertEqual(b'12345', data)
         self.assertEqual('CONNECTED', proto.state)
 

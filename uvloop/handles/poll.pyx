@@ -5,8 +5,7 @@ cdef class UVPoll(UVHandle):
 
         self._start_init(loop)
 
-        self._handle = <uv.uv_handle_t*> \
-                            PyMem_RawMalloc(sizeof(uv.uv_poll_t))
+        self._handle = <uv.uv_handle_t*>PyMem_RawMalloc(sizeof(uv.uv_poll_t))
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()

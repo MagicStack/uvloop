@@ -33,8 +33,8 @@ cdef class UVProcess(UVHandle):
 
         self._start_init(loop)
 
-        self._handle = <uv.uv_handle_t*> \
-                            PyMem_RawMalloc(sizeof(uv.uv_process_t))
+        self._handle = <uv.uv_handle_t*>PyMem_RawMalloc(
+            sizeof(uv.uv_process_t))
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()
@@ -54,7 +54,7 @@ cdef class UVProcess(UVHandle):
                     if not os_get_inheritable(fd):
                         restore_inheritable.add(fd)
                         os_set_inheritable(fd, True)
-        except:
+        except Exception:
             self._abort_init()
             raise
 
@@ -433,7 +433,7 @@ cdef class UVProcessTransport(UVProcess):
 
         if _stdin is not None:
             if _stdin == subprocess_PIPE:
-                r, w  = self._file_inpipe()
+                r, w = self._file_inpipe()
                 io[0] = r
 
                 self.stdin_proto = WriteSubprocessPipeProto(self, 0)
@@ -461,7 +461,7 @@ cdef class UVProcessTransport(UVProcess):
                 # streams API. Therefore, we create pipes for stdout and
                 # stderr manually.
 
-                r, w  = self._file_outpipe()
+                r, w = self._file_outpipe()
                 io[1] = w
 
                 self.stdout_proto = ReadSubprocessPipeProto(self, 1)
@@ -483,7 +483,7 @@ cdef class UVProcessTransport(UVProcess):
 
         if _stderr is not None:
             if _stderr == subprocess_PIPE:
-                r, w  = self._file_outpipe()
+                r, w = self._file_outpipe()
                 io[2] = w
 
                 self.stderr_proto = ReadSubprocessPipeProto(self, 2)
@@ -549,8 +549,10 @@ cdef class UVProcessTransport(UVProcess):
             return
 
         if ((self.stdin_proto is None or self.stdin_proto.disconnected) and
-            (self.stdout_proto is None or self.stdout_proto.disconnected) and
-            (self.stderr_proto is None or self.stderr_proto.disconnected)):
+                (self.stdout_proto is None or
+                    self.stdout_proto.disconnected) and
+                (self.stderr_proto is None or
+                    self.stderr_proto.disconnected)):
 
             self._finished = 1
 

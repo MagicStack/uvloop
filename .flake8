@@ -1,0 +1,6 @@
+[flake8]
+filename = *.py,*.pyx,*.pxd,*.pxi
+ignore = E402,E731,D100,D101,D102,D103,D104,D105,W503,W504,E252
+exclude = .git,__pycache__,build,dist,.eggs,postgres,vendor
+
+per-file-ignores = *.pyx,*.pxd,*.pxi: E211, E222, E225, E226, E227, E999

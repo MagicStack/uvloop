@@ -1,5 +1,6 @@
 DEF __PREALLOCED_BUFS = 4
 
+
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class _StreamWriteContext:
@@ -160,7 +161,7 @@ cdef class _StreamWriteContext:
                 try:
                     PyObject_GetBuffer(
                         buf, &p_pybufs[py_bufs_len], PyBUF_SIMPLE)
-                except:
+                except Exception:
                     # This shouldn't ever happen, as `UVStream._write`
                     # casts non-bytes objects to `memoryviews`.
                     ctx.py_bufs_len = py_bufs_len
@@ -374,9 +375,10 @@ cdef class UVStream(UVBaseTransport):
         # uv_try_write -- less layers of code.  The error
         # checking logic is copied from libuv.
         written = system.write(fd, buf, blen)
-        while written == -1 and (errno.errno == errno.EINTR or
-                                 (system.PLATFORM_IS_APPLE and
-                                    errno.errno == errno.EPROTOTYPE)):
+        while written == -1 and (
+                errno.errno == errno.EINTR or
+                (system.PLATFORM_IS_APPLE and
+                    errno.errno == errno.EPROTOTYPE)):
             # From libuv code (unix/stream.c):
             #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
             #   EPROTOTYPE can be returned while trying to write to a socket
@@ -741,8 +743,8 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
             stream._loop._debug_stream_shutdown_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False,
-            "error status in uv_stream_t.shutdown callback")
+        stream._fatal_error(
+            exc, False, "error status in uv_stream_t.shutdown callback")
         return
 
 
@@ -799,8 +801,8 @@ cdef inline bint __uv_stream_on_read_common(UVStream sc, Loop loop,
             return True
 
         exc = convert_error(nread)
-        sc._fatal_error(exc, False,
-            "error status in uv_stream_t.read callback")
+        sc._fatal_error(
+            exc, False, "error status in uv_stream_t.read callback")
         return True
 
     return False
@@ -850,8 +852,8 @@ cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
             stream._loop._debug_stream_write_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False,
-            "error status in uv_stream_t.write callback")
+        stream._fatal_error(
+            exc, False, "error status in uv_stream_t.write callback")
         return
 
     try:
