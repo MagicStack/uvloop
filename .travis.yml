@@ -75,6 +75,16 @@ matrix:
           services: [docker]
           env: BUILD=tests,wheels,release
 
+addons:
+    homebrew:
+        packages:
+            - autoconf
+            - automake
+            - gnu-sed
+            - libtool
+            - pyenv
+        update: true
+
 cache:
     pip
 
