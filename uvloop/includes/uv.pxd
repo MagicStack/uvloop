@@ -72,8 +72,8 @@ cdef extern from "uv.h" nogil:
     ctypedef int uv_os_fd_t
 
     ctypedef struct uv_buf_t:
-      char* base
-      size_t len
+        char* base
+        size_t len
 
     ctypedef struct uv_loop_t:
         void* data
@@ -268,9 +268,9 @@ cdef extern from "uv.h" nogil:
 
     # Async handler
     int uv_async_init(uv_loop_t*,
-                      uv_async_t* async,
+                      uv_async_t* async_,
                       uv_async_cb async_cb)
-    int uv_async_send(uv_async_t* async)
+    int uv_async_send(uv_async_t* async_)
 
     # Timer handler
     int uv_timer_init(uv_loop_t*, uv_timer_t* handle)
@@ -323,7 +323,8 @@ cdef extern from "uv.h" nogil:
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay)
     int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock)
-    int uv_tcp_bind(uv_tcp_t* handle, system.sockaddr* addr, unsigned int flags)
+    int uv_tcp_bind(uv_tcp_t* handle, system.sockaddr* addr,
+                    unsigned int flags)
 
     int uv_tcp_getsockname(const uv_tcp_t* handle, system.sockaddr* name,
                            int* namelen)

@@ -361,7 +361,7 @@ cdef class SSLProtocol:
 
     def buffer_updated(self, nbytes):
         self._incoming_write(PyMemoryView_FromMemory(
-                self._ssl_buffer, nbytes, PyBUF_WRITE))
+            self._ssl_buffer, nbytes, PyBUF_WRITE))
 
         if self._state == DO_HANDSHAKE:
             self._do_handshake()

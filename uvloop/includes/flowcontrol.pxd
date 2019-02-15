@@ -1,3 +1,6 @@
+# flake8: noqa
+
+
 cdef inline add_flowcontrol_defaults(high, low, int kb):
     cdef int h, l
     if high is None:

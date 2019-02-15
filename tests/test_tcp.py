@@ -227,8 +227,8 @@ class _TestTCP:
             addr = sock.getsockname()
 
             with self.assertRaisesRegex(OSError,
-                                        "error while attempting.*\('127.*: "
-                                        "address already in use"):
+                                        r"error while attempting.*\('127.*: "
+                                        r"address already in use"):
 
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr))
@@ -801,7 +801,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         async def handle_client(reader, writer):
             with self.assertRaises(asyncio.IncompleteReadError):
-                data = await reader.readexactly(4)
+                await reader.readexactly(4)
             writer.close()
 
             # Previously, when we used socket.fromfd to create a socket

@@ -47,7 +47,7 @@ if __name__ == '__main__':
     MSGSIZE = args.msize
     REQSIZE = MSGSIZE * args.mpr
 
-    msg = b'x'*(MSGSIZE - 1) + b'\n'
+    msg = b'x' * (MSGSIZE - 1) + b'\n'
     if args.mpr:
         msg *= args.mpr
 
@@ -90,6 +90,6 @@ if __name__ == '__main__':
             for _ in range(N):
                 e.submit(run_test, NMESSAGES)
     end = time.time()
-    duration = end-start
+    duration = end - start
     print(NMESSAGES * N * TIMES, 'in', duration)
     print(NMESSAGES * N * TIMES / duration, 'requests/sec')

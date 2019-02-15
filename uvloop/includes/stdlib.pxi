@@ -1,3 +1,6 @@
+# flake8: noqa
+
+
 import asyncio, asyncio.log, asyncio.base_events, \
        asyncio.sslproto, asyncio.coroutines, \
        asyncio.futures, asyncio.transports

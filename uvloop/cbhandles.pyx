@@ -46,9 +46,11 @@ cdef class Handle:
 
         cb_type = self.cb_type
 
-        Py_INCREF(self)   # Since _run is a cdef and there's no BoundMethod,
-                          # we guard 'self' manually (since the callback
-                          # might cause GC of the handle.)
+        # Since _run is a cdef and there's no BoundMethod,
+        # we guard 'self' manually (since the callback
+        # might cause GC of the handle.)
+        Py_INCREF(self)
+
         try:
             if PY37:
                 assert self.context is not None
@@ -236,8 +238,10 @@ cdef class TimerHandle:
         callback = self.callback
         args = self.args
 
-        Py_INCREF(self)  # Since _run is a cdef and there's no BoundMethod,
-                         # we guard 'self' manually.
+        # Since _run is a cdef and there's no BoundMethod,
+        # we guard 'self' manually.
+        Py_INCREF(self)
+
         if self.loop._debug:
             started = time_monotonic()
         try:
@@ -305,7 +309,6 @@ cdef class TimerHandle:
         self._cancel()
 
 
-
 cdef new_Handle(Loop loop, object callback, object args, object context):
     cdef Handle handle
     handle = Handle.__new__(Handle)
@@ -352,6 +355,7 @@ cdef new_MethodHandle1(Loop loop, str name, method1_t callback,
 
     return handle
 
+
 cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object ctx,
                        object arg1, object arg2):
 
@@ -369,6 +373,7 @@ cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object ctx,
     handle.arg3 = arg2
 
     return handle
+
 
 cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
                        object arg1, object arg2, object arg3):

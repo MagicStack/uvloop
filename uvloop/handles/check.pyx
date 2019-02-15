@@ -5,8 +5,7 @@ cdef class UVCheck(UVHandle):
 
         self._start_init(loop)
 
-        self._handle = <uv.uv_handle_t*> \
-                            PyMem_RawMalloc(sizeof(uv.uv_check_t))
+        self._handle = <uv.uv_handle_t*>PyMem_RawMalloc(sizeof(uv.uv_check_t))
         if self._handle is NULL:
             self._abort_init()
             raise MemoryError()

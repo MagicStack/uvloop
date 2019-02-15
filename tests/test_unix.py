@@ -126,7 +126,7 @@ class _TestUnix:
 
         with self.subTest(func='start_unix_server(sock)'):
             self.loop.run_until_complete(start_server_sock(
-                 lambda sock: asyncio.start_unix_server(
+                lambda sock: asyncio.start_unix_server(
                     handle_client,
                     None,
                     loop=self.loop,
@@ -135,7 +135,7 @@ class _TestUnix:
 
         with self.subTest(func='start_server(sock)'):
             self.loop.run_until_complete(start_server_sock(
-                 lambda sock: asyncio.start_server(
+                lambda sock: asyncio.start_server(
                     handle_client,
                     None, None,
                     loop=self.loop,

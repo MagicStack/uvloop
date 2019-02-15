@@ -270,7 +270,8 @@ finally:
             self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
 
     def test_signals_coro_callback(self):
-        async def coro(): pass
+        async def coro():
+            pass
         with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
             self.loop.add_signal_handler(signal.SIGHUP, coro)
 

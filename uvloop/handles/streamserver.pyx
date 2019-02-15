@@ -94,10 +94,9 @@ cdef class UVStreamServer(UVSocketHandle):
             if throw or self._loop is None:
                 raise exc
 
-            msg = 'Fatal error on server {}'.format(
-                    self.__class__.__name__)
+            msg = f'Fatal error on server {self.__class__.__name__}'
             if reason is not None:
-                msg = '{} ({})'.format(msg, reason)
+                msg = f'{msg} ({reason})'
 
             self._loop.call_exception_handler({
                 'message': msg,
@@ -133,8 +132,8 @@ cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
             stream._loop._debug_stream_listen_errors_total += 1
 
         exc = convert_error(status)
-        stream._fatal_error(exc, False,
-            "error status in uv_stream_t.listen callback")
+        stream._fatal_error(
+            exc, False, "error status in uv_stream_t.listen callback")
         return
 
     try:

@@ -11,7 +11,7 @@ include "includes/consts.pxi"
 
 
 cdef extern from *:
-     ctypedef int vint "volatile int"
+    ctypedef int vint "volatile int"
 
 
 cdef class UVHandle
@@ -29,11 +29,9 @@ ctypedef object (*method2_t)(object, object, object)
 ctypedef object (*method3_t)(object, object, object, object)
 
 
-
 cdef class Loop:
     cdef:
         uv.uv_loop_t *uvloop
-
 
         bint _coroutine_debug_set
         int _coroutine_origin_tracking_saved_depth
@@ -88,8 +86,9 @@ cdef class Loop:
         bint _recv_buffer_in_use
 
         # DEBUG fields
-        readonly bint _debug_cc  # True when compiled with DEBUG.
-                                 # Only for unittests.
+        # True when compiled with DEBUG.
+        # Used only in unittests.
+        readonly bint _debug_cc
 
         readonly object _debug_handles_total
         readonly object _debug_handles_closed

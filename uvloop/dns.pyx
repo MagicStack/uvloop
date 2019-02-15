@@ -148,7 +148,7 @@ cdef __static_getaddrinfo(object host, object port,
 
     try:
         port = __port_to_int(port, proto)
-    except:
+    except Exception:
         return
 
     hp = (host, port)
@@ -194,7 +194,7 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
 
     try:
         pyaddr = __convert_sockaddr_to_pyaddr(<system.sockaddr*>&addr)
-    except:
+    except Exception:
         return
 
     return af, type, proto, '', pyaddr
@@ -210,7 +210,7 @@ cdef class AddrInfo:
 
     def __dealloc__(self):
         if self.data is not NULL:
-            uv.uv_freeaddrinfo(self.data) # returns void
+            uv.uv_freeaddrinfo(self.data)  # returns void
             self.data = NULL
 
     cdef void set_data(self, system.addrinfo *data):
@@ -231,8 +231,8 @@ cdef class AddrInfo:
                     ptr.ai_family,
                     ptr.ai_socktype,
                     ptr.ai_protocol,
-                    '' if ptr.ai_canonname is NULL else
-                        (<bytes>ptr.ai_canonname).decode(),
+                    ('' if ptr.ai_canonname is NULL else
+                        (<bytes>ptr.ai_canonname).decode()),
                     __convert_sockaddr_to_pyaddr(ptr.ai_addr)
                 ))
 

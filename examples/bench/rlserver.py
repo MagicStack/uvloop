@@ -2,9 +2,7 @@ import argparse
 import asyncio
 import gc
 import os.path
-import socket as socket_module
-
-from socket import *
+import socket as stdsock
 
 
 PRINT = 0
@@ -13,7 +11,8 @@ PRINT = 0
 async def echo_client_streams(reader, writer):
     sock = writer.get_extra_info('socket')
     try:
-        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        sock.setsockopt(
+            stdsock.IPPROTO_TCP, stdsock.TCP_NODELAY, 1)
     except (OSError, NameError):
         pass
     if PRINT:
