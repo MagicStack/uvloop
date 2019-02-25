@@ -29,19 +29,19 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {};
 
 PyObject * Context_CopyCurrent(void) {
     PyErr_SetString(PyExc_NotImplementedError,
-                    '"contextvars" support requires Python 3.7+');
+                    "\"contextvars\" support requires Python 3.7+");
     return NULL;
 };
 
 int Context_Enter(PyObject *ctx) {
     PyErr_SetString(PyExc_NotImplementedError,
-                    '"contextvars" support requires Python 3.7+');
+                    "\"contextvars\" support requires Python 3.7+");
     return -1;
 }
 
 int Context_Exit(PyObject *ctx) {
     PyErr_SetString(PyExc_NotImplementedError,
-                    '"contextvars" support requires Python 3.7+');
+                    "\"contextvars\" support requires Python 3.7+");
     return -1;
 }
 
