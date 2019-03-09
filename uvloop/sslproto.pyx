@@ -339,6 +339,7 @@ cdef class SSLProtocol:
         self._set_state(UNWRAPPED)
         self._transport = None
         self._app_transport = None
+        self._app_protocol = None
         self._wakeup_waiter(exc)
 
         if self._shutdown_timeout_handle:
