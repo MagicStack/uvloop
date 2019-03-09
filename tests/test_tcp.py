@@ -1724,6 +1724,72 @@ class _TestSSL(tb.SSLTestCase):
             self.loop.run_until_complete(
                 asyncio.wait_for(client(srv.addr), loop=self.loop, timeout=10))
 
+    def test_create_connection_memory_leak(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest()
+
+        HELLO_MSG = b'1' * self.PAYLOAD_SIZE
+
+        server_context = self._create_server_ssl_context(
+            self.ONLYCERT, self.ONLYKEY)
+        client_context = self._create_client_ssl_context()
+
+        def serve(sock):
+            sock.settimeout(self.TIMEOUT)
+
+            sock.starttls(server_context, server_side=True)
+
+            sock.sendall(b'O')
+            data = sock.recv_all(len(HELLO_MSG))
+            self.assertEqual(len(data), len(HELLO_MSG))
+
+            sock.unwrap()
+            sock.close()
+
+        class ClientProto(asyncio.Protocol):
+            def __init__(self, on_data, on_eof):
+                self.on_data = on_data
+                self.on_eof = on_eof
+                self.con_made_cnt = 0
+
+            def connection_made(proto, tr):
+                # XXX: We assume user stores the transport in protocol
+                proto.tr = tr
+                proto.con_made_cnt += 1
+                # Ensure connection_made gets called only once.
+                self.assertEqual(proto.con_made_cnt, 1)
+
+            def data_received(self, data):
+                self.on_data.set_result(data)
+
+            def eof_received(self):
+                self.on_eof.set_result(True)
+
+        async def client(addr):
+            await asyncio.sleep(0.5, loop=self.loop)
+
+            on_data = self.loop.create_future()
+            on_eof = self.loop.create_future()
+
+            tr, proto = await self.loop.create_connection(
+                lambda: ClientProto(on_data, on_eof), *addr,
+                ssl=client_context)
+
+            self.assertEqual(await on_data, b'O')
+            tr.write(HELLO_MSG)
+            await on_eof
+
+            tr.close()
+
+        with self.tcp_server(serve, timeout=self.TIMEOUT) as srv:
+            self.loop.run_until_complete(
+                asyncio.wait_for(client(srv.addr), loop=self.loop, timeout=10))
+
+        # No garbage is left for SSL client from loop.create_connection, even
+        # if user stores the SSLTransport in corresponding protocol instance
+        client_context = weakref.ref(client_context)
+        self.assertIsNone(client_context())
+
     def test_start_tls_client_buf_proto_1(self):
         if self.implementation == 'asyncio':
             raise unittest.SkipTest()
