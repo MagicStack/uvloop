@@ -393,14 +393,16 @@ class _TestTCP:
                 loop=self.loop,
                 start_serving=False)
 
-            fut = asyncio.ensure_future(srv.serve_forever(), loop=self.loop)
-            await asyncio.sleep(0, loop=self.loop)
-            self.assertTrue(srv.is_serving())
+            async with srv:
+                fut = asyncio.ensure_future(srv.serve_forever(),
+                                            loop=self.loop)
+                await asyncio.sleep(0, loop=self.loop)
+                self.assertTrue(srv.is_serving())
 
-            fut.cancel()
-            with self.assertRaises(asyncio.CancelledError):
-                await fut
-            self.assertFalse(srv.is_serving())
+                fut.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await fut
+                self.assertFalse(srv.is_serving())
 
         self.loop.run_until_complete(start_server())
 
