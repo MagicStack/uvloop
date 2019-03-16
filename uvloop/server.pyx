@@ -48,6 +48,15 @@ cdef class Server:
 
     # Public API
 
+    @cython.iterable_coroutine
+    async def __aenter__(self):
+        return self
+
+    @cython.iterable_coroutine
+    async def __aexit__(self, *exc):
+        self.close()
+        await self.wait_closed()
+
     def __repr__(self):
         return '<%s sockets=%r>' % (self.__class__.__name__, self.sockets)
 
