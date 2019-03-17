@@ -70,6 +70,8 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         int addr_len
         int scope_id = 0
         int flowinfo = 0
+        char *buf
+        Py_ssize_t buflen
 
     if family == uv.AF_INET:
         if not isinstance(addr, tuple):
@@ -126,9 +128,24 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         (<system.sockaddr_in6*>res).sin6_flowinfo = flowinfo
         (<system.sockaddr_in6*>res).sin6_scope_id = scope_id
 
+    elif family == uv.AF_UNIX:
+        if isinstance(addr, str):
+            addr = addr.encode(sys_getfilesystemencoding())
+        elif not isinstance(addr, bytes):
+            raise TypeError('AF_UNIX address must be a str or a bytes object')
+
+        PyBytes_AsStringAndSize(addr, &buf, &buflen)
+        if buflen > 107:
+            raise ValueError(
+                f'unix socket path {addr!r} is longer than 107 characters')
+
+        memset(res, 0, sizeof(system.sockaddr_un))
+        (<system.sockaddr_un*>res).sun_family = uv.AF_UNIX
+        memcpy((<system.sockaddr_un*>res).sun_path, buf, buflen)
+
     else:
         raise ValueError(
-            'epected AF_INET or AF_INET6 family, got {}'.format(family))
+            f'epected AF_INET, AF_INET6, or AF_UNIX family, got {family}')
 
 
 cdef __static_getaddrinfo(object host, object port,

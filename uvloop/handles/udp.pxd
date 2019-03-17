@@ -1,17 +1,20 @@
 cdef class UDPTransport(UVBaseTransport):
     cdef:
-        object sock
-        int sock_family
-        int sock_proto
-        int sock_type
-        UVPoll poll
-        object address
-        object buffer
+        bint __receiving
+        int _family
 
-    cdef _init(self, Loop loop, object sock, object r_addr)
+    cdef _init(self, Loop loop, unsigned int family)
 
-    cdef _on_read_ready(self)
-    cdef _on_write_ready(self)
+    cdef _connect(self, system.sockaddr* addr, size_t addr_len)
 
-    @staticmethod
-    cdef UDPTransport new(Loop loop, object sock, object r_addr)
+    cdef _bind(self, system.sockaddr* addr, bint reuse_addr)
+    cdef open(self, int family, int sockfd)
+    cdef _set_broadcast(self, bint on)
+
+    cdef inline __receiving_started(self)
+    cdef inline __receiving_stopped(self)
+
+    cdef _send(self, object data, object addr)
+
+    cdef _on_receive(self, bytes data, object exc, object addr)
+    cdef _on_sent(self, object exc)

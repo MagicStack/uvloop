@@ -60,6 +60,7 @@ cdef errno_EBADF = errno.EBADF
 cdef errno_EINVAL = errno.EINVAL
 
 cdef ft_partial = functools.partial
+cdef ft_lru_cache = functools.lru_cache
 
 cdef gc_disable = gc.disable
 
@@ -120,6 +121,7 @@ cdef sys_set_coroutine_wrapper = sys.set_coroutine_wrapper
 cdef sys_get_coroutine_wrapper = sys.get_coroutine_wrapper
 cdef sys_getframe = sys._getframe
 cdef sys_version_info = sys.version_info
+cdef sys_getfilesystemencoding = sys.getfilesystemencoding
 cdef str sys_platform = sys.platform
 
 cdef ssl_SSLContext = ssl.SSLContext
