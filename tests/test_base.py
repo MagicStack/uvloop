@@ -171,6 +171,19 @@ class _TestBase:
         self.loop.run_forever()
         self.assertEqual(calls, ['a'])
 
+    def test_call_later_rounding(self):
+        # Refs #233, call_later() and call_at() shouldn't call cb early
+
+        def cb():
+            self.loop.stop()
+
+        for i in range(8):
+            self.loop.call_later(0.06 + 0.01, cb)  # 0.06999999999999999
+            started = int(round(self.loop.time() * 1000))
+            self.loop.run_forever()
+            finished = int(round(self.loop.time() * 1000))
+            self.assertGreaterEqual(finished - started, 70)
+
     def test_call_at(self):
         if os.environ.get('TRAVIS_OS_NAME'):
             # Time seems to be really unpredictable on Travis.

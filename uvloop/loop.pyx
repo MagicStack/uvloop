@@ -1254,7 +1254,7 @@ cdef class Loop:
             # infinity for a Python application.
             delay = 3600 * 24 * 365 * 100
 
-        when = <uint64_t>(delay * 1000)
+        when = <uint64_t>round(delay * 1000)
         if not args:
             args = None
         if when == 0:
