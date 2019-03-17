@@ -45,6 +45,14 @@ cdef extern from "sys/socket.h" nogil:
                    const void *option_value, int option_len)
 
 
+cdef extern from "sys/un.h" nogil:
+
+    struct sockaddr_un:
+        unsigned short sun_family
+        char*          sun_path
+        # ...
+
+
 cdef extern from "unistd.h" nogil:
 
     ssize_t write(int fd, const void *buf, size_t count)

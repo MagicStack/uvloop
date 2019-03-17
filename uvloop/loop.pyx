@@ -34,6 +34,7 @@ from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport (
     PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE,
     Py_buffer, PyBytes_AsString, PyBytes_CheckExact,
+    PyBytes_AsStringAndSize,
     Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
 )
 
@@ -2867,7 +2868,8 @@ cdef class Loop:
         """
         cdef:
             UDPTransport udp = None
-            system.sockaddr_storage rai
+            system.addrinfo * lai
+            system.addrinfo * rai
 
         if sock is not None:
             if not _is_sock_dgram(sock.type):
@@ -2887,83 +2889,98 @@ cdef class Loop:
                     'socket modifier keyword arguments can not be used '
                     'when sock is specified. ({})'.format(problems))
             sock.setblocking(False)
-            udp = UDPTransport.new(self, sock, None)
+            udp = UDPTransport.__new__(UDPTransport)
+            udp._init(self, uv.AF_UNSPEC)
+            udp.open(sock.family, sock.fileno())
+            udp._attach_fileobj(sock)
         else:
-            if not (local_addr or remote_addr):
-                if family == 0:
-                    raise ValueError('unexpected address family')
-                addr_pairs_info = (((family, proto), (None, None)),)
-            elif family == uv.AF_UNIX:
-                for addr in (local_addr, remote_addr):
-                    if addr is not None and not isinstance(addr, str):
-                        raise TypeError('string is expected')
-                addr_pairs_info = (((family, proto),
-                                    (local_addr, remote_addr)), )
-            else:
-                # join address by (family, protocol)
-                addr_infos = col_OrderedDict()
-                for idx, addr in ((0, local_addr), (1, remote_addr)):
-                    if addr is not None:
-                        assert isinstance(addr, tuple) and len(addr) == 2, (
-                            '2-tuple is expected')
+            reuse_address = bool(reuse_address)
+            reuse_port = bool(reuse_port)
+            if reuse_port and not has_SO_REUSEPORT:
+                raise ValueError(
+                    'reuse_port not supported by socket module')
 
-                        infos = await self.getaddrinfo(
-                            *addr[:2], family=family, type=uv.SOCK_DGRAM,
-                            proto=proto, flags=flags)
+            lads = None
+            if local_addr is not None:
+                if (not isinstance(local_addr, (tuple, list)) or
+                        len(local_addr) != 2):
+                    raise TypeError(
+                        'local_addr must be a tuple of (host, port)')
+                lads = await self._getaddrinfo(
+                    local_addr[0], local_addr[1],
+                    family, uv.SOCK_DGRAM, proto, flags,
+                    0)
 
-                        if not infos:
-                            raise OSError('getaddrinfo() returned empty list')
+            rads = None
+            if remote_addr is not None:
+                if (not isinstance(remote_addr, (tuple, list)) or
+                        len(remote_addr) != 2):
+                    raise TypeError(
+                        'remote_addr must be a tuple of (host, port)')
+                rads = await self._getaddrinfo(
+                    remote_addr[0], remote_addr[1],
+                    family, uv.SOCK_DGRAM, proto, flags,
+                    0)
 
-                        for fam, _, pro, _, address in infos:
-                            key = (fam, pro)
-                            if key not in addr_infos:
-                                addr_infos[key] = [None, None]
-                            addr_infos[key][idx] = address
-
-                # each addr has to have info for each (family, proto) pair
-                addr_pairs_info = [
-                    (key, addr_pair) for key, addr_pair in addr_infos.items()
-                    if not ((local_addr and addr_pair[0] is None) or
-                            (remote_addr and addr_pair[1] is None))]
-
-                if not addr_pairs_info:
-                    raise ValueError('can not get address information')
-
-            exceptions = []
-            for ((family, proto),
-                 (local_address, remote_address)) in addr_pairs_info:
-                sock = None
-                r_addr = None
-                try:
-                    sock = socket_socket(
-                        family=family, type=uv.SOCK_DGRAM, proto=proto)
-                    if reuse_address:
-                        sock.setsockopt(
-                            uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
-                    if reuse_port:
-                        self._sock_set_reuseport(sock.fileno())
-                    if allow_broadcast:
-                        sock.setsockopt(uv.SOL_SOCKET, SO_BROADCAST, 1)
-                    sock.setblocking(False)
-                    if local_addr:
-                        sock.bind(local_address)
-                    if remote_addr:
-                        await self.sock_connect(sock, remote_address)
-                        r_addr = remote_address
-                except OSError as exc:
-                    if sock is not None:
-                        sock.close()
-                    exceptions.append(exc)
-                except Exception:
-                    if sock is not None:
-                        sock.close()
-                    raise
+            excs = []
+            if lads is None:
+                if rads is not None:
+                    udp = UDPTransport.__new__(UDPTransport)
+                    rai = (<AddrInfo>rads).data
+                    udp._init(self, rai.ai_family)
+                    udp._connect(rai.ai_addr, rai.ai_addrlen)
                 else:
-                    break
-            else:
-                raise exceptions[0]
+                    if family not in (uv.AF_INET, uv.AF_INET6):
+                        raise ValueError('unexpected address family')
+                    udp = UDPTransport.__new__(UDPTransport)
+                    udp._init(self, family)
 
-            udp = UDPTransport.new(self, sock, r_addr)
+                if reuse_port:
+                    self._sock_set_reuseport(udp._fileno())
+
+            else:
+                lai = (<AddrInfo>lads).data
+                while lai is not NULL:
+                    try:
+                        udp = UDPTransport.__new__(UDPTransport)
+                        udp._init(self, lai.ai_family)
+                        if reuse_port:
+                            self._sock_set_reuseport(udp._fileno())
+                        udp._bind(lai.ai_addr, reuse_address)
+                    except Exception as ex:
+                        lai = lai.ai_next
+                        excs.append(ex)
+                        continue
+                    else:
+                        break
+                else:
+                    ctx = None
+                    if len(excs):
+                        ctx = excs[0]
+                    raise OSError('could not bind to local_addr {}'.format(
+                        local_addr)) from ctx
+
+                if rads is not None:
+                    rai = (<AddrInfo>rads).data
+                    sock = udp._get_socket()
+                    while rai is not NULL:
+                        if rai.ai_family != lai.ai_family:
+                            rai = rai.ai_next
+                            continue
+                        if rai.ai_protocol != lai.ai_protocol:
+                            rai = rai.ai_next
+                            continue
+                        udp._connect(rai.ai_addr, rai.ai_addrlen)
+                        break
+                    else:
+                        raise OSError(
+                            'could not bind to remote_addr {}'.format(
+                                remote_addr))
+
+                    udp._connect(rai.ai_addr, rai.ai_addrlen)
+
+        if allow_broadcast:
+            udp._set_broadcast(1)
 
         protocol = protocol_factory()
         waiter = self._new_future()
@@ -2972,12 +2989,7 @@ cdef class Loop:
         udp._set_waiter(waiter)
         udp._init_protocol()
 
-        try:
-            await waiter
-        except Exception:
-            udp.close()
-            raise
-
+        await waiter
         return udp, protocol
 
     def _asyncgen_finalizer_hook(self, agen):
