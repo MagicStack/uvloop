@@ -1,6 +1,8 @@
 cdef extern from "Python.h":
     int PY_VERSION_HEX
 
+    unicode PyUnicode_FromString(const char *)
+
     void* PyMem_RawMalloc(size_t n)
     void* PyMem_RawRealloc(void *p, size_t n)
     void* PyMem_RawCalloc(size_t nelem, size_t elsize)

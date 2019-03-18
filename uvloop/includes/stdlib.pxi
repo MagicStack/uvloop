@@ -60,7 +60,6 @@ cdef errno_EBADF = errno.EBADF
 cdef errno_EINVAL = errno.EINVAL
 
 cdef ft_partial = functools.partial
-cdef ft_lru_cache = functools.lru_cache
 
 cdef gc_disable = gc.disable
 

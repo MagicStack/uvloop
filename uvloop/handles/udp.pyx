@@ -20,6 +20,7 @@ cdef class _UDPSendContext:
         self.closed = 1
         PyBuffer_Release(&self.py_buf)  # void
         self.req.data = NULL
+        self.uv_buf.base = NULL
         Py_DECREF(self)
         self.udp = None
 
@@ -34,7 +35,8 @@ cdef class _UDPSendContext:
         Py_INCREF(ctx)
 
         PyObject_GetBuffer(data, &ctx.py_buf, PyBUF_SIMPLE)
-        ctx.uv_buf = uv.uv_buf_init(<char*>ctx.py_buf.buf, ctx.py_buf.len)
+        ctx.uv_buf.base = <char*>ctx.py_buf.buf
+        ctx.uv_buf.len = ctx.py_buf.len
         ctx.udp = udp
 
         ctx.closed = 0
@@ -193,37 +195,63 @@ cdef class UDPTransport(UVBaseTransport):
             _UDPSendContext ctx
             system.sockaddr_storage saddr_st
             system.sockaddr *saddr
+            Py_buffer       try_pybuf
+            uv.uv_buf_t     try_uvbuf
+
+        self._ensure_alive()
 
         if self._family not in (uv.AF_INET, uv.AF_INET6, uv.AF_UNIX):
             raise RuntimeError('UDPTransport.family is undefined; cannot send')
 
-        if addr is not None and self._family != uv.AF_UNIX:
-            validate_address(addr, self._family, uv.SOCK_DGRAM, 0)
-
-        ctx = _UDPSendContext.new(self, data)
-        try:
-            if addr is None:
-                saddr = NULL
-            else:
+        if addr is None:
+            saddr = NULL
+        else:
+            try:
                 __convert_pyaddr_to_sockaddr(self._family, addr,
                                              <system.sockaddr*>&saddr_st)
-                saddr = <system.sockaddr*>(&saddr_st)
-        except Exception:
-            ctx.close()
-            raise
+            except (ValueError, TypeError):
+                raise
+            except Exception:
+                raise ValueError(
+                    f'{addr!r}: socket family mismatch or '
+                    f'a DNS lookup is required')
+            saddr = <system.sockaddr*>(&saddr_st)
 
-        err = uv.uv_udp_send(&ctx.req,
-                             <uv.uv_udp_t*>self._handle,
-                             &ctx.uv_buf,
-                             1,
-                             saddr,
-                             __uv_udp_on_send)
+        if self._get_write_buffer_size() == 0:
+            PyObject_GetBuffer(data, &try_pybuf, PyBUF_SIMPLE)
+            try_uvbuf.base = <char*>try_pybuf.buf
+            try_uvbuf.len = try_pybuf.len
+            err = uv.uv_udp_try_send(<uv.uv_udp_t*>self._handle,
+                                     &try_uvbuf,
+                                     1,
+                                     saddr)
+            PyBuffer_Release(&try_pybuf)
+        else:
+            err = uv.UV_EAGAIN
 
-        if err < 0:
-            ctx.close()
+        if err == uv.UV_EAGAIN:
+            ctx = _UDPSendContext.new(self, data)
+            err = uv.uv_udp_send(&ctx.req,
+                                 <uv.uv_udp_t*>self._handle,
+                                 &ctx.uv_buf,
+                                 1,
+                                 saddr,
+                                 __uv_udp_on_send)
 
-            exc = convert_error(err)
-            self._fatal_error(exc, True)
+            if err < 0:
+                ctx.close()
+
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+            else:
+                self._maybe_pause_protocol()
+
+        else:
+            if err < 0:
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+            else:
+                self._on_sent(None)
 
     cdef _on_receive(self, bytes data, object exc, object addr):
         if exc is None:
@@ -248,15 +276,17 @@ cdef class UDPTransport(UVBaseTransport):
 
     def sendto(self, data, addr=None):
         if not data:
+            # Replicating asyncio logic here.
             return
 
         if self._conn_lost:
-            # TODO add warning
+            # Replicating asyncio logic here.
+            if self._conn_lost >= LOG_THRESHOLD_FOR_CONNLOST_WRITES:
+                aio_logger.warning('socket.send() raised exception.')
             self._conn_lost += 1
             return
 
         self._send(data, addr)
-        self._maybe_pause_protocol()
 
 
 cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
@@ -357,17 +387,3 @@ cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) with gil:
         udp._on_sent(exc)
     except BaseException as exc:
         udp._error(exc, False)
-
-
-@ft_lru_cache()
-def validate_address(object addr, int sock_family, int sock_type,
-                     int sock_proto):
-    addrinfo = __static_getaddrinfo_pyaddr(
-        addr[0], addr[1],
-        uv.AF_UNSPEC, sock_type, sock_proto, 0)
-    if addrinfo is None:
-        raise ValueError(
-            'UDP.sendto(): address {!r} requires a DNS lookup'.format(addr))
-    if addrinfo[0] != sock_family:
-        raise ValueError(
-            'UDP.sendto(): {!r} socket family mismatch'.format(addr))
