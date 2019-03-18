@@ -19,7 +19,8 @@ from .includes.python cimport (
     PyMemoryView_FromMemory, PyBUF_WRITE,
     PyMemoryView_FromObject, PyMemoryView_Check,
     PyOS_AfterFork_Parent, PyOS_AfterFork_Child,
-    PyOS_BeforeFork
+    PyOS_BeforeFork,
+    PyUnicode_FromString
 )
 from .includes.flowcontrol cimport add_flowcontrol_defaults
 
@@ -2962,7 +2963,6 @@ cdef class Loop:
 
                 if rads is not None:
                     rai = (<AddrInfo>rads).data
-                    sock = udp._get_socket()
                     while rai is not NULL:
                         if rai.ai_family != lai.ai_family:
                             rai = rai.ai_next
@@ -3088,6 +3088,7 @@ class _SyncSocketWriterFuture(aio_Future):
 
 include "cbhandles.pyx"
 include "pseudosock.pyx"
+include "lru.pyx"
 
 include "handles/handle.pyx"
 include "handles/async_.pyx"

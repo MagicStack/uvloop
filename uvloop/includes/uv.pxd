@@ -245,10 +245,6 @@ cdef extern from "uv.h" nogil:
                                     const system.sockaddr* addr,
                                     unsigned flags) with gil
 
-    # Buffers
-
-    uv_buf_t uv_buf_init(char* base, unsigned int len)
-
     # Generic request functions
     int uv_cancel(uv_req_t* req)
 
@@ -376,6 +372,9 @@ cdef extern from "uv.h" nogil:
     int uv_udp_send(uv_udp_send_t* req, uv_udp_t* handle,
                     const uv_buf_t bufs[], unsigned int nbufs,
                     const system.sockaddr* addr, uv_udp_send_cb send_cb)
+    int uv_udp_try_send(uv_udp_t* handle,
+                        const uv_buf_t bufs[], unsigned int nbufs,
+                        const system.sockaddr* addr)
     int uv_udp_recv_start(uv_udp_t* handle, uv_alloc_cb alloc_cb,
                           uv_udp_recv_cb recv_cb)
     int uv_udp_recv_stop(uv_udp_t* handle)

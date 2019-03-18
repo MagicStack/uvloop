@@ -42,7 +42,7 @@ cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
             raise convert_error(err)
 
         return (
-            (<bytes>buf).decode(),
+            PyUnicode_FromString(buf),
             system.ntohs(addr4.sin_port)
         )
 
@@ -54,13 +54,24 @@ cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
             raise convert_error(err)
 
         return (
-            (<bytes>buf).decode(),
+            PyUnicode_FromString(buf),
             system.ntohs(addr6.sin6_port),
             system.ntohl(addr6.sin6_flowinfo),
             addr6.sin6_scope_id
         )
 
     raise RuntimeError("cannot convert sockaddr into Python object")
+
+
+@cython.freelist(DEFAULT_FREELIST_SIZE)
+cdef class SockAddrHolder:
+    cdef:
+        int family
+        system.sockaddr_storage addr
+        Py_ssize_t addr_size
+
+
+cdef LruCache sockaddrs = LruCache(maxsize=DNS_PYADDR_TO_SOCKADDR_CACHE_SIZE)
 
 
 cdef __convert_pyaddr_to_sockaddr(int family, object addr,
@@ -72,7 +83,14 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         int flowinfo = 0
         char *buf
         Py_ssize_t buflen
+        SockAddrHolder ret
 
+    ret = sockaddrs.get(addr, None)
+    if ret is not None and ret.family == family:
+        memcpy(res, &ret.addr, ret.addr_size)
+        return
+
+    ret = SockAddrHolder.__new__(SockAddrHolder)
     if family == uv.AF_INET:
         if not isinstance(addr, tuple):
             raise TypeError('AF_INET address must be tuple')
@@ -90,7 +108,8 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
 
         port = __port_to_int(port, None)
 
-        err = uv.uv_ip4_addr(host, <int>port, <system.sockaddr_in*>res)
+        ret.addr_size = sizeof(system.sockaddr_in)
+        err = uv.uv_ip4_addr(host, <int>port, <system.sockaddr_in*>&ret.addr)
         if err < 0:
             raise convert_error(err)
 
@@ -121,12 +140,14 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         if addr_len > 3:
             scope_id = addr[3]
 
-        err = uv.uv_ip6_addr(host, port, <system.sockaddr_in6*>res)
+        ret.addr_size = sizeof(system.sockaddr_in6)
+
+        err = uv.uv_ip6_addr(host, port, <system.sockaddr_in6*>&ret.addr)
         if err < 0:
             raise convert_error(err)
 
-        (<system.sockaddr_in6*>res).sin6_flowinfo = flowinfo
-        (<system.sockaddr_in6*>res).sin6_scope_id = scope_id
+        (<system.sockaddr_in6*>&ret.addr).sin6_flowinfo = flowinfo
+        (<system.sockaddr_in6*>&ret.addr).sin6_scope_id = scope_id
 
     elif family == uv.AF_UNIX:
         if isinstance(addr, str):
@@ -139,13 +160,18 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
             raise ValueError(
                 f'unix socket path {addr!r} is longer than 107 characters')
 
-        memset(res, 0, sizeof(system.sockaddr_un))
-        (<system.sockaddr_un*>res).sun_family = uv.AF_UNIX
-        memcpy((<system.sockaddr_un*>res).sun_path, buf, buflen)
+        ret.addr_size = sizeof(system.sockaddr_un)
+        memset(&ret.addr, 0, sizeof(system.sockaddr_un))
+        (<system.sockaddr_un*>&ret.addr).sun_family = uv.AF_UNIX
+        memcpy((<system.sockaddr_un*>&ret.addr).sun_path, buf, buflen)
 
     else:
         raise ValueError(
-            f'epected AF_INET, AF_INET6, or AF_UNIX family, got {family}')
+            f'expected AF_INET, AF_INET6, or AF_UNIX family, got {family}')
+
+    ret.family = family
+    sockaddrs[addr] = ret
+    memcpy(res, &ret.addr, ret.addr_size)
 
 
 cdef __static_getaddrinfo(object host, object port,
