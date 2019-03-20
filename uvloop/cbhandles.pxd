@@ -24,14 +24,14 @@ cdef class Handle:
 
 cdef class TimerHandle:
     cdef:
-        object callback, args
+        object callback
+        tuple args
         bint _cancelled
         UVTimer timer
         Loop loop
         object context
+        tuple _debug_info
         object __weakref__
-
-        readonly _source_traceback
 
     cdef _run(self)
     cdef _cancel(self)

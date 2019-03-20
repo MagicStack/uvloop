@@ -36,7 +36,7 @@ class _TestBase:
         h = self.loop.call_soon(lambda: None)
         wd['h'] = h  # Would fail without __weakref__ slot.
 
-    def test_call_soon(self):
+    def test_call_soon_1(self):
         calls = []
 
         def cb(inc):
@@ -55,6 +55,22 @@ class _TestBase:
         self.loop.run_forever()
 
         self.assertEqual(calls, [10, 1])
+
+    def test_call_soon_2(self):
+        waiter = self.loop.create_future()
+        waiter_r = weakref.ref(waiter)
+        self.loop.call_soon(lambda f: f.set_result(None), waiter)
+        self.loop.run_until_complete(waiter)
+        del waiter
+        self.assertIsNone(waiter_r())
+
+    def test_call_soon_3(self):
+        waiter = self.loop.create_future()
+        waiter_r = weakref.ref(waiter)
+        self.loop.call_soon(lambda f=waiter: f.set_result(None))
+        self.loop.run_until_complete(waiter)
+        del waiter
+        self.assertIsNone(waiter_r())
 
     def test_call_soon_base_exc(self):
         def cb():
@@ -159,6 +175,24 @@ class _TestBase:
         self.loop.run_until_complete(main())
         delta = time.monotonic() - started
         self.assertGreater(delta, 0.019)
+
+    def test_call_later_3(self):
+        # a memory leak regression test
+        waiter = self.loop.create_future()
+        waiter_r = weakref.ref(waiter)
+        self.loop.call_later(0.01, lambda f: f.set_result(None), waiter)
+        self.loop.run_until_complete(waiter)
+        del waiter
+        self.assertIsNone(waiter_r())
+
+    def test_call_later_4(self):
+        # a memory leak regression test
+        waiter = self.loop.create_future()
+        waiter_r = weakref.ref(waiter)
+        self.loop.call_later(0.01, lambda f=waiter: f.set_result(None))
+        self.loop.run_until_complete(waiter)
+        del waiter
+        self.assertIsNone(waiter_r())
 
     def test_call_later_negative(self):
         calls = []
