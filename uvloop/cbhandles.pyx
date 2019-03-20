@@ -194,7 +194,12 @@ cdef class TimerHandle:
             self.context = None
 
         if loop._debug:
-            self._source_traceback = extract_stack()
+            self._debug_info = (
+                format_callback_name(callback),
+                extract_stack()
+            )
+        else:
+            self._debug_info = None
 
         self.timer = UVTimer.new(
             loop, <method_t>self._run, self, delay)
@@ -203,6 +208,11 @@ cdef class TimerHandle:
 
         # Only add to loop._timers when `self.timer` is successfully created
         loop._timers.add(self)
+
+    property _source_traceback:
+        def __get__(self):
+            if self._debug_info is not None:
+                return self._debug_info[1]
 
     def __dealloc__(self):
         if UVLOOP_DEBUG:
@@ -227,7 +237,7 @@ cdef class TimerHandle:
             self.loop._timers.remove(self)
         finally:
             self.timer._close()
-            self.timer = None  # let it die asap
+            self.timer = None  # let the UVTimer handle GC
 
     cdef _run(self):
         if self._cancelled == 1:
@@ -260,8 +270,8 @@ cdef class TimerHandle:
                 'handle': self,
             }
 
-            if self._source_traceback is not None:
-                context['source_traceback'] = self._source_traceback
+            if self._debug_info is not None:
+                context['source_traceback'] = self._debug_info[1]
 
             self.loop.call_exception_handler(context)
         else:
@@ -276,6 +286,7 @@ cdef class TimerHandle:
             Py_DECREF(self)
             if PY37:
                 Context_Exit(context)
+            self._clear()
 
     # Public API
 
@@ -285,19 +296,20 @@ cdef class TimerHandle:
         if self._cancelled:
             info.append('cancelled')
 
-        if self.callback is not None:
-            func = self.callback
-            if hasattr(func, '__qualname__'):
-                cb_name = getattr(func, '__qualname__')
-            elif hasattr(func, '__name__'):
-                cb_name = getattr(func, '__name__')
-            else:
-                cb_name = repr(func)
+        if self._debug_info is not None:
+            callback_name = self._debug_info[0]
+            source_traceback = self._debug_info[1]
+        else:
+            callback_name = None
+            source_traceback = None
 
-            info.append(cb_name)
+        if callback_name is not None:
+            info.append(callback_name)
+        elif self.callback is not None:
+            info.append(format_callback_name(self.callback))
 
-        if self._source_traceback is not None:
-            frame = self._source_traceback[-1]
+        if source_traceback is not None:
+            frame = source_traceback[-1]
             info.append('created at {}:{}'.format(frame[0], frame[1]))
 
         return '<' + ' '.join(info) + '>'
@@ -307,6 +319,16 @@ cdef class TimerHandle:
 
     def cancel(self):
         self._cancel()
+
+
+cdef format_callback_name(func):
+    if hasattr(func, '__qualname__'):
+        cb_name = getattr(func, '__qualname__')
+    elif hasattr(func, '__name__'):
+        cb_name = getattr(func, '__name__')
+    else:
+        cb_name = repr(func)
+    return cb_name
 
 
 cdef new_Handle(Loop loop, object callback, object args, object context):
