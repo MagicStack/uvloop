@@ -43,11 +43,12 @@ if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
                    maj='${pyver}'.split('.')[0], \
                    min='${pyver}'.split('.')[1]))")
 
-        for arch in x86_64 i686; do
-            ML_IMAGE="quay.io/pypa/manylinux1_${arch}"
+        for arch in x86_64; do
+            ML_IMAGE="quay.io/pypa/manylinux2010_${arch}"
             docker pull "${ML_IMAGE}"
             docker run --rm \
                 -v "${_root}":/io \
+                -e "PYARCH=${arch}" \
                 -e "PYMODULE=${PYMODULE}" \
                 -e "PYTHON_VERSION=${ML_PYTHON_VERSION}" \
                 "${ML_IMAGE}" /io/.ci/build-manylinux-wheels.sh
