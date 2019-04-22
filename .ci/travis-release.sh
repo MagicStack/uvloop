@@ -20,8 +20,7 @@ fi
 # Check if all expected wheels have been built and uploaded.
 release_platforms=(
     "macosx_10_??_x86_64"
-    "manylinux1_i686"
-    "manylinux1_x86_64"
+    "manylinux*_x86_64"
 )
 
 P="${PYMODULE}-${PACKAGE_VERSION}"
