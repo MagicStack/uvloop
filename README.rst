@@ -48,17 +48,8 @@ Use pip to install it::
 Using uvloop
 ------------
 
-To make asyncio use uvloop, you can install the uvloop event
-loop policy:
-
-.. code:: python
-
-    import asyncio
-    import uvloop
-
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-or, starting with uvloop 0.12:
+Call ``uvloop.install()`` before calling ``asyncio.run()`` or
+manually creating an asyncio event loop:
 
 .. code:: python
 
