@@ -53,9 +53,15 @@ manually creating an asyncio event loop:
 
 .. code:: python
 
+    import asyncio
     import uvloop
 
+    async def main():
+        # Main entry-point.
+        ...
+
     uvloop.install()
+    asyncio.run(main())
 
 
 Building From Source
