@@ -116,8 +116,8 @@ cdef stat_S_ISSOCK = stat.S_ISSOCK
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
 cdef sys_exc_info = sys.exc_info
-cdef sys_set_coroutine_wrapper = sys.set_coroutine_wrapper
-cdef sys_get_coroutine_wrapper = sys.get_coroutine_wrapper
+cdef sys_set_coroutine_wrapper = getattr(sys, 'set_coroutine_wrapper', None)
+cdef sys_get_coroutine_wrapper = getattr(sys, 'get_coroutine_wrapper', None)
 cdef sys_getframe = sys._getframe
 cdef sys_version_info = sys.version_info
 cdef sys_getfilesystemencoding = sys.getfilesystemencoding
