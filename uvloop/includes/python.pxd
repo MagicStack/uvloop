@@ -3,10 +3,10 @@ cdef extern from "Python.h":
 
     unicode PyUnicode_FromString(const char *)
 
-    void* PyMem_RawMalloc(size_t n)
-    void* PyMem_RawRealloc(void *p, size_t n)
-    void* PyMem_RawCalloc(size_t nelem, size_t elsize)
-    void PyMem_RawFree(void *p)
+    void* PyMem_RawMalloc(size_t n) nogil
+    void* PyMem_RawRealloc(void *p, size_t n) nogil
+    void* PyMem_RawCalloc(size_t nelem, size_t elsize) nogil
+    void PyMem_RawFree(void *p) nogil
 
     object PyUnicode_EncodeFSDefault(object)
     void PyErr_SetInterrupt() nogil
