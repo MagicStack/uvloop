@@ -92,7 +92,7 @@ cdef class UVStreamServer(UVSocketHandle):
 
         self._close()
 
-        if not isinstance(exc, FATAL_SSL_ERROR_IGNORE):
+        if not isinstance(exc, OSError):
 
             if throw or self._loop is None:
                 raise exc
