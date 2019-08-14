@@ -253,7 +253,6 @@ cdef class SSLProtocol:
         self._app_transport_created = False
         # transport, ex: SelectorSocketTransport
         self._transport = None
-        self._call_connection_made = call_connection_made
         self._ssl_handshake_timeout = ssl_handshake_timeout
         self._ssl_shutdown_timeout = ssl_shutdown_timeout
         # SSL and state machine
@@ -264,7 +263,7 @@ cdef class SSLProtocol:
         self._outgoing_read = self._outgoing.read
         self._state = UNWRAPPED
         self._conn_lost = 0  # Set when connection_lost called
-        self._eof_received = False
+        self._app_state = START if call_connection_made else AFTER_CM
 
         # Flow Control
 
@@ -335,7 +334,9 @@ cdef class SSLProtocol:
             self._app_transport._closed = True
 
         if self._state != DO_HANDSHAKE:
-            self._loop.call_soon(self._app_protocol.connection_lost, exc)
+            if self._app_state == AFTER_CM or self._app_state == AFTER_ER:
+                self._app_state = END
+                self._loop.call_soon(self._app_protocol.connection_lost, exc)
         self._set_state(UNWRAPPED)
         self._transport = None
         self._app_transport = None
@@ -518,7 +519,8 @@ cdef class SSLProtocol:
                            cipher=sslobj.cipher(),
                            compression=sslobj.compression(),
                            ssl_object=sslobj)
-        if self._call_connection_made:
+        if self._app_state == START:
+            self._app_state = AFTER_CM
             self._app_protocol.connection_made(self._get_app_transport())
         self._wakeup_waiter()
         self._do_read()
@@ -735,8 +737,8 @@ cdef class SSLProtocol:
 
     cdef _call_eof_received(self):
         try:
-            if not self._eof_received:
-                self._eof_received = True
+            if self._app_state == AFTER_CM:
+                self._app_state = AFTER_ER
                 keep_open = self._app_protocol.eof_received()
                 if keep_open:
                     aio_logger.warning('returning true from eof_received() '
