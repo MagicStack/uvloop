@@ -1601,6 +1601,55 @@ class _TestSSL(tb.SSLTestCase):
         # exception or log an error, even if the handshake failed
         self.assertEqual(messages, [])
 
+    def test_ssl_handshake_connection_lost(self):
+        # #246: make sure that no connection_lost() is called before
+        # connection_made() is called first
+
+        client_sslctx = self._create_client_ssl_context()
+
+        # silence error logger
+        self.loop.set_exception_handler(lambda loop, ctx: None)
+
+        connection_made_called = False
+        connection_lost_called = False
+
+        def server(sock):
+            sock.recv(1024)
+            # break the connection during handshake
+            sock.close()
+
+        class ClientProto(asyncio.Protocol):
+            def connection_made(self, transport):
+                nonlocal connection_made_called
+                connection_made_called = True
+
+            def connection_lost(self, exc):
+                nonlocal connection_lost_called
+                connection_lost_called = True
+
+        async def client(addr):
+            await self.loop.create_connection(
+                ClientProto,
+                *addr,
+                ssl=client_sslctx,
+                server_hostname=''),
+
+        with self.tcp_server(server,
+                             max_clients=1,
+                             backlog=1) as srv:
+
+            with self.assertRaises(ConnectionResetError):
+                self.loop.run_until_complete(client(srv.addr))
+
+        if connection_lost_called:
+            if connection_made_called:
+                self.fail("unexpected call to connection_lost()")
+            else:
+                self.fail("unexpected call to connection_lost() without"
+                          "calling connection_made()")
+        elif connection_made_called:
+            self.fail("unexpected call to connection_made()")
+
     def test_ssl_connect_accepted_socket(self):
         server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
