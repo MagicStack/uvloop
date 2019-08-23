@@ -263,7 +263,10 @@ cdef class SSLProtocol:
         self._outgoing_read = self._outgoing.read
         self._state = UNWRAPPED
         self._conn_lost = 0  # Set when connection_lost called
-        self._app_state = START if call_connection_made else AFTER_CM
+        if call_connection_made:
+            self._app_state = STATE_INIT
+        else:
+            self._app_state = STATE_CON_MADE
 
         # Flow Control
 
@@ -334,8 +337,9 @@ cdef class SSLProtocol:
             self._app_transport._closed = True
 
         if self._state != DO_HANDSHAKE:
-            if self._app_state == AFTER_CM or self._app_state == AFTER_ER:
-                self._app_state = END
+            if self._app_state == STATE_CON_MADE or \
+                    self._app_state == STATE_EOF:
+                self._app_state = STATE_CON_LOST
                 self._loop.call_soon(self._app_protocol.connection_lost, exc)
         self._set_state(UNWRAPPED)
         self._transport = None
@@ -519,8 +523,8 @@ cdef class SSLProtocol:
                            cipher=sslobj.cipher(),
                            compression=sslobj.compression(),
                            ssl_object=sslobj)
-        if self._app_state == START:
-            self._app_state = AFTER_CM
+        if self._app_state == STATE_INIT:
+            self._app_state = STATE_CON_MADE
             self._app_protocol.connection_made(self._get_app_transport())
         self._wakeup_waiter()
         self._do_read()
@@ -737,8 +741,8 @@ cdef class SSLProtocol:
 
     cdef _call_eof_received(self):
         try:
-            if self._app_state == AFTER_CM:
-                self._app_state = AFTER_ER
+            if self._app_state == STATE_CON_MADE:
+                self._app_state = STATE_EOF
                 keep_open = self._app_protocol.eof_received()
                 if keep_open:
                     aio_logger.warning('returning true from eof_received() '

@@ -8,16 +8,18 @@ cdef enum SSLProtocolState:
 
 cdef enum AppProtocolState:
     # This tracks the state of app protocol (https://git.io/fj59P):
-    #     start -> CM [-> DR*] [-> ER?] -> CL -> end
-    # * CM: connection_made()
-    # * DR: data_received()
-    # * ER: eof_received()
-    # * CL: connection_lost()
+    #
+    #     INIT -cm-> CON_MADE [-dr*->] [-er-> EOF?] -cl-> CON_LOST
+    #
+    # * cm: connection_made()
+    # * dr: data_received()
+    # * er: eof_received()
+    # * cl: connection_lost()
 
-    START = 0
-    AFTER_CM = 1
-    AFTER_ER = 2
-    END = 3
+    STATE_INIT = 0
+    STATE_CON_MADE = 1
+    STATE_EOF = 2
+    STATE_CON_LOST = 3
 
 
 cdef class _SSLProtocolTransport:
