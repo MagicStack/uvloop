@@ -6,6 +6,22 @@ cdef enum SSLProtocolState:
     SHUTDOWN = 4
 
 
+cdef enum AppProtocolState:
+    # This tracks the state of app protocol (https://git.io/fj59P):
+    #
+    #     INIT -cm-> CON_MADE [-dr*->] [-er-> EOF?] -cl-> CON_LOST
+    #
+    # * cm: connection_made()
+    # * dr: data_received()
+    # * er: eof_received()
+    # * cl: connection_lost()
+
+    STATE_INIT = 0
+    STATE_CON_MADE = 1
+    STATE_EOF = 2
+    STATE_CON_LOST = 3
+
+
 cdef class _SSLProtocolTransport:
     cdef:
         object _loop
@@ -30,7 +46,6 @@ cdef class SSLProtocol:
         bint _app_transport_created
 
         object _transport
-        bint _call_connection_made
         object _ssl_handshake_timeout
         object _ssl_shutdown_timeout
 
@@ -46,7 +61,7 @@ cdef class SSLProtocol:
         object _ssl_buffer_view
         SSLProtocolState _state
         size_t _conn_lost
-        bint _eof_received
+        AppProtocolState _app_state
 
         bint _ssl_writing_paused
         bint _app_reading_paused
