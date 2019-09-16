@@ -59,12 +59,12 @@ cdef extern from "unistd.h" nogil:
     void _exit(int status)
 
 
-cdef extern from "pthread.h" nogil:
+cdef extern from "pthread.h":
 
     int pthread_atfork(
-        void (*prepare)() nogil,
-        void (*parent)() nogil,
-        void (*child)() nogil)
+        void (*prepare)(),
+        void (*parent)(),
+        void (*child)())
 
 
 cdef extern from "includes/compat.h" nogil:
