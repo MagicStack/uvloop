@@ -3180,18 +3180,20 @@ cdef vint __atfork_installed = 0
 cdef vint __forking = 0
 cdef Loop __forking_loop = None
 
+cdef extern from "includes/fork_handler.h":
 
-cdef void __atfork_child() nogil:
-    # See CPython/posixmodule.c for details
+    ctypedef void (*OnForkHandler)()
+    cdef OnForkHandler __forkHandler
+    void handleAtFork()
+
+cdef void __get_fork_handler() nogil:
     global __forking
+    global __forking_loop
 
     with gil:
-        if (__forking and
-                __forking_loop is not None and
+        if (__forking and __forking_loop is not None and
                 __forking_loop.active_process_handler is not None):
-
             __forking_loop.active_process_handler._after_fork()
-
 
 cdef __install_atfork():
     global __atfork_installed
@@ -3201,7 +3203,7 @@ cdef __install_atfork():
 
     cdef int err
 
-    err = system.pthread_atfork(NULL, NULL, &__atfork_child)
+    err = system.pthread_atfork(NULL, NULL, &handleAtFork)
     if err:
         __atfork_installed = 0
         raise convert_error(-err)
