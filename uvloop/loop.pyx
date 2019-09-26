@@ -241,6 +241,8 @@ cdef class Loop:
         self._debug_exception_handler_cnt = 0
 
     cdef _setup_signals(self):
+        cdef int old_wakeup_fd
+
         if self._listening_signals:
             return
 
@@ -248,7 +250,7 @@ cdef class Loop:
         self._ssock.setblocking(False)
         self._csock.setblocking(False)
         try:
-            _set_signal_wakeup_fd(self._csock.fileno())
+            old_wakeup_fd = _set_signal_wakeup_fd(self._csock.fileno())
         except (OSError, ValueError):
             # Not the main thread
             self._ssock.close()
@@ -257,10 +259,12 @@ cdef class Loop:
             return
 
         self._listening_signals = True
+        return old_wakeup_fd
 
     cdef _recv_signals_start(self):
+        cdef object old_wakeup_fd = None
         if self._ssock is None:
-            self._setup_signals()
+            old_wakeup_fd = self._setup_signals()
             if self._ssock is None:
                 # Not the main thread.
                 return
@@ -272,6 +276,7 @@ cdef class Loop:
                 "Loop._read_from_self",
                 <method_t>self._read_from_self,
                 self))
+        return old_wakeup_fd
 
     cdef _recv_signals_stop(self):
         if self._ssock is None:
@@ -445,6 +450,7 @@ cdef class Loop:
 
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
+        cdef object old_wakeup_fd
 
         if self._closed == 1:
             raise RuntimeError('unable to start the loop; it was closed')
@@ -467,7 +473,7 @@ cdef class Loop:
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
 
-        self._recv_signals_start()
+        old_wakeup_fd = self._recv_signals_start()
 
         if aio_set_running_loop is not None:
             aio_set_running_loop(self)
@@ -478,6 +484,8 @@ cdef class Loop:
                 aio_set_running_loop(None)
 
             self._recv_signals_stop()
+            if old_wakeup_fd is not None:
+                signal_set_wakeup_fd(old_wakeup_fd)
 
             self.handler_check__exec_writes.stop()
             self.handler_idle.stop()
@@ -3218,9 +3226,9 @@ cdef __install_pymem():
 
 cdef _set_signal_wakeup_fd(fd):
     if PY37 and fd >= 0:
-        signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
+        return signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
-        signal_set_wakeup_fd(fd)
+        return signal_set_wakeup_fd(fd)
 
 
 cdef _warn_with_source(msg, cls, source):

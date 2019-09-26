@@ -271,6 +271,46 @@ finally:
         with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
             self.loop.add_signal_handler(signal.SIGHUP, coro)
 
+    def test_wakeup_fd_unchanged(self):
+        async def runner():
+            PROG = R"""\
+import uvloop
+import signal
+import asyncio
+
+
+def get_wakeup_fd():
+    fd = signal.set_wakeup_fd(-1)
+    signal.set_wakeup_fd(fd)
+    return fd
+
+async def f(): pass
+
+fd0 = get_wakeup_fd()
+loop = """ + self.NEW_LOOP + """
+try:
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(f())
+    fd1 = get_wakeup_fd()
+finally:
+    loop.close()
+
+print(fd0 == fd1, flush=True)
+
+"""
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                loop=self.loop)
+
+            out, err = await proc.communicate()
+            self.assertEqual(err, b'')
+            self.assertIn(b'True', out)
+
+        self.loop.run_until_complete(runner())
+
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'
