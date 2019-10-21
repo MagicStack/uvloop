@@ -29,7 +29,10 @@ if __name__ == '__main__':
     client_context = None
     if args.ssl:
         print('with SSL')
-        client_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(ssl, 'PROTOCOL_TLS'):
+            client_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        else:
+            client_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         if hasattr(client_context, 'check_hostname'):
             client_context.check_hostname = False
         client_context.verify_mode = ssl.CERT_NONE

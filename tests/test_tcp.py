@@ -1651,13 +1651,17 @@ class _TestSSL(tb.SSLTestCase):
             self.fail("unexpected call to connection_made()")
 
     def test_ssl_connect_accepted_socket(self):
-        server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(ssl, 'PROTOCOL_TLS'):
+            proto = ssl.PROTOCOL_TLS
+        else:
+            proto = ssl.PROTOCOL_SSLv23
+        server_context = ssl.SSLContext(proto)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
         if hasattr(server_context, 'check_hostname'):
             server_context.check_hostname = False
         server_context.verify_mode = ssl.CERT_NONE
 
-        client_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        client_context = ssl.SSLContext(proto)
         if hasattr(server_context, 'check_hostname'):
             client_context.check_hostname = False
         client_context.verify_mode = ssl.CERT_NONE

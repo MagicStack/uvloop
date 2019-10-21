@@ -271,7 +271,10 @@ def find_free_port(start_from=50000):
 class SSLTestCase:
 
     def _create_server_ssl_context(self, certfile, keyfile=None):
-        sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(ssl, 'PROTOCOL_TLS'):
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        else:
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         sslcontext.options |= ssl.OP_NO_SSLv2
         sslcontext.load_cert_chain(certfile, keyfile)
         return sslcontext
