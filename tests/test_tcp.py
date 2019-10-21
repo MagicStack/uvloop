@@ -2246,7 +2246,7 @@ class _TestSSL(tb.SSLTestCase):
         A_DATA = b'A' * 1024 * 1024
         B_DATA = b'B' * 1024 * 1024
 
-        sslctx = openssl_ssl.Context(openssl_ssl.SSLv23_METHOD)
+        sslctx = openssl_ssl.Context(openssl_ssl.TLSv1_2_METHOD)
         if hasattr(openssl_ssl, 'OP_NO_SSLV2'):
             sslctx.set_options(openssl_ssl.OP_NO_SSLV2)
         sslctx.use_privatekey_file(self.ONLYKEY)
@@ -2605,7 +2605,7 @@ class _TestSSL(tb.SSLTestCase):
         SIZE = 32
 
         sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
-        sslctx_openssl = openssl_ssl.Context(openssl_ssl.SSLv23_METHOD)
+        sslctx_openssl = openssl_ssl.Context(openssl_ssl.TLSv1_2_METHOD)
         if hasattr(openssl_ssl, 'OP_NO_SSLV2'):
             sslctx_openssl.set_options(openssl_ssl.OP_NO_SSLV2)
         sslctx_openssl.use_privatekey_file(self.ONLYKEY)
