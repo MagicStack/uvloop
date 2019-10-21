@@ -143,7 +143,10 @@ if __name__ == '__main__':
     server_context = None
     if args.ssl:
         print('with SSL')
-        server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        if hasattr(ssl, 'PROTOCOL_TLS'):
+            server_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        else:
+            server_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         server_context.load_cert_chain(
             (pathlib.Path(__file__).parent.parent.parent /
                 'tests' / 'certs' / 'ssl_cert.pem'),
