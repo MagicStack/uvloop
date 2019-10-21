@@ -1,6 +1,7 @@
 import asyncio
 import socket
 import unittest
+from tempfile import mktemp
 
 from uvloop import _testbase as tb
 
@@ -180,3 +181,37 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
     pass
+
+
+class TestUnixUDPServer(tb.UVTestCase):
+    def test_unix_socket(self):
+        class UDPProtocol:
+            packets = []
+            event = None
+
+            def connection_made(self, transport):
+                self.transport = transport
+
+            def connection_lost(self, transport):
+                pass
+
+            def datagram_received(self, data, addr):
+                self.packets.append((data, addr))
+                self.event.set()
+
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+            sock_path = mktemp(suffix='.sock')
+            sock.bind(sock_path)
+
+            async def run():
+                transport, protocol = await self.loop.create_datagram_endpoint(
+                    UDPProtocol, sock=sock
+                )
+
+                UDPProtocol.event = asyncio.Event(loop=self.loop)
+                transport.sendto(b'Hello', sock_path)
+                await asyncio.wait_for(UDPProtocol.event.wait(), timeout=2)
+                transport.close()
+
+            self.loop.run_until_complete(run())
+            assert UDPProtocol.packets
