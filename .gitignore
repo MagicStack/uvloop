@@ -29,4 +29,5 @@ __pycache__/
 docs/_build
 uvloop/loop.*.pyd
 /.pytest_cache/
+/.mypy_cache/
 
