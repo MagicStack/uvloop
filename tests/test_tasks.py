@@ -100,7 +100,7 @@ class _TestTasks:
             return 12
 
         t = self.create_task(task())
-        self.assertEqual(all_tasks(loop=self.loop), {t})
+        self.assertEqual(all_tasks(), {t})
         tb.run_briefly(self.loop)
 
         f.cancel()
@@ -174,7 +174,7 @@ class _TestTasks:
             t.cancel()
             self.assertTrue(t._must_cancel)  # White-box test.
             # The sleep should be canceled immediately.
-            yield from asyncio.sleep(100, loop=self.loop)
+            yield from asyncio.sleep(100)
             return 12
 
         t = self.create_task(task())
@@ -208,7 +208,7 @@ class _TestTasks:
                 self.cb_added = True
                 super().add_done_callback(fn)
 
-        fut = Fut(loop=self.loop)
+        fut = Fut()
         result = None
 
         @asyncio.coroutine
@@ -238,7 +238,7 @@ class _TestTasks:
             RuntimeError, self.loop.run_until_complete, notmuch())
 
     def test_task_yield_vs_yield_from(self):
-        fut = asyncio.Future(loop=self.loop)
+        fut = asyncio.Future()
 
         @asyncio.coroutine
         def wait_for_future():
@@ -251,7 +251,7 @@ class _TestTasks:
         self.assertFalse(fut.done())
 
     def test_task_current_task(self):
-        self.assertIsNone(current_task(loop=self.loop))
+        self.assertIsNone(current_task())
 
         @asyncio.coroutine
         def coro(loop):
@@ -259,10 +259,10 @@ class _TestTasks:
 
         task = self.create_task(coro(self.loop))
         self.loop.run_until_complete(task)
-        self.assertIsNone(current_task(loop=self.loop))
+        self.assertIsNone(current_task())
 
     def test_task_current_task_with_interleaving_tasks(self):
-        self.assertIsNone(current_task(loop=self.loop))
+        self.assertIsNone(current_task())
 
         fut1 = self.create_future()
         fut2 = self.create_future()
@@ -285,8 +285,8 @@ class _TestTasks:
         task2 = self.create_task(coro2(self.loop))
 
         self.loop.run_until_complete(asyncio.wait((task1, task2),
-                                                  loop=self.loop))
-        self.assertIsNone(current_task(loop=self.loop))
+                                                  ))
+        self.assertIsNone(current_task())
 
     def test_task_yield_future_passes_cancel(self):
         # Canceling outer() cancels inner() cancels waiter.
@@ -314,7 +314,7 @@ class _TestTasks:
             else:
                 proof += 10
 
-        f = asyncio.ensure_future(outer(), loop=self.loop)
+        f = asyncio.ensure_future(outer())
         tb.run_briefly(self.loop)
         f.cancel()
         self.loop.run_until_complete(f)
@@ -336,10 +336,10 @@ class _TestTasks:
         @asyncio.coroutine
         def outer():
             nonlocal proof
-            d, p = yield from asyncio.wait([inner()], loop=self.loop)
+            d, p = yield from asyncio.wait([inner()])
             proof += 100
 
-        f = asyncio.ensure_future(outer(), loop=self.loop)
+        f = asyncio.ensure_future(outer())
         tb.run_briefly(self.loop)
         f.cancel()
         self.assertRaises(
@@ -364,7 +364,7 @@ class Test_UV_UV_Tasks(_TestTasks, tb.UVTestCase):
 
 class Test_UV_UV_Tasks_AIO_Future(_TestTasks, tb.UVTestCase):
     def create_future(self):
-        return asyncio.Future(loop=self.loop)
+        return asyncio.Future()
 
     def create_task(self, coro):
         return self.loop.create_task(coro)
@@ -372,15 +372,15 @@ class Test_UV_UV_Tasks_AIO_Future(_TestTasks, tb.UVTestCase):
 
 class Test_UV_AIO_Tasks(_TestTasks, tb.UVTestCase):
     def create_future(self):
-        return asyncio.Future(loop=self.loop)
+        return asyncio.Future()
 
     def create_task(self, coro):
-        return asyncio.Task(coro, loop=self.loop)
+        return asyncio.Task(coro)
 
 
 class Test_AIO_Tasks(_TestTasks, tb.AIOTestCase):
     def create_future(self):
-        return asyncio.Future(loop=self.loop)
+        return asyncio.Future()
 
     def create_task(self, coro):
-        return asyncio.Task(coro, loop=self.loop)
+        return asyncio.Task(coro)

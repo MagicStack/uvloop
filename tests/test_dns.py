@@ -168,7 +168,7 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
         async def run():
             fut = self.loop.create_task(
                 self.loop.getaddrinfo('example.com', 80))
-            await asyncio.sleep(0, loop=self.loop)
+            await asyncio.sleep(0)
             fut.cancel()
             self.loop.stop()
 

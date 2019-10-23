@@ -64,6 +64,9 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def new_loop(self):
         raise NotImplementedError
 
+    def new_policy(self):
+        raise NotImplementedError
+
     def mock_pattern(self, str):
         return MockPattern(str)
 
@@ -83,16 +86,12 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
     def setUp(self):
         self.loop = self.new_loop()
-        asyncio.set_event_loop(None)
+        asyncio.set_event_loop_policy(self.new_policy())
+        asyncio.set_event_loop(self.loop)
         self._check_unclosed_resources_in_debug = True
 
         self.loop.set_exception_handler(self.loop_exception_handler)
         self.__unhandled_exceptions = []
-
-        if hasattr(asyncio, '_get_running_loop'):
-            # Disable `_get_running_loop`.
-            self._get_running_loop = asyncio.events._get_running_loop
-            asyncio.events._get_running_loop = lambda: None
 
         self.PY37 = sys.version_info[:2] >= (3, 7)
         self.PY36 = sys.version_info[:2] >= (3, 6)
@@ -105,9 +104,6 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             pprint.pprint(self.__unhandled_exceptions)
             self.fail('unexpected calls to loop.call_exception_handler()')
             return
-
-        if hasattr(asyncio, '_get_running_loop'):
-            asyncio.events._get_running_loop = self._get_running_loop
 
         if not self._check_unclosed_resources_in_debug:
             return
@@ -154,6 +150,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
                         'total != closed for {}'.format(h_name))
 
         asyncio.set_event_loop(None)
+        asyncio.set_event_loop_policy(None)
         self.loop = None
 
     def skip_unclosed_handles_check(self):
@@ -305,6 +302,9 @@ class UVTestCase(BaseTestCase):
     def new_loop(self):
         return uvloop.new_event_loop()
 
+    def new_policy(self):
+        return uvloop.EventLoopPolicy()
+
 
 class AIOTestCase(BaseTestCase):
 
@@ -323,6 +323,9 @@ class AIOTestCase(BaseTestCase):
 
     def new_loop(self):
         return asyncio.new_event_loop()
+
+    def new_policy(self):
+        return asyncio.DefaultEventLoopPolicy()
 
 
 def has_IPv6():

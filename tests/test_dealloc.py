@@ -50,8 +50,7 @@ if __name__ == '__main__':
             proc = await asyncio.create_subprocess_exec(
                 cmd, b'-W', b'ignore', b'-c', prog,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.wait()
             out = await proc.stdout.read()

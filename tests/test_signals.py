@@ -42,8 +42,7 @@ run()
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.stdout.readline()
             time.sleep(DELAY)
@@ -88,8 +87,7 @@ run()
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.stdout.readline()
             time.sleep(DELAY)
@@ -129,8 +127,7 @@ finally:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.stdout.readline()
             time.sleep(DELAY)
@@ -179,8 +176,7 @@ finally:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.stdout.readline()
             time.sleep(DELAY)
@@ -238,8 +234,7 @@ finally:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             await proc.stdout.readline()
 
@@ -286,20 +281,8 @@ class Test_UV_Signals(_TestSignal, tb.UVTestCase):
             self.loop.add_signal_handler(signal.SIGCHLD, lambda *a: None)
 
     def test_asyncio_add_watcher_SIGCHLD_nop(self):
-        async def proc(loop):
-            proc = await asyncio.create_subprocess_exec(
-                'echo',
-                stdout=subprocess.DEVNULL,
-                loop=loop)
-            await proc.wait()
-
-        aio_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(aio_loop)
-        try:
-            aio_loop.run_until_complete(proc(aio_loop))
-        finally:
-            aio_loop.close()
-            asyncio.set_event_loop(None)
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+        asyncio.get_event_loop_policy().get_child_watcher()
 
         try:
             loop = uvloop.new_event_loop()
