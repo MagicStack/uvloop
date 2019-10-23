@@ -413,17 +413,16 @@ class _AsyncioTests:
     def test_stdin_not_inheritable(self):
         # asyncio issue #209: stdin must not be inheritable, otherwise
         # the Process.communicate() hangs
-        @asyncio.coroutine
-        def len_message(message):
+        async def len_message(message):
             code = 'import sys; data = sys.stdin.read(); print(len(data))'
-            proc = yield from asyncio.create_subprocess_exec(
+            proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', code,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 close_fds=False)
-            stdout, stderr = yield from proc.communicate(message)
-            exitcode = yield from proc.wait()
+            stdout, stderr = await proc.communicate(message)
+            exitcode = await proc.wait()
             return (stdout, exitcode)
 
         output, exitcode = self.loop.run_until_complete(len_message(b'abc'))
@@ -433,21 +432,20 @@ class _AsyncioTests:
     def test_stdin_stdout_pipe(self):
         args = self.PROGRAM_CAT
 
-        @asyncio.coroutine
-        def run(data):
-            proc = yield from asyncio.create_subprocess_exec(
+        async def run(data):
+            proc = await asyncio.create_subprocess_exec(
                 *args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE)
 
             # feed data
             proc.stdin.write(data)
-            yield from proc.stdin.drain()
+            await proc.stdin.drain()
             proc.stdin.close()
 
             # get output and exitcode
-            data = yield from proc.stdout.read()
-            exitcode = yield from proc.wait()
+            data = await proc.stdout.read()
+            exitcode = await proc.wait()
             return (exitcode, data)
 
         task = run(b'some data')
@@ -459,19 +457,18 @@ class _AsyncioTests:
     def test_stdin_stdout_file(self):
         args = self.PROGRAM_CAT
 
-        @asyncio.coroutine
-        def run(data, stdout):
-            proc = yield from asyncio.create_subprocess_exec(
+        async def run(data, stdout):
+            proc = await asyncio.create_subprocess_exec(
                 *args,
                 stdin=subprocess.PIPE,
                 stdout=stdout)
 
             # feed data
             proc.stdin.write(data)
-            yield from proc.stdin.drain()
+            await proc.stdin.drain()
             proc.stdin.close()
 
-            exitcode = yield from proc.wait()
+            exitcode = await proc.wait()
             return exitcode
 
         with tempfile.TemporaryFile('w+b') as new_stdout:
@@ -486,14 +483,13 @@ class _AsyncioTests:
     def test_stdin_stderr_file(self):
         args = self.PROGRAM_ERROR
 
-        @asyncio.coroutine
-        def run(stderr):
-            proc = yield from asyncio.create_subprocess_exec(
+        async def run(stderr):
+            proc = await asyncio.create_subprocess_exec(
                 *args,
                 stdin=subprocess.PIPE,
                 stderr=stderr)
 
-            exitcode = yield from proc.wait()
+            exitcode = await proc.wait()
             return exitcode
 
         with tempfile.TemporaryFile('w+b') as new_stderr:
@@ -508,13 +504,12 @@ class _AsyncioTests:
     def test_communicate(self):
         args = self.PROGRAM_CAT
 
-        @asyncio.coroutine
-        def run(data):
-            proc = yield from asyncio.create_subprocess_exec(
+        async def run(data):
+            proc = await asyncio.create_subprocess_exec(
                 *args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE)
-            stdout, stderr = yield from proc.communicate(data)
+            stdout, stderr = await proc.communicate(data)
             return proc.returncode, stdout
 
         task = run(b'some data')
@@ -560,14 +555,13 @@ class _AsyncioTests:
                                                 stdout=subprocess.PIPE)
         proc = self.loop.run_until_complete(create)
 
-        @asyncio.coroutine
-        def send_signal(proc):
+        async def send_signal(proc):
             # basic synchronization to wait until the program is sleeping
-            line = yield from proc.stdout.readline()
+            line = await proc.stdout.readline()
             self.assertEqual(line, b'sleeping\n')
 
             proc.send_signal(signal.SIGHUP)
-            returncode = (yield from proc.wait())
+            returncode = (await proc.wait())
             return returncode
 
         returncode = self.loop.run_until_complete(send_signal(proc))
@@ -576,16 +570,15 @@ class _AsyncioTests:
     def test_cancel_process_wait(self):
         # Issue #23140: cancel Process.wait()
 
-        @asyncio.coroutine
-        def cancel_wait():
-            proc = yield from asyncio.create_subprocess_exec(
+        async def cancel_wait():
+            proc = await asyncio.create_subprocess_exec(
                 *self.PROGRAM_BLOCKED)
 
             # Create an internal future waiting on the process exit
             task = self.loop.create_task(proc.wait())
             self.loop.call_soon(task.cancel)
             try:
-                yield from task
+                await task
             except asyncio.CancelledError:
                 pass
 
@@ -594,24 +587,23 @@ class _AsyncioTests:
 
             # Kill the process and wait until it is done
             proc.kill()
-            yield from proc.wait()
+            await proc.wait()
 
         self.loop.run_until_complete(cancel_wait())
 
     def test_cancel_make_subprocess_transport_exec(self):
-        @asyncio.coroutine
-        def cancel_make_transport():
+        async def cancel_make_transport():
             coro = asyncio.create_subprocess_exec(*self.PROGRAM_BLOCKED)
             task = self.loop.create_task(coro)
 
             self.loop.call_soon(task.cancel)
             try:
-                yield from task
+                await task
             except asyncio.CancelledError:
                 pass
 
             # Give the process handler some time to close itself
-            yield from asyncio.sleep(0.3)
+            await asyncio.sleep(0.3)
             gc.collect()
 
         # ignore the log:
@@ -620,20 +612,19 @@ class _AsyncioTests:
             self.loop.run_until_complete(cancel_make_transport())
 
     def test_cancel_post_init(self):
-        @asyncio.coroutine
-        def cancel_make_transport():
+        async def cancel_make_transport():
             coro = self.loop.subprocess_exec(asyncio.SubprocessProtocol,
                                              *self.PROGRAM_BLOCKED)
             task = self.loop.create_task(coro)
 
             self.loop.call_soon(task.cancel)
             try:
-                yield from task
+                await task
             except asyncio.CancelledError:
                 pass
 
             # Give the process handler some time to close itself
-            yield from asyncio.sleep(0.3)
+            await asyncio.sleep(0.3)
             gc.collect()
 
         # ignore the log:
@@ -654,14 +645,13 @@ class _AsyncioTests:
             def connection_lost(self, exc):
                 self.closed.set_result(1)
 
-        @asyncio.coroutine
-        def test_subprocess():
-            transport, protocol = yield from loop.subprocess_exec(
+        async def test_subprocess():
+            transport, protocol = await loop.subprocess_exec(
                 Protocol, *self.PROGRAM_BLOCKED)
             pid = transport.get_pid()
             transport.close()
             self.assertIsNone(transport.get_returncode())
-            yield from protocol.closed
+            await protocol.closed
             self.assertIsNotNone(transport.get_returncode())
             with self.assertRaises(ProcessLookupError):
                 os.kill(pid, 0)
