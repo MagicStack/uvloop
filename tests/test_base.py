@@ -523,8 +523,7 @@ class _TestBase:
         class MyTask(asyncio.Task):
             pass
 
-        @asyncio.coroutine
-        def coro():
+        async def coro():
             pass
 
         factory = lambda loop, coro: MyTask(coro, loop=loop)
@@ -765,8 +764,7 @@ class TestPolicy(unittest.TestCase):
     @unittest.skipUnless(hasattr(asyncio, '_get_running_loop'),
                          'No asyncio._get_running_loop')
     def test_running_loop_within_a_loop(self):
-        @asyncio.coroutine
-        def runner(loop):
+        async def runner(loop):
             loop.run_forever()
 
         try:
