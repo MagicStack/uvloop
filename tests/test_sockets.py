@@ -109,7 +109,7 @@ class _TestSockets:
                     # for IPv6 sockets.
                     f = self.loop.sock_connect(sock, addr)
                     try:
-                        await asyncio.wait_for(f, timeout=0.1, loop=self.loop)
+                        await asyncio.wait_for(f, timeout=0.1)
                     except (asyncio.TimeoutError, ConnectionRefusedError):
                         # TimeoutError is expected.
                         pass
@@ -183,11 +183,11 @@ class _TestSockets:
             sock.listen(0)
             fd = sock.fileno()
             self.loop.add_reader(fd, cb)
-            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0.01))
             self.loop.remove_reader(fd)
             sock.close()
             self.assertEqual(sock.fileno(), -1)
-            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_sock_cancel_add_reader_race(self):
         srv_sock_conn = None
@@ -200,7 +200,7 @@ class _TestSockets:
                 sock_server.bind(('127.0.0.1', 0))
                 sock_server.listen()
                 fut = asyncio.ensure_future(
-                    client(sock_server.getsockname()), loop=self.loop)
+                    client(sock_server.getsockname()))
                 srv_sock_conn, _ = await self.loop.sock_accept(sock_server)
                 srv_sock_conn.setsockopt(
                     socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -214,7 +214,7 @@ class _TestSockets:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
                     [self.loop.sock_recv(sock_client, 1)],
-                    timeout=1, loop=self.loop)
+                    timeout=1)
 
                 async def send_server_data():
                     # Wait a little bit to let reader future cancel and
@@ -222,7 +222,7 @@ class _TestSockets:
                     # "rfut.cancel()" we will call "loop.sock_recv()", which
                     # will add a reader.  This will make a race between
                     # remove- and add-reader.
-                    await asyncio.sleep(0.1, loop=self.loop)
+                    await asyncio.sleep(0.1)
                     await self.loop.sock_sendall(srv_sock_conn, b'1')
                 self.loop.create_task(send_server_data())
 
@@ -246,20 +246,20 @@ class _TestSockets:
                 sock_server.bind(('127.0.0.1', 0))
                 sock_server.listen()
                 fut = asyncio.ensure_future(
-                    client(sock_server.getsockname()), loop=self.loop)
+                    client(sock_server.getsockname()))
                 srv_sock_conn, _ = await self.loop.sock_accept(sock_server)
                 with srv_sock_conn:
                     await fut
 
         async def client(addr):
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             sock_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock_client.setblocking(False)
             with sock_client:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
                     [self.loop.sock_recv(sock_client, 1)],
-                    timeout=1, loop=self.loop)
+                    timeout=1)
 
                 # server can send the data in a random time, even before
                 # the previous result future has cancelled.
@@ -291,7 +291,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.listen(0)
             fd = sock.fileno()
             self.loop.add_reader(fd, cb)
-            self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0.01))
             self.loop.remove_reader(fd)
             with self.assertRaises(FileNotFoundError):
                 epoll.modify(fd, 0)
@@ -445,7 +445,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.send(b'helo')
 
         async def kill(sock):
-            await asyncio.sleep(0.2, loop=self.loop)
+            await asyncio.sleep(0.2)
             sock.close()
 
         async def client(sock, addr):
@@ -464,7 +464,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             with sock:
                 sock.setblocking(False)
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 r = self.loop.run_until_complete(w)
                 self.assertEqual(r, b'helo')
 
@@ -474,7 +474,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.send(b'helo')
 
         async def kill(sock):
-            await asyncio.sleep(0.2, loop=self.loop)
+            await asyncio.sleep(0.2)
             sock.close()
 
         async def client(sock, addr):
@@ -496,7 +496,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             with sock:
                 sock.setblocking(False)
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 r = self.loop.run_until_complete(w)
                 self.assertEqual(r, b'helo')
 
@@ -544,7 +544,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
             asyncio.ensure_future(self.loop.sock_recv(sock, 10),
                                   loop=self.loop)
-            await asyncio.sleep(0.2, loop=self.loop)
+            await asyncio.sleep(0.2)
             raise Abort
 
         with self.tcp_server(srv_gen) as srv:
@@ -554,7 +554,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 sock.setblocking(False)
 
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 try:
                     sock = self.loop.run_until_complete(w)
                 except Abort:
@@ -612,7 +612,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.send(b'helo')
 
         async def kill(fut):
-            await asyncio.sleep(0.2, loop=self.loop)
+            await asyncio.sleep(0.2)
             fut.cancel()
 
         async def client(sock, addr):
@@ -632,7 +632,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             with sock:
                 sock.setblocking(False)
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 self.loop.run_until_complete(w)
 
     def test_socket_cancel_sock_recv_2(self):
@@ -641,12 +641,12 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.send(b'helo')
 
         async def kill(fut):
-            await asyncio.sleep(0.5, loop=self.loop)
+            await asyncio.sleep(0.5)
             fut.cancel()
 
         async def recv(sock):
             fut = self.loop.create_task(self.loop.sock_recv(sock, 10))
-            await asyncio.sleep(0.1, loop=self.loop)
+            await asyncio.sleep(0.1)
             self.loop.remove_reader(sock)
             sock.close()
             try:
@@ -659,7 +659,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
 
-            f = asyncio.ensure_future(recv(sock), loop=self.loop)
+            f = asyncio.ensure_future(recv(sock))
             self.loop.create_task(kill(f))
             with self.assertRaises(asyncio.CancelledError):
                 await f
@@ -672,7 +672,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             with sock:
                 sock.setblocking(False)
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 self.loop.run_until_complete(w)
 
     def test_socket_cancel_sock_sendall(self):
@@ -681,7 +681,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             sock.recv_all(4)
 
         async def kill(fut):
-            await asyncio.sleep(0.2, loop=self.loop)
+            await asyncio.sleep(0.2)
             fut.cancel()
 
         async def client(sock, addr):
@@ -705,7 +705,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             with sock:
                 sock.setblocking(False)
                 c = client(sock, srv.addr)
-                w = asyncio.wait_for(c, timeout=5.0, loop=self.loop)
+                w = asyncio.wait_for(c, timeout=5.0)
                 self.loop.run_until_complete(w)
 
     def test_socket_close_many_add_readers(self):

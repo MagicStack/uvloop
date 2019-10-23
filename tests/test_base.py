@@ -27,7 +27,7 @@ class _TestBase:
         self.loop.close()
 
         # operation blocked when the loop is closed
-        f = asyncio.Future(loop=self.loop)
+        f = asyncio.Future()
         self.assertRaises(RuntimeError, self.loop.run_forever)
         self.assertRaises(RuntimeError, self.loop.run_until_complete, f)
 
@@ -99,7 +99,7 @@ class _TestBase:
 
             meth(cb)
             self.assertIsNone(context)
-            self.loop.run_until_complete(asyncio.sleep(0.05, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0.05))
 
             self.assertIs(type(context['exception']), ZeroDivisionError)
             self.assertTrue(context['message'].startswith(
@@ -167,9 +167,9 @@ class _TestBase:
         # libuv cached time.
 
         async def main():
-            await asyncio.sleep(0.001, loop=self.loop)
+            await asyncio.sleep(0.001)
             time.sleep(0.01)
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
 
         started = time.monotonic()
         self.loop.run_until_complete(main())
@@ -331,7 +331,7 @@ class _TestBase:
             TypeError, self.loop.run_until_complete, 'blah')
 
     def test_run_until_complete_loop(self):
-        task = asyncio.Future(loop=self.loop)
+        task = asyncio.Future()
         other_loop = self.new_loop()
         self.addCleanup(other_loop.close)
         self.assertRaises(
@@ -351,7 +351,7 @@ class _TestBase:
             pass
 
         async def foo(delay):
-            await asyncio.sleep(delay, loop=self.loop)
+            await asyncio.sleep(delay)
 
         def throw():
             raise ShowStopper
@@ -373,7 +373,7 @@ class _TestBase:
         self.loop.call_soon(lambda: time.sleep(0.3))
 
         with mock.patch.object(logger, 'warning') as log:
-            self.loop.run_until_complete(asyncio.sleep(0, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0))
 
         self.assertEqual(log.call_count, 1)
         # format message
@@ -389,7 +389,7 @@ class _TestBase:
         self.loop.call_later(0.01, lambda: time.sleep(0.3))
 
         with mock.patch.object(logger, 'warning') as log:
-            self.loop.run_until_complete(asyncio.sleep(0.02, loop=self.loop))
+            self.loop.run_until_complete(asyncio.sleep(0.02))
 
         self.assertEqual(log.call_count, 1)
         # format message
@@ -429,7 +429,7 @@ class _TestBase:
 
         # Test call_soon (events.Handle)
         with mock.patch.object(logger, 'error') as log:
-            fut = asyncio.Future(loop=self.loop)
+            fut = asyncio.Future()
             self.loop.call_soon(zero_error, fut)
             fut.add_done_callback(lambda fut: self.loop.stop())
             self.loop.run_forever()
@@ -439,7 +439,7 @@ class _TestBase:
 
         # Test call_later (events.TimerHandle)
         with mock.patch.object(logger, 'error') as log:
-            fut = asyncio.Future(loop=self.loop)
+            fut = asyncio.Future()
             self.loop.call_later(0.01, zero_error, fut)
             fut.add_done_callback(lambda fut: self.loop.stop())
             self.loop.run_forever()
@@ -562,31 +562,34 @@ class _TestBase:
             raise unittest.SkipTest()
 
         waiter = self._compile_agen(
-            '''async def waiter(timeout, finalized, loop):
+            '''async def waiter(timeout, finalized):
                 try:
-                    await asyncio.sleep(timeout, loop=loop)
+                    await asyncio.sleep(timeout)
                     yield 1
                 finally:
-                    await asyncio.sleep(0, loop=loop)
+                    await asyncio.sleep(0)
                     finalized.append(1)
             ''')
 
         async def wait():
-            async for _ in waiter(1, finalized, self.loop):
+            async for _ in waiter(1, finalized):
                 pass
 
         t1 = self.loop.create_task(wait())
         t2 = self.loop.create_task(wait())
 
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.1))
 
+        t1.cancel()
+        t2.cancel()
         self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         self.assertEqual(finalized, [1, 1])
 
-        # Silence warnings
-        t1.cancel()
-        t2.cancel()
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+        for t in {t1, t2}:
+            try:
+                self.loop.run_until_complete(t)
+            except asyncio.CancelledError:
+                pass
 
     def test_shutdown_asyncgens_02(self):
         if not hasattr(self.loop, 'shutdown_asyncgens'):
@@ -601,20 +604,20 @@ class _TestBase:
             if expected in context['message']:
                 logged += 1
 
-        waiter = self._compile_agen('''async def waiter(timeout, loop):
+        waiter = self._compile_agen('''async def waiter(timeout):
             try:
-                await asyncio.sleep(timeout, loop=loop)
+                await asyncio.sleep(timeout)
                 yield 1
             finally:
                 1 / 0
         ''')
 
         async def wait():
-            async for _ in waiter(1, self.loop):
+            async for _ in waiter(1):
                 pass
 
         t = self.loop.create_task(wait())
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.1))
 
         self.loop.set_exception_handler(logger)
         self.loop.run_until_complete(self.loop.shutdown_asyncgens())
@@ -623,7 +626,7 @@ class _TestBase:
 
         # Silence warnings
         t.cancel()
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.1))
 
     def test_shutdown_asyncgens_03(self):
         if not hasattr(self.loop, 'shutdown_asyncgens'):
@@ -640,14 +643,14 @@ class _TestBase:
             await waiter().asend(None)
 
         self.loop.run_until_complete(foo())
-        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_inf_wait_for(self):
         async def foo():
-            await asyncio.sleep(0.1, loop=self.loop)
+            await asyncio.sleep(0.1)
             return 123
         res = self.loop.run_until_complete(
-            asyncio.wait_for(foo(), timeout=float('inf'), loop=self.loop))
+            asyncio.wait_for(foo(), timeout=float('inf')))
         self.assertEqual(res, 123)
 
 

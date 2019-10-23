@@ -19,14 +19,13 @@ class _ContextBaseTests:
             with decimal.localcontext() as ctx:
                 ctx.prec = precision
                 a = decimal.Decimal(x) / decimal.Decimal(y)
-                await asyncio.sleep(t, loop=self.loop)
+                await asyncio.sleep(t)
                 b = decimal.Decimal(x) / decimal.Decimal(y ** 2)
                 return a, b
 
         async def main():
             r1, r2 = await asyncio.gather(
-                fractions(0.1, 3, 1, 3), fractions(0.2, 6, 1, 3),
-                loop=self.loop)
+                fractions(0.1, 3, 1, 3), fractions(0.2, 6, 1, 3))
 
             return r1, r2
 
@@ -44,7 +43,7 @@ class _ContextBaseTests:
         cvar = contextvars.ContextVar('cvar', default='nope')
 
         async def sub():
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             self.assertEqual(cvar.get(), 'nope')
             cvar.set('something else')
 
@@ -83,7 +82,7 @@ class _ContextBaseTests:
                 for i in range(3):
                     # Test that task passed its context to add_done_callback:
                     cvar.set('yes{}-{}'.format(i, j))
-                    await asyncio.sleep(0.001, loop=self.loop)
+                    await asyncio.sleep(0.001)
                     self.assertEqual(cvar.get(), 'yes{}-{}'.format(i, j))
 
         task = self.loop.create_task(main())
@@ -101,8 +100,7 @@ class _ContextBaseTests:
         async def sub(num):
             for i in range(10):
                 cvar.set(num + i)
-                await asyncio.sleep(
-                    random.uniform(0.001, 0.05), loop=self.loop)
+                await asyncio.sleep(random.uniform(0.001, 0.05))
                 self.assertEqual(cvar.get(), num + i)
 
         async def main():
@@ -111,8 +109,7 @@ class _ContextBaseTests:
                 task = self.loop.create_task(sub(random.randint(0, 10)))
                 tasks.append(task)
 
-            await asyncio.gather(
-                *tasks, loop=self.loop, return_exceptions=True)
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         self.loop.run_until_complete(main())
 
@@ -134,7 +131,7 @@ class _ContextBaseTests:
 
         async def main():
             await self.loop.create_task(sub())
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
 
         task = self.loop.create_task(main())
         self.loop.run_until_complete(task)

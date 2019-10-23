@@ -124,7 +124,7 @@ class _TestUDP:
                 s_transport.close()
                 # let it close
                 self.loop.run_until_complete(
-                    asyncio.sleep(0.1, loop=self.loop))
+                    asyncio.sleep(0.1))
 
     def test_create_datagram_endpoint_sock(self):
         sock = None
@@ -200,7 +200,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
             s_transport.sendto(b'aaaa', ('::1', 80))
 
         s_transport.close()
-        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_send_after_close(self):
         coro = self.loop.create_datagram_endpoint(
@@ -212,7 +212,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
         s_transport.close()
         s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
-        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.01))
         s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
 
 
