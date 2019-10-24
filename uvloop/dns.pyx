@@ -33,6 +33,7 @@ cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
         int err
         system.sockaddr_in *addr4
         system.sockaddr_in6 *addr6
+        system.sockaddr_un *addr_un
 
     if addr.sa_family == uv.AF_INET:
         addr4 = <system.sockaddr_in*>addr
@@ -59,6 +60,10 @@ cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
             system.ntohl(addr6.sin6_flowinfo),
             addr6.sin6_scope_id
         )
+
+    elif addr.sa_family == uv.AF_UNIX:
+        addr_un = <system.sockaddr_un*>addr
+        return system.MakeUnixSockPyAddr(addr_un)
 
     raise RuntimeError("cannot convert sockaddr into Python object")
 

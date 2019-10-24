@@ -80,3 +80,4 @@ cdef extern from "includes/compat.h" nogil:
 
     int EPOLL_CTL_DEL
     int epoll_ctl(int epfd, int op, int fd, epoll_event *event)
+    object MakeUnixSockPyAddr(sockaddr_un *addr)
