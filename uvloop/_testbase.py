@@ -70,6 +70,15 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def mock_pattern(self, str):
         return MockPattern(str)
 
+    async def wait_closed(self, obj):
+        if not isinstance(obj, asyncio.StreamWriter):
+            return
+        if sys.version_info >= (3, 7, 0):
+            try:
+                await obj.wait_closed()
+            except (BrokenPipeError, ConnectionError):
+                pass
+
     def has_start_serving(self):
         return not (self.is_asyncio_loop() and
                     sys.version_info[:2] in [(3, 5), (3, 6)])
@@ -78,7 +87,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         return type(self.loop).__module__.startswith('asyncio.')
 
     def run_loop_briefly(self, *, delay=0.01):
-        self.loop.run_until_complete(asyncio.sleep(delay, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(delay))
 
     def loop_exception_handler(self, loop, context):
         self.__unhandled_exceptions.append(context)
@@ -530,7 +539,7 @@ def run_until(loop, pred, timeout=30):
             timeout = deadline - time.time()
             if timeout <= 0:
                 raise asyncio.futures.TimeoutError()
-        loop.run_until_complete(asyncio.tasks.sleep(0.001, loop=loop))
+        loop.run_until_complete(asyncio.tasks.sleep(0.001))
 
 
 @contextlib.contextmanager
