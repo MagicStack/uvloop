@@ -67,7 +67,9 @@ cdef class UVBaseTransport(UVSocketHandle):
             self._protocol_paused = 1
             try:
                 self._protocol.pause_writing()
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.pause_writing() failed',
                     'exception': exc,
@@ -83,7 +85,9 @@ cdef class UVBaseTransport(UVSocketHandle):
             self._protocol_paused = 0
             try:
                 self._protocol.resume_writing()
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.resume_writing() failed',
                     'exception': exc,

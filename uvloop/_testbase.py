@@ -415,7 +415,9 @@ class TestThreadedClient(SocketThread):
     def run(self):
         try:
             self._prog(TestSocketWrapper(self._sock))
-        except Exception as ex:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as ex:
             self._test._abort_socket_test(ex)
 
 
@@ -485,7 +487,9 @@ class TestThreadedServer(SocketThread):
                     try:
                         with conn:
                             self._handle_client(conn)
-                    except Exception as ex:
+                    except (KeyboardInterrupt, SystemExit):
+                        raise
+                    except BaseException as ex:
                         self._active = False
                         try:
                             raise
