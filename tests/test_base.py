@@ -740,6 +740,37 @@ class TestBaseUV(_TestBase, UVTestCase):
             self.assertIs(type(_context['context']['exception']),
                           ZeroDivisionError)
 
+    def test_big_call_later_timeout(self):
+        OK, NOT_OK = 0, 0
+
+        async def sleep(delay_name, delay):
+            nonlocal OK, NOT_OK
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                OK += 1
+            except Exception:
+                NOT_OK += 1
+
+        async def main():
+            tests = [
+                sleep("infinity", float("inf")),
+                sleep("sys.maxsize", float(sys.maxsize)),
+                sleep("sys.maxsize", sys.maxsize),
+                sleep("2**55", 2**55),
+                sleep("2**54", 2**54),
+            ]
+            tasks = [self.loop.create_task(test) for test in tests]
+            await asyncio.sleep(0.1)
+            for task in tasks:
+                task.cancel()
+                await task
+
+        self.loop.run_until_complete(main())
+
+        self.assertEqual(OK, 5)
+        self.assertEqual(NOT_OK, 0)
+
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass
