@@ -521,7 +521,9 @@ cdef class UVProcessTransport(UVProcess):
     cdef _call_connection_made(self, waiter):
         try:
             self._protocol.connection_made(self)
-        except Exception as ex:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as ex:
             if waiter is not None and not waiter.cancelled():
                 waiter.set_exception(ex)
             else:

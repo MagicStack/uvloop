@@ -86,7 +86,9 @@ cdef class Handle:
                 raise RuntimeError('invalid Handle.cb_type: {}'.format(
                     cb_type))
 
-        except Exception as ex:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as ex:
             if cb_type == 1:
                 msg = 'Exception in callback {}'.format(callback)
             else:
@@ -263,7 +265,9 @@ cdef class TimerHandle:
                 callback(*args)
             else:
                 callback()
-        except Exception as ex:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as ex:
             context = {
                 'message': 'Exception in callback {}'.format(callback),
                 'exception': ex,

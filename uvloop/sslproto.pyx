@@ -747,7 +747,9 @@ cdef class SSLProtocol:
                 if keep_open:
                     aio_logger.warning('returning true from eof_received() '
                                        'has no effect when using ssl')
-        except Exception as ex:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as ex:
             self._fatal_error(ex, 'Error calling eof_received()')
 
     # Flow control for writes from APP socket
@@ -758,7 +760,9 @@ cdef class SSLProtocol:
             self._app_writing_paused = True
             try:
                 self._app_protocol.pause_writing()
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.pause_writing() failed',
                     'exception': exc,
@@ -769,7 +773,9 @@ cdef class SSLProtocol:
             self._app_writing_paused = False
             try:
                 self._app_protocol.resume_writing()
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 self._loop.call_exception_handler({
                     'message': 'protocol.resume_writing() failed',
                     'exception': exc,

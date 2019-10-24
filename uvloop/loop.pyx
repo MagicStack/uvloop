@@ -854,7 +854,9 @@ cdef class Loop:
                         data = result
                     else:
                         data = (<AddrInfo>result).unpack()
-                except Exception as ex:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException as ex:
                     if not fut.cancelled():
                         fut.set_exception(ex)
                 else:
@@ -899,7 +901,9 @@ cdef class Loop:
             # No need to re-add the reader, let's just wait until
             # the poll handler calls this callback again.
             pass
-        except Exception as exc:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
             fut.set_exception(exc)
             self._remove_reader(sock)
         else:
@@ -924,7 +928,9 @@ cdef class Loop:
             # No need to re-add the reader, let's just wait until
             # the poll handler calls this callback again.
             pass
-        except Exception as exc:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
             fut.set_exception(exc)
             self._remove_reader(sock)
         else:
@@ -952,7 +958,9 @@ cdef class Loop:
         except (BlockingIOError, InterruptedError):
             # Try next time.
             return
-        except Exception as exc:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
             fut.set_exception(exc)
             self._remove_writer(sock)
             return
@@ -984,7 +992,9 @@ cdef class Loop:
             # There is an active reader for _sock_accept, so
             # do nothing, it will be called again.
             pass
-        except Exception as exc:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
             fut.set_exception(exc)
             self._remove_reader(sock)
         else:
@@ -1027,7 +1037,9 @@ cdef class Loop:
         except (BlockingIOError, InterruptedError):
             # socket is still registered, the callback will be retried later
             pass
-        except Exception as exc:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
             fut.set_exception(exc)
         else:
             fut.set_result(None)
@@ -1528,7 +1540,9 @@ cdef class Loop:
 
         try:
             await waiter
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException:
             app_transport.close()
             conmade_cb.cancel()
             resume_cb.cancel()
@@ -1695,7 +1709,9 @@ cdef class Loop:
 
                         try:
                             tcp._open(sock.fileno())
-                        except Exception:
+                        except (KeyboardInterrupt, SystemExit):
+                            raise
+                        except BaseException:
                             tcp._close()
                             raise
 
@@ -1729,7 +1745,9 @@ cdef class Loop:
 
             try:
                 tcp._open(sock.fileno())
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 tcp._close()
                 raise
 
@@ -1910,7 +1928,9 @@ cdef class Loop:
                         tr._close()
                         tr = None
                     exceptions.append(exc)
-                except Exception:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException:
                     if tr is not None:
                         tr._close()
                         tr = None
@@ -1948,7 +1968,9 @@ cdef class Loop:
                 tr._open(sock.fileno())
                 tr._init_protocol()
                 await waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 # It's OK to call `_close()` here, as opposed to
                 # `_force_close()` or `close()` as we want to terminate the
                 # transport immediately.  The `waiter` can only be waken
@@ -1963,7 +1985,9 @@ cdef class Loop:
             app_transport = protocol._get_app_transport()
             try:
                 await ssl_waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 app_transport.close()
                 raise
             return app_transport, app_protocol
@@ -2064,7 +2088,9 @@ cdef class Loop:
                     raise OSError(errno.EADDRINUSE, msg) from None
                 else:
                     raise
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 sock.close()
                 raise
 
@@ -2088,7 +2114,9 @@ cdef class Loop:
 
         try:
             pipe._open(sock.fileno())
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException:
             pipe._close()
             sock.close()
             raise
@@ -2161,7 +2189,9 @@ cdef class Loop:
             tr.connect(path)
             try:
                 await waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 tr._close()
                 raise
 
@@ -2184,7 +2214,9 @@ cdef class Loop:
                 tr._open(sock.fileno())
                 tr._init_protocol()
                 await waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 tr._close()
                 raise
 
@@ -2194,7 +2226,9 @@ cdef class Loop:
             app_transport = protocol._get_app_transport()
             try:
                 await ssl_waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 app_transport.close()
                 raise
             return app_transport, app_protocol
@@ -2233,7 +2267,9 @@ cdef class Loop:
             else:
                 try:
                     value = repr(value)
-                except Exception as ex:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException as ex:
                     value = ('Exception in __repr__ {!r}; '
                              'value type: {!r}'.format(ex, type(value)))
             log_lines.append('{}: {}'.format(key, value))
@@ -2287,7 +2323,9 @@ cdef class Loop:
         if self._exception_handler is None:
             try:
                 self.default_exception_handler(context)
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 # Second protection layer for unexpected errors
                 # in the default implementation, as well as for subclassed
                 # event loops with overloaded "default_exception_handler".
@@ -2296,7 +2334,9 @@ cdef class Loop:
         else:
             try:
                 self._exception_handler(self, context)
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 # Exception in the user set custom exception handler.
                 try:
                     # Let's try default handler.
@@ -2305,7 +2345,9 @@ cdef class Loop:
                         'exception': exc,
                         'context': context,
                     })
-                except Exception:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException:
                     # Guard 'default_exception_handler' in case it is
                     # overloaded.
                     aio_logger.error('Exception in default exception handler '
@@ -2558,14 +2600,18 @@ cdef class Loop:
             app_transport = protocol._get_app_transport()
             try:
                 await waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 app_transport.close()
                 raise
             return app_transport, protocol
         else:
             try:
                 await waiter
-            except Exception:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException:
                 transport._close()
                 raise
             return transport, protocol
@@ -2641,7 +2687,9 @@ cdef class Loop:
 
         try:
             await waiter
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException:
             proc.close()
             raise
 
@@ -2693,7 +2741,9 @@ cdef class Loop:
             transp._open(pipe.fileno())
             transp._init_protocol()
             await waiter
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException:
             transp._close()
             raise
         transp._attach_fileobj(pipe)
@@ -2718,7 +2768,9 @@ cdef class Loop:
             transp._open(pipe.fileno())
             transp._init_protocol()
             await waiter
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException:
             transp._close()
             raise
         transp._attach_fileobj(pipe)
@@ -2948,7 +3000,9 @@ cdef class Loop:
                         if reuse_port:
                             self._sock_set_reuseport(udp._fileno())
                         udp._bind(lai.ai_addr, reuse_address)
-                    except Exception as ex:
+                    except (KeyboardInterrupt, SystemExit):
+                        raise
+                    except BaseException as ex:
                         lai = lai.ai_next
                         excs.append(ex)
                         continue

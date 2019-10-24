@@ -386,7 +386,9 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
             ai = AddrInfo()
             ai.set_data(res)
             callback(ai)
-    except Exception as ex:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as ex:
         loop._handle_exception(ex)
     finally:
         request.on_done()
@@ -407,7 +409,9 @@ cdef void __on_nameinfo_resolved(uv.uv_getnameinfo_t* req,
         else:
             callback(((<bytes>hostname).decode(),
                       (<bytes>service).decode()))
-    except Exception as ex:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as ex:
         loop._handle_exception(ex)
     finally:
         request.on_done()
