@@ -50,6 +50,7 @@ include "errors.pyx"
 cdef:
     int PY37 = PY_VERSION_HEX >= 0x03070000
     int PY36 = PY_VERSION_HEX >= 0x03060000
+    uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
 
 
 cdef _is_sock_stream(sock_type):
@@ -1271,10 +1272,10 @@ cdef class Loop:
 
         if delay < 0:
             delay = 0
-        elif delay == py_inf:
+        elif delay == py_inf or delay > MAX_SLEEP:
             # ~100 years sounds like a good approximation of
             # infinity for a Python application.
-            delay = 3600 * 24 * 365 * 100
+            delay = MAX_SLEEP
 
         when = <uint64_t>round(delay * 1000)
         if not args:
