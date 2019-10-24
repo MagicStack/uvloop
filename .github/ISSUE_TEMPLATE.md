@@ -12,5 +12,6 @@ Thank you!
 * **Python version**:
 * **Platform**:
 * **Can you reproduce the bug with `PYTHONASYNCIODEBUG` in env?**:
+* **Does uvloop behave differently from vanilla asyncio? How?**:
 
 <!-- Enter your issue details below this comment. -->
