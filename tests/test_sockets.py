@@ -25,6 +25,10 @@ class _TestSockets:
             # See https://github.com/python/asyncio/pull/366 for details.
             raise unittest.SkipTest()
 
+        if sys.version_info[:3] >= (3, 8, 0):
+            # @asyncio.coroutine is deprecated in 3.8
+            raise unittest.SkipTest()
+
         def srv_gen(sock):
             sock.send(b'helo')
             data = sock.recv_all(4 * _SIZE)
@@ -190,6 +194,11 @@ class _TestSockets:
             self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_sock_cancel_add_reader_race(self):
+        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 8, 0):
+            # asyncio 3.8.0 seems to have a regression;
+            # tracked in https://bugs.python.org/issue30064
+            raise unittest.SkipTest()
+
         srv_sock_conn = None
 
         async def server():
@@ -236,6 +245,11 @@ class _TestSockets:
         self.loop.run_until_complete(server())
 
     def test_sock_send_before_cancel(self):
+        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 8, 0):
+            # asyncio 3.8.0 seems to have a regression;
+            # tracked in https://bugs.python.org/issue30064
+            raise unittest.SkipTest()
+
         srv_sock_conn = None
 
         async def server():

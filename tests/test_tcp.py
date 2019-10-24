@@ -418,6 +418,7 @@ class _TestTCP:
                     sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
 
             writer.close()
+            await self.wait_closed(writer)
 
         self._test_create_connection_1(client)
 
@@ -440,6 +441,7 @@ class _TestTCP:
                     sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
 
             writer.close()
+            await self.wait_closed(writer)
 
         self._test_create_connection_1(client)
 
@@ -486,6 +488,8 @@ class _TestTCP:
 
         async def client():
             reader, writer = await asyncio.open_connection(*addr)
+            writer.close()
+            await self.wait_closed(writer)
 
         async def runner():
             with self.assertRaises(ConnectionRefusedError):
@@ -511,6 +515,7 @@ class _TestTCP:
                 await reader.readexactly(10)
 
             writer.close()
+            await self.wait_closed(writer)
 
             nonlocal CNT
             CNT += 1
@@ -538,6 +543,8 @@ class _TestTCP:
 
         async def client():
             reader, writer = await asyncio.open_connection(sock=sock)
+            writer.close()
+            await self.wait_closed(writer)
 
         async def runner():
             with self.assertRaisesRegex(OSError, 'Bad file'):
@@ -605,6 +612,7 @@ class _TestTCP:
             self.assertEqual(data, b'OK')
 
             writer.close()
+            await self.wait_closed(writer)
 
         async def start_server():
             nonlocal CNT
@@ -996,6 +1004,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
             w.close()
             await fut
+            await self.wait_closed(w)
 
             srv.close()
             await srv.wait_closed()
@@ -1004,6 +1013,8 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         self.loop.run_until_complete(run())
 
+    @unittest.skipIf(sys.version_info[:3] >= (3, 8, 0),
+                     "3.8 has a different method of GCing unclosed streams")
     def test_tcp_handle_unclosed_gc(self):
         fut = self.loop.create_future()
 
@@ -1385,6 +1396,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
 
         async def client_sock(addr):
             sock = socket.socket()
@@ -1404,6 +1416,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
             sock.close()
 
         def run(coro):
@@ -1450,6 +1463,8 @@ class _TestSSL(tb.SSLTestCase):
                 ssl=client_sslctx,
                 server_hostname='',
                 ssl_handshake_timeout=1.0)
+            writer.close()
+            await self.wait_closed(writer)
 
         with self.tcp_server(server,
                              max_clients=1,
@@ -1488,6 +1503,8 @@ class _TestSSL(tb.SSLTestCase):
                 ssl=client_sslctx,
                 server_hostname='',
                 ssl_handshake_timeout=1.0)
+            writer.close()
+            await self.wait_closed(writer)
 
         with self.tcp_server(server,
                              max_clients=1,
@@ -1663,6 +1680,10 @@ class _TestSSL(tb.SSLTestCase):
             with self.assertRaises(ssl.SSLError):
                 await reader.readline()
             writer.close()
+            try:
+                await self.wait_closed(writer)
+            except ssl.SSLError:
+                pass
             return 'OK'
 
         with self.tcp_server(server,
@@ -2272,6 +2293,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
 
         async def client_sock(addr):
             sock = socket.socket()
@@ -2291,6 +2313,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
             sock.close()
 
         def run(coro):
@@ -2460,6 +2483,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
 
         def run(coro):
             nonlocal CNT
@@ -2533,6 +2557,9 @@ class _TestSSL(tb.SSLTestCase):
                 writer.transport.get_write_buffer_size(), 0)
 
             await future
+
+            writer.close()
+            await self.wait_closed(writer)
 
         def run(meth):
             def wrapper(sock):
@@ -2631,6 +2658,7 @@ class _TestSSL(tb.SSLTestCase):
             for _ in range(SIZE):
                 writer.write(b'x' * CHUNK)
             writer.close()
+            await self.wait_closed(writer)
             try:
                 data = await reader.read()
                 self.assertEqual(data, b'')
@@ -2748,6 +2776,9 @@ class _TestSSL(tb.SSLTestCase):
                 pass
 
             await future
+
+            writer.close()
+            await self.wait_closed(writer)
 
         def run(meth):
             def wrapper(sock):

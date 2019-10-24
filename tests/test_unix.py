@@ -29,6 +29,7 @@ class _TestUnix:
 
             await writer.drain()
             writer.close()
+            await self.wait_closed(writer)
 
             CNT += 1
 
@@ -192,6 +193,7 @@ class _TestUnix:
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
+            await self.wait_closed(writer)
 
         self._test_create_unix_connection_1(client)
 
@@ -208,6 +210,7 @@ class _TestUnix:
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
+            await self.wait_closed(writer)
 
         self._test_create_unix_connection_1(client)
 
@@ -224,6 +227,7 @@ class _TestUnix:
             self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
+            await self.wait_closed(writer)
 
         self._test_create_unix_connection_1(client)
 
@@ -271,6 +275,8 @@ class _TestUnix:
 
         async def client():
             reader, writer = await asyncio.open_unix_connection(path)
+            writer.close()
+            await self.wait_closed(writer)
 
         async def runner():
             with self.assertRaises(FileNotFoundError):
@@ -299,6 +305,7 @@ class _TestUnix:
                 await reader.readexactly(10)
 
             writer.close()
+            await self.wait_closed(writer)
 
             nonlocal CNT
             CNT += 1
@@ -326,6 +333,8 @@ class _TestUnix:
 
         async def client():
             reader, writer = await asyncio.open_unix_connection(sock=sock)
+            writer.close()
+            await self.wait_closed(writer)
 
         async def runner():
             with self.assertRaisesRegex(OSError, 'Bad file'):
@@ -666,6 +675,7 @@ class _TestSSL(tb.SSLTestCase):
             CNT += 1
 
             writer.close()
+            await self.wait_closed(writer)
 
         def run(coro):
             nonlocal CNT

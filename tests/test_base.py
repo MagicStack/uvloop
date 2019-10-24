@@ -347,19 +347,16 @@ class _TestBase:
         if self.implementation == 'asyncio' and sys.version_info < (3, 6, 2):
             raise unittest.SkipTest('unfixed asyncio')
 
-        class ShowStopper(BaseException):
-            pass
-
         async def foo(delay):
             await asyncio.sleep(delay)
 
         def throw():
-            raise ShowStopper
+            raise KeyboardInterrupt
 
         self.loop.call_soon(throw)
         try:
             self.loop.run_until_complete(foo(0.1))
-        except ShowStopper:
+        except KeyboardInterrupt:
             pass
 
         # This call fails if run_until_complete does not clean up

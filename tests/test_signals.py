@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import time
+import unittest
 import uvloop
 
 from uvloop import _testbase as tb
@@ -280,6 +281,9 @@ class Test_UV_Signals(_TestSignal, tb.UVTestCase):
 
             self.loop.add_signal_handler(signal.SIGCHLD, lambda *a: None)
 
+    @unittest.skipIf(sys.version_info[:3] >= (3, 8, 0),
+                     'in 3.8 a ThreadedChildWatcher is used '
+                     '(does not rely on SIGCHLD)')
     def test_asyncio_add_watcher_SIGCHLD_nop(self):
         asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
         asyncio.get_event_loop_policy().get_child_watcher()
