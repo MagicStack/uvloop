@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - master
+      - ci
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.6, 3.7]
+        os: [ubuntu-16.04, macos-10.14]
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install macOS deps
+      if: matrix.os == 'macos-10.14'
+      run: |
+        brew install gnu-sed
+        brew install --force libtool
+        brew install --force autoconf
+        brew install --force automake
+
+    - name: Install Python Deps
+      run: |
+        pip install --upgrade setuptools pip wheel
+        pip install -U -r .github/workflows/test-requirements.txt
+
+    - name: Test
+      run: |
+        make distclean && make && make test
+        make distclean && make debug && make test
