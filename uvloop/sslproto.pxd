@@ -65,6 +65,7 @@ cdef class SSLProtocol:
 
         bint _ssl_writing_paused
         bint _app_reading_paused
+        bint _eof_received
 
         size_t _incoming_high_water
         size_t _incoming_low_water
