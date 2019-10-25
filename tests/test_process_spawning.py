@@ -15,13 +15,12 @@ class ProcessSpawningTestCollection(TestCase):
         cause loop freeze."""
 
         async def run(loop):
-            event = asyncio.Event(loop=loop)
+            event = asyncio.Event()
 
             dummy_workers = [simulate_loop_activity(loop, event)
                              for _ in range(5)]
             spawn_worker = spawn_external_process(loop, event)
-            done, pending = await asyncio.wait([spawn_worker] + dummy_workers,
-                                               loop=loop)
+            done, pending = await asyncio.wait([spawn_worker] + dummy_workers)
             exceptions = [result.exception()
                           for result in done if result.exception()]
             if exceptions:
@@ -33,8 +32,7 @@ class ProcessSpawningTestCollection(TestCase):
             """Simulate loop activity by busy waiting for event."""
             while True:
                 try:
-                    await asyncio.wait_for(done_event.wait(),
-                                           timeout=0.1, loop=loop)
+                    await asyncio.wait_for(done_event.wait(), timeout=0.1)
                 except asyncio.TimeoutError:
                     pass
 
@@ -45,7 +43,7 @@ class ProcessSpawningTestCollection(TestCase):
             executor = ThreadPoolExecutor()
             try:
                 call = loop.run_in_executor(executor, spawn_process)
-                await asyncio.wait_for(call, loop=loop, timeout=3600)
+                await asyncio.wait_for(call, timeout=3600)
             finally:
                 event.set()
                 executor.shutdown(wait=False)
