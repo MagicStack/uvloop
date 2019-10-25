@@ -302,8 +302,7 @@ print(fd0 == fd1, flush=True)
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                loop=self.loop)
+                stderr=subprocess.PIPE)
 
             out, err = await proc.communicate()
             self.assertEqual(err, b'')
