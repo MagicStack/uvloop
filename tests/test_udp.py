@@ -226,6 +226,30 @@ class _TestUDP:
 
                 self.assertIn(tmp_file2, pr.addrs)
 
+    def test_create_datagram_1(self):
+        server_addr = ('127.0.0.1', 8888)
+        client_addr = ('127.0.0.1', 0)
+
+        async def run():
+            server_transport, client_protocol = \
+                await self.loop.create_datagram_endpoint(
+                    asyncio.DatagramProtocol,
+                    local_addr=server_addr)
+
+            client_transport, client_conn = \
+                await self.loop.create_datagram_endpoint(
+                    asyncio.DatagramProtocol,
+                    remote_addr=server_addr,
+                    local_addr=client_addr)
+
+            client_transport.close()
+            server_transport.close()
+
+            # let transports close
+            await asyncio.sleep(0.1)
+
+        self.loop.run_until_complete(run())
+
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 

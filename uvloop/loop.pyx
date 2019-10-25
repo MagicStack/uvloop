@@ -3040,8 +3040,6 @@ cdef class Loop:
                             'could not bind to remote_addr {}'.format(
                                 remote_addr))
 
-                    udp._connect(rai.ai_addr, rai.ai_addrlen)
-
         if allow_broadcast:
             udp._set_broadcast(1)
 
