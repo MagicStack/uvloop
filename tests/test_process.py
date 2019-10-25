@@ -840,7 +840,9 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
             })
 
     def test_process_delayed_stdio__not_paused__no_stdin(self):
-        if os.environ.get('TRAVIS_OS_NAME') and sys.platform == 'darwin':
+        if ((os.environ.get('TRAVIS_OS_NAME')
+                or os.environ.get('GITHUB_WORKFLOW'))
+                and sys.platform == 'darwin'):
             # Randomly crashes on Travis, can't reproduce locally.
             raise unittest.SkipTest()
 
