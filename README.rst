@@ -44,6 +44,11 @@ Use pip to install it::
 
     $ pip install uvloop
 
+Note that it is highly recommended to **upgrade pip before** installing
+uvloop with::
+
+    $ pip install -U pip
+
 
 Using uvloop
 ------------
