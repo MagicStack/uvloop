@@ -190,6 +190,7 @@ cdef class UVProcess(UVHandle):
                         f.write(str(ex.args[0]).encode())
                 finally:
                     system._exit(255)
+                    return
             else:
                 os_close(self._errpipe_write)
         else:
