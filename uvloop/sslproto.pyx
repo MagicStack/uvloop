@@ -349,8 +349,10 @@ cdef class SSLProtocol:
 
         if self._shutdown_timeout_handle:
             self._shutdown_timeout_handle.cancel()
+            self._shutdown_timeout_handle = None
         if self._handshake_timeout_handle:
             self._handshake_timeout_handle.cancel()
+            self._handshake_timeout_handle = None
 
     def get_buffer(self, n):
         cdef size_t want = n
@@ -495,7 +497,9 @@ cdef class SSLProtocol:
             self._on_handshake_complete(None)
 
     cdef _on_handshake_complete(self, handshake_exc):
-        self._handshake_timeout_handle.cancel()
+        if self._handshake_timeout_handle is not None:
+            self._handshake_timeout_handle.cancel()
+            self._shutdown_timeout_handle = None
 
         sslobj = self._sslobj
         try:
@@ -588,7 +592,9 @@ cdef class SSLProtocol:
             self._on_shutdown_complete(None)
 
     cdef _on_shutdown_complete(self, shutdown_exc):
-        self._shutdown_timeout_handle.cancel()
+        if self._shutdown_timeout_handle is not None:
+            self._shutdown_timeout_handle.cancel()
+            self._shutdown_timeout_handle = None
 
         if shutdown_exc:
             self._fatal_error(shutdown_exc)
