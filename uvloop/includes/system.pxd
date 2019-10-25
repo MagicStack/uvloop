@@ -81,3 +81,11 @@ cdef extern from "includes/compat.h" nogil:
     int EPOLL_CTL_DEL
     int epoll_ctl(int epfd, int op, int fd, epoll_event *event)
     object MakeUnixSockPyAddr(sockaddr_un *addr)
+
+
+cdef extern from "includes/fork_handler.h":
+
+    ctypedef void (*OnForkHandler)()
+    void handleAtFork()
+    void setForkHandler(OnForkHandler handler)
+    void resetForkHandler()

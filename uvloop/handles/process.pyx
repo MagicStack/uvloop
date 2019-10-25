@@ -77,7 +77,7 @@ cdef class UVProcess(UVHandle):
             loop.active_process_handler = self
             __forking = 1
             __forking_loop = loop
-            __forkHandler = <OnForkHandler>&__get_fork_handler
+            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
             PyOS_BeforeFork()
 
@@ -87,7 +87,7 @@ cdef class UVProcess(UVHandle):
 
             __forking = 0
             __forking_loop = None
-            __forkHandler = NULL
+            system.resetForkHandler()
             loop.active_process_handler = None
 
             PyOS_AfterFork_Parent()

@@ -3178,11 +3178,6 @@ cdef vint __atfork_installed = 0
 cdef vint __forking = 0
 cdef Loop __forking_loop = None
 
-cdef extern from "includes/fork_handler.h":
-
-    ctypedef void (*OnForkHandler)()
-    cdef OnForkHandler __forkHandler
-    void handleAtFork()
 
 cdef void __get_fork_handler() nogil:
     global __forking
@@ -3201,7 +3196,7 @@ cdef __install_atfork():
 
     cdef int err
 
-    err = system.pthread_atfork(NULL, NULL, &handleAtFork)
+    err = system.pthread_atfork(NULL, NULL, &system.handleAtFork)
     if err:
         __atfork_installed = 0
         raise convert_error(-err)
