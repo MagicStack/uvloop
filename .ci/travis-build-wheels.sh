@@ -39,9 +39,11 @@ _upload_wheels() {
 if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
     for pyver in ${RELEASE_PYTHON_VERSIONS}; do
         ML_PYTHON_VERSION=$(python3 -c \
-            "print('cp{maj}{min}-cp{maj}{min}m'.format( \
+            "print('cp{maj}{min}-cp{maj}{min}{s}'.format( \
                    maj='${pyver}'.split('.')[0], \
-                   min='${pyver}'.split('.')[1]))")
+                   min='${pyver}'.split('.')[1],
+                   s='m' if tuple('${pyver}'.split('.')) < ('3', '8') \
+                     else ''))")
 
         for arch in x86_64; do
             ML_IMAGE="quay.io/pypa/manylinux2010_${arch}"
