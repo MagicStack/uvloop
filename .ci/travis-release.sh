@@ -27,8 +27,11 @@ P="${PYMODULE}-${PACKAGE_VERSION}"
 expected_wheels=()
 
 for pyver in ${RELEASE_PYTHON_VERSIONS}; do
-    pyver="${pyver//./}"
-    abitag="cp${pyver}-cp${pyver}m"
+    abitag=$(python -c \
+        "print('cp{maj}{min}-cp{maj}{min}{s}'.format( \
+                maj='${pyver}'.split('.')[0], \
+                min='${pyver}'.split('.')[1],
+                s='m' if tuple('${pyver}'.split('.')) < ('3', '8') else ''))")
     for plat in "${release_platforms[@]}"; do
         expected_wheels+=("${P}-${abitag}-${plat}.whl")
     done
