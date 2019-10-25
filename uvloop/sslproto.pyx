@@ -278,6 +278,7 @@ cdef class SSLProtocol:
         self._incoming_high_water = 0
         self._incoming_low_water = 0
         self._set_read_buffer_limits()
+        self._eof_received = False
 
         self._app_writing_paused = False
         self._outgoing_high_water = 0
@@ -391,6 +392,7 @@ cdef class SSLProtocol:
         will close itself.  If it returns a true value, closing the
         transport is up to the protocol.
         """
+        self._eof_received = True
         try:
             if self._loop.get_debug():
                 aio_logger.debug("%r received EOF", self)
@@ -400,9 +402,10 @@ cdef class SSLProtocol:
 
             elif self._state == WRAPPED:
                 self._set_state(FLUSHING)
-                self._do_write()
-                self._set_state(SHUTDOWN)
-                self._do_shutdown()
+                if self._app_reading_paused:
+                    return True
+                else:
+                    self._do_flush()
 
             elif self._state == FLUSHING:
                 self._do_write()
@@ -412,11 +415,14 @@ cdef class SSLProtocol:
             elif self._state == SHUTDOWN:
                 self._do_shutdown()
 
-        finally:
+        except Exception:
             self._transport.close()
+            raise
 
     cdef _get_extra_info(self, name, default=None):
-        if name in self._extra:
+        if name == 'uvloop.sslproto':
+            return self
+        elif name in self._extra:
             return self._extra[name]
         elif self._transport is not None:
             return self._transport.get_extra_info(name, default)
@@ -555,33 +561,14 @@ cdef class SSLProtocol:
                 aio_TimeoutError('SSL shutdown timed out'))
 
     cdef _do_flush(self):
-        if self._write_backlog:
-            try:
-                while True:
-                    # data is discarded when FLUSHING
-                    chunk_size = len(self._sslobj_read(SSL_READ_MAX_SIZE))
-                    if not chunk_size:
-                        # close_notify
-                        break
-            except ssl_SSLAgainErrors as exc:
-                pass
-            except ssl_SSLError as exc:
-                self._on_shutdown_complete(exc)
-                return
-
-            try:
-                self._do_write()
-            except Exception as exc:
-                self._on_shutdown_complete(exc)
-                return
-
-        if not self._write_backlog:
-            self._set_state(SHUTDOWN)
-            self._do_shutdown()
+        self._do_read()
+        self._set_state(SHUTDOWN)
+        self._do_shutdown()
 
     cdef _do_shutdown(self):
         try:
-            self._sslobj.unwrap()
+            if not self._eof_received:
+                self._sslobj.unwrap()
         except ssl_SSLAgainErrors as exc:
             self._process_outgoing()
         except ssl_SSLError as exc:
@@ -655,7 +642,7 @@ cdef class SSLProtocol:
     # Incoming flow
 
     cdef _do_read(self):
-        if self._state != WRAPPED:
+        if self._state != WRAPPED and self._state != FLUSHING:
             return
         try:
             if not self._app_reading_paused:
