@@ -167,6 +167,7 @@ cdef class Loop:
         self._ssock = self._csock = None
         self._signal_handlers = {}
         self._listening_signals = False
+        self._old_signal_wakeup_id = -1
 
         self._coroutine_debug_set = False
 
@@ -182,6 +183,9 @@ cdef class Loop:
         self._asyncgens_shutdown_called = False
 
         self._servers = set()
+
+    cdef inline _is_main_thread(self):
+        return MAIN_THREAD_ID == PyThread_get_thread_ident()
 
     def __init__(self):
         self.set_debug((not sys_ignore_environment
@@ -241,34 +245,40 @@ cdef class Loop:
 
         self._debug_exception_handler_cnt = 0
 
-    cdef _setup_signals(self):
-        cdef int old_wakeup_fd
+    cdef _setup_or_resume_signals(self):
+        if not self._is_main_thread():
+            return
 
         if self._listening_signals:
-            return
+            raise RuntimeError('signals handling has been already setup')
+
+        if self._ssock is not None:
+            raise RuntimeError('self-pipe exists before loop run')
+
+        # Create a self-pipe and call set_signal_wakeup_fd() with one
+        # of its ends.  This is needed so that libuv knows that it needs
+        # to wakeup on ^C (no matter if the SIGINT handler is still the
+        # standard Python's one or or user set their own.)
 
         self._ssock, self._csock = socket_socketpair()
-        self._ssock.setblocking(False)
-        self._csock.setblocking(False)
         try:
-            old_wakeup_fd = _set_signal_wakeup_fd(self._csock.fileno())
-        except (OSError, ValueError):
-            # Not the main thread
+            self._ssock.setblocking(False)
+            self._csock.setblocking(False)
+
+            fileno = self._csock.fileno()
+
+            self._old_signal_wakeup_id = _set_signal_wakeup_fd(fileno)
+        except Exception:
+            # Out of all statements in the try block, only the
+            # "_set_signal_wakeup_fd()" call can fail, but it shouldn't,
+            # as we ensure that the current thread is the main thread.
+            # Still, if something goes horribly wrong we want to clean up
+            # the socket pair.
             self._ssock.close()
             self._csock.close()
-            self._ssock = self._csock = None
-            return
-
-        self._listening_signals = True
-        return old_wakeup_fd
-
-    cdef _recv_signals_start(self):
-        cdef object old_wakeup_fd = None
-        if self._ssock is None:
-            old_wakeup_fd = self._setup_signals()
-            if self._ssock is None:
-                # Not the main thread.
-                return
+            self._ssock = None
+            self._csock = None
+            raise
 
         self._add_reader(
             self._ssock,
@@ -277,30 +287,24 @@ cdef class Loop:
                 "Loop._read_from_self",
                 <method_t>self._read_from_self,
                 self))
-        return old_wakeup_fd
 
-    cdef _recv_signals_stop(self):
-        if self._ssock is None:
-            return
+        self._listening_signals = True
 
-        self._remove_reader(self._ssock)
-
-    cdef _shutdown_signals(self):
-        if not self._listening_signals:
-            return
-
-        for sig in list(self._signal_handlers):
-            self.remove_signal_handler(sig)
+    cdef _pause_signals(self):
+        if not self._is_main_thread():
+            if self._listening_signals:
+                raise RuntimeError(
+                    'cannot pause signals handling; no longer running in '
+                    'the main thread')
+            else:
+                return
 
         if not self._listening_signals:
-            # `remove_signal_handler` will call `_shutdown_signals` when
-            # removing last signal handler.
-            return
+            raise RuntimeError('signals handling has not been setup')
 
-        try:
-            signal_set_wakeup_fd(-1)
-        except (ValueError, OSError) as exc:
-            aio_logger.info('set_wakeup_fd(-1) failed: %s', exc)
+        self._listening_signals = False
+
+        _set_signal_wakeup_fd(self._old_signal_wakeup_id)
 
         self._remove_reader(self._ssock)
         self._ssock.close()
@@ -308,7 +312,24 @@ cdef class Loop:
         self._ssock = None
         self._csock = None
 
-        self._listening_signals = False
+    cdef _shutdown_signals(self):
+        if not self._is_main_thread():
+            if self._signal_handlers:
+                aio_logger.warning(
+                    'cannot cleanup signal handlers: closing the event loop '
+                    'in a non-main OS thread')
+            return
+
+        if self._listening_signals:
+            raise RuntimeError(
+                'cannot shutdown signals handling as it has not been paused')
+
+        if self._ssock:
+            raise RuntimeError(
+                'self-pipe was not cleaned up after loop was run')
+
+        for sig in list(self._signal_handlers):
+            self.remove_signal_handler(sig)
 
     def __sighandler(self, signum, frame):
         self._signals.add(signum)
@@ -451,7 +472,6 @@ cdef class Loop:
 
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
-        cdef object old_wakeup_fd
 
         if self._closed == 1:
             raise RuntimeError('unable to start the loop; it was closed')
@@ -474,7 +494,7 @@ cdef class Loop:
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
 
-        old_wakeup_fd = self._recv_signals_start()
+        self._setup_or_resume_signals()
 
         if aio_set_running_loop is not None:
             aio_set_running_loop(self)
@@ -484,12 +504,10 @@ cdef class Loop:
             if aio_set_running_loop is not None:
                 aio_set_running_loop(None)
 
-            self._recv_signals_stop()
-            if old_wakeup_fd is not None:
-                signal_set_wakeup_fd(old_wakeup_fd)
-
             self.handler_check__exec_writes.stop()
             self.handler_idle.stop()
+
+            self._pause_signals()
 
             self._thread_is_main = 0
             self._thread_id = 0
@@ -2794,10 +2812,10 @@ cdef class Loop:
         cdef:
             Handle h
 
-        if not self._listening_signals:
-            self._setup_signals()
-            if not self._listening_signals:
-                raise ValueError('set_wakeup_fd only works in main thread')
+        if not self._is_main_thread():
+            raise ValueError(
+                'add_signal_handler() can only be called from '
+                'the main thread')
 
         if (aio_iscoroutine(callback)
                 or aio_iscoroutinefunction(callback)):
@@ -2829,14 +2847,6 @@ cdef class Loop:
 
         self._check_signal(sig)
         self._check_closed()
-        try:
-            # set_wakeup_fd() raises ValueError if this is not the
-            # main thread.  By calling it early we ensure that an
-            # event loop running in another thread cannot add a signal
-            # handler.
-            _set_signal_wakeup_fd(self._csock.fileno())
-        except (ValueError, OSError) as exc:
-            raise RuntimeError(str(exc))
 
         h = new_Handle(self, callback, args or None, None)
         self._signal_handlers[sig] = h
@@ -2866,6 +2876,12 @@ cdef class Loop:
 
         Return True if a signal handler was removed, False if not.
         """
+
+        if not self._is_main_thread():
+            raise ValueError(
+                'remove_signal_handler() can only be called from '
+                'the main thread')
+
         self._check_signal(sig)
 
         if not self._listening_signals:
@@ -2888,9 +2904,6 @@ cdef class Loop:
                 raise RuntimeError('sig {} cannot be caught'.format(sig))
             else:
                 raise
-
-        if not self._signal_handlers:
-            self._shutdown_signals()
 
         return True
 

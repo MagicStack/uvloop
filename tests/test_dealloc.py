@@ -36,7 +36,7 @@ async def foo():
     return 42
 
 def main():
-    asyncio.set_event_loop(uvloop.new_event_loop())
+    uvloop.install()
     loop = asyncio.get_event_loop()
     loop.set_debug(True)
     loop.run_until_complete(foo())
