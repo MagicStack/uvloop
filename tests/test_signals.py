@@ -139,6 +139,45 @@ finally:
         self.loop.run_until_complete(runner())
 
     @tb.silence_long_exec_warning()
+    def test_signals_sigint_uvcode_two_loop_runs(self):
+        async def runner():
+            PROG = R"""\
+import asyncio
+import uvloop
+
+srv = None
+
+async def worker():
+    global srv
+    cb = lambda *args: None
+    srv = await asyncio.start_server(cb, '127.0.0.1', 0)
+
+loop = """ + self.NEW_LOOP + """
+asyncio.set_event_loop(loop)
+loop.run_until_complete(worker())
+print('READY', flush=True)
+try:
+    loop.run_forever()
+finally:
+    srv.close()
+    loop.run_until_complete(srv.wait_closed())
+    loop.close()
+"""
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+
+            await proc.stdout.readline()
+            time.sleep(DELAY)
+            proc.send_signal(signal.SIGINT)
+            out, err = await proc.communicate()
+            self.assertIn(b'KeyboardInterrupt', err)
+
+        self.loop.run_until_complete(runner())
+
+    @tb.silence_long_exec_warning()
     def test_signals_sigint_and_custom_handler(self):
         async def runner():
             PROG = R"""\
