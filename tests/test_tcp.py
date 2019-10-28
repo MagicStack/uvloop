@@ -2866,10 +2866,6 @@ class _TestSSL(tb.SSLTestCase):
         self.assertIsNone(ctx())
 
     def test_shutdown_timeout_handler_not_set(self):
-        if self.implementation == 'asyncio':
-            # asyncio cannot receive EOF after resume_reading()
-            raise unittest.SkipTest()
-
         loop = self.loop
         eof = asyncio.Event()
         extra = None
