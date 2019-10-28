@@ -65,6 +65,7 @@ cdef class Loop:
         object _ssock
         object _csock
         bint _listening_signals
+        int _old_signal_wakeup_id
 
         set _timers
         dict _polls
@@ -149,6 +150,8 @@ cdef class Loop:
 
     cdef void _handle_exception(self, object ex)
 
+    cdef inline _is_main_thread(self)
+
     cdef inline _new_future(self)
     cdef inline _check_signal(self, sig)
     cdef inline _check_closed(self)
@@ -186,10 +189,9 @@ cdef class Loop:
 
     cdef _sock_set_reuseport(self, int fd)
 
-    cdef _setup_signals(self)
+    cdef _setup_or_resume_signals(self)
     cdef _shutdown_signals(self)
-    cdef _recv_signals_start(self)
-    cdef _recv_signals_stop(self)
+    cdef _pause_signals(self)
 
     cdef _handle_signal(self, sig)
     cdef _read_from_self(self)

@@ -74,36 +74,33 @@ class TestIssue39Regr(tb.UVTestCase):
             raise FailedTestError
 
     def run_test(self):
-        try:
-            for i in range(10):
-                for threaded in [True, False]:
-                    if threaded:
-                        qin, qout = queue.Queue(), queue.Queue()
-                        threading.Thread(
-                            target=run_server,
-                            args=(qin, qout),
-                            daemon=True).start()
-                    else:
-                        qin = multiprocessing.Queue()
-                        qout = multiprocessing.Queue()
-                        multiprocessing.Process(
-                            target=run_server,
-                            args=(qin, qout),
-                            daemon=True).start()
+        for i in range(10):
+            for threaded in [True, False]:
+                if threaded:
+                    qin, qout = queue.Queue(), queue.Queue()
+                    threading.Thread(
+                        target=run_server,
+                        args=(qin, qout),
+                        daemon=True).start()
+                else:
+                    qin = multiprocessing.Queue()
+                    qout = multiprocessing.Queue()
+                    multiprocessing.Process(
+                        target=run_server,
+                        args=(qin, qout),
+                        daemon=True).start()
 
-                    addr = qout.get()
-                    loop = self.new_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.create_task(
-                        loop.create_connection(
-                            lambda: EchoClientProtocol(loop),
-                            host=addr[0], port=addr[1]))
-                    loop.run_forever()
-                    loop.close()
-                    qin.put('stop')
-                    qout.get()
-        finally:
-            loop.close()
+                addr = qout.get()
+                loop = self.new_loop()
+                asyncio.set_event_loop(loop)
+                loop.create_task(
+                    loop.create_connection(
+                        lambda: EchoClientProtocol(loop),
+                        host=addr[0], port=addr[1]))
+                loop.run_forever()
+                loop.close()
+                qin.put('stop')
+                qout.get()
 
     @unittest.skipIf(
         multiprocessing.get_start_method(False) == 'spawn',
