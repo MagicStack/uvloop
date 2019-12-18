@@ -8,6 +8,7 @@ cdef class UVStreamServer(UVSocketHandle):
         self.ssl_handshake_timeout = None
         self.ssl_shutdown_timeout = None
         self.protocol_factory = None
+        self.listen_context = None
 
     cdef inline _init(self, Loop loop, object protocol_factory,
                       Server server,
@@ -52,6 +53,9 @@ cdef class UVStreamServer(UVSocketHandle):
 
         if self.opened != 1:
             raise RuntimeError('unopened TCPServer')
+
+        if PY37:
+            self.listen_context = Context_CopyCurrent()
 
         err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
                            self.backlog,
@@ -140,6 +144,11 @@ cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
         return
 
     try:
+        if PY37:
+            Context_Enter(stream.listen_context)
         stream._on_listen()
     except BaseException as exc:
         stream._error(exc, False)
+    finally:
+        if PY37:
+            Context_Exit(stream.listen_context)

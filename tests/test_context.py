@@ -4,6 +4,7 @@ import random
 import sys
 import unittest
 import weakref
+import socket
 
 from uvloop import _testbase as tb
 
@@ -138,6 +139,40 @@ class _ContextBaseTests:
 
         del tracked
         self.assertIsNone(ref())
+
+    @unittest.skipUnless(PY37, 'requires Python 3.7')
+    def test_create_server_protocol_factory_context(self):
+        import contextvars
+        cvar = contextvars.ContextVar('cvar', default='outer')
+        factory_called_future = self.loop.create_future()
+
+        def factory():
+            try:
+                self.assertEqual(cvar.get(), 'inner')
+            except Exception as e:
+                factory_called_future.set_exception(e)
+            else:
+                factory_called_future.set_result(None)
+
+            return asyncio.Protocol()
+
+        async def test():
+            cvar.set('inner')
+            port = tb.find_free_port()
+            srv = await self.loop.create_server(factory, '127.0.0.1', port)
+
+            s = socket.socket(socket.AF_INET)
+            with s:
+                s.setblocking(False)
+                await self.loop.sock_connect(s, ('127.0.0.1', port))
+
+            try:
+                await factory_called_future
+            finally:
+                srv.close()
+                await srv.wait_closed()
+
+        self.loop.run_until_complete(test())
 
 
 class Test_UV_Context(_ContextBaseTests, tb.UVTestCase):
