@@ -7,6 +7,7 @@ cdef class UVStreamServer(UVSocketHandle):
         object protocol_factory
         bint opened
         Server _server
+        object listen_context
 
     # All "inline" methods are final
 

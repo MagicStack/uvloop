@@ -8,6 +8,7 @@ cdef class UVStreamServer(UVSocketHandle):
         self.ssl_handshake_timeout = None
         self.ssl_shutdown_timeout = None
         self.protocol_factory = None
+        self.listen_context = None
 
     cdef inline _init(self, Loop loop, object protocol_factory,
                       Server server,
@@ -53,6 +54,8 @@ cdef class UVStreamServer(UVSocketHandle):
         if self.opened != 1:
             raise RuntimeError('unopened TCPServer')
 
+        self.listen_context = Context_CopyCurrent()
+
         err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
                            self.backlog,
                            __uv_streamserver_on_listen)
@@ -64,7 +67,7 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline _on_listen(self):
         cdef UVStream client
 
-        protocol = self.protocol_factory()
+        protocol = self.listen_context.run(self.protocol_factory)
 
         if self.ssl is None:
             client = self._make_new_transport(protocol, None)
