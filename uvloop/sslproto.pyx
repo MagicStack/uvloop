@@ -522,6 +522,7 @@ cdef class SSLProtocol:
             else:
                 msg = 'SSL handshake failed'
             self._fatal_error(exc, msg)
+            self._wakeup_waiter(exc)
             return
 
         if self._loop.get_debug():
