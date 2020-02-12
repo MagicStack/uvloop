@@ -658,6 +658,55 @@ class _AsyncioTests:
 
         loop.run_until_complete(test_subprocess())
 
+    def test_write_huge_stdin_8192(self):
+        self._test_write_huge_stdin(8192)
+
+    def test_write_huge_stdin_8193(self):
+        self._test_write_huge_stdin(8193)
+
+    def test_write_huge_stdin_219263(self):
+        self._test_write_huge_stdin(219263)
+
+    def test_write_huge_stdin_219264(self):
+        self._test_write_huge_stdin(219264)
+
+    def _test_write_huge_stdin(self, buf_size):
+        code = '''
+import sys
+n = 0
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        print("unexpected EOF", file=sys.stderr)
+        break
+    if line == "END\\n":
+        break
+    n+=1
+print(n)'''
+        num_lines = buf_size - len(b"END\n")
+        args = [sys.executable, b'-W', b'ignore', b'-c', code]
+
+        async def test():
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.PIPE)
+            data = b"\n" * num_lines + b"END\n"
+            self.assertEqual(len(data), buf_size)
+            proc.stdin.write(data)
+            await asyncio.wait_for(proc.stdin.drain(), timeout=1.0)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=1.0)
+            except asyncio.TimeoutError:
+                proc.kill()
+                proc.stdin.close()
+                await proc.wait()
+                raise
+            out = await proc.stdout.read()
+            self.assertEqual(int(out), num_lines)
+
+        self.loop.run_until_complete(test())
+
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
