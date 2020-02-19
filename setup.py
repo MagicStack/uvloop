@@ -120,11 +120,12 @@ class uvloop_build_ext(build_ext):
         if need_cythonize:
             try:
                 import Cython
+                from distutils.version import LooseVersion
             except ImportError:
                 raise RuntimeError(
                     'please install Cython to compile uvloop from source')
 
-            if Cython.__version__ < '0.28':
+            if LooseVersion(Cython.__version__) < LooseVersion('0.28'):
                 raise RuntimeError(
                     'uvloop requires Cython version 0.28 or greater')
 
