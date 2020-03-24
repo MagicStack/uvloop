@@ -3,6 +3,9 @@
 set -e -x
 
 if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+    # Travis xcode7.3 image is still using deprecated homebrew/versions
+    # https://docs.brew.sh/Versions
+    brew untap homebrew/versions
     brew update >/dev/null
     brew upgrade pyenv
     eval "$(pyenv init -)"
