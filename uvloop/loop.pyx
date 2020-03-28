@@ -1908,7 +1908,7 @@ cdef class Loop:
                     lai = &lai_static
 
             if len(fs):
-                await aio_wait(fs, loop=self)
+                await aio_wait(fs)
 
             if rai is NULL:
                 ai_remote = f1.result()
