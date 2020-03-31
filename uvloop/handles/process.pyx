@@ -604,7 +604,7 @@ cdef class UVProcessTransport(UVProcess):
 
         if handle._init_futs:
             handle._stdio_ready = 0
-            init_fut = aio_gather(*handle._init_futs, loop=loop)
+            init_fut = aio_gather(*handle._init_futs)
             init_fut.add_done_callback(
                 ft_partial(handle.__stdio_inited, waiter))
         else:

@@ -1682,7 +1682,7 @@ cdef class Loop:
                                     uv.SOCK_STREAM, 0, flags,
                                     0) for host in hosts]
 
-            infos = await aio_gather(*fs, loop=self)
+            infos = await aio_gather(*fs)
 
             completed = False
             sock = None
@@ -1908,7 +1908,7 @@ cdef class Loop:
                     lai = &lai_static
 
             if len(fs):
-                await aio_wait(fs, loop=self)
+                await aio_wait(fs)
 
             if rai is NULL:
                 ai_remote = f1.result()
@@ -3095,8 +3095,7 @@ cdef class Loop:
 
         shutdown_coro = aio_gather(
             *[ag.aclose() for ag in closing_agens],
-            return_exceptions=True,
-            loop=self)
+            return_exceptions=True)
 
         results = await shutdown_coro
         for result, agen in zip(results, closing_agens):
