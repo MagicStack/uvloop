@@ -135,6 +135,21 @@ class _TestProcess:
 
         self.loop.run_until_complete(test())
 
+    @unittest.skipIf(sys.version_info < (3, 8, 0),
+                     "3.5 to 3.7 does not support path-like objects "
+                     "in the asyncio subprocess API")
+    def test_process_executable_2(self):
+        async def test():
+            proc = await asyncio.create_subprocess_exec(
+                pathlib.Path(sys.executable),
+                b'-W', b'ignore', b'-c', b'print("spam")',
+                stdout=subprocess.PIPE)
+
+            out, err = await proc.communicate()
+            self.assertEqual(out, b'spam\n')
+
+        self.loop.run_until_complete(test())
+
     def test_process_pid_1(self):
         async def test():
             prog = '''\
