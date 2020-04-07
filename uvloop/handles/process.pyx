@@ -284,6 +284,13 @@ cdef class UVProcess(UVHandle):
         self.__args = args.copy()
         for i in range(an):
             arg = args[i]
+            try:
+                fspath = type(arg).__fspath__
+            except AttributeError:
+                pass
+            else:
+                arg = fspath(arg)
+
             if isinstance(arg, str):
                 self.__args[i] = PyUnicode_EncodeFSDefault(arg)
             elif not isinstance(arg, bytes):
