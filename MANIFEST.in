@@ -6,4 +6,4 @@ recursive-include vendor/libuv *
 recursive-exclude vendor/libuv/.git *
 recursive-exclude vendor/libuv/docs *
 recursive-exclude vendor/libuv/img *
-include LICENSE-MIT LICENSE-APACHE README.rst Makefile performance.png
+include LICENSE-MIT LICENSE-APACHE README.rst Makefile performance.png .flake8
