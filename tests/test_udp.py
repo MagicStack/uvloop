@@ -135,8 +135,7 @@ class _TestUDP:
         self._test_create_datagram_endpoint_addrs(
             socket.AF_INET, ('localhost', 0))
 
-    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
-    def test_create_datagram_endpoint_addrs_ipv6(self):
+    def _test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs(
             socket.AF_INET6, ('::1', 0))
 
@@ -326,6 +325,16 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         self.loop.run_until_complete(asyncio.sleep(0.01))
         s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
 
+    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
+    def test_create_datagram_endpoint_addrs_ipv6(self):
+        self._test_create_datagram_endpoint_addrs_ipv6()
+
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
-    pass
+    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
+    @unittest.skipIf(
+        sys.version_info[:3] < (3, 6, 7) or sys.version_info[:3] == (3, 7, 0),
+        'bpo-27500: bug fixed in Python 3.6.7, 3.7.1 and above.',
+    )
+    def test_create_datagram_endpoint_addrs_ipv6(self):
+        self._test_create_datagram_endpoint_addrs_ipv6()
