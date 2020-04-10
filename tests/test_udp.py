@@ -56,7 +56,8 @@ class _TestUDP:
 
         s_transport, server = self.loop.run_until_complete(coro)
 
-        host, port, *_ = s_transport.get_extra_info('sockname')
+        remote_addr = s_transport.get_extra_info('sockname')
+        host, port, *_ = remote_addr
 
         self.assertIsInstance(server, TestMyDatagramProto)
         self.assertEqual('INITIALIZED', server.state)
@@ -86,6 +87,36 @@ class _TestUDP:
         # received
         self.assertEqual(8, client.nbytes)
 
+        # https://github.com/MagicStack/uvloop/issues/319
+        # uvloop should behave the same as asyncio when given remote_addr
+        transport.sendto(b'xxx', remote_addr)
+        tb.run_until(
+            self.loop, lambda: server.nbytes > 3 or client.done.done())
+        self.assertEqual(6, server.nbytes)
+        tb.run_until(self.loop, lambda: client.nbytes > 8)
+
+        # received
+        self.assertEqual(16, client.nbytes)
+
+        # reject sendto with a different port
+        with self.assertRaisesRegex(
+            ValueError, "Invalid address.*" + repr(remote_addr)
+        ):
+            bad_addr = list(remote_addr)
+            bad_addr[1] += 1
+            bad_addr = tuple(bad_addr)
+            transport.sendto(b"xxx", bad_addr)
+
+        # reject sento with unresolved hostname
+        if remote_addr[0] != lc_addr[0]:
+            with self.assertRaisesRegex(
+                ValueError, "Invalid address.*" + repr(remote_addr)
+            ):
+                bad_addr = list(remote_addr)
+                bad_addr[0] = lc_addr[0]
+                bad_addr = tuple(bad_addr)
+                transport.sendto(b"xxx", bad_addr)
+
         # extra info is available
         self.assertIsNotNone(transport.get_extra_info('sockname'))
 
@@ -99,6 +130,10 @@ class _TestUDP:
     def test_create_datagram_endpoint_addrs_ipv4(self):
         self._test_create_datagram_endpoint_addrs(
             socket.AF_INET, ('127.0.0.1', 0))
+
+    def test_create_datagram_endpoint_addrs_ipv4_nameaddr(self):
+        self._test_create_datagram_endpoint_addrs(
+            socket.AF_INET, ('localhost', 0))
 
     @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
     def test_create_datagram_endpoint_addrs_ipv6(self):
