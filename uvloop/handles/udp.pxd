@@ -2,8 +2,10 @@ cdef class UDPTransport(UVBaseTransport):
     cdef:
         bint __receiving
         int _family
+        object _address
 
     cdef _init(self, Loop loop, unsigned int family)
+    cdef _set_address(self, system.addrinfo *addr)
 
     cdef _connect(self, system.sockaddr* addr, size_t addr_len)
 

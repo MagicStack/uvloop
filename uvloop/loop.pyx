@@ -3004,6 +3004,7 @@ cdef class Loop:
                     rai = (<AddrInfo>rads).data
                     udp._init(self, rai.ai_family)
                     udp._connect(rai.ai_addr, rai.ai_addrlen)
+                    udp._set_address(rai)
                 else:
                     if family not in (uv.AF_INET, uv.AF_INET6):
                         raise ValueError('unexpected address family')
@@ -3047,6 +3048,7 @@ cdef class Loop:
                             rai = rai.ai_next
                             continue
                         udp._connect(rai.ai_addr, rai.ai_addrlen)
+                        udp._set_address(rai)
                         break
                     else:
                         raise OSError(
