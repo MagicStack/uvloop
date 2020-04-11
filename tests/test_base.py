@@ -541,6 +541,46 @@ class _TestBase:
         self.assertFalse(isinstance(task, MyTask))
         self.loop.run_until_complete(task)
 
+    def test_set_task_name(self):
+        if self.implementation == 'asyncio' and sys.version_info < (3, 8, 0):
+            raise unittest.SkipTest('unsupported task name')
+
+        self.loop._process_events = mock.Mock()
+
+        result = None
+
+        class MyTask(asyncio.Task):
+            def set_name(self, name):
+                nonlocal result
+                result = name + "!"
+
+            def get_name(self):
+                return result
+
+        async def coro():
+            pass
+
+        factory = lambda loop, coro: MyTask(coro, loop=loop)
+
+        self.assertIsNone(self.loop.get_task_factory())
+        task = self.loop.create_task(coro(), name="mytask")
+        self.assertFalse(isinstance(task, MyTask))
+        if sys.version_info >= (3, 8, 0):
+            self.assertEqual(task.get_name(), "mytask")
+        self.loop.run_until_complete(task)
+
+        self.loop.set_task_factory(factory)
+        self.assertIs(self.loop.get_task_factory(), factory)
+
+        task = self.loop.create_task(coro(), name="mytask")
+        self.assertTrue(isinstance(task, MyTask))
+        self.assertEqual(result, "mytask!")
+        self.assertEqual(task.get_name(), "mytask!")
+        self.loop.run_until_complete(task)
+
+        self.loop.set_task_factory(None)
+        self.assertIsNone(self.loop.get_task_factory())
+
     def _compile_agen(self, src):
         try:
             g = {}
