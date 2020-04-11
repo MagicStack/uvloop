@@ -151,7 +151,8 @@ class uvloop_build_ext(build_ext):
 
         self._initialized = True
 
-    def build_libuv(self):
+    @staticmethod
+    def build_libuv():
         env = _libuv_build_env()
 
         # Make sure configure and friends are present in case

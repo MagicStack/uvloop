@@ -541,7 +541,8 @@ class _TestBase:
         self.assertFalse(isinstance(task, MyTask))
         self.loop.run_until_complete(task)
 
-    def _compile_agen(self, src):
+    @staticmethod
+    def _compile_agen(src):
         try:
             g = {}
             exec(src, globals(), g)
@@ -552,7 +553,7 @@ class _TestBase:
             return g['waiter']
 
     def test_shutdown_asyncgens_01(self):
-        finalized = list()
+        finalized = []
 
         if not hasattr(self.loop, 'shutdown_asyncgens'):
             raise unittest.SkipTest()

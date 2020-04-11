@@ -16,7 +16,8 @@ from uvloop import _testbase as tb
 
 
 class _TestProcess:
-    def get_num_fds(self):
+    @staticmethod
+    def get_num_fds():
         return psutil.Process(os.getpid()).num_fds()
 
     def test_process_env_1(self):
