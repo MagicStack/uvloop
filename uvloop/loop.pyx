@@ -1431,7 +1431,14 @@ cdef class Loop:
             # is no need to log the "destroy pending task" message
             future._log_destroy_pending = False
 
-        done_cb = lambda fut: self.stop()
+        def done_cb(fut):
+            if not fut.cancelled():
+                exc = fut.exception()
+                if isinstance(exc, (SystemExit, KeyboardInterrupt)):
+                    # Issue #336: run_forever() already finished,
+                    # no need to stop it.
+                    return
+            self.stop()
 
         future.add_done_callback(done_cb)
         try:
