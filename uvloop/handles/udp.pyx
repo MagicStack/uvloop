@@ -344,6 +344,12 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
 
     if addr is NULL:
         pyaddr = None
+    elif addr.sa_family == uv.AF_UNSPEC:
+        # https://github.com/MagicStack/uvloop/issues/304
+        IF UNAME_SYSNAME == "Linux":
+            pyaddr = None
+        ELSE:
+            pyaddr = ''
     else:
         try:
             pyaddr = __convert_sockaddr_to_pyaddr(addr)
@@ -354,13 +360,6 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
     if nread < 0:
         exc = convert_error(nread)
         udp._on_receive(None, exc, pyaddr)
-        return
-
-    if pyaddr is None:
-        udp._fatal_error(
-            RuntimeError(
-                'uv_udp.receive callback: addr is NULL and nread >= 0'),
-            False)
         return
 
     if nread == 0:
