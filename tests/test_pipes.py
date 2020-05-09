@@ -43,6 +43,7 @@ class MyReadPipeProto(asyncio.Protocol):
 
 class MyWritePipeProto(asyncio.BaseProtocol):
     done = None
+    paused = False
 
     def __init__(self, loop=None):
         self.state = 'INITIAL'
@@ -60,6 +61,12 @@ class MyWritePipeProto(asyncio.BaseProtocol):
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
+
+    def pause_writing(self):
+        self.paused = True
+
+    def resume_writing(self):
+        self.paused = False
 
 
 class _BasePipeTest:
@@ -239,6 +246,29 @@ class _BasePipeTest:
         # close connection
         proto.transport.close()
         self.loop.run_until_complete(proto.done)
+        self.assertEqual('CLOSED', proto.state)
+
+    def test_write_buffer_full(self):
+        rpipe, wpipe = os.pipe()
+        pipeobj = io.open(wpipe, 'wb', 1024)
+
+        proto = MyWritePipeProto(loop=self.loop)
+        connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
+        transport, p = self.loop.run_until_complete(connect)
+        self.assertIs(p, proto)
+        self.assertIs(transport, proto.transport)
+        self.assertEqual('CONNECTED', proto.state)
+
+        for i in range(32):
+            transport.write(b'x' * 32768)
+            if proto.paused:
+                transport.write(b'x' * 32768)
+                break
+        else:
+            self.fail("Didn't reach a full buffer")
+
+        os.close(rpipe)
+        self.loop.run_until_complete(asyncio.wait_for(proto.done, 1))
         self.assertEqual('CLOSED', proto.state)
 
 
