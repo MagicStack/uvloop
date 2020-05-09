@@ -328,6 +328,47 @@ class _TestUDP:
                 tr.close()
                 self.loop.run_until_complete(pr.done)
 
+    def _skip_create_datagram_endpoint_reuse_addr(self):
+        if self.implementation == 'asyncio':
+            if sys.version_info[:2] >= (3, 11):
+                raise unittest.SkipTest()
+            if (3, 8, 0) <= sys.version_info < (3, 8, 1):
+                raise unittest.SkipTest()
+            if (3, 7, 0) <= sys.version_info < (3, 7, 6):
+                raise unittest.SkipTest()
+            if sys.version_info < (3, 6, 10):
+                raise unittest.SkipTest()
+
+    def test_create_datagram_endpoint_reuse_address_error(self):
+        # bpo-37228: Ensure that explicit passing of `reuse_address=True`
+        # raises an error, as it is not safe to use SO_REUSEADDR when using UDP
+
+        self._skip_create_datagram_endpoint_reuse_addr()
+
+        coro = self.loop.create_datagram_endpoint(
+            lambda: MyDatagramProto(loop=self.loop),
+            local_addr=('127.0.0.1', 0),
+            reuse_address=True)
+
+        with self.assertRaises(ValueError):
+            self.loop.run_until_complete(coro)
+
+    def test_create_datagram_endpoint_reuse_address_warning(self):
+        # bpo-37228: Deprecate *reuse_address* parameter
+
+        self._skip_create_datagram_endpoint_reuse_addr()
+
+        coro = self.loop.create_datagram_endpoint(
+            lambda: MyDatagramProto(loop=self.loop),
+            local_addr=('127.0.0.1', 0),
+            reuse_address=False)
+
+        with self.assertWarns(DeprecationWarning):
+            tr, pr = self.loop.run_until_complete(coro)
+
+        tr.close()
+        self.loop.run_until_complete(pr.done)
+
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
