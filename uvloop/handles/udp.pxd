@@ -9,7 +9,7 @@ cdef class UDPTransport(UVBaseTransport):
 
     cdef _connect(self, system.sockaddr* addr, size_t addr_len)
 
-    cdef _bind(self, system.sockaddr* addr, bint reuse_addr)
+    cdef _bind(self, system.sockaddr* addr)
     cdef open(self, int family, int sockfd)
     cdef _set_broadcast(self, bint on)
 

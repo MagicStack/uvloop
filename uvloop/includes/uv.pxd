@@ -199,8 +199,7 @@ cdef extern from "uv.h" nogil:
 
     ctypedef enum uv_udp_flags:
         UV_UDP_IPV6ONLY = 1,
-        UV_UDP_PARTIAL = 2,
-        UV_UDP_REUSEADDR = 4
+        UV_UDP_PARTIAL = 2
 
     ctypedef enum uv_membership:
         UV_LEAVE_GROUP = 0,

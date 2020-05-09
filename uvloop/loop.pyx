@@ -90,6 +90,11 @@ cdef inline socket_dec_io_ref(sock):
         sock._decref_socketios()
 
 
+# Used for deprecation and removal of `loop.create_datagram_endpoint()`'s
+# *reuse_address* parameter
+_unset = object()
+
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -2924,7 +2929,7 @@ cdef class Loop:
     async def create_datagram_endpoint(self, protocol_factory,
                                        local_addr=None, remote_addr=None, *,
                                        family=0, proto=0, flags=0,
-                                       reuse_address=None, reuse_port=None,
+                                       reuse_address=_unset, reuse_port=None,
                                        allow_broadcast=None, sock=None):
         """A coroutine which creates a datagram endpoint.
 
@@ -2935,11 +2940,6 @@ cdef class Loop:
 
         socket family AF_INET or socket.AF_INET6 depending on host (or
         family if specified), socket type SOCK_DGRAM.
-
-        reuse_address tells the kernel to reuse a local socket in
-        TIME_WAIT state, without waiting for its natural timeout to
-        expire. If not specified it will automatically be set to True on
-        UNIX.
 
         reuse_port tells the kernel to allow this endpoint to be bound to
         the same port as other existing endpoints are bound to, so long as
@@ -2965,7 +2965,7 @@ cdef class Loop:
                     'A UDP Socket was expected, got {!r}'.format(sock))
             if (local_addr or remote_addr or
                     family or proto or flags or
-                    reuse_address or reuse_port or allow_broadcast):
+                    reuse_port or allow_broadcast):
                 # show the problematic kwargs in exception msg
                 opts = dict(local_addr=local_addr, remote_addr=remote_addr,
                             family=family, proto=proto, flags=flags,
@@ -2982,7 +2982,16 @@ cdef class Loop:
             udp.open(sock.family, sock.fileno())
             udp._attach_fileobj(sock)
         else:
-            reuse_address = bool(reuse_address)
+            if reuse_address is not _unset:
+                if reuse_address:
+                    raise ValueError("Passing `reuse_address=True` is no "
+                                     "longer supported, as the usage of "
+                                     "SO_REUSEPORT in UDP poses a significant "
+                                     "security concern.")
+                else:
+                    warnings_warn("The *reuse_address* parameter has been "
+                                  "deprecated as of 0.15.", DeprecationWarning,
+                                  stacklevel=2)
             reuse_port = bool(reuse_port)
             if reuse_port and not has_SO_REUSEPORT:
                 raise ValueError(
@@ -3035,7 +3044,7 @@ cdef class Loop:
                         udp._init(self, lai.ai_family)
                         if reuse_port:
                             self._sock_set_reuseport(udp._fileno())
-                        udp._bind(lai.ai_addr, reuse_address)
+                        udp._bind(lai.ai_addr)
                     except (KeyboardInterrupt, SystemExit):
                         raise
                     except BaseException as ex:

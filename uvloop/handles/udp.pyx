@@ -104,15 +104,12 @@ cdef class UDPTransport(UVBaseTransport):
             exc = convert_error(err)
             raise exc
 
-    cdef _bind(self, system.sockaddr* addr, bint reuse_addr):
+    cdef _bind(self, system.sockaddr* addr):
         cdef:
             int err
             int flags = 0
 
         self._ensure_alive()
-
-        if reuse_addr:
-            flags |= uv.UV_UDP_REUSEADDR
 
         err = uv.uv_udp_bind(<uv.uv_udp_t*>self._handle, addr, flags)
         if err < 0:
