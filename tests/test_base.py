@@ -361,6 +361,31 @@ class _TestBase:
         # done-callback for the previous future.
         self.loop.run_until_complete(foo(0.2))
 
+    def test_run_until_complete_keyboard_interrupt(self):
+        # Issue #336: run_until_complete() must not schedule a pending
+        # call to stop() if the future raised a KeyboardInterrupt
+        async def raise_keyboard_interrupt():
+            raise KeyboardInterrupt
+
+        self.loop._process_events = mock.Mock()
+
+        try:
+            self.loop.run_until_complete(raise_keyboard_interrupt())
+        except KeyboardInterrupt:
+            pass
+
+        def func():
+            self.loop.stop()
+            func.called = True
+
+        func.called = False
+        try:
+            self.loop.call_soon(func)
+            self.loop.run_forever()
+        except KeyboardInterrupt:
+            pass
+        self.assertTrue(func.called)
+
     def test_debug_slow_callbacks(self):
         logger = logging.getLogger('asyncio')
         self.loop.set_debug(True)
