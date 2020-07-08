@@ -689,6 +689,17 @@ class _TestBase:
             asyncio.wait_for(foo(), timeout=float('inf')))
         self.assertEqual(res, 123)
 
+    def test_shutdown_default_executor(self):
+        if not hasattr(self.loop, "shutdown_default_executor"):
+            raise unittest.SkipTest()
+
+        async def foo():
+            await self.loop.run_in_executor(None, time.sleep, .1)
+
+        self.loop.run_until_complete(foo())
+        self.loop.run_until_complete(
+            self.loop.shutdown_default_executor())
+
 
 class TestBaseUV(_TestBase, UVTestCase):
 
