@@ -83,6 +83,8 @@ cdef class Loop:
         object _asyncgens
         bint _asyncgens_shutdown_called
 
+        bint _executor_shutdown_called
+
         char _recv_buffer[UV_STREAM_RECV_BUF_SIZE]
         bint _recv_buffer_in_use
 

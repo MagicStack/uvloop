@@ -186,6 +186,8 @@ cdef class Loop:
 
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
+        # Set to True when `loop.shutdown_default_executor` is called.
+        self._executor_shutdown_called = False
 
         self._servers = set()
 
@@ -591,6 +593,7 @@ cdef class Loop:
         self.handler_idle = None
         self.handler_check__exec_writes = None
 
+        self._executor_shutdown_called = True
         executor = self._default_executor
         if executor is not None:
             self._default_executor = None
@@ -2669,6 +2672,8 @@ cdef class Loop:
 
         if executor is None:
             executor = self._default_executor
+            # Only check when the default executor is being used
+            self._check_default_executor()
             if executor is None:
                 executor = cc_ThreadPoolExecutor()
                 self._default_executor = executor
@@ -3090,6 +3095,10 @@ cdef class Loop:
         await waiter
         return udp, protocol
 
+    def _check_default_executor(self):
+        if self._executor_shutdown_called:
+            raise RuntimeError('Executor shutdown has been called')
+
     def _asyncgen_finalizer_hook(self, agen):
         self._asyncgens.discard(agen)
         if not self.is_closed():
@@ -3130,6 +3139,27 @@ cdef class Loop:
                     'exception': result,
                     'asyncgen': agen
                 })
+
+    @cython.iterable_coroutine
+    async def shutdown_default_executor(self):
+        """Schedule the shutdown of the default executor."""
+        self._executor_shutdown_called = True
+        if self._default_executor is None:
+            return
+        future = self.create_future()
+        thread = threading_Thread(target=self._do_shutdown, args=(future,))
+        thread.start()
+        try:
+            await future
+        finally:
+            thread.join()
+
+    def _do_shutdown(self, future):
+        try:
+            self._default_executor.shutdown(wait=True)
+            self.call_soon_threadsafe(future.set_result, None)
+        except Exception as ex:
+            self.call_soon_threadsafe(future.set_exception, ex)
 
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
