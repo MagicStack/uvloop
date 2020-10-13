@@ -673,6 +673,34 @@ class _AsyncioTests:
 
         loop.run_until_complete(test_subprocess())
 
+    def test_communicate_large_stdout_65536(self):
+        self._test_communicate_large_stdout(65536)
+
+    def test_communicate_large_stdout_65537(self):
+        self._test_communicate_large_stdout(65537)
+
+    def test_communicate_large_stdout_1000000(self):
+        self._test_communicate_large_stdout(1000000)
+
+    def _test_communicate_large_stdout(self, size):
+        async def copy_stdin_to_stdout(stdin):
+            # See https://github.com/MagicStack/uvloop/issues/363
+            # A program that copies stdin to stdout character by character
+            code = ('import sys, shutil; '
+                    'shutil.copyfileobj(sys.stdin, sys.stdout, 1)')
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', code,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE)
+            stdout, _stderr = await asyncio.wait_for(proc.communicate(stdin),
+                                                     60.0)
+            return stdout
+
+        stdin = b'x' * size
+        stdout = self.loop.run_until_complete(copy_stdin_to_stdout(stdin))
+        self.assertEqual(stdout, stdin)
+
     def test_write_huge_stdin_8192(self):
         self._test_write_huge_stdin(8192)
 
