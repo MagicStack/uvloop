@@ -1,9 +1,9 @@
 recursive-include docs *.py *.rst
 recursive-include examples *.py
 recursive-include tests *.py *.pem
-recursive-include uvloop *.pyx *.pxd *.pxi *.py *.c *.h
+recursive-include uvloop *.pyx *.pxd *.pxi *.py *.c *.h *.pyi py.typed
 recursive-include vendor/libuv *
 recursive-exclude vendor/libuv/.git *
 recursive-exclude vendor/libuv/docs *
 recursive-exclude vendor/libuv/img *
-include LICENSE-MIT LICENSE-APACHE README.rst Makefile performance.png .flake8
+include LICENSE-MIT LICENSE-APACHE README.rst Makefile performance.png .flake8 mypy.ini

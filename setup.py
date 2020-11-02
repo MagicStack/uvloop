@@ -32,7 +32,8 @@ TEST_DEPENDENCIES = [
     'flake8~=3.7.9',
     'psutil',
     'pycodestyle~=2.5.0',
-    'pyOpenSSL~=19.0.0'
+    'pyOpenSSL~=19.0.0',
+    'mypy~=0.800',
 ]
 
 # Dependencies required to build documentation.
