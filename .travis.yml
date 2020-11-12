@@ -63,10 +63,24 @@ matrix:
           env: BUILD=tests
 
         - os: linux
+          dist: trusty
+          arch: arm64
+          language: python
+          python: "3.6"
+          env: BUILD=tests,wheels,release
+
+        - os: linux
           dist: xenial
           language: python
           python: "3.7"
           env: BUILD=tests
+
+        - os: linux
+          dist: xenial
+          arch: arm64
+          language: python
+          python: "3.7"
+          env: BUILD=tests,wheels,release
 
         - os: linux
           dist: xenial
@@ -75,8 +89,24 @@ matrix:
           env: BUILD=tests
 
         - os: linux
+          dist: xenial
+          arch: arm64
+          language: python
+          python: "3.8"
+          env: BUILD=tests,wheels,release
+
+        - os: linux
           dist: trusty
           branches: {only: [releases]}
+          language: python
+          python: "3.5"
+          services: [docker]
+          env: BUILD=tests,wheels,release
+
+        - os: linux
+          dist: trusty
+          branches: {only: [releases] }
+          arch: arm64
           language: python
           python: "3.5"
           services: [docker]

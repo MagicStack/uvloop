@@ -11,8 +11,12 @@ ${PIP} wheel /io/ -w /io/dist/
 
 # Bundle external shared libraries into the wheels.
 for whl in /io/dist/*.whl; do
-    auditwheel repair --plat="manylinux2010_${PYARCH}" \
-               $whl -w /io/dist/
+    if [ "${PYARCH}" == "aarch64" ] ; then
+	PLAT="manylinux2014_${PYARCH}"
+    else
+	PLAT="manylinux2010_${PYARCH}"
+    fi
+    auditwheel repair --plat="${PLAT}" $whl -w /io/dist/
     rm /io/dist/*-linux_*.whl
 done
 
