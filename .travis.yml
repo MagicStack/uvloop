@@ -3,7 +3,7 @@ language: generic
 env:
     global:
         - PYMODULE=uvloop
-        - RELEASE_PYTHON_VERSIONS="3.5 3.6 3.7 3.8"
+        - RELEASE_PYTHON_VERSIONS="3.5 3.6 3.7 3.8 3.9"
 
         - S3_UPLOAD_USERNAME=oss-ci-bot
         - S3_UPLOAD_BUCKET=magicstack-oss-releases
@@ -50,6 +50,11 @@ matrix:
           env: BUILD=tests,wheels PYTHON_VERSION=3.8.0
           branches: {only: [releases]}
 
+        - os: osx
+          osx_image: xcode7.3
+          env: BUILD=tests,wheels PYTHON_VERSION=3.9.0
+          branches: {only: [releases]}
+
         - os: linux
           dist: trusty
           language: python
@@ -72,6 +77,12 @@ matrix:
           dist: xenial
           language: python
           python: "3.8"
+          env: BUILD=tests
+
+        - os: linux
+          dist: bionic
+          language: python
+          python: "3.9"
           env: BUILD=tests
 
         - os: linux
