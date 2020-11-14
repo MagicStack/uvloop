@@ -163,7 +163,7 @@ cdef class Handle:
 
         return '<' + ' '.join(info) + '>'
 
-    def cancel(self):
+    def cancel(self, msg=None):
         self._cancel()
 
     def cancelled(self):
@@ -321,7 +321,7 @@ cdef class TimerHandle:
     def cancelled(self):
         return self._cancelled
 
-    def cancel(self):
+    def cancel(self, msg=None):
         self._cancel()
 
 

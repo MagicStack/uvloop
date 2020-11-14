@@ -3190,7 +3190,7 @@ class _SyncSocketReaderFuture(aio_Future):
         self.__sock = sock
         self.__loop = loop
 
-    def cancel(self):
+    def cancel(self, msg=None):
         if self.__sock is not None and self.__sock.fileno() != -1:
             self.__loop.remove_reader(self.__sock)
             self.__sock = None
@@ -3205,7 +3205,7 @@ class _SyncSocketWriterFuture(aio_Future):
         self.__sock = sock
         self.__loop = loop
 
-    def cancel(self):
+    def cancel(self, msg=None):
         if self.__sock is not None and self.__sock.fileno() != -1:
             self.__loop.remove_writer(self.__sock)
             self.__sock = None

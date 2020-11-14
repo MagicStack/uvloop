@@ -17,7 +17,7 @@ cdef class UVRequest:
         self.done = 1
         Py_DECREF(self)
 
-    cdef cancel(self):
+    cdef cancel(self, msg=None):
         # Most requests are implemented using a threadpool.  It's only
         # possible to cancel a request when it's still in a threadpool's
         # queue.  Once it's started to execute, we have to wait until
