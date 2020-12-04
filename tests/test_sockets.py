@@ -195,8 +195,8 @@ class _TestSockets:
 
     def test_sock_cancel_add_reader_race(self):
         if self.is_asyncio_loop():
-            if (3, 8, 2) >= sys.version_info[:3] >= (3, 8, 0):
-                # asyncio 3.8.0 seems to have a regression;
+            if sys.version_info[:2] == (3, 8):
+                # asyncio 3.8.x has a regression; fixed in 3.9.0
                 # tracked in https://bugs.python.org/issue30064
                 raise unittest.SkipTest()
 
