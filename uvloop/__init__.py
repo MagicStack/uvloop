@@ -5,9 +5,9 @@ from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 from . import includes as __includes  # NOQA
 from . import _patch  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
+from ._version import __version__  # NOQA
 
 
-__version__ = '0.15.0.dev0'
 __all__ = ('new_event_loop', 'install', 'EventLoopPolicy')
 
 

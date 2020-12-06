@@ -220,7 +220,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
 
 
 with open(os.path.join(
-        os.path.dirname(__file__), 'uvloop', '__init__.py')) as f:
+        os.path.dirname(__file__), 'uvloop', '_version.py')) as f:
     for line in f:
         if line.startswith('__version__ ='):
             _, _, version = line.partition('=')
@@ -228,7 +228,7 @@ with open(os.path.join(
             break
     else:
         raise RuntimeError(
-            'unable to read the version from uvloop/__init__.py')
+            'unable to read the version from uvloop/_version.py')
 
 
 setup(
