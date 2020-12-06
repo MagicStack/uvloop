@@ -1,7 +1,0 @@
-Cython==0.29.13
-aiohttp
-tinys3
-twine
-psutil
-pyOpenSSL==19.0.0
-flake8>=3.7.5
