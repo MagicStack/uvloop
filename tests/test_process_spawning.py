@@ -20,7 +20,10 @@ class ProcessSpawningTestCollection(TestCase):
             dummy_workers = [simulate_loop_activity(loop, event)
                              for _ in range(5)]
             spawn_worker = spawn_external_process(loop, event)
-            done, pending = await asyncio.wait([spawn_worker] + dummy_workers)
+            done, pending = await asyncio.wait([
+                asyncio.ensure_future(fut)
+                for fut in ([spawn_worker] + dummy_workers)
+            ])
             exceptions = [result.exception()
                           for result in done if result.exception()]
             if exceptions:

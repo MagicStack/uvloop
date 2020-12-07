@@ -636,9 +636,9 @@ class _TestBase:
 
         def logger(loop, context):
             nonlocal logged
-            self.assertIn('asyncgen', context)
             expected = 'an error occurred during closing of asynchronous'
             if expected in context['message']:
+                self.assertIn('asyncgen', context)
                 logged += 1
 
         waiter = self._compile_agen('''async def waiter(timeout):
