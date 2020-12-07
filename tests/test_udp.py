@@ -308,7 +308,7 @@ class _TestUDP:
 
                 s2.send(b'hello, socketpair')
                 addr = self.loop.run_until_complete(
-                    asyncio.wait_for(peername, 1, loop=self.loop))
+                    asyncio.wait_for(peername, 1))
                 if sys.platform.startswith('linux'):
                     self.assertEqual(addr, None)
                 else:
@@ -322,7 +322,7 @@ class _TestUDP:
                     tr.sendto(data)
                     result = self.loop.run_until_complete(asyncio.wait_for(
                         self.loop.run_in_executor(None, s2.recv, 1024),
-                        1, loop=self.loop))
+                        1))
                     self.assertEqual(data, result)
 
                 tr.close()

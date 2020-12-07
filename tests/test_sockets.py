@@ -223,8 +223,13 @@ class _TestSockets:
             with sock_client:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
-                    [self.loop.sock_recv(sock_client, 1)],
-                    timeout=1)
+                    [
+                        asyncio.ensure_future(
+                            self.loop.sock_recv(sock_client, 1)
+                        )
+                    ],
+                    timeout=1,
+                )
 
                 async def send_server_data():
                     # Wait a little bit to let reader future cancel and
@@ -273,8 +278,13 @@ class _TestSockets:
             with sock_client:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
-                    [self.loop.sock_recv(sock_client, 1)],
-                    timeout=1)
+                    [
+                        asyncio.ensure_future(
+                            self.loop.sock_recv(sock_client, 1)
+                        )
+                    ],
+                    timeout=1,
+                )
 
                 # server can send the data in a random time, even before
                 # the previous result future has cancelled.

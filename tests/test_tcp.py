@@ -2526,8 +2526,13 @@ class _TestSSL(tb.SSLTestCase):
                 except ssl.SSLError as ex:
                     # Since OpenSSL 1.1.1, it raises "application data after
                     # close notify"
+                    # Python < 3.8:
                     if ex.reason == 'KRB5_S_INIT':
                         break
+                    # Python >= 3.8:
+                    if ex.reason == 'APPLICATION_DATA_AFTER_CLOSE_NOTIFY':
+                        break
+                    raise ex
                 except OSError as ex:
                     # OpenSSL < 1.1.1
                     if ex.errno != 0:
