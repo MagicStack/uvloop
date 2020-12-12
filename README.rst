@@ -23,7 +23,7 @@ Performance
 
 uvloop makes asyncio 2-4x faster.
 
-.. image:: performance.png
+.. image:: https://raw.githubusercontent.com/MagicStack/uvloop/master/performance.png
     :target: http://magic.io/blog/uvloop-blazing-fast-python-networking/
 
 The above chart shows the performance of an echo server with different
