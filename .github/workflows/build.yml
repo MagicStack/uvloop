@@ -7,13 +7,16 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
 
     env:
       CIBW_BUILD: cp3?-*
-      CIBW_BEFORE_BUILD: pip install cython && make
+      CIBW_BEFORE_ALL: pip install Cython && make
+      CIBW_BEFORE_BUILD: pip install Cython
       CIBW_BUILD_VERBOSITY: 2
+      MACOSX_DEPLOYMENT_TARGET: "10.14"
 
     steps:
     - uses: actions/checkout@v2
@@ -28,6 +31,11 @@ jobs:
     - name: Install cibuildwheel
       run: |
         python -m pip install cibuildwheel
+
+    - name: Install autotools on MacOS
+      run: |
+        brew install automake
+      if: runner.os == 'macOS'
 
     - name: Build wheels
       run: |
