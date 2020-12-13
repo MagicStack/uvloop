@@ -1,5 +1,0 @@
-Cython==0.29.13
-Sphinx>=1.4.1
-psutil
-pyOpenSSL==19.0.0
-flake8>=3.7.5

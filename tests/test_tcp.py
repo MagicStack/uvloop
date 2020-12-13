@@ -16,6 +16,9 @@ from OpenSSL import SSL as openssl_ssl
 from uvloop import _testbase as tb
 
 
+SSL_HANDSHAKE_TIMEOUT = 15.0
+
+
 class MyBaseProto(asyncio.Protocol):
     connected = None
     done = None
@@ -1098,7 +1101,11 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             with socket.socket() as s:
                 self.loop.run_until_complete(
                     self.loop.connect_accepted_socket(
-                        (lambda: None), s, ssl_handshake_timeout=10.0))
+                        (lambda: None),
+                        s,
+                        ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT
+                    )
+                )
 
     def test_connect_accepted_socket(self, server_ssl=None, client_ssl=None):
         loop = self.loop
@@ -1146,7 +1153,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         extras = {}
         if server_ssl and (self.implementation != 'asyncio' or self.PY37):
-            extras = dict(ssl_handshake_timeout=10.0)
+            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
         f = loop.create_task(
             loop.connect_accepted_socket(
@@ -1313,7 +1320,7 @@ class _TestSSL(tb.SSLTestCase):
         async def start_server():
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+                extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             srv = await asyncio.start_server(
                 handle_client,
@@ -1378,7 +1385,7 @@ class _TestSSL(tb.SSLTestCase):
         async def client(addr):
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+                extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             reader, writer = await asyncio.open_connection(
                 *addr,
@@ -1561,8 +1568,10 @@ class _TestSSL(tb.SSLTestCase):
                     *addr,
                     ssl=client_sslctx,
                     server_hostname='',
-                    ssl_handshake_timeout=10.0),
-                0.5)
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT
+                ),
+                0.5
+            )
 
         with self.tcp_server(server,
                              max_clients=1,
@@ -2074,7 +2083,7 @@ class _TestSSL(tb.SSLTestCase):
 
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
-        TIMEOUT = 10.0    # timeout for this test
+        TIMEOUT = 20.0    # timeout for this test
 
         A_DATA = b'A' * 1024 * 1024
         B_DATA = b'B' * 1024 * 1024
@@ -2183,7 +2192,7 @@ class _TestSSL(tb.SSLTestCase):
         async def start_server():
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+                extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             srv = await self.loop.create_server(
                 server_protocol_factory,
@@ -2275,7 +2284,7 @@ class _TestSSL(tb.SSLTestCase):
         async def client(addr):
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+                extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             reader, writer = await asyncio.open_connection(
                 *addr,
@@ -2401,7 +2410,7 @@ class _TestSSL(tb.SSLTestCase):
         async def start_server():
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras['ssl_handshake_timeout'] = 10.0
+                extras['ssl_handshake_timeout'] = SSL_HANDSHAKE_TIMEOUT
             if self.implementation != 'asyncio':  # or self.PY38
                 extras['ssl_shutdown_timeout'] = 0.5
 
@@ -2466,7 +2475,7 @@ class _TestSSL(tb.SSLTestCase):
         async def client(addr):
             extras = {}
             if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+                extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             reader, writer = await asyncio.open_connection(
                 *addr,

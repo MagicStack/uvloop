@@ -1,18 +1,4 @@
-import os
-import os.path
-import re
-import shutil
-import subprocess
 import sys
-
-
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext as build_ext
-from setuptools.command.sdist import sdist as sdist
-
-
-if sys.platform in ('win32', 'cygwin', 'cli'):
-    raise RuntimeError('uvloop does not support Windows at the moment')
 
 vi = sys.version_info
 if vi < (3, 5):
@@ -21,10 +7,60 @@ if vi[:2] == (3, 6):
     if vi.releaselevel == 'beta' and vi.serial < 3:
         raise RuntimeError('uvloop requires Python 3.5 or 3.6b3 or greater')
 
+if sys.platform in ('win32', 'cygwin', 'cli'):
+    raise RuntimeError('uvloop does not support Windows at the moment')
 
+import os
+import os.path
+import pathlib
+import platform
+import re
+import shutil
+import subprocess
+import sys
+
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext as build_ext
+from setuptools.command.sdist import sdist as sdist
+
+
+CYTHON_DEPENDENCY = 'Cython(>=0.29.20,<0.30.0)'
+
+# Minimal dependencies required to test uvloop.
+TEST_DEPENDENCIES = [
+    # pycodestyle is a dependency of flake8, but it must be frozen because
+    # their combination breaks too often
+    # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
+    'aiohttp',
+    'flake8~=3.7.9',
+    'psutil',
+    'pycodestyle~=2.5.0',
+    'pyOpenSSL~=19.0.0'
+]
+
+# Dependencies required to build documentation.
+DOC_DEPENDENCIES = [
+    'Sphinx~=1.7.3',
+    'sphinxcontrib-asyncio~=0.2.0',
+    'sphinx_rtd_theme~=0.2.4',
+]
+
+EXTRA_DEPENDENCIES = {
+    'docs': DOC_DEPENDENCIES,
+    'test': TEST_DEPENDENCIES,
+    # Dependencies required to develop asyncpg.
+    'dev': [
+        CYTHON_DEPENDENCY,
+        'pytest>=3.6.0',
+    ] + DOC_DEPENDENCIES + TEST_DEPENDENCIES
+}
+
+
+MACHINE = platform.machine()
 CFLAGS = ['-O2']
-LIBUV_DIR = os.path.join(os.path.dirname(__file__), 'vendor', 'libuv')
-LIBUV_BUILD_DIR = os.path.join(os.path.dirname(__file__), 'build', 'libuv')
+_ROOT = pathlib.Path(__file__).parent
+LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
+LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
 
 
 def _libuv_build_env():
@@ -118,16 +154,25 @@ class uvloop_build_ext(build_ext):
                         need_cythonize = True
 
         if need_cythonize:
+            import pkg_resources
+
+            # Double check Cython presence in case setup_requires
+            # didn't go into effect (most likely because someone
+            # imported Cython before setup_requires injected the
+            # correct egg into sys.path.
             try:
                 import Cython
-                from distutils.version import LooseVersion
             except ImportError:
                 raise RuntimeError(
-                    'please install Cython to compile uvloop from source')
+                    'please install {} to compile uvloop from source'.format(
+                        CYTHON_DEPENDENCY))
 
-            if LooseVersion(Cython.__version__) < LooseVersion('0.28'):
+            cython_dep = pkg_resources.Requirement.parse(CYTHON_DEPENDENCY)
+            if Cython.__version__ not in cython_dep:
                 raise RuntimeError(
-                    'uvloop requires Cython version 0.28 or greater')
+                    'uvloop requires {}, got Cython=={}'.format(
+                        CYTHON_DEPENDENCY, Cython.__version__
+                    ))
 
             from Cython.Build import cythonize
 
@@ -215,12 +260,11 @@ class uvloop_build_ext(build_ext):
         super().build_extensions()
 
 
-with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
+with open(str(_ROOT / 'README.rst')) as f:
     readme = f.read()
 
 
-with open(os.path.join(
-        os.path.dirname(__file__), 'uvloop', '_version.py')) as f:
+with open(str(_ROOT / 'uvloop' / '_version.py')) as f:
     for line in f:
         if line.startswith('__version__ ='):
             _, _, version = line.partition('=')
@@ -231,6 +275,13 @@ with open(os.path.join(
             'unable to read the version from uvloop/_version.py')
 
 
+setup_requires = []
+
+if not (_ROOT / 'uvloop' / 'loop.c').exists() or '--cython-always' in sys.argv:
+    # No Cython output, require Cython to build.
+    setup_requires.append(CYTHON_DEPENDENCY)
+
+
 setup(
     name='uvloop',
     description='Fast implementation of asyncio event loop on top of libuv',
@@ -239,7 +290,7 @@ setup(
     license='MIT',
     author='Yury Selivanov',
     author_email='yury@magic.io',
-    platforms=['*nix'],
+    platforms=['macOS', 'POSIX'],
     version=VERSION,
     packages=['uvloop'],
     cmdclass={
@@ -262,11 +313,14 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'License :: OSI Approved :: Apache Software License',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',
     ],
-    provides=['uvloop'],
     include_package_data=True,
-    test_suite='tests.suite'
+    test_suite='tests.suite',
+    extras_require=EXTRA_DEPENDENCIES,
+    setup_requires=setup_requires
 )
