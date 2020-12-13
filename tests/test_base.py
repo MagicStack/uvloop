@@ -159,7 +159,7 @@ class _TestBase:
         self.assertEqual(calls, [10, 1])
         self.assertFalse(self.loop.is_running())
 
-        self.assertLess(finished - started, 0.2)
+        self.assertLess(finished - started, 0.3)
         self.assertGreater(finished - started, 0.04)
 
     def test_call_later_2(self):

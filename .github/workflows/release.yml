@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - "master"
+      - "ci"
+      - "[0-9]+.[0-9x]+*"
+    paths:
+      - "uvloop/_version.py"
+
+jobs:
+  validate-release-request:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate release PR
+      uses: edgedb/action-release/validate-pr@master
+      id: checkver
+      with:
+        require_team: Release Managers
+        require_approval: no
+        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+        version_file: uvloop/_version.py
+        version_line_pattern: |
+          __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
+
+    - name: Stop if not approved
+      if: steps.checkver.outputs.approved != 'true'
+      run: |
+        echo ::error::PR is not approved yet.
+        exit 1
+
+    - name: Store release version for later use
+      env:
+        VERSION: ${{ steps.checkver.outputs.version }}
+      run: |
+        mkdir -p dist/
+        echo "${VERSION}" > dist/VERSION
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist/
+
+  build-sdist:
+    needs: validate-release-request
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+
+    - name: Build source distribution
+      run: |
+        pip install -U setuptools wheel pip
+        python setup.py sdist
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist/
+
+  build-wheels:
+    needs: validate-release-request
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
+        os: [ubuntu-20.04, macos-latest]
+        arch: [x86_64, aarch64]
+        exclude:
+          - os: macos-latest
+            arch: aarch64
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - uses: actions/download-artifact@v1
+      with:
+        name: dist
+        path: dist/
+
+    - name: Extract Release Version
+      id: relver
+      run: |
+        set -e
+        echo ::set-output name=version::$(cat dist/VERSION)
+        rm dist/*
+
+    - name: Set up QEMU
+      if: matrix.arch == 'aarch64'
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python deps
+      run: |
+        python -m pip install --upgrade setuptools pip wheel
+
+    - name: Install macOS deps
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install gnu-sed libtool autoconf automake
+
+    - name: Build Wheels (linux)
+      if: startsWith(matrix.os, 'ubuntu')
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+        ARCH: ${{ matrix.arch }}
+      run: |
+        case "${ARCH}" in
+          x86_64)
+            mlimg=manylinux2010_x86_64
+            ;;
+          aarch64)
+            mlimg=manylinux2014_aarch64
+            ;;
+          *)
+            echo "Unsupported wheel arch: ${ARCH}" >&2
+            exit 1
+            ;;
+        esac
+
+        docker run --rm \
+          -v "${GITHUB_WORKSPACE}":/github/workspace:rw \
+          --workdir=/github/workspace \
+          -e GITHUB_WORKSPACE=/github/workspace \
+          -e PYTHON_VERSION="${PYTHON_VERSION}" \
+          --entrypoint=/github/workspace/.github/workflows/build-manylinux-wheels.sh \
+          quay.io/pypa/${mlimg}
+
+    - name: Build Wheels (non-linux)
+      if: "!startsWith(matrix.os, 'ubuntu')"
+      run: |
+        make clean
+        python setup.py bdist_wheel
+
+    - name: Test Wheels (native)
+      timeout-minutes: 10
+      if: |
+        !contains(github.event.pull_request.labels.*.name, 'skip wheel tests')
+        && matrix.arch == 'x86_64'
+      env:
+        OS: ${{ matrix.os }}
+        PKG_VERSION: ${{ steps.relver.outputs.version }}
+      run: |
+        "${GITHUB_WORKSPACE}/.github/workflows/test-wheels.sh"
+
+    - name: Test Wheels (emulated)
+      timeout-minutes: 30
+      if: |
+        !contains(github.event.pull_request.labels.*.name, 'skip wheel tests')
+        && matrix.arch != 'x86_64'
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+        ARCH: ${{ matrix.arch }}
+        PKG_VERSION: ${{ steps.relver.outputs.version }}
+      run: |
+        case "${ARCH}" in
+          aarch64)
+            img="docker.io/arm64v8/python:${PYTHON_VERSION}-buster"
+            ;;
+          *)
+            echo "Unsupported wheel arch: ${ARCH}" >&2
+            exit 1
+            ;;
+        esac
+
+        docker run --rm \
+          -v "${GITHUB_WORKSPACE}":/github/workspace:rw \
+          -e GITHUB_WORKSPACE=/github/workspace \
+          -e PKG_VERSION="${PKG_VERSION}" \
+          --workdir=/github/workspace/ \
+          ${img} \
+          /bin/bash -ex -c ' \
+            echo GITHUB_WORKSPACE=${GITHUB_WORKSPACE} >> /etc/environment \
+            && echo PKG_VERSION=${PKG_VERSION} >> /etc/environment \
+            && echo ENVIRON_FILE /etc/environment >> /etc/login.defs \
+            && useradd -m -s /bin/bash test \
+            && su -l test /github/workspace/.github/workflows/test-wheels.sh \
+          '
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist/
+
+  publish:
+    needs: [build-sdist, build-wheels]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 5
+        submodules: false
+
+    - uses: actions/download-artifact@v1
+      with:
+        name: dist
+        path: dist/
+
+    - name: Extract Release Version
+      id: relver
+      run: |
+        set -e
+        echo ::set-output name=version::$(cat dist/VERSION)
+        rm dist/VERSION
+
+    - name: Merge and tag the PR
+      uses: edgedb/action-release/merge@master
+      with:
+        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+        ssh_key: ${{ secrets.RELEASE_BOT_SSH_KEY }}
+        gpg_key: ${{ secrets.RELEASE_BOT_GPG_KEY }}
+        gpg_key_id: "5C468778062D87BF!"
+        tag_name: v${{ steps.relver.outputs.version }}
+
+    - name: Publish Github Release
+      uses: elprans/gh-action-create-release@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.relver.outputs.version }}
+        release_name: v${{ steps.relver.outputs.version }}
+        target: ${{ github.event.pull_request.base.ref }}
+        body: ${{ github.event.pull_request.body }}
+        draft: false
+
+    - run: |
+        ls -al dist/
+
+    - name: Upload to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+        # password: ${{ secrets.TEST_PYPI_TOKEN }}
+        # repository_url: https://test.pypi.org/legacy/
