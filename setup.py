@@ -48,7 +48,7 @@ DOC_DEPENDENCIES = [
 EXTRA_DEPENDENCIES = {
     'docs': DOC_DEPENDENCIES,
     'test': TEST_DEPENDENCIES,
-    # Dependencies required to develop asyncpg.
+    # Dependencies required to develop uvloop.
     'dev': [
         CYTHON_DEPENDENCY,
         'pytest>=3.6.0',
