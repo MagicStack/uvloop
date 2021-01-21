@@ -19,7 +19,7 @@ cdef class UVStream(UVBaseTransport):
     # All "inline" methods are final
 
     cdef inline _init(self, Loop loop, object protocol, Server server,
-                      object waiter)
+                      object waiter, object context)
 
     cdef inline _exec_write(self)
 

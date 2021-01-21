@@ -19,4 +19,4 @@ cdef class UDPTransport(UVBaseTransport):
     cdef _send(self, object data, object addr)
 
     cdef _on_receive(self, bytes data, object exc, object addr)
-    cdef _on_sent(self, object exc)
+    cdef _on_sent(self, object exc, object context=*)

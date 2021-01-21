@@ -17,11 +17,14 @@ cdef class _SSLProtocolTransport:
     # TODO:
     # _sendfile_compatible = constants._SendfileMode.FALLBACK
 
-    def __cinit__(self, Loop loop, ssl_protocol):
+    def __cinit__(self, Loop loop, ssl_protocol, context):
         self._loop = loop
         # SSLProtocol instance
         self._ssl_protocol = ssl_protocol
         self._closed = False
+        if context is None:
+            context = Context_CopyCurrent()
+        self.context = context
 
     def get_extra_info(self, name, default=None):
         """Get optional transport information."""
@@ -45,7 +48,7 @@ cdef class _SSLProtocolTransport:
         with None as its argument.
         """
         self._closed = True
-        self._ssl_protocol._start_shutdown()
+        self._ssl_protocol._start_shutdown(self.context.copy())
 
     def __dealloc__(self):
         if not self._closed:
@@ -71,7 +74,7 @@ cdef class _SSLProtocolTransport:
         Data received will once again be passed to the protocol's
         data_received() method.
         """
-        self._ssl_protocol._resume_reading()
+        self._ssl_protocol._resume_reading(self.context.copy())
 
     def set_write_buffer_limits(self, high=None, low=None):
         """Set the high- and low-water limits for write flow control.
@@ -93,7 +96,7 @@ cdef class _SSLProtocolTransport:
         concurrently.
         """
         self._ssl_protocol._set_write_buffer_limits(high, low)
-        self._ssl_protocol._control_app_writing()
+        self._ssl_protocol._control_app_writing(self.context.copy())
 
     def get_write_buffer_limits(self):
         return (self._ssl_protocol._outgoing_low_water,
@@ -149,7 +152,7 @@ cdef class _SSLProtocolTransport:
                             f"got {type(data).__name__}")
         if not data:
             return
-        self._ssl_protocol._write_appdata((data,))
+        self._ssl_protocol._write_appdata((data,), self.context.copy())
 
     def writelines(self, list_of_data):
         """Write a list (or any iterable) of data bytes to the transport.
@@ -157,7 +160,7 @@ cdef class _SSLProtocolTransport:
         The default implementation concatenates the arguments and
         calls write() on the result.
         """
-        self._ssl_protocol._write_appdata(list_of_data)
+        self._ssl_protocol._write_appdata(list_of_data, self.context.copy())
 
     def write_eof(self):
         """Close the write end after flushing buffered data.
@@ -304,11 +307,12 @@ cdef class SSLProtocol:
                 self._waiter.set_result(None)
         self._waiter = None
 
-    def _get_app_transport(self):
+    def _get_app_transport(self, context=None):
         if self._app_transport is None:
             if self._app_transport_created:
                 raise RuntimeError('Creating _SSLProtocolTransport twice')
-            self._app_transport = _SSLProtocolTransport(self._loop, self)
+            self._app_transport = _SSLProtocolTransport(self._loop, self,
+                                                        context)
             self._app_transport_created = True
         return self._app_transport
 
@@ -540,9 +544,12 @@ cdef class SSLProtocol:
 
     # Shutdown flow
 
-    cdef _start_shutdown(self):
+    cdef _start_shutdown(self, object context=None):
         if self._state in (FLUSHING, SHUTDOWN, UNWRAPPED):
             return
+        # we don't need the context for _abort or the timeout, because
+        # TCP transport._force_close() should be able to call
+        # connection_lost() in the right context
         if self._app_transport is not None:
             self._app_transport._closed = True
         if self._state == DO_HANDSHAKE:
@@ -552,14 +559,14 @@ cdef class SSLProtocol:
             self._shutdown_timeout_handle = \
                 self._loop.call_later(self._ssl_shutdown_timeout,
                                       lambda: self._check_shutdown_timeout())
-            self._do_flush()
+            self._do_flush(context)
 
     cdef _check_shutdown_timeout(self):
         if self._state in (FLUSHING, SHUTDOWN):
             self._transport._force_close(
                 aio_TimeoutError('SSL shutdown timed out'))
 
-    cdef _do_read_into_void(self):
+    cdef _do_read_into_void(self, object context):
         """Consume and discard incoming application data.
 
         If close_notify is received for the first time, call eof_received.
@@ -576,9 +583,9 @@ cdef class SSLProtocol:
         except ssl_SSLZeroReturnError:
             close_notify = True
         if close_notify:
-            self._call_eof_received()
+            self._call_eof_received(context)
 
-    cdef _do_flush(self):
+    cdef _do_flush(self, object context=None):
         """Flush the write backlog, discarding new data received.
 
         We don't send close_notify in FLUSHING because we still want to send
@@ -587,7 +594,7 @@ cdef class SSLProtocol:
         in FLUSHING, as we could fully manage the flow control internally.
         """
         try:
-            self._do_read_into_void()
+            self._do_read_into_void(context)
             self._do_write()
             self._process_outgoing()
             self._control_ssl_reading()
@@ -596,13 +603,13 @@ cdef class SSLProtocol:
         else:
             if not self._get_write_buffer_size():
                 self._set_state(SHUTDOWN)
-                self._do_shutdown()
+                self._do_shutdown(context)
 
-    cdef _do_shutdown(self):
+    cdef _do_shutdown(self, object context=None):
         """Send close_notify and wait for the same from the peer."""
         try:
             # we must skip all application data (if any) before unwrap
-            self._do_read_into_void()
+            self._do_read_into_void(context)
             try:
                 self._sslobj.unwrap()
             except ssl_SSLAgainErrors as exc:
@@ -619,6 +626,8 @@ cdef class SSLProtocol:
             self._shutdown_timeout_handle.cancel()
             self._shutdown_timeout_handle = None
 
+        # we don't need the context here because TCP transport.close() should
+        # be able to call connection_made() in the right context
         if shutdown_exc:
             self._fatal_error(shutdown_exc, 'Error occurred during shutdown')
         else:
@@ -631,7 +640,7 @@ cdef class SSLProtocol:
 
     # Outgoing flow
 
-    cdef _write_appdata(self, list_of_data):
+    cdef _write_appdata(self, list_of_data, object context):
         if self._state in (FLUSHING, SHUTDOWN, UNWRAPPED):
             if self._conn_lost >= LOG_THRESHOLD_FOR_CONNLOST_WRITES:
                 aio_logger.warning('SSL connection is closed')
@@ -646,7 +655,7 @@ cdef class SSLProtocol:
             if self._state == WRAPPED:
                 self._do_write()
                 self._process_outgoing()
-                self._control_app_writing()
+                self._control_app_writing(context)
 
         except Exception as ex:
             self._fatal_error(ex, 'Fatal error on SSL protocol')
@@ -730,6 +739,7 @@ cdef class SSLProtocol:
                         new_MethodHandle(self._loop,
                                          "SSLProtocol._do_read",
                                          <method_t>self._do_read,
+                                         None,  # current context is good
                                          self))
         except ssl_SSLAgainErrors as exc:
             pass
@@ -774,11 +784,17 @@ cdef class SSLProtocol:
             self._call_eof_received()
             self._start_shutdown()
 
-    cdef _call_eof_received(self):
+    cdef _call_eof_received(self, object context=None):
         if self._app_state == STATE_CON_MADE:
             self._app_state = STATE_EOF
             try:
-                keep_open = self._app_protocol.eof_received()
+                if context is None:
+                    # If the caller didn't provide a context, we assume the
+                    # caller is already in the right context, which is usually
+                    # inside the upstream callbacks like buffer_updated()
+                    keep_open = self._app_protocol.eof_received()
+                else:
+                    keep_open = context.run(self._app_protocol.eof_received)
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as ex:
@@ -790,12 +806,18 @@ cdef class SSLProtocol:
 
     # Flow control for writes from APP socket
 
-    cdef _control_app_writing(self):
+    cdef _control_app_writing(self, object context=None):
         cdef size_t size = self._get_write_buffer_size()
         if size >= self._outgoing_high_water and not self._app_writing_paused:
             self._app_writing_paused = True
             try:
-                self._app_protocol.pause_writing()
+                if context is None:
+                    # If the caller didn't provide a context, we assume the
+                    # caller is already in the right context, which is usually
+                    # inside the upstream callbacks like buffer_updated()
+                    self._app_protocol.pause_writing()
+                else:
+                    context.run(self._app_protocol.pause_writing)
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
@@ -808,7 +830,13 @@ cdef class SSLProtocol:
         elif size <= self._outgoing_low_water and self._app_writing_paused:
             self._app_writing_paused = False
             try:
-                self._app_protocol.resume_writing()
+                if context is None:
+                    # If the caller didn't provide a context, we assume the
+                    # caller is already in the right context, which is usually
+                    # inside the upstream callbacks like resume_writing()
+                    self._app_protocol.resume_writing()
+                else:
+                    context.run(self._app_protocol.resume_writing)
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
@@ -833,7 +861,7 @@ cdef class SSLProtocol:
     cdef _pause_reading(self):
         self._app_reading_paused = True
 
-    cdef _resume_reading(self):
+    cdef _resume_reading(self, object context):
         if self._app_reading_paused:
             self._app_reading_paused = False
             if self._state == WRAPPED:
@@ -841,6 +869,7 @@ cdef class SSLProtocol:
                     new_MethodHandle(self._loop,
                                      "SSLProtocol._do_read",
                                      <method_t>self._do_read,
+                                     context,
                                      self))
 
     # Flow control for reads from SSL socket
@@ -890,7 +919,9 @@ cdef class SSLProtocol:
             self._do_shutdown()
 
     cdef _fatal_error(self, exc, message='Fatal error on transport'):
-        if self._transport:
+        if self._app_transport:
+            self._app_transport._force_close(exc)
+        elif self._transport:
             self._transport._force_close(exc)
 
         if isinstance(exc, OSError):

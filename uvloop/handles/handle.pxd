@@ -5,6 +5,7 @@ cdef class UVHandle:
         readonly _source_traceback
         bint _closed
         bint _inited
+        object context
 
         # Added to enable current UDPTransport implementation,
         # which doesn't use libuv handles.

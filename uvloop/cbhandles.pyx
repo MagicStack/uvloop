@@ -333,71 +333,72 @@ cdef new_Handle(Loop loop, object callback, object args, object context):
     return handle
 
 
-cdef new_MethodHandle(Loop loop, str name, method_t callback, object ctx):
+cdef new_MethodHandle(Loop loop, str name, method_t callback, object context,
+                      object bound_to):
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 2
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
 
     return handle
 
 
-cdef new_MethodHandle1(Loop loop, str name, method1_t callback,
-                       object ctx, object arg):
+cdef new_MethodHandle1(Loop loop, str name, method1_t callback, object context,
+                       object bound_to, object arg):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 3
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg
 
     return handle
 
 
-cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object ctx,
-                       object arg1, object arg2):
+cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object context,
+                       object bound_to, object arg1, object arg2):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 4
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg1
     handle.arg3 = arg2
 
     return handle
 
 
-cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
-                       object arg1, object arg2, object arg3):
+cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object context,
+                       object bound_to, object arg1, object arg2, object arg3):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 5
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg1
     handle.arg3 = arg2
     handle.arg4 = arg3
