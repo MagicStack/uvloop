@@ -44,20 +44,23 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
-    - uses: syphar/restore-virtualenv@v1
-      if: steps.release.outputs.version == 0
-      id: cache-virtualenv
-      with:
-          requirement_files: .github/workflows/test-requirements.txt
-
     - name: Install Python Deps
-      if: steps.release.outputs.version == 0 && steps.cache-virtualenv.outputs.cache-hit != 'true'
+      if: steps.release.outputs.version == 0
       run: |
-        pip install --upgrade setuptools pip wheel
-        pip install -U -r .github/workflows/test-requirements.txt
+        pip install -e .[test]
 
     - name: Test
       if: steps.release.outputs.version == 0
       run: |
         make distclean && make && make test
         make distclean && make debug && make test
+
+  # This job exists solely to act as the test job aggregate to be
+  # targeted by branch policies.
+  regression-tests:
+    name: "Regression Tests"
+    needs: [test]
+    runs-on: ubuntu-20.04
+
+    steps:
+      - run: echo OK

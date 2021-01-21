@@ -709,9 +709,9 @@ print(n)'''
             data = b"\n" * num_lines + b"END\n"
             self.assertEqual(len(data), buf_size)
             proc.stdin.write(data)
-            await asyncio.wait_for(proc.stdin.drain(), timeout=1.0)
+            await asyncio.wait_for(proc.stdin.drain(), timeout=5.0)
             try:
-                await asyncio.wait_for(proc.wait(), timeout=1.0)
+                await asyncio.wait_for(proc.wait(), timeout=5.0)
             except asyncio.TimeoutError:
                 proc.kill()
                 proc.stdin.close()

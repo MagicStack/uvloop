@@ -2,6 +2,7 @@
 
 
 PYTHON ?= python
+ROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 
 
 _default: compile
@@ -51,8 +52,4 @@ test:
 
 
 testinstalled:
-	$(PYTHON) tests/__init__.py
-
-
-release: distclean compile test
-	$(PYTHON) setup.py sdist bdist_wheel upload
+	cd "$${HOME}" && $(PYTHON) $(ROOT)/tests/__init__.py

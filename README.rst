@@ -92,7 +92,7 @@ To build uvloop, you'll need Python 3.5 or greater:
 
    ..  code::
 
-    $ pip install -r requirements.dev.txt
+    $ pip install -e .[dev]
 
 4. Build and run tests:
 
