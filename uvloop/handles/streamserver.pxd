@@ -7,7 +7,6 @@ cdef class UVStreamServer(UVSocketHandle):
         object protocol_factory
         bint opened
         Server _server
-        object listen_context
 
     # All "inline" methods are final
 
@@ -23,4 +22,5 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline listen(self)
     cdef inline _on_listen(self)
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter)
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context)

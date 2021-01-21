@@ -190,11 +190,10 @@ class _TestSockets:
             self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_sock_cancel_add_reader_race(self):
-        if self.is_asyncio_loop():
-            if sys.version_info[:2] == (3, 8):
-                # asyncio 3.8.x has a regression; fixed in 3.9.0
-                # tracked in https://bugs.python.org/issue30064
-                raise unittest.SkipTest()
+        if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
+            # asyncio 3.8.x has a regression; fixed in 3.9.0
+            # tracked in https://bugs.python.org/issue30064
+            raise unittest.SkipTest()
 
         srv_sock_conn = None
 
@@ -247,8 +246,8 @@ class _TestSockets:
         self.loop.run_until_complete(server())
 
     def test_sock_send_before_cancel(self):
-        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 8, 0):
-            # asyncio 3.8.0 seems to have a regression;
+        if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
+            # asyncio 3.8.x has a regression; fixed in 3.9.0
             # tracked in https://bugs.python.org/issue30064
             raise unittest.SkipTest()
 

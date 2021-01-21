@@ -73,9 +73,11 @@ cdef class UnixServer(UVStreamServer):
 
         self._mark_as_open()
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context):
         cdef UnixTransport tr
-        tr = UnixTransport.new(self._loop, protocol, self._server, waiter)
+        tr = UnixTransport.new(self._loop, protocol, self._server, waiter,
+                               context)
         return <UVStream>tr
 
 
@@ -84,11 +86,11 @@ cdef class UnixTransport(UVStream):
 
     @staticmethod
     cdef UnixTransport new(Loop loop, object protocol, Server server,
-                           object waiter):
+                           object waiter, object context):
 
         cdef UnixTransport handle
         handle = UnixTransport.__new__(UnixTransport)
-        handle._init(loop, protocol, server, waiter)
+        handle._init(loop, protocol, server, waiter, context)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -112,7 +114,9 @@ cdef class ReadUnixTransport(UVStream):
                                object waiter):
         cdef ReadUnixTransport handle
         handle = ReadUnixTransport.__new__(ReadUnixTransport)
-        handle._init(loop, protocol, server, waiter)
+        # This is only used in connect_read_pipe() and subprocess_shell/exec()
+        # directly, we could simply copy the current context.
+        handle._init(loop, protocol, server, waiter, Context_CopyCurrent())
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -162,7 +166,9 @@ cdef class WriteUnixTransport(UVStream):
         # close the transport.
         handle._close_on_read_error()
 
-        handle._init(loop, protocol, server, waiter)
+        # This is only used in connect_write_pipe() and subprocess_shell/exec()
+        # directly, we could simply copy the current context.
+        handle._init(loop, protocol, server, waiter, Context_CopyCurrent())
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 

@@ -14,7 +14,7 @@ cdef class UnixTransport(UVStream):
 
     @staticmethod
     cdef UnixTransport new(Loop loop, object protocol, Server server,
-                           object waiter)
+                           object waiter, object context)
 
     cdef connect(self, char* addr)
 
