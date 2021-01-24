@@ -10,8 +10,6 @@ def find_uvloop_root():
 
 class TestFlake8(unittest.TestCase):
 
-    @unittest.skipIf(sys.version_info < (3, 6, 0),
-                     "flake8 under 3.5 does not recognize f-strings in *.pyx")
     def test_flake8(self):
         edgepath = find_uvloop_root()
         config_path = os.path.join(edgepath, '.flake8')

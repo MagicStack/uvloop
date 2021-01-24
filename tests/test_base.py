@@ -345,9 +345,6 @@ class _TestBase:
             self.loop.run_until_complete(foo())
 
     def test_run_until_complete_loop_orphan_future_close_loop(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 6, 2):
-            raise unittest.SkipTest('unfixed asyncio')
-
         async def foo(delay):
             await asyncio.sleep(delay)
 
@@ -463,9 +460,7 @@ class _TestBase:
 
         self.loop.set_debug(True)
 
-        if hasattr(self.loop, 'get_exception_handler'):
-            # Available since Python 3.5.2
-            self.assertIsNone(self.loop.get_exception_handler())
+        self.assertIsNone(self.loop.get_exception_handler())
         self.loop.set_exception_handler(handler)
         if hasattr(self.loop, 'get_exception_handler'):
             self.assertIs(self.loop.get_exception_handler(), handler)
@@ -583,14 +578,9 @@ class _TestBase:
         self.assertIsNone(self.loop.get_task_factory())
 
     def _compile_agen(self, src):
-        try:
-            g = {}
-            exec(src, globals(), g)
-        except SyntaxError:
-            # Python < 3.6
-            raise unittest.SkipTest()
-        else:
-            return g['waiter']
+        g = {}
+        exec(src, globals(), g)
+        return g['waiter']
 
     def test_shutdown_asyncgens_01(self):
         finalized = list()

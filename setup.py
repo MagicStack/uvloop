@@ -1,11 +1,8 @@
 import sys
 
 vi = sys.version_info
-if vi < (3, 5):
-    raise RuntimeError('uvloop requires Python 3.5 or greater')
-if vi[:2] == (3, 6):
-    if vi.releaselevel == 'beta' and vi.serial < 3:
-        raise RuntimeError('uvloop requires Python 3.5 or 3.6b3 or greater')
+if vi < (3, 7):
+    raise RuntimeError('uvloop requires Python 3.7 or greater')
 
 if sys.platform in ('win32', 'cygwin', 'cli'):
     raise RuntimeError('uvloop does not support Windows at the moment')
@@ -310,8 +307,6 @@ setup(
         'Development Status :: 5 - Production/Stable',
         'Framework :: AsyncIO',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',

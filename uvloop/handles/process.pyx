@@ -252,14 +252,7 @@ cdef class UVProcess(UVHandle):
             self.options.flags |= uv.UV_PROCESS_DETACHED
 
         if cwd is not None:
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(cwd).__fspath__
-            except AttributeError:
-                pass
-            else:
-                cwd = fspath(cwd)
+            cwd = os_fspath(cwd)
 
             if isinstance(cwd, str):
                 cwd = PyUnicode_EncodeFSDefault(cwd)
@@ -283,14 +276,7 @@ cdef class UVProcess(UVHandle):
 
         self.__args = args.copy()
         for i in range(an):
-            arg = args[i]
-            try:
-                fspath = type(arg).__fspath__
-            except AttributeError:
-                pass
-            else:
-                arg = fspath(arg)
-
+            arg = os_fspath(args[i])
             if isinstance(arg, str):
                 self.__args[i] = PyUnicode_EncodeFSDefault(arg)
             elif not isinstance(arg, bytes):

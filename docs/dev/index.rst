@@ -28,7 +28,7 @@ from the `libuv` Github repository.
 Build
 -----
 
-To build `uvloop`, you'll need ``Cython`` and Python 3.5.
+To build `uvloop`, you'll need ``Cython`` and Python 3.7.
 
 .. note::
 

@@ -14,7 +14,7 @@ uvloop
 `uvloop` is a fast, drop-in replacement of the built-in asyncio event loop.
 `uvloop` is released under the MIT license.
 
-`uvloop` and asyncio, combined with the power of async/await in Python 3.5,
+`uvloop` and asyncio, combined with the power of async/await in Python 3.7,
 makes it easier than ever to write high-performance networking code in Python.
 
 `uvloop` makes asyncio fast. In fact, it is at least 2x faster than nodejs,

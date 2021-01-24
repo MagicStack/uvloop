@@ -64,8 +64,7 @@ class _TestUDP:
         self.assertIs(server.transport, s_transport)
 
         extra = {}
-        if hasattr(socket, 'SO_REUSEPORT') and \
-                sys.version_info[:3] >= (3, 5, 1):
+        if hasattr(socket, 'SO_REUSEPORT'):
             extra['reuse_port'] = True
 
         coro = self.loop.create_datagram_endpoint(
@@ -179,21 +178,13 @@ class _TestUDP:
             assert False, 'Can not create socket.'
 
         with sock:
-            try:
-                f = self.loop.create_datagram_endpoint(
-                    lambda: MyDatagramProto(loop=self.loop), sock=sock)
-            except TypeError as ex:
-                # asyncio in 3.5.0 doesn't have the 'sock' argument
-                if 'got an unexpected keyword argument' not in ex.args[0]:
-                    raise
-            else:
-                tr, pr = self.loop.run_until_complete(f)
-                self.assertIsInstance(pr, MyDatagramProto)
-                tr.close()
-                self.loop.run_until_complete(pr.done)
+            f = self.loop.create_datagram_endpoint(
+                lambda: MyDatagramProto(loop=self.loop), sock=sock)
+            tr, pr = self.loop.run_until_complete(f)
+            self.assertIsInstance(pr, MyDatagramProto)
+            tr.close()
+            self.loop.run_until_complete(pr.done)
 
-    @unittest.skipIf(sys.version_info < (3, 5, 1),
-                     "asyncio in 3.5.0 doesn't have the 'sock' argument")
     def test_create_datagram_endpoint_sock_unix_domain(self):
 
         class Proto(asyncio.DatagramProtocol):
@@ -295,38 +286,32 @@ class _TestUDP:
         s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 
         with s1, s2:
-            try:
-                f = self.loop.create_datagram_endpoint(
-                    lambda: Proto(loop=self.loop), sock=s1)
-            except TypeError as ex:
-                # asyncio in 3.5.0 doesn't have the 'sock' argument
-                if 'got an unexpected keyword argument' not in ex.args[0]:
-                    raise
+            f = self.loop.create_datagram_endpoint(
+                lambda: Proto(loop=self.loop), sock=s1)
+            tr, pr = self.loop.run_until_complete(f)
+            self.assertIsInstance(pr, Proto)
+
+            s2.send(b'hello, socketpair')
+            addr = self.loop.run_until_complete(
+                asyncio.wait_for(peername, 1))
+            if sys.platform.startswith('linux'):
+                self.assertEqual(addr, None)
             else:
-                tr, pr = self.loop.run_until_complete(f)
-                self.assertIsInstance(pr, Proto)
+                self.assertEqual(addr, '')
+            self.assertEqual(pr.nbytes, 17)
 
-                s2.send(b'hello, socketpair')
-                addr = self.loop.run_until_complete(
-                    asyncio.wait_for(peername, 1))
-                if sys.platform.startswith('linux'):
-                    self.assertEqual(addr, None)
-                else:
-                    self.assertEqual(addr, '')
-                self.assertEqual(pr.nbytes, 17)
+            if not self.is_asyncio_loop():
+                # asyncio doesn't support sendto(xx) on UDP sockets
+                # https://git.io/Jfqbw
+                data = b'from uvloop'
+                tr.sendto(data)
+                result = self.loop.run_until_complete(asyncio.wait_for(
+                    self.loop.run_in_executor(None, s2.recv, 1024),
+                    1))
+                self.assertEqual(data, result)
 
-                if not self.is_asyncio_loop():
-                    # asyncio doesn't support sendto(xx) on UDP sockets
-                    # https://git.io/Jfqbw
-                    data = b'from uvloop'
-                    tr.sendto(data)
-                    result = self.loop.run_until_complete(asyncio.wait_for(
-                        self.loop.run_in_executor(None, s2.recv, 1024),
-                        1))
-                    self.assertEqual(data, result)
-
-                tr.close()
-                self.loop.run_until_complete(pr.done)
+            tr.close()
+            self.loop.run_until_complete(pr.done)
 
     def _skip_create_datagram_endpoint_reuse_addr(self):
         if self.implementation == 'asyncio':
@@ -335,8 +320,6 @@ class _TestUDP:
             if (3, 8, 0) <= sys.version_info < (3, 8, 1):
                 raise unittest.SkipTest()
             if (3, 7, 0) <= sys.version_info < (3, 7, 6):
-                raise unittest.SkipTest()
-            if sys.version_info < (3, 6, 10):
                 raise unittest.SkipTest()
 
     def test_create_datagram_endpoint_reuse_address_error(self):
@@ -418,8 +401,8 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
     @unittest.skipIf(
-        sys.version_info[:3] < (3, 6, 7) or sys.version_info[:3] == (3, 7, 0),
-        'bpo-27500: bug fixed in Python 3.6.7, 3.7.1 and above.',
+        sys.version_info[:3] == (3, 7, 0),
+        'bpo-27500: bug fixed in Python 3.7.1 and above.',
     )
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()
