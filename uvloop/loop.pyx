@@ -49,8 +49,6 @@ include "errors.pyx"
 
 cdef:
     int PY39 = PY_VERSION_HEX >= 0x03090000
-    int PY37 = PY_VERSION_HEX >= 0x03070000
-    int PY36 = PY_VERSION_HEX >= 0x03060000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
 
 
@@ -177,13 +175,9 @@ cdef class Loop:
 
         self._coroutine_debug_set = False
 
-        if hasattr(sys, 'get_asyncgen_hooks'):
-            # Python >= 3.6
-            # A weak set of all asynchronous generators that are
-            # being iterated by the loop.
-            self._asyncgens = weakref_WeakSet()
-        else:
-            self._asyncgens = None
+        # A weak set of all asynchronous generators that are
+        # being iterated by the loop.
+        self._asyncgens = weakref_WeakSet()
 
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
@@ -1100,39 +1094,16 @@ cdef class Loop:
         if self._coroutine_debug_set == enabled:
             return
 
-        if PY37:
-            if enabled:
-                self._coroutine_origin_tracking_saved_depth = (
-                    sys.get_coroutine_origin_tracking_depth())
-                sys.set_coroutine_origin_tracking_depth(
-                    DEBUG_STACK_DEPTH)
-            else:
-                sys.set_coroutine_origin_tracking_depth(
-                    self._coroutine_origin_tracking_saved_depth)
-
-            self._coroutine_debug_set = enabled
+        if enabled:
+            self._coroutine_origin_tracking_saved_depth = (
+                sys.get_coroutine_origin_tracking_depth())
+            sys.set_coroutine_origin_tracking_depth(
+                DEBUG_STACK_DEPTH)
         else:
-            wrapper = aio_debug_wrapper
-            current_wrapper = sys_get_coroutine_wrapper()
+            sys.set_coroutine_origin_tracking_depth(
+                self._coroutine_origin_tracking_saved_depth)
 
-            if enabled:
-                if current_wrapper not in (None, wrapper):
-                    _warn_with_source(
-                        "loop.set_debug(True): cannot set debug coroutine "
-                        "wrapper; another wrapper is already set %r" %
-                        current_wrapper, RuntimeWarning, self)
-                else:
-                    sys_set_coroutine_wrapper(wrapper)
-                    self._coroutine_debug_set = True
-            else:
-                if current_wrapper not in (None, wrapper):
-                    _warn_with_source(
-                        "loop.set_debug(False): cannot unset debug coroutine "
-                        "wrapper; another wrapper was set %r" %
-                        current_wrapper, RuntimeWarning, self)
-                else:
-                    sys_set_coroutine_wrapper(None)
-                    self._coroutine_debug_set = False
+        self._coroutine_debug_set = enabled
 
     def _get_backend_id(self):
         """This method is used by uvloop tests and is not part of the API."""
@@ -1352,16 +1323,14 @@ cdef class Loop:
             # This is how asyncio loop behaves.
             mode = uv.UV_RUN_NOWAIT
         self._set_coroutine_debug(self._debug)
-        if self._asyncgens is not None:
-            old_agen_hooks = sys.get_asyncgen_hooks()
-            sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
-                                   finalizer=self._asyncgen_finalizer_hook)
+        old_agen_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                               finalizer=self._asyncgen_finalizer_hook)
         try:
             self._run(mode)
         finally:
             self._set_coroutine_debug(False)
-            if self._asyncgens is not None:
-                sys.set_asyncgen_hooks(*old_agen_hooks)
+            sys.set_asyncgen_hooks(*old_agen_hooks)
 
     def close(self):
         """Close the event loop.
@@ -1509,11 +1478,8 @@ cdef class Loop:
         if sl > 2:
             flowinfo = sockaddr[2]
             if flowinfo < 0 or flowinfo > 0xfffff:
-                if PY37:
-                    msg = 'getnameinfo(): flowinfo must be 0-1048575.'
-                else:
-                    msg = 'getsockaddrarg: flowinfo must be 0-1048575.'
-                raise OverflowError(msg)
+                raise OverflowError(
+                    'getnameinfo(): flowinfo must be 0-1048575.')
         else:
             flowinfo = 0
 
@@ -2095,14 +2061,7 @@ cdef class Loop:
                     'path and sock can not be specified at the same time')
             orig_path = path
 
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(path).__fspath__
-            except AttributeError:
-                pass
-            else:
-                path = fspath(path)
+            path = os_fspath(path)
 
             if isinstance(path, str):
                 path = PyUnicode_EncodeFSDefault(path)
@@ -2221,14 +2180,7 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(path).__fspath__
-            except AttributeError:
-                pass
-            else:
-                path = fspath(path)
+            path = os_fspath(path)
 
             if isinstance(path, str):
                 path = PyUnicode_EncodeFSDefault(path)
@@ -2850,13 +2802,13 @@ cdef class Loop:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
-                _warn_with_source(
+                warnings_warn(
                     "!!! asyncio is trying to install its ChildWatcher for "
                     "SIGCHLD signal !!!\n\nThis is probably because a uvloop "
                     "instance is used with asyncio.set_event_loop(). "
                     "The correct way to use uvloop is to install its policy: "
                     "`asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())`"
-                    "\n\n", RuntimeWarning, self)
+                    "\n\n", RuntimeWarning, source=self)
 
                 # TODO: ideally we should always raise an error here,
                 # but that would be a backwards incompatible change,
@@ -3107,10 +3059,10 @@ cdef class Loop:
 
     def _asyncgen_firstiter_hook(self, agen):
         if self._asyncgens_shutdown_called:
-            _warn_with_source(
+            warnings_warn(
                 "asynchronous generator {!r} was scheduled after "
                 "loop.shutdown_asyncgens() call".format(agen),
-                ResourceWarning, self)
+                ResourceWarning, source=self)
 
         self._asyncgens.add(agen)
 
@@ -3119,9 +3071,7 @@ cdef class Loop:
         """Shutdown all active asynchronous generators."""
         self._asyncgens_shutdown_called = True
 
-        if self._asyncgens is None or not len(self._asyncgens):
-            # If Python version is <3.6 or we don't have any asynchronous
-            # generators alive.
+        if not len(self._asyncgens):
             return
 
         closing_agens = list(self._asyncgens)
@@ -3304,17 +3254,10 @@ cdef __install_pymem():
 
 
 cdef _set_signal_wakeup_fd(fd):
-    if PY37 and fd >= 0:
+    if fd >= 0:
         return signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
         return signal_set_wakeup_fd(fd)
-
-
-cdef _warn_with_source(msg, cls, source):
-    if PY36:
-        warnings_warn(msg, cls, source=source)
-    else:
-        warnings_warn(msg, cls)
 
 
 # Helpers for tests

@@ -15,15 +15,9 @@ cdef class Handle:
             self._source_traceback = extract_stack()
 
     cdef inline _set_context(self, object context):
-        if PY37:
-            if context is None:
-                context = Context_CopyCurrent()
-            self.context = context
-        else:
-            if context is not None:
-                raise NotImplementedError(
-                    '"context" argument requires Python 3.7')
-            self.context = None
+        if context is None:
+            context = Context_CopyCurrent()
+        self.context = context
 
     def __dealloc__(self):
         if UVLOOP_DEBUG and self.loop is not None:
@@ -52,9 +46,8 @@ cdef class Handle:
         Py_INCREF(self)
 
         try:
-            if PY37:
-                assert self.context is not None
-                Context_Enter(self.context)
+            assert self.context is not None
+            Context_Enter(self.context)
 
             if cb_type == 1:
                 callback = self.arg1
@@ -108,8 +101,7 @@ cdef class Handle:
         finally:
             context = self.context
             Py_DECREF(self)
-            if PY37:
-                Context_Exit(context)
+            Context_Exit(context)
 
     cdef _cancel(self):
         self._cancelled = 1
@@ -185,15 +177,9 @@ cdef class TimerHandle:
             self.loop._debug_cb_timer_handles_total += 1
             self.loop._debug_cb_timer_handles_count += 1
 
-        if PY37:
-            if context is None:
-                context = Context_CopyCurrent()
-            self.context = context
-        else:
-            if context is not None:
-                raise NotImplementedError(
-                    '"context" argument requires Python 3.7')
-            self.context = None
+        if context is None:
+            context = Context_CopyCurrent()
+        self.context = context
 
         if loop._debug:
             self._debug_info = (
@@ -257,9 +243,8 @@ cdef class TimerHandle:
         if self.loop._debug:
             started = time_monotonic()
         try:
-            if PY37:
-                assert self.context is not None
-                Context_Enter(self.context)
+            assert self.context is not None
+            Context_Enter(self.context)
 
             if args is not None:
                 callback(*args)
@@ -288,8 +273,7 @@ cdef class TimerHandle:
         finally:
             context = self.context
             Py_DECREF(self)
-            if PY37:
-                Context_Exit(context)
+            Context_Exit(context)
             self._clear()
 
     # Public API

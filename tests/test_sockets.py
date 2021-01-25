@@ -21,10 +21,6 @@ class _TestSockets:
         return buf
 
     def test_socket_connect_recv_send(self):
-        if self.is_asyncio_loop() and sys.version_info[:3] == (3, 5, 2):
-            # See https://github.com/python/asyncio/pull/366 for details.
-            raise unittest.SkipTest()
-
         if sys.version_info[:3] >= (3, 8, 0):
             # @asyncio.coroutine is deprecated in 3.8
             raise unittest.SkipTest()

@@ -345,9 +345,6 @@ class _TestBase:
             self.loop.run_until_complete(foo())
 
     def test_run_until_complete_loop_orphan_future_close_loop(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 6, 2):
-            raise unittest.SkipTest('unfixed asyncio')
-
         async def foo(delay):
             await asyncio.sleep(delay)
 
@@ -463,9 +460,7 @@ class _TestBase:
 
         self.loop.set_debug(True)
 
-        if hasattr(self.loop, 'get_exception_handler'):
-            # Available since Python 3.5.2
-            self.assertIsNone(self.loop.get_exception_handler())
+        self.assertIsNone(self.loop.get_exception_handler())
         self.loop.set_exception_handler(handler)
         if hasattr(self.loop, 'get_exception_handler'):
             self.assertIs(self.loop.get_exception_handler(), handler)
@@ -582,31 +577,19 @@ class _TestBase:
         self.loop.set_task_factory(None)
         self.assertIsNone(self.loop.get_task_factory())
 
-    def _compile_agen(self, src):
-        try:
-            g = {}
-            exec(src, globals(), g)
-        except SyntaxError:
-            # Python < 3.6
-            raise unittest.SkipTest()
-        else:
-            return g['waiter']
-
     def test_shutdown_asyncgens_01(self):
         finalized = list()
 
         if not hasattr(self.loop, 'shutdown_asyncgens'):
             raise unittest.SkipTest()
 
-        waiter = self._compile_agen(
-            '''async def waiter(timeout, finalized):
-                try:
-                    await asyncio.sleep(timeout)
-                    yield 1
-                finally:
-                    await asyncio.sleep(0)
-                    finalized.append(1)
-            ''')
+        async def waiter(timeout, finalized):
+            try:
+                await asyncio.sleep(timeout)
+                yield 1
+            finally:
+                await asyncio.sleep(0)
+                finalized.append(1)
 
         async def wait():
             async for _ in waiter(1, finalized):
@@ -641,13 +624,12 @@ class _TestBase:
                 self.assertIn('asyncgen', context)
                 logged += 1
 
-        waiter = self._compile_agen('''async def waiter(timeout):
+        async def waiter(timeout):
             try:
                 await asyncio.sleep(timeout)
                 yield 1
             finally:
                 1 / 0
-        ''')
 
         async def wait():
             async for _ in waiter(1):
@@ -669,10 +651,9 @@ class _TestBase:
         if not hasattr(self.loop, 'shutdown_asyncgens'):
             raise unittest.SkipTest()
 
-        waiter = self._compile_agen('''async def waiter():
+        async def waiter():
             yield 1
             yield 2
-        ''')
 
         async def foo():
             # We specifically want to hit _asyncgen_finalizer_hook

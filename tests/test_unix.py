@@ -66,8 +66,7 @@ class _TestUnix:
                 try:
                     srv_socks = srv.sockets
                     self.assertTrue(srv_socks)
-                    if self.has_start_serving():
-                        self.assertTrue(srv.is_serving())
+                    self.assertTrue(srv.is_serving())
 
                     tasks = []
                     for _ in range(TOTAL_CNT):
@@ -83,8 +82,7 @@ class _TestUnix:
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
 
-                    if self.has_start_serving():
-                        self.assertFalse(srv.is_serving())
+                    self.assertFalse(srv.is_serving())
 
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
@@ -103,8 +101,7 @@ class _TestUnix:
                 try:
                     srv_socks = srv.sockets
                     self.assertTrue(srv_socks)
-                    if self.has_start_serving():
-                        self.assertTrue(srv.is_serving())
+                    self.assertTrue(srv.is_serving())
 
                     tasks = []
                     for _ in range(TOTAL_CNT):
@@ -120,8 +117,7 @@ class _TestUnix:
                     for srv_sock in srv_socks:
                         self.assertEqual(srv_sock.fileno(), -1)
 
-                    if self.has_start_serving():
-                        self.assertFalse(srv.is_serving())
+                    self.assertFalse(srv.is_serving())
 
                 # asyncio doesn't cleanup the sock file
                 self.assertTrue(os.path.exists(sock_name))
@@ -160,9 +156,6 @@ class _TestUnix:
                     self.loop.create_unix_server(object, sock_name))
 
     def test_create_unix_server_3(self):
-        if self.implementation == 'asyncio' and not self.PY37:
-            raise unittest.SkipTest()
-
         with self.assertRaisesRegex(
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
@@ -371,29 +364,11 @@ class _TestUnix:
                       (BrokenPipeError, ConnectionResetError))
 
     def test_create_unix_connection_6(self):
-        if self.implementation == 'asyncio' and not self.PY37:
-            raise unittest.SkipTest()
-
         with self.assertRaisesRegex(
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_unix_connection(
                     lambda: None, path='/tmp/a', ssl_handshake_timeout=10))
-
-    @unittest.skipUnless(sys.version_info < (3, 7),
-                         'Python version must be < 3.7')
-    def test_transport_unclosed_warning(self):
-        async def test(sock):
-            return await self.loop.create_unix_connection(
-                asyncio.Protocol,
-                None,
-                sock=sock)
-
-        with self.assertWarnsRegex(ResourceWarning, 'unclosed'):
-            s1, s2 = socket.socketpair(socket.AF_UNIX)
-            with s1, s2:
-                self.loop.run_until_complete(test(s1))
-            self.loop.close()
 
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
@@ -592,9 +567,7 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
-            extras = {}
-            if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+            extras = dict(ssl_handshake_timeout=10.0)
 
             with tempfile.TemporaryDirectory() as td:
                 sock_name = os.path.join(td, 'sock')
@@ -655,9 +628,7 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
-            extras = {}
-            if self.implementation != 'asyncio' or self.PY37:
-                extras = dict(ssl_handshake_timeout=10.0)
+            extras = dict(ssl_handshake_timeout=10.0)
 
             reader, writer = await asyncio.open_unix_connection(
                 addr,

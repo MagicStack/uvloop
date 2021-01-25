@@ -1,19 +1,14 @@
 import asyncio
+import contextvars
 import decimal
 import random
-import sys
-import unittest
 import weakref
 
 from uvloop import _testbase as tb
 
 
-PY37 = sys.version_info >= (3, 7, 0)
-
-
 class _ContextBaseTests:
 
-    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_task_decimal_context(self):
         async def fractions(t, precision, x, y):
             with decimal.localcontext() as ctx:
@@ -37,9 +32,7 @@ class _ContextBaseTests:
         self.assertEqual(str(r2[0]), '0.333333')
         self.assertEqual(str(r2[1]), '0.111111')
 
-    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_task_context_1(self):
-        import contextvars
         cvar = contextvars.ContextVar('cvar', default='nope')
 
         async def sub():
@@ -58,9 +51,7 @@ class _ContextBaseTests:
         task = self.loop.create_task(main())
         self.loop.run_until_complete(task)
 
-    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_task_context_2(self):
-        import contextvars
         cvar = contextvars.ContextVar('cvar', default='nope')
 
         async def main():
@@ -90,9 +81,7 @@ class _ContextBaseTests:
 
         self.assertEqual(cvar.get(), 'nope')
 
-    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_task_context_3(self):
-        import contextvars
         cvar = contextvars.ContextVar('cvar', default=-1)
 
         # Run 100 Tasks in parallel, each modifying cvar.
@@ -115,9 +104,7 @@ class _ContextBaseTests:
 
         self.assertEqual(cvar.get(), -1)
 
-    @unittest.skipUnless(PY37, 'requires Python 3.7')
     def test_task_context_4(self):
-        import contextvars
         cvar = contextvars.ContextVar('cvar', default='nope')
 
         class TrackMe:
@@ -141,23 +128,7 @@ class _ContextBaseTests:
 
 
 class Test_UV_Context(_ContextBaseTests, tb.UVTestCase):
-
-    @unittest.skipIf(PY37, 'requires Python <3.6')
-    def test_context_arg(self):
-        def cb():
-            pass
-
-        with self.assertRaisesRegex(NotImplementedError,
-                                    'requires Python 3.7'):
-            self.loop.call_soon(cb, context=1)
-
-        with self.assertRaisesRegex(NotImplementedError,
-                                    'requires Python 3.7'):
-            self.loop.call_soon_threadsafe(cb, context=1)
-
-        with self.assertRaisesRegex(NotImplementedError,
-                                    'requires Python 3.7'):
-            self.loop.call_later(0.1, cb, context=1)
+    pass
 
 
 class Test_AIO_Context(_ContextBaseTests, tb.AIOTestCase):
