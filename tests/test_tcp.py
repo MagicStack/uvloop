@@ -2608,10 +2608,6 @@ class _TestSSL(tb.SSLTestCase):
             self.loop.run_until_complete(client(srv.addr))
 
     def test_remote_shutdown_receives_trailing_data(self):
-        if self.implementation == 'asyncio':
-            # this is an issue in asyncio
-            raise unittest.SkipTest()
-
         CHUNK = 1024 * 16
         SIZE = 8
         count = 0
@@ -2676,13 +2672,18 @@ class _TestSSL(tb.SSLTestCase):
                         data_len += chunk
                     except ssl.SSLWantReadError:
                         incoming.write(sock.recv(16384))
+                        if not incoming.pending:
+                            # EOF received
+                            break
                     except ssl.SSLZeroReturnError:
                         break
 
             self.assertEqual(data_len, CHUNK * count)
 
-            # verify that close_notify is received
-            sslobj.unwrap()
+            if self.implementation == 'uvloop':
+                # Verify that close_notify is received. asyncio is currently
+                # not guaranteed to send close_notify before dropping off
+                sslobj.unwrap()
 
             sock.close()
 
@@ -2708,11 +2709,12 @@ class _TestSSL(tb.SSLTestCase):
                             await asyncio.wait_for(
                                 asyncio.ensure_future(writer.drain()), 0.5)
                     except asyncio.TimeoutError:
-                        # fill write backlog in a hacky way
-                        for _ in range(SIZE):
-                            writer.transport._test__append_write_backlog(
-                                b'x' * CHUNK)
-                            count += 1
+                        # fill write backlog in a hacky way for uvloop
+                        if self.implementation == 'uvloop':
+                            for _ in range(SIZE):
+                                writer.transport._test__append_write_backlog(
+                                    b'x' * CHUNK)
+                                count += 1
 
                 data = await reader.read()
                 self.assertEqual(data, b'')
@@ -2929,7 +2931,7 @@ class _TestSSL(tb.SSLTestCase):
                 except ssl.SSLWantReadError:
                     if outgoing.pending:
                         sock.send(outgoing.read())
-                    # incoming.write(sock.recv(16384))
+                    incoming.write(sock.recv(16384))
                 else:
                     if outgoing.pending:
                         sock.send(outgoing.read())
@@ -2963,11 +2965,93 @@ class _TestSSL(tb.SSLTestCase):
             tr.pause_reading()
             tr.close()
 
-            await eof_recvd
-            await conn_lost
+            await asyncio.wait_for(eof_recvd, 10)
+            await asyncio.wait_for(conn_lost, 10)
 
         with self.tcp_server(server) as srv:
             loop.run_until_complete(client(srv.addr))
+
+    def test_bpo_39951_discard_trailing_data(self):
+        sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
+        client_sslctx = self._create_client_ssl_context()
+        future = None
+        close_notify = threading.Lock()
+
+        def server(sock):
+            incoming = ssl.MemoryBIO()
+            outgoing = ssl.MemoryBIO()
+            sslobj = sslctx.wrap_bio(incoming, outgoing, server_side=True)
+
+            while True:
+                try:
+                    sslobj.do_handshake()
+                except ssl.SSLWantReadError:
+                    if outgoing.pending:
+                        sock.send(outgoing.read())
+                    incoming.write(sock.recv(16384))
+                else:
+                    if outgoing.pending:
+                        sock.send(outgoing.read())
+                    break
+
+            while True:
+                try:
+                    data = sslobj.read(4)
+                except ssl.SSLWantReadError:
+                    incoming.write(sock.recv(16384))
+                else:
+                    break
+
+            self.assertEqual(data, b'ping')
+            sslobj.write(b'pong')
+            sock.send(outgoing.read())
+
+            with close_notify:
+                sslobj.write(b'trailing')
+                sock.send(outgoing.read())
+                time.sleep(0.5)  # allow time for the client to receive
+
+            incoming.write(sock.recv(16384))
+            sslobj.unwrap()
+            sock.send(outgoing.read())
+            sock.close()
+
+        async def client(addr):
+            nonlocal future
+            future = self.loop.create_future()
+
+            with close_notify:
+                reader, writer = await asyncio.open_connection(
+                    *addr,
+                    ssl=client_sslctx,
+                    server_hostname='')
+                writer.write(b'ping')
+                data = await reader.readexactly(4)
+                self.assertEqual(data, b'pong')
+
+                writer.close()
+
+            try:
+                await self.wait_closed(writer)
+            except ssl.SSLError as e:
+                if self.implementation == 'asyncio' and \
+                        'application data after close notify' in str(e):
+                    raise unittest.SkipTest('bpo-39951')
+                raise
+            await future
+
+        def run(meth):
+            def wrapper(sock):
+                try:
+                    meth(sock)
+                except Exception as ex:
+                    self.loop.call_soon_threadsafe(future.set_exception, ex)
+                else:
+                    self.loop.call_soon_threadsafe(future.set_result, None)
+            return wrapper
+
+        with self.tcp_server(run(server)) as srv:
+            self.loop.run_until_complete(client(srv.addr))
 
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):
