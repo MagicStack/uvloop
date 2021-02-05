@@ -17,7 +17,7 @@ cdef class _SSLProtocolTransport:
     # TODO:
     # _sendfile_compatible = constants._SendfileMode.FALLBACK
 
-    def __cinit__(self, loop, ssl_protocol):
+    def __cinit__(self, Loop loop, ssl_protocol):
         self._loop = loop
         # SSLProtocol instance
         self._ssl_protocol = ssl_protocol
@@ -278,7 +278,6 @@ cdef class SSLProtocol:
         self._incoming_high_water = 0
         self._incoming_low_water = 0
         self._set_read_buffer_limits()
-        self._eof_received = False
 
         self._app_writing_paused = False
         self._outgoing_high_water = 0
@@ -392,7 +391,6 @@ cdef class SSLProtocol:
         will close itself.  If it returns a true value, closing the
         transport is up to the protocol.
         """
-        self._eof_received = True
         try:
             if self._loop.get_debug():
                 aio_logger.debug("%r received EOF", self)
@@ -400,20 +398,17 @@ cdef class SSLProtocol:
             if self._state == DO_HANDSHAKE:
                 self._on_handshake_complete(ConnectionResetError)
 
-            elif self._state == WRAPPED:
-                self._set_state(FLUSHING)
-                if self._app_reading_paused:
-                    return True
-                else:
-                    self._do_flush()
-
-            elif self._state == FLUSHING:
-                self._do_write()
+            elif self._state == WRAPPED or self._state == FLUSHING:
+                # We treat a low-level EOF as a critical situation similar to a
+                # broken connection - just send whatever is in the buffer and
+                # close. No application level eof_received() is called -
+                # because we don't want the user to think that this is a
+                # graceful shutdown triggered by SSL "close_notify".
                 self._set_state(SHUTDOWN)
-                self._do_shutdown()
+                self._on_shutdown_complete(None)
 
             elif self._state == SHUTDOWN:
-                self._do_shutdown()
+                self._on_shutdown_complete(None)
 
         except Exception:
             self._transport.close()
@@ -442,6 +437,9 @@ cdef class SSLProtocol:
             allowed = True
 
         elif self._state == WRAPPED and new_state == FLUSHING:
+            allowed = True
+
+        elif self._state == WRAPPED and new_state == SHUTDOWN:
             allowed = True
 
         elif self._state == FLUSHING and new_state == SHUTDOWN:
@@ -505,7 +503,7 @@ cdef class SSLProtocol:
     cdef _on_handshake_complete(self, handshake_exc):
         if self._handshake_timeout_handle is not None:
             self._handshake_timeout_handle.cancel()
-            self._shutdown_timeout_handle = None
+            self._handshake_timeout_handle = None
 
         sslobj = self._sslobj
         try:
@@ -561,23 +559,60 @@ cdef class SSLProtocol:
             self._transport._force_close(
                 aio_TimeoutError('SSL shutdown timed out'))
 
+    cdef _do_read_into_void(self):
+        """Consume and discard incoming application data.
+
+        If close_notify is received for the first time, call eof_received.
+        """
+        cdef:
+            bint close_notify = False
+        try:
+            while True:
+                if not self._sslobj_read(SSL_READ_MAX_SIZE):
+                    close_notify = True
+                    break
+        except ssl_SSLAgainErrors as exc:
+            pass
+        except ssl_SSLZeroReturnError:
+            close_notify = True
+        if close_notify:
+            self._call_eof_received()
+
     cdef _do_flush(self):
-        self._do_read()
-        self._set_state(SHUTDOWN)
-        self._do_shutdown()
+        """Flush the write backlog, discarding new data received.
+
+        We don't send close_notify in FLUSHING because we still want to send
+        the remaining data over SSL, even if we received a close_notify. Also,
+        no application-level resume_writing() or pause_writing() will be called
+        in FLUSHING, as we could fully manage the flow control internally.
+        """
+        try:
+            self._do_read_into_void()
+            self._do_write()
+            self._process_outgoing()
+            self._control_ssl_reading()
+        except Exception as ex:
+            self._on_shutdown_complete(ex)
+        else:
+            if not self._get_write_buffer_size():
+                self._set_state(SHUTDOWN)
+                self._do_shutdown()
 
     cdef _do_shutdown(self):
+        """Send close_notify and wait for the same from the peer."""
         try:
-            if not self._eof_received:
+            # we must skip all application data (if any) before unwrap
+            self._do_read_into_void()
+            try:
                 self._sslobj.unwrap()
-        except ssl_SSLAgainErrors as exc:
-            self._process_outgoing()
-        except ssl_SSLError as exc:
-            self._on_shutdown_complete(exc)
-        else:
-            self._process_outgoing()
-            self._call_eof_received()
-            self._on_shutdown_complete(None)
+            except ssl_SSLAgainErrors as exc:
+                self._process_outgoing()
+            else:
+                self._process_outgoing()
+                if not self._get_write_buffer_size():
+                    self._on_shutdown_complete(None)
+        except Exception as ex:
+            self._on_shutdown_complete(ex)
 
     cdef _on_shutdown_complete(self, shutdown_exc):
         if self._shutdown_timeout_handle is not None:
@@ -585,9 +620,9 @@ cdef class SSLProtocol:
             self._shutdown_timeout_handle = None
 
         if shutdown_exc:
-            self._fatal_error(shutdown_exc)
+            self._fatal_error(shutdown_exc, 'Error occurred during shutdown')
         else:
-            self._loop.call_soon(self._transport.close)
+            self._transport.close()
 
     cdef _abort(self, exc):
         self._set_state(UNWRAPPED)
@@ -610,11 +645,14 @@ cdef class SSLProtocol:
         try:
             if self._state == WRAPPED:
                 self._do_write()
+                self._process_outgoing()
+                self._control_app_writing()
 
         except Exception as ex:
             self._fatal_error(ex, 'Fatal error on SSL protocol')
 
     cdef _do_write(self):
+        """Do SSL write, consumes write backlog and fills outgoing BIO."""
         cdef size_t data_len, count
         try:
             while self._write_backlog:
@@ -631,19 +669,18 @@ cdef class SSLProtocol:
                     self._write_buffer_size -= data_len
         except ssl_SSLAgainErrors as exc:
             pass
-        self._process_outgoing()
 
     cdef _process_outgoing(self):
+        """Send bytes from the outgoing BIO."""
         if not self._ssl_writing_paused:
             data = self._outgoing_read()
             if len(data):
                 self._transport.write(data)
-        self._control_app_writing()
 
     # Incoming flow
 
     cdef _do_read(self):
-        if self._state != WRAPPED and self._state != FLUSHING:
+        if self._state != WRAPPED:
             return
         try:
             if not self._app_reading_paused:
@@ -653,8 +690,8 @@ cdef class SSLProtocol:
                     self._do_read__copied()
                 if self._write_backlog:
                     self._do_write()
-                else:
-                    self._process_outgoing()
+                self._process_outgoing()
+                self._control_app_writing()
             self._control_ssl_reading()
         except Exception as ex:
             self._fatal_error(ex, 'Fatal error on SSL protocol')
@@ -689,7 +726,11 @@ cdef class SSLProtocol:
                     else:
                         break
                 else:
-                    self._loop.call_soon(lambda: self._do_read())
+                    self._loop._call_soon_handle(
+                        new_MethodHandle(self._loop,
+                                         "SSLProtocol._do_read",
+                                         <method_t>self._do_read,
+                                         self))
         except ssl_SSLAgainErrors as exc:
             pass
         finally:
@@ -734,17 +775,18 @@ cdef class SSLProtocol:
             self._start_shutdown()
 
     cdef _call_eof_received(self):
-        try:
-            if self._app_state == STATE_CON_MADE:
-                self._app_state = STATE_EOF
+        if self._app_state == STATE_CON_MADE:
+            self._app_state = STATE_EOF
+            try:
                 keep_open = self._app_protocol.eof_received()
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as ex:
+                self._fatal_error(ex, 'Error calling eof_received()')
+            else:
                 if keep_open:
                     aio_logger.warning('returning true from eof_received() '
                                        'has no effect when using ssl')
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except BaseException as ex:
-            self._fatal_error(ex, 'Error calling eof_received()')
 
     # Flow control for writes from APP socket
 
@@ -794,15 +836,12 @@ cdef class SSLProtocol:
     cdef _resume_reading(self):
         if self._app_reading_paused:
             self._app_reading_paused = False
-
-            def resume():
-                if self._state == WRAPPED:
-                    self._do_read()
-                elif self._state == FLUSHING:
-                    self._do_flush()
-                elif self._state == SHUTDOWN:
-                    self._do_shutdown()
-            self._loop.call_soon(resume)
+            if self._state == WRAPPED:
+                self._loop._call_soon_handle(
+                    new_MethodHandle(self._loop,
+                                     "SSLProtocol._do_read",
+                                     <method_t>self._do_read,
+                                     self))
 
     # Flow control for reads from SSL socket
 
@@ -839,7 +878,16 @@ cdef class SSLProtocol:
         """
         assert self._ssl_writing_paused
         self._ssl_writing_paused = False
-        self._process_outgoing()
+
+        if self._state == WRAPPED:
+            self._process_outgoing()
+            self._control_app_writing()
+
+        elif self._state == FLUSHING:
+            self._do_flush()
+
+        elif self._state == SHUTDOWN:
+            self._do_shutdown()
 
     cdef _fatal_error(self, exc, message='Fatal error on transport'):
         if self._transport:
