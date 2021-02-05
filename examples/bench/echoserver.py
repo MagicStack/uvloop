@@ -95,7 +95,7 @@ async def print_debug(loop):
     while True:
         print(chr(27) + "[2J")  # clear screen
         loop.print_debug_info()
-        await asyncio.sleep(0.5, loop=loop)
+        await asyncio.sleep(0.5)
 
 
 if __name__ == '__main__':
@@ -168,11 +168,11 @@ if __name__ == '__main__':
         print('using asyncio/streams')
         if unix:
             coro = asyncio.start_unix_server(echo_client_streams,
-                                             addr, loop=loop,
+                                             addr,
                                              ssl=server_context)
         else:
             coro = asyncio.start_server(echo_client_streams,
-                                        *addr, loop=loop,
+                                        *addr,
                                         ssl=server_context)
         srv = loop.run_until_complete(coro)
     elif args.proto:
