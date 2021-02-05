@@ -399,9 +399,9 @@ cdef class SSLProtocol:
                 self._on_handshake_complete(ConnectionResetError)
 
             elif self._state == WRAPPED or self._state == FLUSHING:
-                # we treat low-level EOF as a critical situation similar as a
-                # broken connection - just send whatever in the buffer and
-                # close up. No application level eof_received() is called -
+                # We treat a low-level EOF as a critical situation similar to a
+                # broken connection - just send whatever is in the buffer and
+                # close. No application level eof_received() is called -
                 # because we don't want the user to think that this is a
                 # graceful shutdown triggered by SSL "close_notify".
                 self._set_state(SHUTDOWN)
