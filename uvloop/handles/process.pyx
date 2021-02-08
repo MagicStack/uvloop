@@ -452,7 +452,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[0] = self._file_redirect_stdio(_stdin)
         else:
-            io[0] = self._file_redirect_stdio(sys.stdin.fileno())
+            io[0] = self._file_redirect_stdio(0)
 
         if _stdout is not None:
             if _stdout == subprocess_PIPE:
@@ -480,7 +480,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[1] = self._file_redirect_stdio(_stdout)
         else:
-            io[1] = self._file_redirect_stdio(sys.stdout.fileno())
+            io[1] = self._file_redirect_stdio(1)
 
         if _stderr is not None:
             if _stderr == subprocess_PIPE:
@@ -508,7 +508,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[2] = self._file_redirect_stdio(_stderr)
         else:
-            io[2] = self._file_redirect_stdio(sys.stderr.fileno())
+            io[2] = self._file_redirect_stdio(2)
 
         assert len(io) == 3
         for idx in range(3):
