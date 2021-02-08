@@ -1059,7 +1059,8 @@ cdef class Loop:
         return fut
 
     cdef _sock_connect_cb(self, fut, sock, address):
-        if fut.cancelled():
+        if fut.done():
+            # Refs #378: this may be called multiple times.
             return
 
         try:
