@@ -15,6 +15,20 @@ import psutil
 from uvloop import _testbase as tb
 
 
+class _RedirectFD(contextlib.AbstractContextManager):
+    def __init__(self, old_file, new_file):
+        self._old_fd = old_file.fileno()
+        self._old_fd_save = os.dup(self._old_fd)
+        self._new_fd = new_file.fileno()
+
+    def __enter__(self):
+        os.dup2(self._new_fd, self._old_fd)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        os.dup2(self._old_fd_save, self._old_fd)
+        os.close(self._old_fd_save)
+
+
 class _TestProcess:
     def get_num_fds(self):
         return psutil.Process(os.getpid()).num_fds()
@@ -407,6 +421,36 @@ print("OK")
 
         self.loop.run_until_complete(main())
 
+    def test_process_streams_redirect(self):
+        async def test():
+            prog = bR'''
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
+            '''
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', prog)
+
+            out, err = await proc.communicate()
+            self.assertIsNone(out)
+            self.assertIsNone(err)
+
+        with tempfile.NamedTemporaryFile('w') as stdout:
+            with tempfile.NamedTemporaryFile('w') as stderr:
+                with _RedirectFD(sys.stdout, stdout):
+                    with _RedirectFD(sys.stderr, stderr):
+                        self.loop.run_until_complete(test())
+
+                stdout.flush()
+                stderr.flush()
+
+                with open(stdout.name, 'rb') as so:
+                    self.assertEqual(so.read(), b'out\n')
+
+                with open(stderr.name, 'rb') as se:
+                    self.assertEqual(se.read(), b'err\n')
+
 
 class _AsyncioTests:
 
@@ -752,38 +796,7 @@ print(n)'''
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
-
-    def test_process_streams_redirect(self):
-        # This won't work for asyncio implementation of subprocess
-
-        async def test():
-            prog = bR'''
-import sys
-print('out', flush=True)
-print('err', file=sys.stderr, flush=True)
-            '''
-
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-W', b'ignore', b'-c', prog)
-
-            out, err = await proc.communicate()
-            self.assertIsNone(out)
-            self.assertIsNone(err)
-
-        with tempfile.NamedTemporaryFile('w') as stdout:
-            with tempfile.NamedTemporaryFile('w') as stderr:
-                with contextlib.redirect_stdout(stdout):
-                    with contextlib.redirect_stderr(stderr):
-                        self.loop.run_until_complete(test())
-
-                stdout.flush()
-                stderr.flush()
-
-                with open(stdout.name, 'rb') as so:
-                    self.assertEqual(so.read(), b'out\n')
-
-                with open(stderr.name, 'rb') as se:
-                    self.assertEqual(se.read(), b'err\n')
+    pass
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
