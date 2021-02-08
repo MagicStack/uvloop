@@ -975,7 +975,7 @@ cdef class Loop:
 
         if UVLOOP_DEBUG:
             if fut.cancelled():
-                # Shouldn't happen with _SyncSocketReaderFuture.
+                # Shouldn't happen with _SyncSocketWriterFuture.
                 raise RuntimeError(
                     f'_sock_sendall is called on a cancelled Future')
 
@@ -1044,9 +1044,7 @@ cdef class Loop:
         else:
             return
 
-        fut = self._new_future()
-        fut.add_done_callback(lambda fut: self._remove_writer(sock))
-
+        fut = _SyncSocketWriterFuture(sock, self)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_connect",
@@ -1059,8 +1057,16 @@ cdef class Loop:
         return fut
 
     cdef _sock_connect_cb(self, fut, sock, address):
-        if fut.cancelled():
-            return
+        if UVLOOP_DEBUG:
+            if fut.cancelled():
+                # Shouldn't happen with _SyncSocketWriterFuture.
+                raise RuntimeError(
+                    f'_sock_connect_cb is called on a cancelled Future')
+
+            if not self._has_writer(sock):
+                raise RuntimeError(
+                    f'socket {sock!r} does not have a writer '
+                    f'in the _sock_connect_cb callback')
 
         try:
             err = sock.getsockopt(uv.SOL_SOCKET, uv.SO_ERROR)
@@ -1074,8 +1080,10 @@ cdef class Loop:
             raise
         except BaseException as exc:
             fut.set_exception(exc)
+            self._remove_writer(sock)
         else:
             fut.set_result(None)
+            self._remove_writer(sock)
 
     cdef _sock_set_reuseport(self, int fd):
         cdef:
