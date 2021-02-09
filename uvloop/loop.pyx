@@ -975,7 +975,7 @@ cdef class Loop:
 
         if UVLOOP_DEBUG:
             if fut.cancelled():
-                # Shouldn't happen with _SyncSocketReaderFuture.
+                # Shouldn't happen with _SyncSocketWriterFuture.
                 raise RuntimeError(
                     f'_sock_sendall is called on a cancelled Future')
 
