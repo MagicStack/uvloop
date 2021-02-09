@@ -316,7 +316,6 @@ setup(
         'Intended Audience :: Developers',
     ],
     include_package_data=True,
-    test_suite='tests.suite',
     extras_require=EXTRA_DEPENDENCIES,
     setup_requires=setup_requires
 )

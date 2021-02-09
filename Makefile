@@ -47,8 +47,8 @@ docs:
 
 
 test:
-	PYTHONASYNCIODEBUG=1 $(PYTHON) setup.py test
-	$(PYTHON) setup.py test
+	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest -v tests.suite
+	$(PYTHON) -m unittest -v tests.suite
 
 
 testinstalled:
