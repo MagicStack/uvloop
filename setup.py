@@ -33,7 +33,7 @@ TEST_DEPENDENCIES = [
     'psutil',
     'pycodestyle~=2.6.0',
     'pyOpenSSL~=19.0.0',
-    'mypy~=0.800',
+    'mypy>=0.800',
 ]
 
 # Dependencies required to build documentation.

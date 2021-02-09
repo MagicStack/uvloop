@@ -8,7 +8,7 @@ def find_uvloop_root():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-class TestFlake8(unittest.TestCase):
+class TestSourceCode(unittest.TestCase):
 
     def test_flake8(self):
         edgepath = find_uvloop_root()
