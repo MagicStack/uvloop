@@ -29,10 +29,11 @@ TEST_DEPENDENCIES = [
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
     'aiohttp',
-    'flake8~=3.7.9',
+    'flake8~=3.8.4',
     'psutil',
-    'pycodestyle~=2.5.0',
-    'pyOpenSSL~=19.0.0'
+    'pycodestyle~=2.6.0',
+    'pyOpenSSL~=19.0.0',
+    'mypy>=0.800',
 ]
 
 # Dependencies required to build documentation.

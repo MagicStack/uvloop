@@ -32,3 +32,4 @@ uvloop/loop.*.pyd
 /.mypy_cache/
 /.vscode
 /.eggs
+/.venv*
