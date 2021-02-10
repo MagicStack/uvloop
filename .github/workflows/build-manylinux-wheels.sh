@@ -10,6 +10,9 @@ if [ "${PY_MAJOR}" -lt "4" -a "${PY_MINOR}" -lt "8" ]; then
     ML_PYTHON_VERSION+="m"
 fi
 
+# Temporary workaround for https://github.com/actions/runner/issues/781
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
+
 # Compile wheels
 PYTHON="/opt/python/${ML_PYTHON_VERSION}/bin/python"
 PIP="/opt/python/${ML_PYTHON_VERSION}/bin/pip"
