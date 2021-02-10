@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
-    :target: https://travis-ci.org/MagicStack/uvloop
+.. image:: https://img.shields.io/github/workflow/status/MagicStack/uvloop/Tests
+    :target: https://github.com/MagicStack/uvloop/actions?query=workflow%3ATests+branch%3Amaster
 
 .. image:: https://img.shields.io/pypi/v/uvloop.svg
     :target: https://pypi.python.org/pypi/uvloop
