@@ -5,12 +5,12 @@ import itertools
 import random
 import socket
 import ssl
+import sys
 import tempfile
 import unittest
 import weakref
 
 from uvloop import _testbase as tb
-from tests.test_process import _AsyncioTests
 
 
 class _BaseProtocol(asyncio.BaseProtocol):
@@ -683,8 +683,11 @@ class _ContextBaseTests(tb.SSLTestCase):
         async def test():
             self.assertEqual(cvar.get(), 'outer')
             cvar.set('inner')
-            await self.loop.subprocess_exec(lambda: proto,
-                                            *_AsyncioTests.PROGRAM_CAT)
+            await self.loop.subprocess_exec(
+                lambda: proto, sys.executable, b'-c',
+                b';'.join((b'import sys',
+                           b'data = sys.stdin.buffer.read()',
+                           b'sys.stdout.buffer.write(data)')))
 
             try:
                 inner = await proto.connection_made_fut
