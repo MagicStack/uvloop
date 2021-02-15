@@ -794,7 +794,9 @@ cdef class SSLProtocol:
                     # inside the upstream callbacks like buffer_updated()
                     keep_open = self._app_protocol.eof_received()
                 else:
-                    keep_open = context.run(self._app_protocol.eof_received)
+                    keep_open = run_in_context(
+                        context, self._app_protocol.eof_received,
+                    )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as ex:
@@ -817,7 +819,7 @@ cdef class SSLProtocol:
                     # inside the upstream callbacks like buffer_updated()
                     self._app_protocol.pause_writing()
                 else:
-                    context.run(self._app_protocol.pause_writing)
+                    run_in_context(context, self._app_protocol.pause_writing)
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
@@ -836,7 +838,7 @@ cdef class SSLProtocol:
                     # inside the upstream callbacks like resume_writing()
                     self._app_protocol.resume_writing()
                 else:
-                    context.run(self._app_protocol.resume_writing)
+                    run_in_context(context, self._app_protocol.resume_writing)
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
