@@ -66,7 +66,7 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline _on_listen(self):
         cdef UVStream client
 
-        protocol = self.context.run(self.protocol_factory)
+        protocol = run_in_context(self.context, self.protocol_factory)
 
         if self.ssl is None:
             client = self._make_new_transport(protocol, None, self.context)

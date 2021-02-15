@@ -89,6 +89,34 @@ cdef inline socket_dec_io_ref(sock):
         sock._decref_socketios()
 
 
+cdef inline run_in_context(context, method):
+    # This method is internally used to workaround a reference issue that in
+    # certain circumstances, inlined context.run() will not hold a reference to
+    # the given method instance, which - if deallocated - will cause segault.
+    # See also: edgedb/edgedb#2222
+    Py_INCREF(method)
+    try:
+        return context.run(method)
+    finally:
+        Py_DECREF(method)
+
+
+cdef inline run_in_context1(context, method, arg):
+    Py_INCREF(method)
+    try:
+        return context.run(method, arg)
+    finally:
+        Py_DECREF(method)
+
+
+cdef inline run_in_context2(context, method, arg1, arg2):
+    Py_INCREF(method)
+    try:
+        return context.run(method, arg1, arg2)
+    finally:
+        Py_DECREF(method)
+
+
 # Used for deprecation and removal of `loop.create_datagram_endpoint()`'s
 # *reuse_address* parameter
 _unset = object()

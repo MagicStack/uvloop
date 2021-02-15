@@ -70,7 +70,9 @@ cdef class UVBaseTransport(UVSocketHandle):
             try:
                 # _maybe_pause_protocol() is always triggered from user-calls,
                 # so we must copy the context to avoid entering context twice
-                self.context.copy().run(self._protocol.pause_writing)
+                run_in_context(
+                    self.context.copy(), self._protocol.pause_writing,
+                )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
@@ -91,7 +93,9 @@ cdef class UVBaseTransport(UVSocketHandle):
                 # We're copying the context to avoid entering context twice,
                 # even though it's not always necessary to copy - it's easier
                 # to copy here than passing down a copied context.
-                self.context.copy().run(self._protocol.resume_writing)
+                run_in_context(
+                    self.context.copy(), self._protocol.resume_writing,
+                )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
