@@ -257,16 +257,18 @@ cdef class UDPTransport(UVBaseTransport):
 
     cdef _on_receive(self, bytes data, object exc, object addr):
         if exc is None:
-            self.context.run(self._protocol.datagram_received, data, addr)
+            run_in_context2(
+                self.context, self._protocol.datagram_received, data, addr,
+            )
         else:
-            self.context.run(self._protocol.error_received, exc)
+            run_in_context1(self.context, self._protocol.error_received, exc)
 
     cdef _on_sent(self, object exc, object context=None):
         if exc is not None:
             if isinstance(exc, OSError):
                 if context is None:
                     context = self.context
-                context.run(self._protocol.error_received, exc)
+                run_in_context1(context, self._protocol.error_received, exc)
             else:
                 self._fatal_error(
                     exc, False, 'Fatal write error on datagram transport')
