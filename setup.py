@@ -317,5 +317,6 @@ setup(
     ],
     include_package_data=True,
     extras_require=EXTRA_DEPENDENCIES,
-    setup_requires=setup_requires
+    setup_requires=setup_requires,
+    python_requires='>=3.7',
 )
