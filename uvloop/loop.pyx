@@ -1281,7 +1281,11 @@ cdef class Loop:
         """Like call_soon(), but thread-safe."""
         if not args:
             args = None
-        handle = self._call_soon(callback, args, context)
+        cdef Handle handle
+        handle = new_Handle(self, callback, args, context)
+        self._check_closed()
+        self._ready.append(handle)
+        self._ready_len += 1
         self.handler_async.send()
         return handle
 
