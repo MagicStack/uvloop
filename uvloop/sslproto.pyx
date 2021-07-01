@@ -540,7 +540,19 @@ cdef class SSLProtocol:
             self._app_state = STATE_CON_MADE
             self._app_protocol.connection_made(self._get_app_transport())
         self._wakeup_waiter()
-        self._do_read()
+
+        # We should wakeup user code before sending the first data below. In
+        # case of `start_tls()`, the user can only get the SSLTransport in the
+        # wakeup callback, because `connection_made()` is not called again.
+        # We should schedule the first data later than the wakeup callback so
+        # that the user get a chance to e.g. check ALPN with the transport
+        # before having to handle the first data.
+        self._loop._call_soon_handle(
+            new_MethodHandle(self._loop,
+                             "SSLProtocol._do_read",
+                             <method_t> self._do_read,
+                             None,  # current context is good
+                             self))
 
     # Shutdown flow
 
