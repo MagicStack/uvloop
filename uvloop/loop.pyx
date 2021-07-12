@@ -427,7 +427,7 @@ cdef class Loop:
         if handle._cancelled:
             self.remove_signal_handler(sig)  # Remove it properly.
         else:
-            self._call_soon_handle(handle)
+            self._append_ready_handle(handle)
             self.handler_async.send()
 
     cdef _on_wake(self):
@@ -667,10 +667,13 @@ cdef class Loop:
         self._call_soon_handle(handle)
         return handle
 
-    cdef inline _call_soon_handle(self, Handle handle):
+    cdef inline _append_ready_handle(self, Handle handle):
         self._check_closed()
         self._ready.append(handle)
         self._ready_len += 1
+
+    cdef inline _call_soon_handle(self, Handle handle):
+        self._append_ready_handle(handle)
         if not self.handler_idle.running:
             self.handler_idle.start()
 
@@ -1281,7 +1284,11 @@ cdef class Loop:
         """Like call_soon(), but thread-safe."""
         if not args:
             args = None
-        handle = self._call_soon(callback, args, context)
+        cdef Handle handle = new_Handle(self, callback, args, context)
+        self._append_ready_handle(handle)  # deque append is atomic
+        # libuv async handler is thread-safe while the idle handler is not -
+        # we only set the async handler here, which will start the idle handler
+        # in _on_wake() from the loop and eventually call the callback.
         self.handler_async.send()
         return handle
 

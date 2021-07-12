@@ -145,6 +145,7 @@ cdef class Loop:
     cdef _exec_queued_writes(self)
 
     cdef inline _call_soon(self, object callback, object args, object context)
+    cdef inline _append_ready_handle(self, Handle handle)
     cdef inline _call_soon_handle(self, Handle handle)
 
     cdef _call_later(self, uint64_t delay, object callback, object args,

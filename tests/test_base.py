@@ -2,6 +2,7 @@ import asyncio
 import fcntl
 import logging
 import os
+import random
 import sys
 import threading
 import time
@@ -701,6 +702,33 @@ class _TestBase:
         self.loop.run_until_complete(foo())
         self.loop.run_until_complete(
             self.loop.shutdown_default_executor())
+
+    def test_call_soon_threadsafe_safety(self):
+        ITERATIONS = 4096
+        counter = [0]
+
+        def cb():
+            counter[0] += 1
+            if counter[0] < ITERATIONS - 512:
+                h = self.loop.call_later(0.01, lambda: None)
+                self.loop.call_later(
+                    0.0005 + random.random() * 0.0005, h.cancel
+                )
+
+        def scheduler():
+            loop = self.loop
+            for i in range(ITERATIONS):
+                if loop.is_running():
+                    loop.call_soon_threadsafe(cb)
+                time.sleep(0.001)
+            loop.call_soon_threadsafe(loop.stop)
+
+        thread = threading.Thread(target=scheduler)
+
+        self.loop.call_soon(thread.start)
+        self.loop.run_forever()
+        thread.join()
+        self.assertEqual(counter[0], ITERATIONS)
 
 
 class TestBaseUV(_TestBase, UVTestCase):
