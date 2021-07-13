@@ -2870,8 +2870,11 @@ class _TestSSL(tb.SSLTestCase):
         self.assertIsNone(ctx())
 
     def test_shutdown_timeout_handler_not_set(self):
+        if self.implementation == 'asyncio':
+            # asyncio doesn't call SSL eof_received() so we can't run this test
+            raise unittest.SkipTest()
+
         loop = self.loop
-        eof = asyncio.Event()
         extra = None
 
         def server(sock):
@@ -2883,7 +2886,6 @@ class _TestSSL(tb.SSLTestCase):
             sock.send(b'extra bytes')
             # sending EOF here
             sock.shutdown(socket.SHUT_WR)
-            loop.call_soon_threadsafe(eof.set)
             # make sure we have enough time to reproduce the issue
             self.assertEqual(sock.recv(1024), b'')
             sock.close()
@@ -2911,17 +2913,16 @@ class _TestSSL(tb.SSLTestCase):
                 else:
                     self.fut.set_exception(exc)
 
+            def eof_received(self):
+                self.transport.resume_reading()
+
         async def client(addr):
             ctx = self._create_client_ssl_context()
             tr, pr = await loop.create_connection(Protocol, *addr, ssl=ctx)
-            await eof.wait()
-            tr.resume_reading()
             await pr.fut
             tr.close()
-            if self.implementation != 'asyncio':
-                # extra data received after transport.close() should be
-                # ignored - this is likely a bug in asyncio
-                self.assertIsNone(extra)
+            # extra data received after transport.close() should be ignored
+            self.assertIsNone(extra)
 
         with self.tcp_server(server) as srv:
             loop.run_until_complete(client(srv.addr))
