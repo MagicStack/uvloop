@@ -308,6 +308,9 @@ cdef class TimerHandle:
     def cancel(self):
         self._cancel()
 
+    def when(self):
+        return self.timer.get_when() * 1e-3
+
 
 cdef format_callback_name(func):
     if hasattr(func, '__qualname__'):
