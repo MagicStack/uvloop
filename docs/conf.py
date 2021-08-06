@@ -2,17 +2,22 @@
 
 import alabaster
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.abspath('..'))
 
-with open(os.path.abspath('../setup.py'), 'rt') as f:
-    _m = re.search(r'''VERSION\s*=\s*(?P<q>'|")(?P<ver>[\d\.]+)(?P=q)''',
-                   f.read())
-    if not _m:
-        raise RuntimeError('unable to read the version from setup.py')
-    version = _m.group('ver')
+version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'uvloop', '_version.py')
+
+with open(version_file, 'r') as f:
+    for line in f:
+        if line.startswith('__version__ ='):
+            _, _, version = line.partition('=')
+            version = version.strip(" \n'\"")
+            break
+    else:
+        raise RuntimeError(
+            'unable to read the version from uvloop/_version.py')
 
 
 # -- General configuration ------------------------------------------------
