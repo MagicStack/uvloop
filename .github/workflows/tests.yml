@@ -14,27 +14,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.7, 3.8, 3.9, 3.10.0-rc.1]
         os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 50
         submodules: true
 
     - name: Check if release PR.
       uses: edgedb/action-release/validate-pr@master
-      continue-on-error: true
       id: release
       with:
         github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+        missing_version_ok: yes
         version_file: uvloop/_version.py
         version_line_pattern: |
           __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       if: steps.release.outputs.version == 0
       with:
         python-version: ${{ matrix.python-version }}
@@ -60,7 +60,7 @@ jobs:
   regression-tests:
     name: "Regression Tests"
     needs: [test]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - run: echo OK

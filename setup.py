@@ -29,18 +29,18 @@ TEST_DEPENDENCIES = [
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
     'aiohttp',
-    'flake8~=3.8.4',
+    'flake8~=3.9.2',
     'psutil',
-    'pycodestyle~=2.6.0',
+    'pycodestyle~=2.7.0',
     'pyOpenSSL~=19.0.0',
     'mypy>=0.800',
 ]
 
 # Dependencies required to build documentation.
 DOC_DEPENDENCIES = [
-    'Sphinx~=1.7.3',
-    'sphinxcontrib-asyncio~=0.2.0',
-    'sphinx_rtd_theme~=0.2.4',
+    'Sphinx~=4.1.2',
+    'sphinxcontrib-asyncio~=0.3.0',
+    'sphinx_rtd_theme~=0.5.2',
 ]
 
 EXTRA_DEPENDENCIES = {
@@ -311,6 +311,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'License :: OSI Approved :: Apache Software License',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',
