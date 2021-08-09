@@ -37,7 +37,7 @@ jobs:
         mkdir -p dist/
         echo "${VERSION}" > dist/VERSION
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2
       with:
         name: dist
         path: dist/
@@ -47,172 +47,89 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 50
         submodules: true
 
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.7
+    - uses: actions/setup-python@v2
 
     - name: Build source distribution
       run: |
-        pip install -U setuptools wheel pip
+        python -m pip install -U setuptools wheel pip
         python setup.py sdist
 
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2
       with:
         name: dist
-        path: dist/
+        path: dist/*.tar.*
 
   build-wheels:
     needs: validate-release-request
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
-        os: [ubuntu-20.04, macos-latest]
-        arch: [x86_64, aarch64]
+        os: [ubuntu-latest, macos-latest]
+        cibw_python: ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
+        cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
+          - os: ubuntu-latest
+            cibw_arch: universal2
           - os: macos-latest
-            arch: aarch64
+            cibw_arch: aarch64
+          - os: macos-latest
+            cibw_python: "cp37-*"
+            cibw_arch: universal2
 
     defaults:
       run:
         shell: bash
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 50
         submodules: true
 
-    - uses: actions/download-artifact@v1
-      with:
-        name: dist
-        path: dist/
-
-    - name: Extract Release Version
-      id: relver
-      run: |
-        set -e
-        echo ::set-output name=version::$(cat dist/VERSION)
-        rm dist/*
-
     - name: Set up QEMU
-      if: matrix.arch == 'aarch64'
+      if: matrix.os == 'ubuntu-latest' && matrix.cibw_arch == 'aarch64'
       uses: docker/setup-qemu-action@v1
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install Python deps
-      run: |
-        python -m pip install --upgrade setuptools pip wheel
+        platforms: arm64
 
     - name: Install macOS deps
       if: startsWith(matrix.os, 'macos')
       run: |
         brew install gnu-sed libtool autoconf automake
 
-    - name: Build Wheels (linux)
-      if: startsWith(matrix.os, 'ubuntu')
+    - uses: pypa/cibuildwheel@v2.1.1
       env:
-        PYTHON_VERSION: ${{ matrix.python-version }}
-        ARCH: ${{ matrix.arch }}
-      run: |
-        case "${ARCH}" in
-          x86_64)
-            mlimg=manylinux2010_x86_64
-            ;;
-          aarch64)
-            mlimg=manylinux2014_aarch64
-            ;;
-          *)
-            echo "Unsupported wheel arch: ${ARCH}" >&2
-            exit 1
-            ;;
-        esac
+        CIBW_BUILD_VERBOSITY: 1
+        CIBW_BUILD: ${{ matrix.cibw_python }}
+        CIBW_ARCHS: ${{ matrix.cibw_arch }}
+        CIBW_TEST_EXTRAS: "test"
+        CIBW_TEST_COMMAND: "cd .. && python {project}/tests/__init__.py"
+        CIBW_TEST_COMMAND_WINDOWS: "cd .. && python {project}\\tests\\__init__.py"
+        CIBW_TEST_SKIP: "*universal2:arm64"
+        # This is needed for now because cffi has no cp310 wheels
+        CIBW_BEFORE_BUILD_LINUX: "yum -y install libffi-devel"
 
-        docker run --rm \
-          -v "${GITHUB_WORKSPACE}":/github/workspace:rw \
-          --workdir=/github/workspace \
-          -e GITHUB_WORKSPACE=/github/workspace \
-          -e PYTHON_VERSION="${PYTHON_VERSION}" \
-          --entrypoint=/github/workspace/.github/workflows/build-manylinux-wheels.sh \
-          quay.io/pypa/${mlimg}
-
-    - name: Build Wheels (non-linux)
-      if: "!startsWith(matrix.os, 'ubuntu')"
-      run: |
-        make clean
-        python setup.py bdist_wheel
-
-    - name: Test Wheels (native)
-      timeout-minutes: 10
-      if: |
-        !contains(github.event.pull_request.labels.*.name, 'skip wheel tests')
-        && matrix.arch == 'x86_64'
-      env:
-        OS: ${{ matrix.os }}
-        PKG_VERSION: ${{ steps.relver.outputs.version }}
-      run: |
-        "${GITHUB_WORKSPACE}/.github/workflows/test-wheels.sh"
-
-    - name: Test Wheels (emulated)
-      timeout-minutes: 30
-      if: |
-        !contains(github.event.pull_request.labels.*.name, 'skip wheel tests')
-        && matrix.arch != 'x86_64'
-      env:
-        PYTHON_VERSION: ${{ matrix.python-version }}
-        ARCH: ${{ matrix.arch }}
-        PKG_VERSION: ${{ steps.relver.outputs.version }}
-      run: |
-        case "${ARCH}" in
-          aarch64)
-            img="docker.io/arm64v8/python:${PYTHON_VERSION}-buster"
-            ;;
-          *)
-            echo "Unsupported wheel arch: ${ARCH}" >&2
-            exit 1
-            ;;
-        esac
-
-        docker run --rm \
-          -v "${GITHUB_WORKSPACE}":/github/workspace:rw \
-          -e GITHUB_WORKSPACE=/github/workspace \
-          -e PKG_VERSION="${PKG_VERSION}" \
-          --workdir=/github/workspace/ \
-          ${img} \
-          /bin/bash -ex -c ' \
-            echo GITHUB_WORKSPACE=${GITHUB_WORKSPACE} >> /etc/environment \
-            && echo PKG_VERSION=${PKG_VERSION} >> /etc/environment \
-            && echo ENVIRON_FILE /etc/environment >> /etc/login.defs \
-            && useradd -m -s /bin/bash test \
-            && su -l test /github/workspace/.github/workflows/test-wheels.sh \
-          '
-
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v2
       with:
         name: dist
-        path: dist/
+        path: wheelhouse/*.whl
 
   publish:
     needs: [build-sdist, build-wheels]
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 5
         submodules: false
 
-    - uses: actions/download-artifact@v1
+    - uses: actions/download-artifact@v2
       with:
         name: dist
         path: dist/

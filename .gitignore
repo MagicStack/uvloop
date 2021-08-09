@@ -33,3 +33,4 @@ uvloop/loop.*.pyd
 /.vscode
 /.eggs
 /.venv*
+/wheelhouse
