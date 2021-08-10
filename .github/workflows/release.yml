@@ -46,6 +46,9 @@ jobs:
     needs: validate-release-request
     runs-on: ubuntu-latest
 
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
     steps:
     - uses: actions/checkout@v2
       with:
@@ -85,6 +88,9 @@ jobs:
       run:
         shell: bash
 
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
     steps:
     - uses: actions/checkout@v2
       with:
@@ -107,12 +113,12 @@ jobs:
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BUILD: ${{ matrix.cibw_python }}
         CIBW_ARCHS: ${{ matrix.cibw_arch }}
-        CIBW_TEST_EXTRAS: "test"
-        CIBW_TEST_COMMAND: "cd .. && python {project}/tests/__init__.py"
-        CIBW_TEST_COMMAND_WINDOWS: "cd .. && python {project}\\tests\\__init__.py"
-        CIBW_TEST_SKIP: "*universal2:arm64"
         # This is needed for now because cffi has no cp310 wheels
-        CIBW_BEFORE_BUILD_LINUX: "yum -y install libffi-devel"
+        CIBW_BEFORE_ALL_LINUX: "yum -y install libffi-devel"
+        CIBW_TEST_EXTRAS: "test"
+        CIBW_TEST_COMMAND: "python {project}/tests/__init__.py"
+        CIBW_TEST_COMMAND_WINDOWS: "python {project}\\tests\\__init__.py"
+        CIBW_TEST_SKIP: "*universal2:arm64"
 
     - uses: actions/upload-artifact@v2
       with:

@@ -17,6 +17,9 @@ jobs:
         python-version: [3.7, 3.8, 3.9, 3.10.0-rc.1]
         os: [ubuntu-latest, macos-latest]
 
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
     steps:
     - uses: actions/checkout@v2
       with:
@@ -52,7 +55,11 @@ jobs:
     - name: Test
       if: steps.release.outputs.version == 0
       run: |
-        make distclean && make && make test
+        make test
+
+    - name: Test (debug build)
+      if: steps.release.outputs.version == 0
+      run: |
         make distclean && make debug && make test
 
   # This job exists solely to act as the test job aggregate to be
