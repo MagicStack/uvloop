@@ -446,7 +446,6 @@ cdef class UVStream(UVBaseTransport):
             return
 
         self._maybe_pause_protocol()
-        self._loop._queue_write(self)
 
     cdef inline _exec_write(self):
         cdef:
@@ -680,6 +679,7 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
         self._write(buf)
+        self._loop._queue_write(self)
 
     def writelines(self, bufs):
         self._ensure_alive()
@@ -691,6 +691,7 @@ cdef class UVStream(UVBaseTransport):
             return
         for buf in bufs:
             self._write(buf)
+        self._loop._queue_write(self)
 
     def write_eof(self):
         self._ensure_alive()
