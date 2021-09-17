@@ -1,3 +1,8 @@
+# MIT and Apache 2.0
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.
+
+
 DEF __PREALLOCED_BUFS = 4
 
 
