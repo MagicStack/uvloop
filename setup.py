@@ -70,6 +70,8 @@ def _libuv_build_env():
 
     env['CFLAGS'] = (cur_cflags + ' -fPIC ' + env.get('ARCHFLAGS', ''))
 
+    CFLAGS += env['CFLAGS']
+
     return env
 
 
