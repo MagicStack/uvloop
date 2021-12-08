@@ -141,7 +141,6 @@ cdef class Loop:
 
         self._closed = 0
         self._debug = 0
-        self._thread_is_main = 0
         self._thread_id = 0
         self._running = 0
         self._stopping = 0
@@ -215,7 +214,7 @@ cdef class Loop:
         self._servers = set()
 
     cdef inline _is_main_thread(self):
-        return MAIN_THREAD_ID == PyThread_get_thread_ident()
+        return threading_main_thread().ident == PyThread_get_thread_ident()
 
     def __init__(self):
         self.set_debug((not sys_ignore_environment
@@ -519,7 +518,6 @@ cdef class Loop:
         self._last_error = None
 
         self._thread_id = PyThread_get_thread_ident()
-        self._thread_is_main = MAIN_THREAD_ID == self._thread_id
         self._running = 1
 
         self.handler_check__exec_writes.start()
@@ -540,7 +538,6 @@ cdef class Loop:
 
             self._pause_signals()
 
-            self._thread_is_main = 0
             self._thread_id = 0
             self._running = 0
             self._stopping = 0
@@ -3281,9 +3278,6 @@ cdef Loop __forking_loop = None
 
 
 cdef void __get_fork_handler() nogil:
-    global __forking
-    global __forking_loop
-
     with gil:
         if (__forking and __forking_loop is not None and
                 __forking_loop.active_process_handler is not None):
@@ -3291,6 +3285,7 @@ cdef void __get_fork_handler() nogil:
 
 cdef __install_atfork():
     global __atfork_installed
+
     if __atfork_installed:
         return
     __atfork_installed = 1
