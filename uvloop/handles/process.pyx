@@ -288,7 +288,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = self.__to_cstring_array(self.__args)
 
     cdef _init_env(self, dict env):
-        if env is not None and len(env):
+        if env is not None:
             self.__env = list()
             for key in env:
                 val = env[key]
