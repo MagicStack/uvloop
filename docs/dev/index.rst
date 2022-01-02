@@ -2,7 +2,7 @@ Developers Guide
 ================
 
 The project is hosted on `GitHub <https://github.com/MagicStack/uvloop>`_.
-and uses `Travis <https://travis-ci.org/MagicStack/uvloop>`_ for
+and uses `GitHub Actions <https://github.com/MagicStack/uvloop/actions>`_ for
 Continuous Integration.
 
 A goal for the `uvloop` project is to provide a drop in replacement for the
