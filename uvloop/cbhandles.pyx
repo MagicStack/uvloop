@@ -215,7 +215,7 @@ cdef class TimerHandle:
         self._clear()
 
     cdef inline _clear(self):
-        if self.timer is None:
+        if self not in self.loop._timers: # check if timer has already been removed
             return
 
         self.callback = None
@@ -225,7 +225,7 @@ cdef class TimerHandle:
             self.loop._timers.remove(self)
         finally:
             self.timer._close()
-            self.timer = None  # let the UVTimer handle GC
+            # self.timer = None  # let the UVTimer handle GC this will cause a segfault if .when() is called beyond this point
 
     cdef _run(self):
         if self._cancelled == 1:
