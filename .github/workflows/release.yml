@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - "master"
+      - "ci"
+      - "[0-9]+.[0-9x]+*"
+    paths:
+      - "uvloop/_version.py"
+
+jobs:
+  validate-release-request:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate release PR
+      uses: edgedb/action-release/validate-pr@master
+      id: checkver
+      with:
+        require_team: Release Managers
+        require_approval: no
+        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+        version_file: uvloop/_version.py
+        version_line_pattern: |
+          __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
+
+    - name: Stop if not approved
+      if: steps.checkver.outputs.approved != 'true'
+      run: |
+        echo ::error::PR is not approved yet.
+        exit 1
+
+    - name: Store release version for later use
+      env:
+        VERSION: ${{ steps.checkver.outputs.version }}
+      run: |
+        mkdir -p dist/
+        echo "${VERSION}" > dist/VERSION
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: dist
+        path: dist/
+
+  build-sdist:
+    needs: validate-release-request
+    runs-on: ubuntu-latest
+
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - uses: actions/setup-python@v2
+
+    - name: Build source distribution
+      run: |
+        python -m pip install -U setuptools wheel pip
+        python setup.py sdist
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: dist
+        path: dist/*.tar.*
+
+  build-wheels:
+    needs: validate-release-request
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        cibw_python: ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
+        cibw_arch: ["x86_64", "aarch64", "universal2"]
+        exclude:
+          - os: ubuntu-latest
+            cibw_arch: universal2
+          - os: macos-latest
+            cibw_arch: aarch64
+          - os: macos-latest
+            cibw_python: "cp37-*"
+            cibw_arch: universal2
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - name: Set up QEMU
+      if: matrix.os == 'ubuntu-latest' && matrix.cibw_arch == 'aarch64'
+      uses: docker/setup-qemu-action@v1
+      with:
+        platforms: arm64
+
+    - name: Install macOS deps
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install gnu-sed libtool autoconf automake
+
+    - uses: pypa/cibuildwheel@v2.1.1
+      env:
+        CIBW_BUILD_VERBOSITY: 1
+        CIBW_BUILD: ${{ matrix.cibw_python }}
+        CIBW_ARCHS: ${{ matrix.cibw_arch }}
+        # This is needed for now because cffi has no cp310 wheels
+        CIBW_BEFORE_ALL_LINUX: "yum -y install libffi-devel"
+        CIBW_TEST_EXTRAS: "test"
+        CIBW_TEST_COMMAND: "python {project}/tests/__init__.py"
+        CIBW_TEST_COMMAND_WINDOWS: "python {project}\\tests\\__init__.py"
+        CIBW_TEST_SKIP: "*universal2:arm64"
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: dist
+        path: wheelhouse/*.whl
+
+  publish:
+    needs: [build-sdist, build-wheels]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 5
+        submodules: false
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: dist
+        path: dist/
+
+    - name: Extract Release Version
+      id: relver
+      run: |
+        set -e
+        echo ::set-output name=version::$(cat dist/VERSION)
+        rm dist/VERSION
+
+    - name: Merge and tag the PR
+      uses: edgedb/action-release/merge@master
+      with:
+        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+        ssh_key: ${{ secrets.RELEASE_BOT_SSH_KEY }}
+        gpg_key: ${{ secrets.RELEASE_BOT_GPG_KEY }}
+        gpg_key_id: "5C468778062D87BF!"
+        tag_name: v${{ steps.relver.outputs.version }}
+
+    - name: Publish Github Release
+      uses: elprans/gh-action-create-release@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.relver.outputs.version }}
+        release_name: v${{ steps.relver.outputs.version }}
+        target: ${{ github.event.pull_request.base.ref }}
+        body: ${{ github.event.pull_request.body }}
+        draft: false
+
+    - run: |
+        ls -al dist/
+
+    - name: Upload to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+        # password: ${{ secrets.TEST_PYPI_TOKEN }}
+        # repository_url: https://test.pypi.org/legacy/
