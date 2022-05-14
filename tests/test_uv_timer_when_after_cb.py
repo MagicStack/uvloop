@@ -4,10 +4,10 @@ import asyncio
 
 async def main():
     loop = asyncio.get_running_loop()
-    now = loop.time()
-    timer = loop.call_later(1, lambda: None) # call any function
+    call_ts = loop.time() + 1
+    timer = loop.call_at(call_ts, lambda: None) # call any function
     await asyncio.sleep(1.1)
-    assert timer.when() == now + 1
+    assert timer.when() == call_ts
 
 uvloop.install()
 asyncio.run(main(), debug=True)
