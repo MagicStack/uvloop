@@ -857,9 +857,9 @@ class TestBaseUV(_TestBase, UVTestCase):
         delay = 1.0
         loop_t = self.loop.time()
         handle = self.loop.call_later(delay, cb)
-        self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
         handle.cancel()
         self.assertTrue(handle.cancelled())
+        self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):

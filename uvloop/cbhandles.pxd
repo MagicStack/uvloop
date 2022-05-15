@@ -30,6 +30,7 @@ cdef class TimerHandle:
         UVTimer timer
         Loop loop
         object context
+        uint64_t _when
         tuple _debug_info
         object __weakref__
 
