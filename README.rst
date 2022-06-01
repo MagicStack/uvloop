@@ -56,6 +56,8 @@ Using uvloop
 .. code:: python
 
     import asyncio
+    import sys
+
     import uvloop
 
     async def main():
