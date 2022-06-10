@@ -20,10 +20,8 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as build_ext
 from setuptools.command.sdist import sdist as sdist
 
-if sys.version_info >= (3, 11):
-    CYTHON_DEPENDENCY = 'Cython(>=0.29.30,<0.30.0)'
-else:
-    CYTHON_DEPENDENCY = 'Cython(>=0.29.24,<0.30.0)'
+
+CYTHON_DEPENDENCY = 'Cython(>=0.29.30,<0.30.0)'
 
 # Minimal dependencies required to test uvloop.
 TEST_DEPENDENCIES = [
