@@ -1,10 +1,10 @@
 import asyncio
 import os.path
 import tempfile
-import unittest
 
 from uvloop import _testbase as tb
 from uvloop.const import FS_EVENT_CHANGE, FS_EVENT_RENAME
+
 
 class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
     async def _file_writer(self):
@@ -21,7 +21,7 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
         self.fname = ''
         self.q = asyncio.Queue()
 
-    def event_cb(self, ev_fname: bytes, evt: int) :
+    def event_cb(self, ev_fname: bytes, evt: int):
         _d, fn = os.path.split(self.fname)
         self.assertEqual(ev_fname, fn)
         self.assertEqual(evt, FS_EVENT_CHANGE)
@@ -45,18 +45,21 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
         with tempfile.NamedTemporaryFile('wt') as tf:
             self.fname = tf.name.encode()
             h = self.loop.monitor_fs(tf.name, self.event_cb, 0)
-            try :
-                self.loop.run_until_complete(run(self.loop.create_task(self._file_writer())))
+            try:
+                self.loop.run_until_complete(run(
+                    self.loop.create_task(self._file_writer())))
                 h.close()
-            finally :
+            finally:
                 self.loop.close()
 
         self.assertEqual(self.change_event_count, 4)
 
+
 class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
     async def _file_renamer(self):
         await self.q.get()
-        os.rename(os.path.join(self.dname, self.changed_name), os.path.join(self.dname, self.changed_name+"-new"))
+        os.rename(os.path.join(self.dname, self.changed_name),
+                  os.path.join(self.dname, self.changed_name + "-new"))
         await self.q.get()
 
     def fs_event_setup(self):
@@ -65,7 +68,7 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
         self.changed_set = {self.changed_name, self.changed_name + '-new'}
         self.q = asyncio.Queue()
 
-    def event_cb(self, ev_fname: bytes, evt: int) :
+    def event_cb(self, ev_fname: bytes, evt: int):
         ev_fname = ev_fname.decode()
         self.assertEqual(evt, FS_EVENT_RENAME)
         self.changed_set.remove(ev_fname)
@@ -89,10 +92,11 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
             f.write('hello!')
             f.close()
             h = self.loop.monitor_fs(td_name, self.event_cb, 0)
-            try :
-                self.loop.run_until_complete(run(self.loop.create_task(self._file_renamer())))
+            try:
+                self.loop.run_until_complete(run(
+                    self.loop.create_task(self._file_renamer())))
                 h.close()
-            finally :
+            finally:
                 self.loop.close()
 
         self.assertEqual(len(self.changed_set), 0)
