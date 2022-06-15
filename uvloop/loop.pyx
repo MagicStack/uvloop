@@ -3116,6 +3116,19 @@ cdef class Loop:
         await waiter
         return udp, protocol
 
+    def monitor_fs(self, path: str, callback, flags: int) -> asyncio.Handle:
+        p_bytes = path.encode('UTF-8')
+        cdef char* c_str_path = p_bytes
+        return self._monitor_fs(c_str_path, flags, callback)
+
+    cdef _monitor_fs(self, char* path, int flags, callback):
+        cdef:
+            UVFSEvent fsevent
+
+        self._check_closed()
+
+        return UVFSEvent.new(self, path, callback, flags)
+
     def _check_default_executor(self):
         if self._executor_shutdown_called:
             raise RuntimeError('Executor shutdown has been called')
@@ -3264,6 +3277,7 @@ include "handles/streamserver.pyx"
 include "handles/tcp.pyx"
 include "handles/pipe.pyx"
 include "handles/process.pyx"
+include "handles/fsevent.pyx"
 
 include "request.pyx"
 include "dns.pyx"
@@ -3273,6 +3287,8 @@ include "handles/udp.pyx"
 
 include "server.pyx"
 
+DEF FS_EVENT_CHANGE = 2
+DEF FS_EVENT_RENAME = 1
 
 # Used in UVProcess
 cdef vint __atfork_installed = 0
