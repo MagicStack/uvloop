@@ -17,31 +17,34 @@ cdef class UVFSEvent(UVHandle):
             self._abort_init()
             raise convert_error(err)
 
-        self._finish_init()
-
-        self.callback = callback
 
         err = uv.uv_fs_event_start(<uv.uv_fs_event_t*>self._handle, __uvfsevent_callback, path, flags)
         if err < 0:
             self._abort_init()
             raise convert_error(err)
 
+        self._finish_init()
 
-    cdef _stop(self):
+        self.callback = callback
+
+
+    cdef _close(self):
         cdef int err
 
         if not self._is_alive():
             return
 
         err = uv.uv_fs_event_stop(<uv.uv_fs_event_t*>self._handle)
-        self.closed = True
         if err < 0:
             exc = convert_error(err)
             self._fatal_error(exc, True)
             return
 
-    def stop(self):
-        self._stop()
+        UVHandle._close(<UVHandle>self)
+
+
+    def close(self):
+        self._close()
 
     @staticmethod
     cdef UVFSEvent new(Loop loop, char* path, object callback,

@@ -1,16 +1,17 @@
 import asyncio
-import socket
+import os.path
 import tempfile
 import unittest
 
 from uvloop import _testbase as tb
 from uvloop.const import FS_EVENT_CHANGE, FS_EVENT_RENAME
 
-class Test_UV_FS_EVENT(tb.UVTestCase):
+class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
     async def _file_writer(self):
         f = await self.q.get()
         while True:
             f.write('hello uvloop\n')
+            f.flush()
             x = await self.q.get()
             if x is None:
                 return
@@ -21,7 +22,8 @@ class Test_UV_FS_EVENT(tb.UVTestCase):
         self.q = asyncio.Queue()
 
     def event_cb(self, ev_fname: bytes, evt: int) :
-        self.assertEqual(ev_fname, self.fname)
+        _d, fn = os.path.split(self.fname)
+        self.assertEqual(ev_fname, fn)
         self.assertEqual(evt, FS_EVENT_CHANGE)
         self.change_event_count += 1
         if self.change_event_count < 4:
@@ -34,7 +36,6 @@ class Test_UV_FS_EVENT(tb.UVTestCase):
 
         async def run(write_task):
             self.q.put_nowait(tf)
-            self.q.put_nowait(0)
             try:
                 await asyncio.wait_for(write_task, 4)
             except asyncio.TimeoutError:
@@ -46,8 +47,52 @@ class Test_UV_FS_EVENT(tb.UVTestCase):
             h = self.loop.monitor_fs(tf.name, self.event_cb, 0)
             try :
                 self.loop.run_until_complete(run(self.loop.create_task(self._file_writer())))
-                h.stop()
+                h.close()
             finally :
                 self.loop.close()
 
         self.assertEqual(self.change_event_count, 4)
+
+class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
+    async def _file_renamer(self):
+        await self.q.get()
+        os.rename(os.path.join(self.dname, self.changed_name), os.path.join(self.dname, self.changed_name+"-new"))
+        await self.q.get()
+
+    def fs_event_setup(self):
+        self.dname = ''
+        self.changed_name = "hello_fs_event.txt"
+        self.changed_set = {self.changed_name, self.changed_name + '-new'}
+        self.q = asyncio.Queue()
+
+    def event_cb(self, ev_fname: bytes, evt: int) :
+        ev_fname = ev_fname.decode()
+        self.assertEqual(evt, FS_EVENT_RENAME)
+        self.changed_set.remove(ev_fname)
+        if len(self.changed_set) == 0:
+            self.q.put_nowait(None)
+
+    def test_fs_event_rename(self):
+        self.fs_event_setup()
+
+        async def run(write_task):
+            self.q.put_nowait(0)
+            try:
+                await asyncio.wait_for(write_task, 4)
+            except asyncio.TimeoutError:
+                write_task.cancel()
+            self.loop.stop()
+
+        with tempfile.TemporaryDirectory() as td_name:
+            self.dname = td_name
+            f = open(os.path.join(td_name, self.changed_name), 'wt')
+            f.write('hello!')
+            f.close()
+            h = self.loop.monitor_fs(td_name, self.event_cb, 0)
+            try :
+                self.loop.run_until_complete(run(self.loop.create_task(self._file_renamer())))
+                h.close()
+            finally :
+                self.loop.close()
+
+        self.assertEqual(len(self.changed_set), 0)

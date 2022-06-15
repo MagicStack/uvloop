@@ -3129,6 +3129,9 @@ cdef class Loop:
 
         return UVFSEvent.new(self, path, callback, flags)
 
+    def get_uvloop_ptr(self) -> int:
+        return <uintptr_t>self.uvloop
+
     def _check_default_executor(self):
         if self._executor_shutdown_called:
             raise RuntimeError('Executor shutdown has been called')

@@ -5,7 +5,7 @@ cdef class UVFSEvent(UVHandle):
     cdef _init(self, Loop loop, char* path, object callback,
                int flags)
 
-    cdef _stop(self)
+    cdef _close(self)
     #cdef start(self)
     #cdef get_when(self)
 
