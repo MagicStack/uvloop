@@ -172,6 +172,7 @@ cdef class TimerHandle:
         self.callback = callback
         self.args = args
         self._cancelled = 0
+        self._when = 0
 
         if UVLOOP_DEBUG:
             self.loop._debug_cb_timer_handles_total += 1
@@ -192,7 +193,7 @@ cdef class TimerHandle:
         self.timer = UVTimer.new(
             loop, <method_t>self._run, self, delay)
 
-        self.timer.start()
+        self._when = self.timer.start()
 
         # Only add to loop._timers when `self.timer` is successfully created
         loop._timers.add(self)
@@ -309,7 +310,7 @@ cdef class TimerHandle:
         self._cancel()
 
     def when(self):
-        return self.timer.get_when() * 1e-3
+        return self._when
 
 
 cdef format_callback_name(func):

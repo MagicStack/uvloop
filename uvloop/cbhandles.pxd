@@ -32,6 +32,7 @@ cdef class TimerHandle:
         object context
         tuple _debug_info
         object __weakref__
+        double _when
 
     cdef _run(self)
     cdef _cancel(self)
