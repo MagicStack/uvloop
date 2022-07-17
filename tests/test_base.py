@@ -860,6 +860,14 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
         handle.cancel()
         self.assertTrue(handle.cancelled())
+        self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
+
+    def test_loop_call_later_handle_when_after_fired(self):
+        fut = self.loop.create_future()
+        handle = self.loop.call_later(0.05, fut.set_result, None)
+        when = handle.when()
+        self.loop.run_until_complete(fut)
+        self.assertEqual(handle.when(), when)
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):

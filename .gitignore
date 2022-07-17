@@ -34,3 +34,4 @@ uvloop/loop.*.pyd
 /.eggs
 /.venv*
 /wheelhouse
+/uvloop-dev
