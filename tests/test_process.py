@@ -856,7 +856,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 fut = executor.submit(thread)
-                asyncio.get_event_loop().run_until_complete(test())
+                asyncio.run(test())
                 fut.result()
         """)
         subprocess.check_call([sys.executable, '-c', script])
