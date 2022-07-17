@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 import unittest
 
@@ -796,7 +797,69 @@ print(n)'''
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
-    pass
+    def test_process_preexec_fn_double_close(self):
+        script = textwrap.dedent("""
+            import os
+            import sys
+            import threading
+            import queue
+            import concurrent.futures
+
+            pid = os.getpid()
+            q = queue.Queue()
+            evt = threading.Event()
+            r, w = os.pipe()
+            pipe = os.pipe
+            close = os.close
+
+
+            def mock_pipe():
+                rv = pipe()
+                q.put(rv[1])
+                return rv
+
+
+            def mock_close(fd):
+                close(fd)
+                if os.getpid() == pid:
+                    q.put(fd)
+                    evt.wait()
+
+
+            os.pipe = mock_pipe
+            os.close = mock_close
+
+            import asyncio
+            import uvloop
+
+            uvloop.install()
+
+
+            def thread():
+                fd = q.get()
+                while True:
+                    fd_close = q.get()
+                    if fd == fd_close:
+                        os.dup2(r, fd)
+                        evt.set()
+                        break
+                while os.read(fd, 32) != b"exit":
+                    pass
+
+
+            async def test():
+                await asyncio.create_subprocess_exec(
+                    sys.executable, "-c", "pass", preexec_fn=lambda: True
+                )
+                os.write(w, b"exit")
+
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                fut = executor.submit(thread)
+                asyncio.get_event_loop().run_until_complete(test())
+                fut.result()
+        """)
+        subprocess.check_call([sys.executable, '-c', script])
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
