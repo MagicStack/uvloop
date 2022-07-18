@@ -3,7 +3,7 @@ import os.path
 import tempfile
 
 from uvloop import _testbase as tb
-from uvloop.const import FS_EVENT_CHANGE, FS_EVENT_RENAME
+from uvloop.const import FS_EVENT
 
 
 class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
@@ -24,7 +24,7 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
     def event_cb(self, ev_fname: bytes, evt: int):
         _d, fn = os.path.split(self.fname)
         self.assertEqual(ev_fname, fn)
-        self.assertEqual(evt, FS_EVENT_CHANGE)
+        self.assertEqual(evt, FS_EVENT.CHANGE)
         self.change_event_count += 1
         if self.change_event_count < 4:
             self.q.put_nowait(0)
@@ -70,7 +70,7 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
 
     def event_cb(self, ev_fname: bytes, evt: int):
         ev_fname = ev_fname.decode()
-        self.assertEqual(evt, FS_EVENT_RENAME)
+        self.assertEqual(evt, FS_EVENT.RENAME)
         self.changed_set.remove(ev_fname)
         if len(self.changed_set) == 0:
             self.q.put_nowait(None)

@@ -190,7 +190,6 @@ cdef class Loop:
     cdef _sock_connect(self, sock, address)
     cdef _sock_connect_cb(self, fut, sock, address)
 
-    cdef _monitor_fs(self, char* path, int flags, callback)
     cdef _sock_set_reuseport(self, int fd)
 
     cdef _setup_or_resume_signals(self)

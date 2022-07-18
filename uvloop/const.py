@@ -1,2 +1,5 @@
-FS_EVENT_CHANGE = 2
-FS_EVENT_RENAME = 1
+import enum
+
+class FS_EVENT(enum.IntEnum):
+    CHANGE = 2
+    RENAME = 1

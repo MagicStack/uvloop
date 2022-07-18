@@ -3116,18 +3116,12 @@ cdef class Loop:
         await waiter
         return udp, protocol
 
-    def monitor_fs(self, path: str, callback, flags: int) -> asyncio.Handle:
-        p_bytes = path.encode('UTF-8')
-        cdef char* c_str_path = p_bytes
-        return self._monitor_fs(c_str_path, flags, callback)
-
-    cdef _monitor_fs(self, char* path, int flags, callback):
-        cdef:
-            UVFSEvent fsevent
-
+    def monitor_fs(self, path: str, callback, recursive: bool) -> asyncio.Handle:
         self._check_closed()
-
-        return UVFSEvent.new(self, path, callback, flags)
+        p_bytes = path.encode('UTF-8')
+        flags = 4 if recursive else 0
+        cdef char* c_str_path = p_bytes
+        return UVFSEvent.new(self, c_str_path, callback, flags)
 
     def get_uvloop_ptr(self) -> int:
         return <uintptr_t>self.uvloop

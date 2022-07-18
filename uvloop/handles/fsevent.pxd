@@ -6,8 +6,6 @@ cdef class UVFSEvent(UVHandle):
                int flags)
 
     cdef _close(self)
-    #cdef start(self)
-    #cdef get_when(self)
 
     @staticmethod
     cdef UVFSEvent new(Loop loop, char* path, object callback,
