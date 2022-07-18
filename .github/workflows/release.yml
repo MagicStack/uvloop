@@ -37,7 +37,7 @@ jobs:
         mkdir -p dist/
         echo "${VERSION}" > dist/VERSION
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: dist
         path: dist/
@@ -50,19 +50,21 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 50
         submodules: true
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
 
     - name: Build source distribution
       run: |
-        python -m pip install -U setuptools wheel pip
+        python -m pip install --upgrade setuptools wheel pip
         python setup.py sdist
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: dist
         path: dist/*.tar.*
@@ -92,7 +94,7 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 50
         submodules: true
@@ -108,7 +110,7 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
-    - uses: pypa/cibuildwheel@v2.1.1
+    - uses: pypa/cibuildwheel@v2.8.0
       env:
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BUILD: ${{ matrix.cibw_python }}
@@ -120,7 +122,7 @@ jobs:
         CIBW_TEST_COMMAND_WINDOWS: "python {project}\\tests\\__init__.py"
         CIBW_TEST_SKIP: "*universal2:arm64"
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: dist
         path: wheelhouse/*.whl
@@ -130,12 +132,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 5
         submodules: false
 
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: dist
         path: dist/

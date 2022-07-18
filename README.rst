@@ -53,20 +53,23 @@ uvloop with::
 Using uvloop
 ------------
 
-Call ``uvloop.install()`` before calling ``asyncio.run()`` or
-manually creating an asyncio event loop:
-
 .. code:: python
 
     import asyncio
+    import sys
+
     import uvloop
 
     async def main():
         # Main entry-point.
         ...
 
-    uvloop.install()
-    asyncio.run(main())
+    if sys.version_info >= (3, 11)
+        with asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner:
+            runner.run(main())
+    else:
+        uvloop.install()
+        asyncio.run(main())
 
 
 Building From Source
