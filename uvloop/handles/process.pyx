@@ -101,6 +101,7 @@ cdef class UVProcess(UVHandle):
             self._finish_init()
 
             os_close(self._errpipe_write)
+            self._errpipe_write = -1
 
             if preexec_fn is not None:
                 errpipe_data = bytearray()
