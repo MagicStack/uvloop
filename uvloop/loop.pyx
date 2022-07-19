@@ -3123,9 +3123,6 @@ cdef class Loop:
         cdef char* c_str_path = p_bytes
         return UVFSEvent.new(self, c_str_path, callback, flags)
 
-    def get_uvloop_ptr(self) -> int:
-        return <uintptr_t>self.uvloop
-
     def _check_default_executor(self):
         if self._executor_shutdown_called:
             raise RuntimeError('Executor shutdown has been called')
@@ -3190,6 +3187,9 @@ cdef class Loop:
         except Exception as ex:
             self.call_soon_threadsafe(future.set_exception, ex)
 
+
+cdef extern uv.uv_loop_t* get_uv_loop_ptr(PyObject* loop) nogil:
+    return (<Loop>loop).uvloop
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
