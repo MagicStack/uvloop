@@ -15,4 +15,4 @@ class TestGetUvLoopPtr(tb.UVTestCase):
             raise RuntimeError('could not find uvloop shared lib')
         cdll = ctypes.CDLL(so_lib_path)
         self.assertNotEqual(cdll.get_uv_loop_ptr(ctypes.py_object(self.loop)),
-                           0)
+                            0)
