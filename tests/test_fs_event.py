@@ -44,7 +44,7 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
 
         with tempfile.NamedTemporaryFile('wt') as tf:
             self.fname = tf.name.encode()
-            h = self.loop.monitor_fs(tf.name, self.event_cb, 0)
+            h = self.loop.monitor_fs(tf.name, self.event_cb, False)
             try:
                 self.loop.run_until_complete(run(
                     self.loop.create_task(self._file_writer())))
@@ -91,7 +91,7 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
             f = open(os.path.join(td_name, self.changed_name), 'wt')
             f.write('hello!')
             f.close()
-            h = self.loop.monitor_fs(td_name, self.event_cb, 0)
+            h = self.loop.monitor_fs(td_name, self.event_cb, False)
             try:
                 self.loop.run_until_complete(run(
                     self.loop.create_task(self._file_renamer())))
