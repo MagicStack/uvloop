@@ -69,8 +69,10 @@ cdef class UVProcess(UVHandle):
                 'Racing with another loop to spawn a process.')
 
         self._errpipe_read, self._errpipe_write = os_pipe()
-        self._fds_to_close.append(self._errpipe_read)
-        self._fds_to_close.append(self._errpipe_write)
+        fds_to_close = self._fds_to_close
+        self._fds_to_close = None
+        fds_to_close.append(self._errpipe_read)
+        fds_to_close.append(self._errpipe_write)
         try:
             os_set_inheritable(self._errpipe_write, True)
 
@@ -103,7 +105,7 @@ cdef class UVProcess(UVHandle):
             self._finish_init()
 
             # close the write pipe early
-            os_close(self._fds_to_close.pop())
+            os_close(fds_to_close.pop())
 
             if preexec_fn is not None:
                 errpipe_data = bytearray()
@@ -117,8 +119,8 @@ cdef class UVProcess(UVHandle):
                         break
 
         finally:
-            while self._fds_to_close:
-                os_close(self._fds_to_close.pop())
+            while fds_to_close:
+                os_close(fds_to_close.pop())
 
             for fd in restore_inheritable:
                 os_set_inheritable(fd, False)
