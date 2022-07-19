@@ -7,7 +7,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = NULL
         self._returncode = None
         self._pid = None
-        self._fds_to_close = set()
+        self._fds_to_close = list()
         self._preexec_fn = None
         self._restore_signals = True
         self.context = Context_CopyCurrent()
@@ -69,6 +69,8 @@ cdef class UVProcess(UVHandle):
                 'Racing with another loop to spawn a process.')
 
         self._errpipe_read, self._errpipe_write = os_pipe()
+        self._fds_to_close.append(self._errpipe_read)
+        self._fds_to_close.append(self._errpipe_write)
         try:
             os_set_inheritable(self._errpipe_write, True)
 
@@ -100,8 +102,8 @@ cdef class UVProcess(UVHandle):
 
             self._finish_init()
 
-            os_close(self._errpipe_write)
-            self._errpipe_write = -1
+            # close the write pipe early
+            os_close(self._fds_to_close.pop())
 
             if preexec_fn is not None:
                 errpipe_data = bytearray()
@@ -115,17 +117,8 @@ cdef class UVProcess(UVHandle):
                         break
 
         finally:
-            os_close(self._errpipe_read)
-            try:
-                os_close(self._errpipe_write)
-            except OSError:
-                # Might be already closed
-                pass
-
-            fds_to_close = self._fds_to_close
-            self._fds_to_close = None
-            for fd in fds_to_close:
-                os_close(fd)
+            while self._fds_to_close:
+                os_close(self._fds_to_close.pop())
 
             for fd in restore_inheritable:
                 os_set_inheritable(fd, False)
@@ -202,7 +195,7 @@ cdef class UVProcess(UVHandle):
         if self._fds_to_close is None:
             raise RuntimeError(
                 'UVProcess._close_after_spawn called after uv_spawn')
-        self._fds_to_close.add(fd)
+        self._fds_to_close.append(fd)
 
     def __dealloc__(self):
         if self.uv_opt_env is not NULL:
