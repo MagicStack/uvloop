@@ -496,10 +496,7 @@ cdef class UVProcessTransport(UVProcess):
                     # shouldn't ever happen
                     raise RuntimeError('cannot apply subprocess.STDOUT')
 
-                newfd = os_dup(io[1])
-                os_set_inheritable(newfd, True)
-                self._close_after_spawn(newfd)
-                io[2] = newfd
+                io[2] = self._file_redirect_stdio(io[1])
             elif _stderr == subprocess_DEVNULL:
                 io[2] = self._file_devnull()
             else:
