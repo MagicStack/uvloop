@@ -72,6 +72,7 @@ cdef class UVProcess(UVHandle):
         fds_to_close = self._fds_to_close
         self._fds_to_close = None
         fds_to_close.append(self._errpipe_read)
+        # add the write pipe last so we can close it early
         fds_to_close.append(self._errpipe_write)
         try:
             os_set_inheritable(self._errpipe_write, True)
