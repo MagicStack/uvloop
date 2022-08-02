@@ -1,4 +1,4 @@
-# cython: language_level=3
+# cython: language_level=3, embedsignature=True, binding=True
 
 
 from .includes cimport uv
