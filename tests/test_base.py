@@ -605,7 +605,7 @@ class _TestBase:
         # for sniffio to detect uvloop as asyncio efficiently the running loop
         # call_soon module needs to match the asyncgen_hooks module
         hooks = self.loop.run_until_complete(get_asyncgen_hooks)
-        self.assertEqual(hooks.finzalier.__module__, "uvloop.loop")
+        self.assertEqual(hooks.finalizer.__module__, "uvloop.loop")
         self.assertEqual(self.loop.call_soon.__module__, "uvloop.loop")
 
     def test_shutdown_asyncgens_01(self):
