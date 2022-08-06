@@ -116,6 +116,7 @@ cdef os_fspath = os.fspath
 cdef stat_S_ISSOCK = stat.S_ISSOCK
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
+cdef sys_dev_mode = sys.flags.dev_mode
 cdef sys_exc_info = sys.exc_info
 cdef sys_set_coroutine_wrapper = getattr(sys, 'set_coroutine_wrapper', None)
 cdef sys_get_coroutine_wrapper = getattr(sys, 'get_coroutine_wrapper', None)
