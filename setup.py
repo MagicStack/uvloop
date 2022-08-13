@@ -34,6 +34,7 @@ TEST_DEPENDENCIES = [
     'pycodestyle~=2.7.0',
     'pyOpenSSL~=19.0.0',
     'mypy>=0.800',
+    CYTHON_DEPENDENCY,
 ]
 
 # Dependencies required to build documentation.

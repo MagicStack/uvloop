@@ -38,6 +38,7 @@ from cpython cimport (
     PyBytes_AsStringAndSize,
     Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
 )
+from cpython.pycapsule cimport PyCapsule_New
 
 from . import _noop
 
@@ -3179,6 +3180,10 @@ cdef class Loop:
             self.call_soon_threadsafe(future.set_result, None)
         except Exception as ex:
             self.call_soon_threadsafe(future.set_exception, ex)
+
+    # Expose pointer for integration with other C-extensions
+    def get_uv_loop_t_ptr(self):
+        return PyCapsule_New(<void *>self.uvloop, NULL, NULL)
 
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
