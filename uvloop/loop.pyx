@@ -3182,10 +3182,7 @@ cdef class Loop:
             self.call_soon_threadsafe(future.set_exception, ex)
 
     # Expose pointer for integration with other C-extensions
-    def get_uvloop_ptr(self):
-        return <uint64_t>self.uvloop
-
-    def get_uvloop_ptr_capsule(self):
+    def get_uv_loop_t_ptr(self):
         return PyCapsule_New(<void *>self.uvloop, NULL, NULL)
 
 
