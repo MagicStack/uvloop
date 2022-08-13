@@ -1756,6 +1756,7 @@ cdef class Loop:
                                     addrinfo.ai_family,
                                     addrinfo.ai_socktype,
                                     addrinfo.ai_protocol, exc_info=True)
+                            addrinfo = addrinfo.ai_next
                             continue
 
                         if reuse_address:
