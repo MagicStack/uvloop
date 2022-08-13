@@ -24,9 +24,10 @@ cdef enum AppProtocolState:
 
 cdef class _SSLProtocolTransport:
     cdef:
-        object _loop
+        Loop _loop
         SSLProtocol _ssl_protocol
         bint _closed
+        object context
 
 
 cdef class SSLProtocol:
@@ -41,7 +42,7 @@ cdef class SSLProtocol:
         size_t _write_buffer_size
 
         object _waiter
-        object _loop
+        Loop _loop
         _SSLProtocolTransport _app_transport
         bint _app_transport_created
 
@@ -65,7 +66,6 @@ cdef class SSLProtocol:
 
         bint _ssl_writing_paused
         bint _app_reading_paused
-        bint _eof_received
 
         size_t _incoming_high_water
         size_t _incoming_low_water
@@ -98,16 +98,17 @@ cdef class SSLProtocol:
 
     # Shutdown flow
 
-    cdef _start_shutdown(self)
+    cdef _start_shutdown(self, object context=*)
     cdef _check_shutdown_timeout(self)
-    cdef _do_flush(self)
-    cdef _do_shutdown(self)
+    cdef _do_read_into_void(self, object context)
+    cdef _do_flush(self, object context=*)
+    cdef _do_shutdown(self, object context=*)
     cdef _on_shutdown_complete(self, shutdown_exc)
     cdef _abort(self, exc)
 
     # Outgoing flow
 
-    cdef _write_appdata(self, list_of_data)
+    cdef _write_appdata(self, list_of_data, object context)
     cdef _do_write(self)
     cdef _process_outgoing(self)
 
@@ -116,18 +117,18 @@ cdef class SSLProtocol:
     cdef _do_read(self)
     cdef _do_read__buffered(self)
     cdef _do_read__copied(self)
-    cdef _call_eof_received(self)
+    cdef _call_eof_received(self, object context=*)
 
     # Flow control for writes from APP socket
 
-    cdef _control_app_writing(self)
+    cdef _control_app_writing(self, object context=*)
     cdef size_t _get_write_buffer_size(self)
     cdef _set_write_buffer_limits(self, high=*, low=*)
 
     # Flow control for reads to APP socket
 
     cdef _pause_reading(self)
-    cdef _resume_reading(self)
+    cdef _resume_reading(self, object context)
 
     # Flow control for reads from SSL socket
 

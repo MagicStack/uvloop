@@ -3,6 +3,15 @@ from posix.types cimport gid_t, uid_t
 
 from . cimport system
 
+# This is an internal enum UV_HANDLE_READABLE from uv-common.h, used only by
+# handles/pipe.pyx to temporarily workaround a libuv issue libuv/libuv#2058,
+# before there is a proper fix in libuv. In short, libuv disallowed feeding a
+# write-only pipe to uv_read_start(), which was needed by uvloop to detect a
+# broken pipe without having to send anything on the write-only end. We're
+# setting UV_HANDLE_READABLE on pipe_t to workaround this limitation
+# temporarily, please see also #317.
+cdef enum:
+    UV_INTERNAL_HANDLE_READABLE = 0x00004000
 
 cdef extern from "uv.h" nogil:
     cdef int UV_TCP_IPV6ONLY
@@ -82,6 +91,7 @@ cdef extern from "uv.h" nogil:
     ctypedef struct uv_handle_t:
         void* data
         uv_loop_t* loop
+        unsigned int flags
         # ...
 
     ctypedef struct uv_idle_t:
@@ -199,8 +209,7 @@ cdef extern from "uv.h" nogil:
 
     ctypedef enum uv_udp_flags:
         UV_UDP_IPV6ONLY = 1,
-        UV_UDP_PARTIAL = 2,
-        UV_UDP_REUSEADDR = 4
+        UV_UDP_PARTIAL = 2
 
     ctypedef enum uv_membership:
         UV_LEAVE_GROUP = 0,

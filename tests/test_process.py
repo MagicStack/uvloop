@@ -15,6 +15,20 @@ import psutil
 from uvloop import _testbase as tb
 
 
+class _RedirectFD(contextlib.AbstractContextManager):
+    def __init__(self, old_file, new_file):
+        self._old_fd = old_file.fileno()
+        self._old_fd_save = os.dup(self._old_fd)
+        self._new_fd = new_file.fileno()
+
+    def __enter__(self):
+        os.dup2(self._new_fd, self._old_fd)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        os.dup2(self._old_fd_save, self._old_fd)
+        os.close(self._old_fd_save)
+
+
 class _TestProcess:
     def get_num_fds(self):
         return psutil.Process(os.getpid()).num_fds()
@@ -128,6 +142,21 @@ class _TestProcess:
             proc = await asyncio.create_subprocess_exec(
                 b'doesnotexist', b'-W', b'ignore', b'-c', b'print("spam")',
                 executable=sys.executable,
+                stdout=subprocess.PIPE)
+
+            out, err = await proc.communicate()
+            self.assertEqual(out, b'spam\n')
+
+        self.loop.run_until_complete(test())
+
+    @unittest.skipIf(sys.version_info < (3, 8, 0),
+                     "3.5 to 3.7 does not support path-like objects "
+                     "in the asyncio subprocess API")
+    def test_process_executable_2(self):
+        async def test():
+            proc = await asyncio.create_subprocess_exec(
+                pathlib.Path(sys.executable),
+                b'-W', b'ignore', b'-c', b'print("spam")',
                 stdout=subprocess.PIPE)
 
             out, err = await proc.communicate()
@@ -391,6 +420,36 @@ print("OK")
                     stderr=fd)
 
         self.loop.run_until_complete(main())
+
+    def test_process_streams_redirect(self):
+        async def test():
+            prog = bR'''
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
+            '''
+
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', prog)
+
+            out, err = await proc.communicate()
+            self.assertIsNone(out)
+            self.assertIsNone(err)
+
+        with tempfile.NamedTemporaryFile('w') as stdout:
+            with tempfile.NamedTemporaryFile('w') as stderr:
+                with _RedirectFD(sys.stdout, stdout):
+                    with _RedirectFD(sys.stderr, stderr):
+                        self.loop.run_until_complete(test())
+
+                stdout.flush()
+                stderr.flush()
+
+                with open(stdout.name, 'rb') as so:
+                    self.assertEqual(so.read(), b'out\n')
+
+                with open(stderr.name, 'rb') as se:
+                    self.assertEqual(se.read(), b'err\n')
 
 
 class _AsyncioTests:
@@ -658,40 +717,86 @@ class _AsyncioTests:
 
         loop.run_until_complete(test_subprocess())
 
+    def test_communicate_large_stdout_65536(self):
+        self._test_communicate_large_stdout(65536)
 
-class Test_UV_Process(_TestProcess, tb.UVTestCase):
+    def test_communicate_large_stdout_65537(self):
+        self._test_communicate_large_stdout(65537)
 
-    def test_process_streams_redirect(self):
-        # This won't work for asyncio implementation of subprocess
+    def test_communicate_large_stdout_1000000(self):
+        self._test_communicate_large_stdout(1000000)
+
+    def _test_communicate_large_stdout(self, size):
+        async def copy_stdin_to_stdout(stdin):
+            # See https://github.com/MagicStack/uvloop/issues/363
+            # A program that copies stdin to stdout character by character
+            code = ('import sys, shutil; '
+                    'shutil.copyfileobj(sys.stdin, sys.stdout, 1)')
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', code,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE)
+            stdout, _stderr = await asyncio.wait_for(proc.communicate(stdin),
+                                                     60.0)
+            return stdout
+
+        stdin = b'x' * size
+        stdout = self.loop.run_until_complete(copy_stdin_to_stdout(stdin))
+        self.assertEqual(stdout, stdin)
+
+    def test_write_huge_stdin_8192(self):
+        self._test_write_huge_stdin(8192)
+
+    def test_write_huge_stdin_8193(self):
+        self._test_write_huge_stdin(8193)
+
+    def test_write_huge_stdin_219263(self):
+        self._test_write_huge_stdin(219263)
+
+    def test_write_huge_stdin_219264(self):
+        self._test_write_huge_stdin(219264)
+
+    def _test_write_huge_stdin(self, buf_size):
+        code = '''
+import sys
+n = 0
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        print("unexpected EOF", file=sys.stderr)
+        break
+    if line == "END\\n":
+        break
+    n+=1
+print(n)'''
+        num_lines = buf_size - len(b"END\n")
+        args = [sys.executable, b'-W', b'ignore', b'-c', code]
 
         async def test():
-            prog = bR'''
-import sys
-print('out', flush=True)
-print('err', file=sys.stderr, flush=True)
-            '''
-
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-W', b'ignore', b'-c', prog)
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.PIPE)
+            data = b"\n" * num_lines + b"END\n"
+            self.assertEqual(len(data), buf_size)
+            proc.stdin.write(data)
+            await asyncio.wait_for(proc.stdin.drain(), timeout=5.0)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                proc.kill()
+                proc.stdin.close()
+                await proc.wait()
+                raise
+            out = await proc.stdout.read()
+            self.assertEqual(int(out), num_lines)
 
-            out, err = await proc.communicate()
-            self.assertIsNone(out)
-            self.assertIsNone(err)
+        self.loop.run_until_complete(test())
 
-        with tempfile.NamedTemporaryFile('w') as stdout:
-            with tempfile.NamedTemporaryFile('w') as stderr:
-                with contextlib.redirect_stdout(stdout):
-                    with contextlib.redirect_stderr(stderr):
-                        self.loop.run_until_complete(test())
 
-                stdout.flush()
-                stderr.flush()
-
-                with open(stdout.name, 'rb') as so:
-                    self.assertEqual(so.read(), b'out\n')
-
-                with open(stderr.name, 'rb') as se:
-                    self.assertEqual(se.read(), b'err\n')
+class Test_UV_Process(_TestProcess, tb.UVTestCase):
+    pass
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
@@ -776,7 +881,9 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
             })
 
     def test_process_delayed_stdio__not_paused__no_stdin(self):
-        if os.environ.get('TRAVIS_OS_NAME') and sys.platform == 'darwin':
+        if ((os.environ.get('TRAVIS_OS_NAME')
+                or os.environ.get('GITHUB_WORKFLOW'))
+                and sys.platform == 'darwin'):
             # Randomly crashes on Travis, can't reproduce locally.
             raise unittest.SkipTest()
 

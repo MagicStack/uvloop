@@ -30,4 +30,8 @@ docs/_build
 uvloop/loop.*.pyd
 /.pytest_cache/
 /.mypy_cache/
-
+/.vscode
+/.eggs
+/.venv*
+/wheelhouse
+/uvloop-dev

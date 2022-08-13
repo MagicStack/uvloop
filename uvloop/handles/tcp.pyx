@@ -91,9 +91,11 @@ cdef class TCPServer(UVStreamServer):
         else:
             self._mark_as_open()
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context):
         cdef TCPTransport tr
-        tr = TCPTransport.new(self._loop, protocol, self._server, waiter)
+        tr = TCPTransport.new(self._loop, protocol, self._server, waiter,
+                              context)
         return <UVStream>tr
 
 
@@ -102,11 +104,11 @@ cdef class TCPTransport(UVStream):
 
     @staticmethod
     cdef TCPTransport new(Loop loop, object protocol, Server server,
-                          object waiter):
+                          object waiter, object context):
 
         cdef TCPTransport handle
         handle = TCPTransport.__new__(TCPTransport)
-        handle._init(loop, protocol, server, waiter)
+        handle._init(loop, protocol, server, waiter, context)
         __tcp_init_uv_handle(<UVStream>handle, loop, uv.AF_UNSPEC)
         handle.__peername_set = 0
         handle.__sockname_set = 0

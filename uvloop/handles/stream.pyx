@@ -612,7 +612,7 @@ cdef class UVStream(UVBaseTransport):
         except AttributeError:
             keep_open = False
         else:
-            keep_open = meth()
+            keep_open = run_in_context(self.context, meth)
 
         if keep_open:
             # We're keeping the connection open so the
@@ -631,8 +631,8 @@ cdef class UVStream(UVBaseTransport):
                 self._shutdown()
 
     cdef inline _init(self, Loop loop, object protocol, Server server,
-                      object waiter):
-
+                      object waiter, object context):
+        self.context = context
         self._set_protocol(protocol)
         self._start_init(loop)
 
@@ -826,7 +826,11 @@ cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
-        sc._protocol_data_received(loop._recv_buffer[:nread])
+        run_in_context1(
+            sc.context,
+            sc._protocol_data_received,
+            loop._recv_buffer[:nread],
+        )
     except BaseException as exc:
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_errors_total += 1
@@ -911,7 +915,11 @@ cdef void __uv_stream_buffered_alloc(uv.uv_handle_t* stream,
 
     sc._read_pybuf_acquired = 0
     try:
-        buf = sc._protocol_get_buffer(suggested_size)
+        buf = run_in_context1(
+            sc.context,
+            sc._protocol_get_buffer,
+            suggested_size,
+        )
         PyObject_GetBuffer(buf, pybuf, PyBUF_WRITABLE)
         got_buf = 1
     except BaseException as exc:
@@ -976,7 +984,7 @@ cdef void __uv_stream_buffered_on_read(uv.uv_stream_t* stream,
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
-        sc._protocol_buffer_updated(nread)
+        run_in_context1(sc.context, sc._protocol_buffer_updated, nread)
     except BaseException as exc:
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_errors_total += 1

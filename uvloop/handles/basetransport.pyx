@@ -26,6 +26,7 @@ cdef class UVBaseTransport(UVSocketHandle):
             new_MethodHandle(self._loop,
                              "UVTransport._call_connection_made",
                              <method_t>self._call_connection_made,
+                             self.context,
                              self))
 
     cdef inline _schedule_call_connection_lost(self, exc):
@@ -33,6 +34,7 @@ cdef class UVBaseTransport(UVSocketHandle):
             new_MethodHandle1(self._loop,
                               "UVTransport._call_connection_lost",
                               <method1_t>self._call_connection_lost,
+                              self.context,
                               self, exc))
 
     cdef _fatal_error(self, exc, throw, reason=None):
@@ -66,7 +68,11 @@ cdef class UVBaseTransport(UVSocketHandle):
         if not self._protocol_paused:
             self._protocol_paused = 1
             try:
-                self._protocol.pause_writing()
+                # _maybe_pause_protocol() is always triggered from user-calls,
+                # so we must copy the context to avoid entering context twice
+                run_in_context(
+                    self.context.copy(), self._protocol.pause_writing,
+                )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:
@@ -84,7 +90,12 @@ cdef class UVBaseTransport(UVSocketHandle):
         if self._protocol_paused and size <= self._low_water:
             self._protocol_paused = 0
             try:
-                self._protocol.resume_writing()
+                # We're copying the context to avoid entering context twice,
+                # even though it's not always necessary to copy - it's easier
+                # to copy here than passing down a copied context.
+                run_in_context(
+                    self.context.copy(), self._protocol.resume_writing,
+                )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as exc:

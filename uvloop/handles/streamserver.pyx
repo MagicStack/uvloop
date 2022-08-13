@@ -53,6 +53,8 @@ cdef class UVStreamServer(UVSocketHandle):
         if self.opened != 1:
             raise RuntimeError('unopened TCPServer')
 
+        self.context = Context_CopyCurrent()
+
         err = uv.uv_listen(<uv.uv_stream_t*> self._handle,
                            self.backlog,
                            __uv_streamserver_on_listen)
@@ -64,10 +66,10 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline _on_listen(self):
         cdef UVStream client
 
-        protocol = self.protocol_factory()
+        protocol = run_in_context(self.context, self.protocol_factory)
 
         if self.ssl is None:
-            client = self._make_new_transport(protocol, None)
+            client = self._make_new_transport(protocol, None, self.context)
 
         else:
             waiter = self._loop._new_future()
@@ -80,7 +82,7 @@ cdef class UVStreamServer(UVSocketHandle):
                 ssl_handshake_timeout=self.ssl_handshake_timeout,
                 ssl_shutdown_timeout=self.ssl_shutdown_timeout)
 
-            client = self._make_new_transport(ssl_protocol, None)
+            client = self._make_new_transport(ssl_protocol, None, self.context)
 
             waiter.add_done_callback(
                 ft_partial(self.__on_ssl_connected, client))
@@ -109,7 +111,8 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline _mark_as_open(self):
         self.opened = 1
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context):
         raise NotImplementedError
 
     def __on_ssl_connected(self, transport, fut):

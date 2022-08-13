@@ -22,4 +22,5 @@ cdef class UVStreamServer(UVSocketHandle):
     cdef inline listen(self)
     cdef inline _on_listen(self)
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter)
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context)

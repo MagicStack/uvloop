@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/MagicStack/uvloop.svg?branch=master
-    :target: https://travis-ci.org/MagicStack/uvloop
+.. image:: https://img.shields.io/github/workflow/status/MagicStack/uvloop/Tests
+    :target: https://github.com/MagicStack/uvloop/actions?query=workflow%3ATests+branch%3Amaster
 
 .. image:: https://img.shields.io/pypi/v/uvloop.svg
     :target: https://pypi.python.org/pypi/uvloop
@@ -23,7 +23,7 @@ Performance
 
 uvloop makes asyncio 2-4x faster.
 
-.. image:: performance.png
+.. image:: https://raw.githubusercontent.com/MagicStack/uvloop/master/performance.png
     :target: http://magic.io/blog/uvloop-blazing-fast-python-networking/
 
 The above chart shows the performance of an echo server with different
@@ -39,7 +39,7 @@ about it.
 Installation
 ------------
 
-uvloop requires Python 3.5 or greater and is available on PyPI.
+uvloop requires Python 3.7 or greater and is available on PyPI.
 Use pip to install it::
 
     $ pip install uvloop
@@ -53,26 +53,29 @@ uvloop with::
 Using uvloop
 ------------
 
-Call ``uvloop.install()`` before calling ``asyncio.run()`` or
-manually creating an asyncio event loop:
-
 .. code:: python
 
     import asyncio
+    import sys
+
     import uvloop
 
     async def main():
         # Main entry-point.
         ...
 
-    uvloop.install()
-    asyncio.run(main())
+    if sys.version_info >= (3, 11)
+        with asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner:
+            runner.run(main())
+    else:
+        uvloop.install()
+        asyncio.run(main())
 
 
 Building From Source
 --------------------
 
-To build uvloop, you'll need Python 3.5 or greater:
+To build uvloop, you'll need Python 3.7 or greater:
 
 1. Clone the repository:
 
@@ -92,7 +95,7 @@ To build uvloop, you'll need Python 3.5 or greater:
 
    ..  code::
 
-    $ pip install -r requirements.dev.txt
+    $ pip install -e .[dev]
 
 4. Build and run tests:
 

@@ -111,6 +111,7 @@ cdef os_pipe = os.pipe
 cdef os_read = os.read
 cdef os_remove = os.remove
 cdef os_stat = os.stat
+cdef os_fspath = os.fspath
 
 cdef stat_S_ISSOCK = stat.S_ISSOCK
 
@@ -128,12 +129,14 @@ cdef ssl_MemoryBIO = ssl.MemoryBIO
 cdef ssl_create_default_context = ssl.create_default_context
 cdef ssl_SSLError = ssl.SSLError
 cdef ssl_SSLAgainErrors = (ssl.SSLWantReadError, ssl.SSLSyscallError)
+cdef ssl_SSLZeroReturnError = ssl.SSLZeroReturnError
 cdef ssl_CertificateError = ssl.CertificateError
 cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
 cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
 cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
 cdef uint64_t MAIN_THREAD_ID = <uint64_t><int64_t>threading.main_thread().ident
+cdef threading_Thread = threading.Thread
 
 cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT

@@ -23,6 +23,7 @@ cdef class UVTimer(UVHandle):
         self.ctx = ctx
         self.running = 0
         self.timeout = timeout
+        self.start_t = 0
 
     cdef stop(self):
         cdef int err
@@ -47,6 +48,7 @@ cdef class UVTimer(UVHandle):
         if self.running == 0:
             # Update libuv internal time.
             uv.uv_update_time(self._loop.uvloop)  # void
+            self.start_t = uv.uv_now(self._loop.uvloop)
 
             err = uv.uv_timer_start(<uv.uv_timer_t*>self._handle,
                                     __uvtimer_callback,
@@ -56,6 +58,9 @@ cdef class UVTimer(UVHandle):
                 self._fatal_error(exc, True)
                 return
             self.running = 1
+
+    cdef get_when(self):
+        return self.start_t + self.timeout
 
     @staticmethod
     cdef UVTimer new(Loop loop, method_t callback, object ctx,

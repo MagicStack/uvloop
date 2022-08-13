@@ -13,7 +13,6 @@ import re
 import select
 import socket
 import ssl
-import sys
 import tempfile
 import threading
 import time
@@ -73,15 +72,10 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     async def wait_closed(self, obj):
         if not isinstance(obj, asyncio.StreamWriter):
             return
-        if sys.version_info >= (3, 7, 0):
-            try:
-                await obj.wait_closed()
-            except (BrokenPipeError, ConnectionError):
-                pass
-
-    def has_start_serving(self):
-        return not (self.is_asyncio_loop() and
-                    sys.version_info[:2] in [(3, 5), (3, 6)])
+        try:
+            await obj.wait_closed()
+        except (BrokenPipeError, ConnectionError):
+            pass
 
     def is_asyncio_loop(self):
         return type(self.loop).__module__.startswith('asyncio.')
@@ -101,9 +95,6 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
         self.loop.set_exception_handler(self.loop_exception_handler)
         self.__unhandled_exceptions = []
-
-        self.PY37 = sys.version_info[:2] >= (3, 7)
-        self.PY36 = sys.version_info[:2] >= (3, 6)
 
     def tearDown(self):
         self.loop.close()

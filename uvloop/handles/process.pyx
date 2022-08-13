@@ -10,6 +10,7 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close = set()
         self._preexec_fn = None
         self._restore_signals = True
+        self.context = Context_CopyCurrent()
 
     cdef _close_process_handle(self):
         # XXX: This is a workaround for a libuv bug:
@@ -100,6 +101,7 @@ cdef class UVProcess(UVHandle):
             self._finish_init()
 
             os_close(self._errpipe_write)
+            self._errpipe_write = -1
 
             if preexec_fn is not None:
                 errpipe_data = bytearray()
@@ -252,14 +254,7 @@ cdef class UVProcess(UVHandle):
             self.options.flags |= uv.UV_PROCESS_DETACHED
 
         if cwd is not None:
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(cwd).__fspath__
-            except AttributeError:
-                pass
-            else:
-                cwd = fspath(cwd)
+            cwd = os_fspath(cwd)
 
             if isinstance(cwd, str):
                 cwd = PyUnicode_EncodeFSDefault(cwd)
@@ -283,7 +278,7 @@ cdef class UVProcess(UVHandle):
 
         self.__args = args.copy()
         for i in range(an):
-            arg = args[i]
+            arg = os_fspath(args[i])
             if isinstance(arg, str):
                 self.__args[i] = PyUnicode_EncodeFSDefault(arg)
             elif not isinstance(arg, bytes):
@@ -371,7 +366,8 @@ cdef class UVProcessTransport(UVProcess):
         UVProcess._on_exit(self, exit_status, term_signal)
 
         if self._stdio_ready:
-            self._loop.call_soon(self._protocol.process_exited)
+            self._loop.call_soon(self._protocol.process_exited,
+                                 context=self.context)
         else:
             self._pending_calls.append((_CALL_PROCESS_EXITED, None, None))
 
@@ -390,14 +386,16 @@ cdef class UVProcessTransport(UVProcess):
 
     cdef _pipe_connection_lost(self, int fd, exc):
         if self._stdio_ready:
-            self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc)
+            self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc,
+                                 context=self.context)
             self._try_finish()
         else:
             self._pending_calls.append((_CALL_PIPE_CONNECTION_LOST, fd, exc))
 
     cdef _pipe_data_received(self, int fd, data):
         if self._stdio_ready:
-            self._loop.call_soon(self._protocol.pipe_data_received, fd, data)
+            self._loop.call_soon(self._protocol.pipe_data_received, fd, data,
+                                 context=self.context)
         else:
             self._pending_calls.append((_CALL_PIPE_DATA_RECEIVED, fd, data))
 
@@ -455,7 +453,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[0] = self._file_redirect_stdio(_stdin)
         else:
-            io[0] = self._file_redirect_stdio(sys.stdin.fileno())
+            io[0] = self._file_redirect_stdio(0)
 
         if _stdout is not None:
             if _stdout == subprocess_PIPE:
@@ -483,7 +481,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[1] = self._file_redirect_stdio(_stdout)
         else:
-            io[1] = self._file_redirect_stdio(sys.stdout.fileno())
+            io[1] = self._file_redirect_stdio(1)
 
         if _stderr is not None:
             if _stderr == subprocess_PIPE:
@@ -511,7 +509,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 io[2] = self._file_redirect_stdio(_stderr)
         else:
-            io[2] = self._file_redirect_stdio(sys.stderr.fileno())
+            io[2] = self._file_redirect_stdio(2)
 
         assert len(io) == 3
         for idx in range(3):
@@ -524,6 +522,7 @@ cdef class UVProcessTransport(UVProcess):
 
     cdef _call_connection_made(self, waiter):
         try:
+            # we're always called in the right context, so just call the user's
             self._protocol.connection_made(self)
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -563,7 +562,9 @@ cdef class UVProcessTransport(UVProcess):
             self._finished = 1
 
             if self._stdio_ready:
-                self._loop.call_soon(self._protocol.connection_lost, None)
+                # copy self.context for simplicity
+                self._loop.call_soon(self._protocol.connection_lost, None,
+                                     context=self.context)
             else:
                 self._pending_calls.append((_CALL_CONNECTION_LOST, None, None))
 
@@ -579,6 +580,7 @@ cdef class UVProcessTransport(UVProcess):
                 new_MethodHandle1(self._loop,
                                   "UVProcessTransport._call_connection_made",
                                   <method1_t>self._call_connection_made,
+                                  None,  # means to copy the current context
                                   self, waiter))
 
     @staticmethod
@@ -604,7 +606,9 @@ cdef class UVProcessTransport(UVProcess):
 
         if handle._init_futs:
             handle._stdio_ready = 0
-            init_fut = aio_gather(*handle._init_futs, loop=loop)
+            init_fut = aio_gather(*handle._init_futs)
+            # add_done_callback will copy the current context and run the
+            # callback within the context
             init_fut.add_done_callback(
                 ft_partial(handle.__stdio_inited, waiter))
         else:
@@ -613,6 +617,7 @@ cdef class UVProcessTransport(UVProcess):
                 new_MethodHandle1(loop,
                                   "UVProcessTransport._call_connection_made",
                                   <method1_t>handle._call_connection_made,
+                                  None,  # means to copy the current context
                                   handle, waiter))
 
         return handle

@@ -55,6 +55,8 @@ cdef class UDPTransport(UVBaseTransport):
     def __cinit__(self):
         self._family = uv.AF_UNSPEC
         self.__receiving = 0
+        self._address = None
+        self.context = Context_CopyCurrent()
 
     cdef _init(self, Loop loop, unsigned int family):
         cdef int err
@@ -78,6 +80,9 @@ cdef class UDPTransport(UVBaseTransport):
 
         self._finish_init()
 
+    cdef _set_address(self, system.addrinfo *addr):
+        self._address = __convert_sockaddr_to_pyaddr(addr.ai_addr)
+
     cdef _connect(self, system.sockaddr* addr, size_t addr_len):
         cdef int err
         err = uv.uv_udp_connect(<uv.uv_udp_t*>self._handle, addr)
@@ -100,15 +105,12 @@ cdef class UDPTransport(UVBaseTransport):
             exc = convert_error(err)
             raise exc
 
-    cdef _bind(self, system.sockaddr* addr, bint reuse_addr):
+    cdef _bind(self, system.sockaddr* addr):
         cdef:
             int err
             int flags = 0
 
         self._ensure_alive()
-
-        if reuse_addr:
-            flags |= uv.UV_UDP_REUSEADDR
 
         err = uv.uv_udp_bind(<uv.uv_udp_t*>self._handle, addr, flags)
         if err < 0:
@@ -251,18 +253,22 @@ cdef class UDPTransport(UVBaseTransport):
                 exc = convert_error(err)
                 self._fatal_error(exc, True)
             else:
-                self._on_sent(None)
+                self._on_sent(None, self.context.copy())
 
     cdef _on_receive(self, bytes data, object exc, object addr):
         if exc is None:
-            self._protocol.datagram_received(data, addr)
+            run_in_context2(
+                self.context, self._protocol.datagram_received, data, addr,
+            )
         else:
-            self._protocol.error_received(exc)
+            run_in_context1(self.context, self._protocol.error_received, exc)
 
-    cdef _on_sent(self, object exc):
+    cdef _on_sent(self, object exc, object context=None):
         if exc is not None:
             if isinstance(exc, OSError):
-                self._protocol.error_received(exc)
+                if context is None:
+                    context = self.context
+                run_in_context1(context, self._protocol.error_received, exc)
             else:
                 self._fatal_error(
                     exc, False, 'Fatal write error on datagram transport')
@@ -278,6 +284,16 @@ cdef class UDPTransport(UVBaseTransport):
         if not data:
             # Replicating asyncio logic here.
             return
+
+        if self._address:
+            if addr not in (None, self._address):
+                # Replicating asyncio logic here.
+                raise ValueError(
+                    'Invalid address: must be None or %s' % (self._address,))
+
+            # Instead of setting addr to self._address below like what asyncio
+            # does, we depend on previous uv_udp_connect() to set the address
+            addr = None
 
         if self._conn_lost:
             # Replicating asyncio logic here.
@@ -330,6 +346,12 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
 
     if addr is NULL:
         pyaddr = None
+    elif addr.sa_family == uv.AF_UNSPEC:
+        # https://github.com/MagicStack/uvloop/issues/304
+        IF UNAME_SYSNAME == "Linux":
+            pyaddr = None
+        ELSE:
+            pyaddr = ''
     else:
         try:
             pyaddr = __convert_sockaddr_to_pyaddr(addr)
@@ -340,13 +362,6 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
     if nread < 0:
         exc = convert_error(nread)
         udp._on_receive(None, exc, pyaddr)
-        return
-
-    if pyaddr is None:
-        udp._fatal_error(
-            RuntimeError(
-                'uv_udp.receive callback: addr is NULL and nread >= 0'),
-            False)
         return
 
     if nread == 0:

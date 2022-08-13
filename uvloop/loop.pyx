@@ -49,8 +49,7 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 cdef:
-    int PY37 = PY_VERSION_HEX >= 0x03070000
-    int PY36 = PY_VERSION_HEX >= 0x03060000
+    int PY39 = PY_VERSION_HEX >= 0x03090000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
 
 
@@ -89,6 +88,39 @@ cdef inline socket_inc_io_ref(sock):
 cdef inline socket_dec_io_ref(sock):
     if isinstance(sock, socket_socket):
         sock._decref_socketios()
+
+
+cdef inline run_in_context(context, method):
+    # This method is internally used to workaround a reference issue that in
+    # certain circumstances, inlined context.run() will not hold a reference to
+    # the given method instance, which - if deallocated - will cause segault.
+    # See also: edgedb/edgedb#2222
+    Py_INCREF(method)
+    try:
+        return context.run(method)
+    finally:
+        Py_DECREF(method)
+
+
+cdef inline run_in_context1(context, method, arg):
+    Py_INCREF(method)
+    try:
+        return context.run(method, arg)
+    finally:
+        Py_DECREF(method)
+
+
+cdef inline run_in_context2(context, method, arg1, arg2):
+    Py_INCREF(method)
+    try:
+        return context.run(method, arg1, arg2)
+    finally:
+        Py_DECREF(method)
+
+
+# Used for deprecation and removal of `loop.create_datagram_endpoint()`'s
+# *reuse_address* parameter
+_unset = object()
 
 
 @cython.no_gc_clear
@@ -154,7 +186,7 @@ cdef class Loop:
         self.handler_idle = UVIdle.new(
             self,
             new_MethodHandle(
-                self, "loop._on_idle", <method_t>self._on_idle, self))
+                self, "loop._on_idle", <method_t>self._on_idle, None, self))
 
         # Needed to call `UVStream._exec_write` for writes scheduled
         # during `Protocol.data_received`.
@@ -162,7 +194,7 @@ cdef class Loop:
             self,
             new_MethodHandle(
                 self, "loop._exec_queued_writes",
-                <method_t>self._exec_queued_writes, self))
+                <method_t>self._exec_queued_writes, None, self))
 
         self._signals = set()
         self._ssock = self._csock = None
@@ -172,16 +204,14 @@ cdef class Loop:
 
         self._coroutine_debug_set = False
 
-        if hasattr(sys, 'get_asyncgen_hooks'):
-            # Python >= 3.6
-            # A weak set of all asynchronous generators that are
-            # being iterated by the loop.
-            self._asyncgens = weakref_WeakSet()
-        else:
-            self._asyncgens = None
+        # A weak set of all asynchronous generators that are
+        # being iterated by the loop.
+        self._asyncgens = weakref_WeakSet()
 
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
+        # Set to True when `loop.shutdown_default_executor` is called.
+        self._executor_shutdown_called = False
 
         self._servers = set()
 
@@ -287,6 +317,7 @@ cdef class Loop:
                 self,
                 "Loop._read_from_self",
                 <method_t>self._read_from_self,
+                None,
                 self))
 
         self._listening_signals = True
@@ -397,7 +428,7 @@ cdef class Loop:
         if handle._cancelled:
             self.remove_signal_handler(sig)  # Remove it properly.
         else:
-            self._call_soon_handle(handle)
+            self._append_ready_handle(handle)
             self.handler_async.send()
 
     cdef _on_wake(self):
@@ -587,6 +618,7 @@ cdef class Loop:
         self.handler_idle = None
         self.handler_check__exec_writes = None
 
+        self._executor_shutdown_called = True
         executor = self._default_executor
         if executor is not None:
             self._default_executor = None
@@ -636,10 +668,13 @@ cdef class Loop:
         self._call_soon_handle(handle)
         return handle
 
-    cdef inline _call_soon_handle(self, Handle handle):
+    cdef inline _append_ready_handle(self, Handle handle):
         self._check_closed()
         self._ready.append(handle)
         self._ready_len += 1
+
+    cdef inline _call_soon_handle(self, Handle handle):
+        self._append_ready_handle(handle)
         if not self.handler_idle.running:
             self.handler_idle.start()
 
@@ -972,7 +1007,7 @@ cdef class Loop:
 
         if UVLOOP_DEBUG:
             if fut.cancelled():
-                # Shouldn't happen with _SyncSocketReaderFuture.
+                # Shouldn't happen with _SyncSocketWriterFuture.
                 raise RuntimeError(
                     f'_sock_sendall is called on a cancelled Future')
 
@@ -1007,6 +1042,7 @@ cdef class Loop:
                 self,
                 "Loop._sock_sendall",
                 <method3_t>self._sock_sendall,
+                None,
                 self,
                 fut, sock, data)
 
@@ -1040,13 +1076,12 @@ cdef class Loop:
         else:
             return
 
-        fut = self._new_future()
-        fut.add_done_callback(lambda fut: self._remove_writer(sock))
-
+        fut = _SyncSocketWriterFuture(sock, self)
         handle = new_MethodHandle3(
             self,
             "Loop._sock_connect",
             <method3_t>self._sock_connect_cb,
+            None,
             self,
             fut, sock, address)
 
@@ -1054,8 +1089,16 @@ cdef class Loop:
         return fut
 
     cdef _sock_connect_cb(self, fut, sock, address):
-        if fut.cancelled():
-            return
+        if UVLOOP_DEBUG:
+            if fut.cancelled():
+                # Shouldn't happen with _SyncSocketWriterFuture.
+                raise RuntimeError(
+                    f'_sock_connect_cb is called on a cancelled Future')
+
+            if not self._has_writer(sock):
+                raise RuntimeError(
+                    f'socket {sock!r} does not have a writer '
+                    f'in the _sock_connect_cb callback')
 
         try:
             err = sock.getsockopt(uv.SOL_SOCKET, uv.SO_ERROR)
@@ -1069,8 +1112,10 @@ cdef class Loop:
             raise
         except BaseException as exc:
             fut.set_exception(exc)
+            self._remove_writer(sock)
         else:
             fut.set_result(None)
+            self._remove_writer(sock)
 
     cdef _sock_set_reuseport(self, int fd):
         cdef:
@@ -1092,39 +1137,16 @@ cdef class Loop:
         if self._coroutine_debug_set == enabled:
             return
 
-        if PY37:
-            if enabled:
-                self._coroutine_origin_tracking_saved_depth = (
-                    sys.get_coroutine_origin_tracking_depth())
-                sys.set_coroutine_origin_tracking_depth(
-                    DEBUG_STACK_DEPTH)
-            else:
-                sys.set_coroutine_origin_tracking_depth(
-                    self._coroutine_origin_tracking_saved_depth)
-
-            self._coroutine_debug_set = enabled
+        if enabled:
+            self._coroutine_origin_tracking_saved_depth = (
+                sys.get_coroutine_origin_tracking_depth())
+            sys.set_coroutine_origin_tracking_depth(
+                DEBUG_STACK_DEPTH)
         else:
-            wrapper = aio_debug_wrapper
-            current_wrapper = sys_get_coroutine_wrapper()
+            sys.set_coroutine_origin_tracking_depth(
+                self._coroutine_origin_tracking_saved_depth)
 
-            if enabled:
-                if current_wrapper not in (None, wrapper):
-                    _warn_with_source(
-                        "loop.set_debug(True): cannot set debug coroutine "
-                        "wrapper; another wrapper is already set %r" %
-                        current_wrapper, RuntimeWarning, self)
-                else:
-                    sys_set_coroutine_wrapper(wrapper)
-                    self._coroutine_debug_set = True
-            else:
-                if current_wrapper not in (None, wrapper):
-                    _warn_with_source(
-                        "loop.set_debug(False): cannot unset debug coroutine "
-                        "wrapper; another wrapper was set %r" %
-                        current_wrapper, RuntimeWarning, self)
-                else:
-                    sys_set_coroutine_wrapper(None)
-                    self._coroutine_debug_set = False
+        self._coroutine_debug_set = enabled
 
     def _get_backend_id(self):
         """This method is used by uvloop tests and is not part of the API."""
@@ -1263,7 +1285,11 @@ cdef class Loop:
         """Like call_soon(), but thread-safe."""
         if not args:
             args = None
-        handle = self._call_soon(callback, args, context)
+        cdef Handle handle = new_Handle(self, callback, args, context)
+        self._append_ready_handle(handle)  # deque append is atomic
+        # libuv async handler is thread-safe while the idle handler is not -
+        # we only set the async handler here, which will start the idle handler
+        # in _on_wake() from the loop and eventually call the callback.
         self.handler_async.send()
         return handle
 
@@ -1332,6 +1358,7 @@ cdef class Loop:
                 self,
                 "Loop._stop",
                 <method1_t>self._stop,
+                None,
                 self,
                 None))
 
@@ -1344,16 +1371,14 @@ cdef class Loop:
             # This is how asyncio loop behaves.
             mode = uv.UV_RUN_NOWAIT
         self._set_coroutine_debug(self._debug)
-        if self._asyncgens is not None:
-            old_agen_hooks = sys.get_asyncgen_hooks()
-            sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
-                                   finalizer=self._asyncgen_finalizer_hook)
+        old_agen_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                               finalizer=self._asyncgen_finalizer_hook)
         try:
             self._run(mode)
         finally:
             self._set_coroutine_debug(False)
-            if self._asyncgens is not None:
-                sys.set_asyncgen_hooks(*old_agen_hooks)
+            sys.set_asyncgen_hooks(*old_agen_hooks)
 
     def close(self):
         """Close the event loop.
@@ -1387,16 +1412,29 @@ cdef class Loop:
         """Create a Future object attached to the loop."""
         return self._new_future()
 
-    def create_task(self, coro):
+    def create_task(self, coro, *, name=None):
         """Schedule a coroutine object.
 
         Return a task object.
+
+        If name is not None, task.set_name(name) will be called if the task
+        object has the set_name attribute, true for default Task in Python 3.8.
         """
         self._check_closed()
         if self._task_factory is None:
             task = aio_Task(coro, loop=self)
         else:
             task = self._task_factory(self, coro)
+
+        # copied from asyncio.tasks._set_task_name (bpo-34270)
+        if name is not None:
+            try:
+                set_name = task.set_name
+            except AttributeError:
+                pass
+            else:
+                set_name(name)
+
         return task
 
     def set_task_factory(self, factory):
@@ -1437,7 +1475,14 @@ cdef class Loop:
             # is no need to log the "destroy pending task" message
             future._log_destroy_pending = False
 
-        done_cb = lambda fut: self.stop()
+        def done_cb(fut):
+            if not fut.cancelled():
+                exc = fut.exception()
+                if isinstance(exc, (SystemExit, KeyboardInterrupt)):
+                    # Issue #336: run_forever() already finished,
+                    # no need to stop it.
+                    return
+            self.stop()
 
         future.add_done_callback(done_cb)
         try:
@@ -1488,11 +1533,8 @@ cdef class Loop:
         if sl > 2:
             flowinfo = sockaddr[2]
             if flowinfo < 0 or flowinfo > 0xfffff:
-                if PY37:
-                    msg = 'getnameinfo(): flowinfo must be 0-1048575.'
-                else:
-                    msg = 'getsockaddrarg: flowinfo must be 0-1048575.'
-                raise OverflowError(msg)
+                raise OverflowError(
+                    'getnameinfo(): flowinfo must be 0-1048575.')
         else:
             flowinfo = 0
 
@@ -1544,8 +1586,11 @@ cdef class Loop:
                 f'sslcontext is expected to be an instance of ssl.SSLContext, '
                 f'got {sslcontext!r}')
 
-        if not isinstance(transport, (TCPTransport, UnixTransport,
-                                      _SSLProtocolTransport)):
+        if isinstance(transport, (TCPTransport, UnixTransport)):
+            context = (<UVStream>transport).context
+        elif isinstance(transport, _SSLProtocolTransport):
+            context = (<_SSLProtocolTransport>transport).context
+        else:
             raise TypeError(
                 f'transport {transport!r} is not supported by start_tls()')
 
@@ -1562,9 +1607,12 @@ cdef class Loop:
         transport.pause_reading()
 
         transport.set_protocol(ssl_protocol)
-        conmade_cb = self.call_soon(ssl_protocol.connection_made, transport)
+        conmade_cb = self.call_soon(ssl_protocol.connection_made, transport,
+                                    context=context)
+        # transport.resume_reading() will use the right context
+        # (transport.context) to call e.g. data_received()
         resume_cb = self.call_soon(transport.resume_reading)
-        app_transport = ssl_protocol._get_app_transport()
+        app_transport = ssl_protocol._get_app_transport(context)
 
         try:
             await waiter
@@ -1683,7 +1731,7 @@ cdef class Loop:
                                     uv.SOCK_STREAM, 0, flags,
                                     0) for host in hosts]
 
-            infos = await aio_gather(*fs, loop=self)
+            infos = await aio_gather(*fs)
 
             completed = False
             sock = None
@@ -1838,6 +1886,7 @@ cdef class Loop:
 
         app_protocol = protocol = protocol_factory()
         ssl_waiter = None
+        context = Context_CopyCurrent()
         if ssl:
             if server_hostname is None:
                 if not host:
@@ -1909,7 +1958,7 @@ cdef class Loop:
                     lai = &lai_static
 
             if len(fs):
-                await aio_wait(fs, loop=self)
+                await aio_wait(fs)
 
             if rai is NULL:
                 ai_remote = f1.result()
@@ -1930,7 +1979,8 @@ cdef class Loop:
                 tr = None
                 try:
                     waiter = self._new_future()
-                    tr = TCPTransport.new(self, protocol, None, waiter)
+                    tr = TCPTransport.new(self, protocol, None, waiter,
+                                          context)
 
                     if lai is not NULL:
                         lai_iter = lai
@@ -1990,7 +2040,7 @@ cdef class Loop:
             sock.setblocking(False)
 
             waiter = self._new_future()
-            tr = TCPTransport.new(self, protocol, None, waiter)
+            tr = TCPTransport.new(self, protocol, None, waiter, context)
             try:
                 # libuv will make socket non-blocking
                 tr._open(sock.fileno())
@@ -2010,7 +2060,7 @@ cdef class Loop:
             tr._attach_fileobj(sock)
 
         if ssl:
-            app_transport = protocol._get_app_transport()
+            app_transport = protocol._get_app_transport(context)
             try:
                 await ssl_waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2074,14 +2124,7 @@ cdef class Loop:
                     'path and sock can not be specified at the same time')
             orig_path = path
 
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(path).__fspath__
-            except AttributeError:
-                pass
-            else:
-                path = fspath(path)
+            path = os_fspath(path)
 
             if isinstance(path, str):
                 path = PyUnicode_EncodeFSDefault(path)
@@ -2173,6 +2216,7 @@ cdef class Loop:
 
         app_protocol = protocol = protocol_factory()
         ssl_waiter = None
+        context = Context_CopyCurrent()
         if ssl:
             if server_hostname is None:
                 raise ValueError('You must set server_hostname '
@@ -2200,20 +2244,13 @@ cdef class Loop:
                 raise ValueError(
                     'path and sock can not be specified at the same time')
 
-            try:
-                # Lookup __fspath__ manually, as os.fspath() isn't
-                # available on Python 3.5.
-                fspath = type(path).__fspath__
-            except AttributeError:
-                pass
-            else:
-                path = fspath(path)
+            path = os_fspath(path)
 
             if isinstance(path, str):
                 path = PyUnicode_EncodeFSDefault(path)
 
             waiter = self._new_future()
-            tr = UnixTransport.new(self, protocol, None, waiter)
+            tr = UnixTransport.new(self, protocol, None, waiter, context)
             tr.connect(path)
             try:
                 await waiter
@@ -2237,7 +2274,7 @@ cdef class Loop:
             sock.setblocking(False)
 
             waiter = self._new_future()
-            tr = UnixTransport.new(self, protocol, None, waiter)
+            tr = UnixTransport.new(self, protocol, None, waiter, context)
             try:
                 tr._open(sock.fileno())
                 tr._init_protocol()
@@ -2251,7 +2288,7 @@ cdef class Loop:
             tr._attach_fileobj(sock)
 
         if ssl:
-            app_transport = protocol._get_app_transport()
+            app_transport = protocol._get_app_transport(Context_CopyCurrent())
             try:
                 await ssl_waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2424,6 +2461,7 @@ cdef class Loop:
             self,
             "Loop._sock_recv",
             <method3_t>self._sock_recv,
+            None,
             self,
             fut, sock, n)
 
@@ -2450,6 +2488,7 @@ cdef class Loop:
             self,
             "Loop._sock_recv_into",
             <method3_t>self._sock_recv_into,
+            None,
             self,
             fut, sock, buf)
 
@@ -2501,6 +2540,7 @@ cdef class Loop:
                 self,
                 "Loop._sock_sendall",
                 <method3_t>self._sock_sendall,
+                None,
                 self,
                 fut, sock, data)
 
@@ -2531,6 +2571,7 @@ cdef class Loop:
             self,
             "Loop._sock_accept",
             <method2_t>self._sock_accept,
+            None,
             self,
             fut, sock)
 
@@ -2596,6 +2637,7 @@ cdef class Loop:
         app_protocol = protocol_factory()
         waiter = self._new_future()
         transport_waiter = None
+        context = Context_CopyCurrent()
 
         if ssl is None:
             protocol = app_protocol
@@ -2611,10 +2653,10 @@ cdef class Loop:
 
         if sock.family == uv.AF_UNIX:
             transport = <UVStream>UnixTransport.new(
-                self, protocol, None, transport_waiter)
+                self, protocol, None, transport_waiter, context)
         elif sock.family in (uv.AF_INET, uv.AF_INET6):
             transport = <UVStream>TCPTransport.new(
-                self, protocol, None, transport_waiter)
+                self, protocol, None, transport_waiter, context)
 
         if transport is None:
             raise ValueError(
@@ -2625,7 +2667,7 @@ cdef class Loop:
         transport._attach_fileobj(sock)
 
         if ssl:
-            app_transport = protocol._get_app_transport()
+            app_transport = protocol._get_app_transport(context)
             try:
                 await waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2652,6 +2694,8 @@ cdef class Loop:
 
         if executor is None:
             executor = self._default_executor
+            # Only check when the default executor is being used
+            self._check_default_executor()
             if executor is None:
                 executor = cc_ThreadPoolExecutor()
                 self._default_executor = executor
@@ -2827,13 +2871,13 @@ cdef class Loop:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
-                _warn_with_source(
+                warnings_warn(
                     "!!! asyncio is trying to install its ChildWatcher for "
                     "SIGCHLD signal !!!\n\nThis is probably because a uvloop "
                     "instance is used with asyncio.set_event_loop(). "
                     "The correct way to use uvloop is to install its policy: "
                     "`asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())`"
-                    "\n\n", RuntimeWarning, self)
+                    "\n\n", RuntimeWarning, source=self)
 
                 # TODO: ideally we should always raise an error here,
                 # but that would be a backwards incompatible change,
@@ -2912,7 +2956,7 @@ cdef class Loop:
     async def create_datagram_endpoint(self, protocol_factory,
                                        local_addr=None, remote_addr=None, *,
                                        family=0, proto=0, flags=0,
-                                       reuse_address=None, reuse_port=None,
+                                       reuse_address=_unset, reuse_port=None,
                                        allow_broadcast=None, sock=None):
         """A coroutine which creates a datagram endpoint.
 
@@ -2923,11 +2967,6 @@ cdef class Loop:
 
         socket family AF_INET or socket.AF_INET6 depending on host (or
         family if specified), socket type SOCK_DGRAM.
-
-        reuse_address tells the kernel to reuse a local socket in
-        TIME_WAIT state, without waiting for its natural timeout to
-        expire. If not specified it will automatically be set to True on
-        UNIX.
 
         reuse_port tells the kernel to allow this endpoint to be bound to
         the same port as other existing endpoints are bound to, so long as
@@ -2953,7 +2992,7 @@ cdef class Loop:
                     'A UDP Socket was expected, got {!r}'.format(sock))
             if (local_addr or remote_addr or
                     family or proto or flags or
-                    reuse_address or reuse_port or allow_broadcast):
+                    reuse_port or allow_broadcast):
                 # show the problematic kwargs in exception msg
                 opts = dict(local_addr=local_addr, remote_addr=remote_addr,
                             family=family, proto=proto, flags=flags,
@@ -2970,7 +3009,16 @@ cdef class Loop:
             udp.open(sock.family, sock.fileno())
             udp._attach_fileobj(sock)
         else:
-            reuse_address = bool(reuse_address)
+            if reuse_address is not _unset:
+                if reuse_address:
+                    raise ValueError("Passing `reuse_address=True` is no "
+                                     "longer supported, as the usage of "
+                                     "SO_REUSEPORT in UDP poses a significant "
+                                     "security concern.")
+                else:
+                    warnings_warn("The *reuse_address* parameter has been "
+                                  "deprecated as of 0.15.", DeprecationWarning,
+                                  stacklevel=2)
             reuse_port = bool(reuse_port)
             if reuse_port and not has_SO_REUSEPORT:
                 raise ValueError(
@@ -3005,6 +3053,7 @@ cdef class Loop:
                     rai = (<AddrInfo>rads).data
                     udp._init(self, rai.ai_family)
                     udp._connect(rai.ai_addr, rai.ai_addrlen)
+                    udp._set_address(rai)
                 else:
                     if family not in (uv.AF_INET, uv.AF_INET6):
                         raise ValueError('unexpected address family')
@@ -3022,7 +3071,7 @@ cdef class Loop:
                         udp._init(self, lai.ai_family)
                         if reuse_port:
                             self._sock_set_reuseport(udp._fileno())
-                        udp._bind(lai.ai_addr, reuse_address)
+                        udp._bind(lai.ai_addr)
                     except (KeyboardInterrupt, SystemExit):
                         raise
                     except BaseException as ex:
@@ -3048,6 +3097,7 @@ cdef class Loop:
                             rai = rai.ai_next
                             continue
                         udp._connect(rai.ai_addr, rai.ai_addrlen)
+                        udp._set_address(rai)
                         break
                     else:
                         raise OSError(
@@ -3067,6 +3117,10 @@ cdef class Loop:
         await waiter
         return udp, protocol
 
+    def _check_default_executor(self):
+        if self._executor_shutdown_called:
+            raise RuntimeError('Executor shutdown has been called')
+
     def _asyncgen_finalizer_hook(self, agen):
         self._asyncgens.discard(agen)
         if not self.is_closed():
@@ -3074,10 +3128,10 @@ cdef class Loop:
 
     def _asyncgen_firstiter_hook(self, agen):
         if self._asyncgens_shutdown_called:
-            _warn_with_source(
+            warnings_warn(
                 "asynchronous generator {!r} was scheduled after "
                 "loop.shutdown_asyncgens() call".format(agen),
-                ResourceWarning, self)
+                ResourceWarning, source=self)
 
         self._asyncgens.add(agen)
 
@@ -3086,9 +3140,7 @@ cdef class Loop:
         """Shutdown all active asynchronous generators."""
         self._asyncgens_shutdown_called = True
 
-        if self._asyncgens is None or not len(self._asyncgens):
-            # If Python version is <3.6 or we don't have any asynchronous
-            # generators alive.
+        if not len(self._asyncgens):
             return
 
         closing_agens = list(self._asyncgens)
@@ -3096,8 +3148,7 @@ cdef class Loop:
 
         shutdown_coro = aio_gather(
             *[ag.aclose() for ag in closing_agens],
-            return_exceptions=True,
-            loop=self)
+            return_exceptions=True)
 
         results = await shutdown_coro
         for result, agen in zip(results, closing_agens):
@@ -3108,6 +3159,27 @@ cdef class Loop:
                     'exception': result,
                     'asyncgen': agen
                 })
+
+    @cython.iterable_coroutine
+    async def shutdown_default_executor(self):
+        """Schedule the shutdown of the default executor."""
+        self._executor_shutdown_called = True
+        if self._default_executor is None:
+            return
+        future = self.create_future()
+        thread = threading_Thread(target=self._do_shutdown, args=(future,))
+        thread.start()
+        try:
+            await future
+        finally:
+            thread.join()
+
+    def _do_shutdown(self, future):
+        try:
+            self._default_executor.shutdown(wait=True)
+            self.call_soon_threadsafe(future.set_result, None)
+        except Exception as ex:
+            self.call_soon_threadsafe(future.set_exception, ex)
 
     # Expose pointer for integration with other C-extensions
     def get_uvloop_ptr(self):
@@ -3145,12 +3217,20 @@ class _SyncSocketReaderFuture(aio_Future):
         self.__sock = sock
         self.__loop = loop
 
-    def cancel(self):
+    def __remove_reader(self):
         if self.__sock is not None and self.__sock.fileno() != -1:
             self.__loop.remove_reader(self.__sock)
             self.__sock = None
 
-        aio_Future.cancel(self)
+    if PY39:
+        def cancel(self, msg=None):
+            self.__remove_reader()
+            aio_Future.cancel(self, msg=msg)
+
+    else:
+        def cancel(self):
+            self.__remove_reader()
+            aio_Future.cancel(self)
 
 
 class _SyncSocketWriterFuture(aio_Future):
@@ -3160,12 +3240,20 @@ class _SyncSocketWriterFuture(aio_Future):
         self.__sock = sock
         self.__loop = loop
 
-    def cancel(self):
+    def __remove_writer(self):
         if self.__sock is not None and self.__sock.fileno() != -1:
             self.__loop.remove_writer(self.__sock)
             self.__sock = None
 
-        aio_Future.cancel(self)
+    if PY39:
+        def cancel(self, msg=None):
+            self.__remove_writer()
+            aio_Future.cancel(self, msg=msg)
+
+    else:
+        def cancel(self):
+            self.__remove_writer()
+            aio_Future.cancel(self)
 
 
 include "cbhandles.pyx"
@@ -3242,17 +3330,10 @@ cdef __install_pymem():
 
 
 cdef _set_signal_wakeup_fd(fd):
-    if PY37 and fd >= 0:
+    if fd >= 0:
         return signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
         return signal_set_wakeup_fd(fd)
-
-
-cdef _warn_with_source(msg, cls, source):
-    if PY36:
-        warnings_warn(msg, cls, source=source)
-    else:
-        warnings_warn(msg, cls)
 
 
 # Helpers for tests

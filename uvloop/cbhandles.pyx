@@ -15,15 +15,9 @@ cdef class Handle:
             self._source_traceback = extract_stack()
 
     cdef inline _set_context(self, object context):
-        if PY37:
-            if context is None:
-                context = Context_CopyCurrent()
-            self.context = context
-        else:
-            if context is not None:
-                raise NotImplementedError(
-                    '"context" argument requires Python 3.7')
-            self.context = None
+        if context is None:
+            context = Context_CopyCurrent()
+        self.context = context
 
     def __dealloc__(self):
         if UVLOOP_DEBUG and self.loop is not None:
@@ -52,9 +46,8 @@ cdef class Handle:
         Py_INCREF(self)
 
         try:
-            if PY37:
-                assert self.context is not None
-                Context_Enter(self.context)
+            assert self.context is not None
+            Context_Enter(self.context)
 
             if cb_type == 1:
                 callback = self.arg1
@@ -108,8 +101,7 @@ cdef class Handle:
         finally:
             context = self.context
             Py_DECREF(self)
-            if PY37:
-                Context_Exit(context)
+            Context_Exit(context)
 
     cdef _cancel(self):
         self._cancelled = 1
@@ -185,15 +177,9 @@ cdef class TimerHandle:
             self.loop._debug_cb_timer_handles_total += 1
             self.loop._debug_cb_timer_handles_count += 1
 
-        if PY37:
-            if context is None:
-                context = Context_CopyCurrent()
-            self.context = context
-        else:
-            if context is not None:
-                raise NotImplementedError(
-                    '"context" argument requires Python 3.7')
-            self.context = None
+        if context is None:
+            context = Context_CopyCurrent()
+        self.context = context
 
         if loop._debug:
             self._debug_info = (
@@ -207,6 +193,7 @@ cdef class TimerHandle:
             loop, <method_t>self._run, self, delay)
 
         self.timer.start()
+        self._when = self.timer.get_when() * 1e-3
 
         # Only add to loop._timers when `self.timer` is successfully created
         loop._timers.add(self)
@@ -257,9 +244,8 @@ cdef class TimerHandle:
         if self.loop._debug:
             started = time_monotonic()
         try:
-            if PY37:
-                assert self.context is not None
-                Context_Enter(self.context)
+            assert self.context is not None
+            Context_Enter(self.context)
 
             if args is not None:
                 callback(*args)
@@ -288,8 +274,7 @@ cdef class TimerHandle:
         finally:
             context = self.context
             Py_DECREF(self)
-            if PY37:
-                Context_Exit(context)
+            Context_Exit(context)
             self._clear()
 
     # Public API
@@ -324,6 +309,9 @@ cdef class TimerHandle:
     def cancel(self):
         self._cancel()
 
+    def when(self):
+        return self._when
+
 
 cdef format_callback_name(func):
     if hasattr(func, '__qualname__'):
@@ -349,71 +337,72 @@ cdef new_Handle(Loop loop, object callback, object args, object context):
     return handle
 
 
-cdef new_MethodHandle(Loop loop, str name, method_t callback, object ctx):
+cdef new_MethodHandle(Loop loop, str name, method_t callback, object context,
+                      object bound_to):
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 2
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
 
     return handle
 
 
-cdef new_MethodHandle1(Loop loop, str name, method1_t callback,
-                       object ctx, object arg):
+cdef new_MethodHandle1(Loop loop, str name, method1_t callback, object context,
+                       object bound_to, object arg):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 3
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg
 
     return handle
 
 
-cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object ctx,
-                       object arg1, object arg2):
+cdef new_MethodHandle2(Loop loop, str name, method2_t callback, object context,
+                       object bound_to, object arg1, object arg2):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 4
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg1
     handle.arg3 = arg2
 
     return handle
 
 
-cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object ctx,
-                       object arg1, object arg2, object arg3):
+cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object context,
+                       object bound_to, object arg1, object arg2, object arg3):
 
     cdef Handle handle
     handle = Handle.__new__(Handle)
     handle._set_loop(loop)
-    handle._set_context(None)
+    handle._set_context(context)
 
     handle.cb_type = 5
     handle.meth_name = name
 
     handle.callback = <void*> callback
-    handle.arg1 = ctx
+    handle.arg1 = bound_to
     handle.arg2 = arg1
     handle.arg3 = arg2
     handle.arg4 = arg3

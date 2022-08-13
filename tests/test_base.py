@@ -2,6 +2,7 @@ import asyncio
 import fcntl
 import logging
 import os
+import random
 import sys
 import threading
 import time
@@ -159,7 +160,7 @@ class _TestBase:
         self.assertEqual(calls, [10, 1])
         self.assertFalse(self.loop.is_running())
 
-        self.assertLess(finished - started, 0.1)
+        self.assertLess(finished - started, 0.3)
         self.assertGreater(finished - started, 0.04)
 
     def test_call_later_2(self):
@@ -219,9 +220,10 @@ class _TestBase:
             self.assertGreaterEqual(finished - started, 69)
 
     def test_call_at(self):
-        if os.environ.get('TRAVIS_OS_NAME'):
+        if (os.environ.get('TRAVIS_OS_NAME')
+                or os.environ.get('GITHUB_WORKFLOW')):
             # Time seems to be really unpredictable on Travis.
-            raise unittest.SkipTest('time is not monotonic on Travis')
+            raise unittest.SkipTest('time is not monotonic on CI')
 
         i = 0
 
@@ -344,9 +346,6 @@ class _TestBase:
             self.loop.run_until_complete(foo())
 
     def test_run_until_complete_loop_orphan_future_close_loop(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 6, 2):
-            raise unittest.SkipTest('unfixed asyncio')
-
         async def foo(delay):
             await asyncio.sleep(delay)
 
@@ -362,6 +361,26 @@ class _TestBase:
         # This call fails if run_until_complete does not clean up
         # done-callback for the previous future.
         self.loop.run_until_complete(foo(0.2))
+
+    def test_run_until_complete_keyboard_interrupt(self):
+        # Issue #336: run_until_complete() must not schedule a pending
+        # call to stop() if the future raised a KeyboardInterrupt
+        async def raise_keyboard_interrupt():
+            raise KeyboardInterrupt
+
+        self.loop._process_events = mock.Mock()
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.loop.run_until_complete(raise_keyboard_interrupt())
+
+        def func():
+            self.loop.stop()
+            func.called = True
+
+        func.called = False
+        self.loop.call_later(0.01, func)
+        self.loop.run_forever()
+        self.assertTrue(func.called)
 
     def test_debug_slow_callbacks(self):
         logger = logging.getLogger('asyncio')
@@ -462,9 +481,7 @@ class _TestBase:
 
         self.loop.set_debug(True)
 
-        if hasattr(self.loop, 'get_exception_handler'):
-            # Available since Python 3.5.2
-            self.assertIsNone(self.loop.get_exception_handler())
+        self.assertIsNone(self.loop.get_exception_handler())
         self.loop.set_exception_handler(handler)
         if hasattr(self.loop, 'get_exception_handler'):
             self.assertIs(self.loop.get_exception_handler(), handler)
@@ -541,15 +558,45 @@ class _TestBase:
         self.assertFalse(isinstance(task, MyTask))
         self.loop.run_until_complete(task)
 
-    def _compile_agen(self, src):
-        try:
-            g = {}
-            exec(src, globals(), g)
-        except SyntaxError:
-            # Python < 3.6
-            raise unittest.SkipTest()
-        else:
-            return g['waiter']
+    def test_set_task_name(self):
+        if self.implementation == 'asyncio' and sys.version_info < (3, 8, 0):
+            raise unittest.SkipTest('unsupported task name')
+
+        self.loop._process_events = mock.Mock()
+
+        result = None
+
+        class MyTask(asyncio.Task):
+            def set_name(self, name):
+                nonlocal result
+                result = name + "!"
+
+            def get_name(self):
+                return result
+
+        async def coro():
+            pass
+
+        factory = lambda loop, coro: MyTask(coro, loop=loop)
+
+        self.assertIsNone(self.loop.get_task_factory())
+        task = self.loop.create_task(coro(), name="mytask")
+        self.assertFalse(isinstance(task, MyTask))
+        if sys.version_info >= (3, 8, 0):
+            self.assertEqual(task.get_name(), "mytask")
+        self.loop.run_until_complete(task)
+
+        self.loop.set_task_factory(factory)
+        self.assertIs(self.loop.get_task_factory(), factory)
+
+        task = self.loop.create_task(coro(), name="mytask")
+        self.assertTrue(isinstance(task, MyTask))
+        self.assertEqual(result, "mytask!")
+        self.assertEqual(task.get_name(), "mytask!")
+        self.loop.run_until_complete(task)
+
+        self.loop.set_task_factory(None)
+        self.assertIsNone(self.loop.get_task_factory())
 
     def test_shutdown_asyncgens_01(self):
         finalized = list()
@@ -557,15 +604,13 @@ class _TestBase:
         if not hasattr(self.loop, 'shutdown_asyncgens'):
             raise unittest.SkipTest()
 
-        waiter = self._compile_agen(
-            '''async def waiter(timeout, finalized):
-                try:
-                    await asyncio.sleep(timeout)
-                    yield 1
-                finally:
-                    await asyncio.sleep(0)
-                    finalized.append(1)
-            ''')
+        async def waiter(timeout, finalized):
+            try:
+                await asyncio.sleep(timeout)
+                yield 1
+            finally:
+                await asyncio.sleep(0)
+                finalized.append(1)
 
         async def wait():
             async for _ in waiter(1, finalized):
@@ -595,18 +640,17 @@ class _TestBase:
 
         def logger(loop, context):
             nonlocal logged
-            self.assertIn('asyncgen', context)
             expected = 'an error occurred during closing of asynchronous'
             if expected in context['message']:
+                self.assertIn('asyncgen', context)
                 logged += 1
 
-        waiter = self._compile_agen('''async def waiter(timeout):
+        async def waiter(timeout):
             try:
                 await asyncio.sleep(timeout)
                 yield 1
             finally:
                 1 / 0
-        ''')
 
         async def wait():
             async for _ in waiter(1):
@@ -628,10 +672,9 @@ class _TestBase:
         if not hasattr(self.loop, 'shutdown_asyncgens'):
             raise unittest.SkipTest()
 
-        waiter = self._compile_agen('''async def waiter():
+        async def waiter():
             yield 1
             yield 2
-        ''')
 
         async def foo():
             # We specifically want to hit _asyncgen_finalizer_hook
@@ -648,6 +691,44 @@ class _TestBase:
         res = self.loop.run_until_complete(
             asyncio.wait_for(foo(), timeout=float('inf')))
         self.assertEqual(res, 123)
+
+    def test_shutdown_default_executor(self):
+        if not hasattr(self.loop, "shutdown_default_executor"):
+            raise unittest.SkipTest()
+
+        async def foo():
+            await self.loop.run_in_executor(None, time.sleep, .1)
+
+        self.loop.run_until_complete(foo())
+        self.loop.run_until_complete(
+            self.loop.shutdown_default_executor())
+
+    def test_call_soon_threadsafe_safety(self):
+        ITERATIONS = 4096
+        counter = [0]
+
+        def cb():
+            counter[0] += 1
+            if counter[0] < ITERATIONS - 512:
+                h = self.loop.call_later(0.01, lambda: None)
+                self.loop.call_later(
+                    0.0005 + random.random() * 0.0005, h.cancel
+                )
+
+        def scheduler():
+            loop = self.loop
+            for i in range(ITERATIONS):
+                if loop.is_running():
+                    loop.call_soon_threadsafe(cb)
+                time.sleep(0.001)
+            loop.call_soon_threadsafe(loop.stop)
+
+        thread = threading.Thread(target=scheduler)
+
+        self.loop.call_soon(thread.start)
+        self.loop.run_forever()
+        thread.join()
+        self.assertEqual(counter[0], ITERATIONS)
 
 
 class TestBaseUV(_TestBase, UVTestCase):
@@ -770,6 +851,23 @@ class TestBaseUV(_TestBase, UVTestCase):
 
         self.assertEqual(OK, 5)
         self.assertEqual(NOT_OK, 0)
+
+    def test_loop_call_later_handle_when(self):
+        cb = lambda: False  # NoQA
+        delay = 1.0
+        loop_t = self.loop.time()
+        handle = self.loop.call_later(delay, cb)
+        self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
+        handle.cancel()
+        self.assertTrue(handle.cancelled())
+        self.assertAlmostEqual(handle.when(), loop_t + delay, places=2)
+
+    def test_loop_call_later_handle_when_after_fired(self):
+        fut = self.loop.create_future()
+        handle = self.loop.call_later(0.05, fut.set_result, None)
+        when = handle.when()
+        self.loop.run_until_complete(fut)
+        self.assertEqual(handle.when(), when)
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):

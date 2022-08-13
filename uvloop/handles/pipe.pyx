@@ -12,6 +12,9 @@ cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
     err = uv.uv_pipe_init(handle._loop.uvloop,
                           <uv.uv_pipe_t*>handle._handle,
                           0)
+    # UV_HANDLE_READABLE allows calling uv_read_start() on this pipe
+    # even if it is O_WRONLY, see also #317, libuv/libuv#2058
+    handle._handle.flags |= uv.UV_INTERNAL_HANDLE_READABLE
     if err < 0:
         handle._abort_init()
         raise convert_error(err)
@@ -70,9 +73,11 @@ cdef class UnixServer(UVStreamServer):
 
         self._mark_as_open()
 
-    cdef UVStream _make_new_transport(self, object protocol, object waiter):
+    cdef UVStream _make_new_transport(self, object protocol, object waiter,
+                                      object context):
         cdef UnixTransport tr
-        tr = UnixTransport.new(self._loop, protocol, self._server, waiter)
+        tr = UnixTransport.new(self._loop, protocol, self._server, waiter,
+                               context)
         return <UVStream>tr
 
 
@@ -81,11 +86,11 @@ cdef class UnixTransport(UVStream):
 
     @staticmethod
     cdef UnixTransport new(Loop loop, object protocol, Server server,
-                           object waiter):
+                           object waiter, object context):
 
         cdef UnixTransport handle
         handle = UnixTransport.__new__(UnixTransport)
-        handle._init(loop, protocol, server, waiter)
+        handle._init(loop, protocol, server, waiter, context)
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -109,7 +114,9 @@ cdef class ReadUnixTransport(UVStream):
                                object waiter):
         cdef ReadUnixTransport handle
         handle = ReadUnixTransport.__new__(ReadUnixTransport)
-        handle._init(loop, protocol, server, waiter)
+        # This is only used in connect_read_pipe() and subprocess_shell/exec()
+        # directly, we could simply copy the current context.
+        handle._init(loop, protocol, server, waiter, Context_CopyCurrent())
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
 
@@ -147,10 +154,6 @@ cdef class ReadUnixTransport(UVStream):
 @cython.no_gc_clear
 cdef class WriteUnixTransport(UVStream):
 
-    def __cinit__(self):
-        self.disconnect_listener_inited = False
-        self.disconnect_listener.data = NULL
-
     @staticmethod
     cdef WriteUnixTransport new(Loop loop, object protocol, Server server,
                                 object waiter):
@@ -163,49 +166,11 @@ cdef class WriteUnixTransport(UVStream):
         # close the transport.
         handle._close_on_read_error()
 
-        handle._init(loop, protocol, server, waiter)
+        # This is only used in connect_write_pipe() and subprocess_shell/exec()
+        # directly, we could simply copy the current context.
+        handle._init(loop, protocol, server, waiter, Context_CopyCurrent())
         __pipe_init_uv_handle(<UVStream>handle, loop)
         return handle
-
-    cdef _start_reading(self):
-        # A custom implementation for monitoring for EOF:
-        # libuv since v1.23.1 prohibits using uv_read_start on
-        # write-only FDs, so we use a throw-away uv_poll_t handle
-        # for that purpose, as suggested in
-        # https://github.com/libuv/libuv/issues/2058.
-
-        cdef int err
-
-        if not self.disconnect_listener_inited:
-            err = uv.uv_poll_init(self._loop.uvloop,
-                                  &self.disconnect_listener,
-                                  self._fileno())
-            if err < 0:
-                raise convert_error(err)
-            self.disconnect_listener.data = <void*>self
-            self.disconnect_listener_inited = True
-
-        err = uv.uv_poll_start(&self.disconnect_listener,
-                               uv.UV_READABLE | uv.UV_DISCONNECT,
-                               __on_write_pipe_poll_event)
-        if err < 0:
-            raise convert_error(err)
-
-    cdef _stop_reading(self):
-        cdef int err
-        if not self.disconnect_listener_inited:
-            return
-        err = uv.uv_poll_stop(&self.disconnect_listener)
-        if err < 0:
-            raise convert_error(err)
-
-    cdef _close(self):
-        if self.disconnect_listener_inited:
-            self.disconnect_listener.data = NULL
-            uv.uv_close(<uv.uv_handle_t *>(&self.disconnect_listener), NULL)
-            self.disconnect_listener_inited = False
-
-        UVStream._close(self)
 
     cdef _new_socket(self):
         return __pipe_get_socket(<UVSocketHandle>self)
@@ -218,25 +183,6 @@ cdef class WriteUnixTransport(UVStream):
 
     def resume_reading(self):
         raise NotImplementedError
-
-
-cdef void __on_write_pipe_poll_event(uv.uv_poll_t* handle,
-                                     int status, int events) with gil:
-    cdef WriteUnixTransport tr
-
-    if handle.data is NULL:
-        return
-
-    tr = <WriteUnixTransport>handle.data
-    if tr._closed:
-        return
-
-    if events & uv.UV_DISCONNECT:
-        try:
-            tr._stop_reading()
-            tr._on_eof()
-        except BaseException as ex:
-            tr._fatal_error(ex, False)
 
 
 cdef class _PipeConnectRequest(UVRequest):

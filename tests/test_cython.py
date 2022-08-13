@@ -11,8 +11,11 @@ class TestCythonIntegration(UVTestCase):
 
         coro = _test_coroutine_1()
 
+        coro_fmt = _format_coroutine(coro)
         self.assertTrue(
-            _format_coroutine(coro).startswith('_test_coroutine_1() done'))
+            coro_fmt.startswith('_test_coroutine_1() done')
+            or coro_fmt.startswith('_test_coroutine_1() running')
+        )
         self.assertEqual(_test_coroutine_1.__qualname__, '_test_coroutine_1')
         self.assertEqual(_test_coroutine_1.__name__, '_test_coroutine_1')
         self.assertTrue(asyncio.iscoroutine(coro))
