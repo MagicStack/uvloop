@@ -17,8 +17,8 @@ import subprocess
 import sys
 
 from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext as build_ext
-from setuptools.command.sdist import sdist as sdist
+from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 
 CYTHON_DEPENDENCY = 'Cython(>=0.29.24,<0.30.0)'

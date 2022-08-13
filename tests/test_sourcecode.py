@@ -43,7 +43,7 @@ class TestSourceCode(unittest.TestCase):
         try:
             import mypy  # NoQA
         except ImportError:
-            raise unittest.SkipTest('mypy moudule is missing')
+            raise unittest.SkipTest('mypy module is missing')
 
         try:
             subprocess.run(
