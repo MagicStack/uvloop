@@ -118,8 +118,8 @@ jobs:
         # This is needed for now because cffi has no cp310 wheels
         CIBW_BEFORE_ALL_LINUX: "yum -y install libffi-devel"
         CIBW_TEST_EXTRAS: "test"
-        CIBW_TEST_COMMAND: "python {project}/tests/__init__.py"
-        CIBW_TEST_COMMAND_WINDOWS: "python {project}\\tests\\__init__.py"
+        CIBW_TEST_COMMAND: "python -m unittest discover -v {project}/tests"
+        CIBW_TEST_COMMAND_WINDOWS: "python -m unittest discover -v {project}\\tests"
         CIBW_TEST_SKIP: "*universal2:arm64"
 
     - uses: actions/upload-artifact@v3
