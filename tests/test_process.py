@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 import unittest
 
@@ -796,7 +797,58 @@ print(n)'''
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
-    pass
+    def test_process_double_close(self):
+        script = textwrap.dedent("""
+            import os
+            import sys
+            from unittest import mock
+
+            import asyncio
+
+            pipes = []
+            original_os_pipe = os.pipe
+            def log_pipes():
+                pipe = original_os_pipe()
+                pipes.append(pipe)
+                return pipe
+
+            dups = []
+            original_os_dup = os.dup
+            def log_dups(*args, **kwargs):
+                dup = original_os_dup(*args, **kwargs)
+                dups.append(dup)
+                return dup
+
+            with mock.patch(
+                "os.close", wraps=os.close
+            ) as os_close, mock.patch(
+                "os.pipe", new=log_pipes
+            ), mock.patch(
+                "os.dup", new=log_dups
+            ):
+                import uvloop
+
+
+            async def test():
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable, "-c", "pass"
+                )
+                await proc.communicate()
+
+            uvloop.install()
+            asyncio.run(test())
+
+            stdin, stdout, stderr = dups
+            (r, w), = pipes
+            assert os_close.mock_calls == [
+                mock.call(w),
+                mock.call(r),
+                mock.call(stderr),
+                mock.call(stdout),
+                mock.call(stdin),
+            ]
+        """)
+        subprocess.run([sys.executable, '-c', script], check=True)
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
