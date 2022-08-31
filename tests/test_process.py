@@ -50,6 +50,22 @@ class _TestProcess:
 
         self.loop.run_until_complete(test())
 
+    def test_process_env_2(self):
+        async def test():
+            cmd = 'env'
+            env = {}  # empty environment
+            proc = await asyncio.create_subprocess_exec(
+                cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+
+            out, _ = await proc.communicate()
+            self.assertEqual(out, b'')
+            self.assertEqual(proc.returncode, 0)
+
+        self.loop.run_until_complete(test())
+
     def test_process_cwd_1(self):
         async def test():
             cmd = 'pwd'

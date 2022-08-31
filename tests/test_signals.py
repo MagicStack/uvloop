@@ -310,7 +310,7 @@ finally:
         with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
             self.loop.add_signal_handler(signal.SIGHUP, coro)
 
-    def test_wakeup_fd_unchanged(self):
+    def test_signals_wakeup_fd_unchanged(self):
         async def runner():
             PROG = R"""\
 import uvloop
@@ -348,6 +348,42 @@ print(fd0 == fd1, flush=True)
             self.assertIn(b'True', out)
 
         self.loop.run_until_complete(runner())
+
+    def test_signals_fork_in_thread(self):
+        # Refs #452, when forked from a thread, the main-thread-only signal
+        # operations failed thread ID checks because we didn't update
+        # MAIN_THREAD_ID after fork. It's now a lazy value set when needed and
+        # cleared after fork.
+        PROG = R"""\
+import asyncio
+import multiprocessing
+import signal
+import sys
+import threading
+import uvloop
+
+multiprocessing.set_start_method('fork')
+
+def subprocess():
+    loop = """ + self.NEW_LOOP + """
+    loop.add_signal_handler(signal.SIGINT, lambda *a: None)
+
+def run():
+    loop = """ + self.NEW_LOOP + """
+    loop.add_signal_handler(signal.SIGINT, lambda *a: None)
+    p = multiprocessing.Process(target=subprocess)
+    t = threading.Thread(target=p.start)
+    t.start()
+    t.join()
+    p.join()
+    sys.exit(p.exitcode)
+
+run()
+"""
+
+        subprocess.check_call([
+            sys.executable, b'-W', b'ignore', b'-c', PROG,
+        ])
 
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
