@@ -44,7 +44,6 @@ cdef class Loop:
         bint _stopping
 
         uint64_t _thread_id
-        bint _thread_is_main
 
         object _task_factory
         object _exception_handler
