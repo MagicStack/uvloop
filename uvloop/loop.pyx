@@ -2618,6 +2618,18 @@ cdef class Loop:
             socket_dec_io_ref(sock)
 
     @cython.iterable_coroutine
+    async def sock_recvfrom(self, sock, bufsize):
+        raise NotImplementedError
+
+    @cython.iterable_coroutine
+    async def sock_recvfrom_into(self, sock, buf, nbytes=0):
+        raise NotImplementedError
+
+    @cython.iterable_coroutine
+    async def sock_sendto(self, sock, data, address):
+        raise NotImplementedError
+
+    @cython.iterable_coroutine
     async def connect_accepted_socket(self, protocol_factory, sock, *,
                                       ssl=None,
                                       ssl_handshake_timeout=None,
