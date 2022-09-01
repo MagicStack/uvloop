@@ -50,6 +50,7 @@ include "errors.pyx"
 
 cdef:
     int PY39 = PY_VERSION_HEX >= 0x03090000
+    int PY311 = PY_VERSION_HEX >= 0x030b0000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
 
 
@@ -1413,19 +1414,35 @@ cdef class Loop:
         """Create a Future object attached to the loop."""
         return self._new_future()
 
-    def create_task(self, coro, *, name=None):
+    def create_task(self, coro, *, name=None, context=None):
         """Schedule a coroutine object.
 
         Return a task object.
 
         If name is not None, task.set_name(name) will be called if the task
         object has the set_name attribute, true for default Task in Python 3.8.
+
+        An optional keyword-only context argument allows specifying a custom
+        contextvars.Context for the coro to run in. The current context copy is
+        created when no context is provided.
         """
         self._check_closed()
-        if self._task_factory is None:
-            task = aio_Task(coro, loop=self)
+        if PY311:
+            if self._task_factory is None:
+                task = aio_Task(coro, loop=self, context=context)
+            else:
+                task = self._task_factory(self, coro, context=context)
         else:
-            task = self._task_factory(self, coro)
+            if context is None:
+                if self._task_factory is None:
+                    task = aio_Task(coro, loop=self)
+                else:
+                    task = self._task_factory(self, coro)
+            else:
+                if self._task_factory is None:
+                    task = context.run(aio_Task, coro, self)
+                else:
+                    task = context.run(self._task_factory, self, coro)
 
         # copied from asyncio.tasks._set_task_name (bpo-34270)
         if name is not None:
@@ -2603,6 +2620,18 @@ cdef class Loop:
                 await fut
         finally:
             socket_dec_io_ref(sock)
+
+    @cython.iterable_coroutine
+    async def sock_recvfrom(self, sock, bufsize):
+        raise NotImplementedError
+
+    @cython.iterable_coroutine
+    async def sock_recvfrom_into(self, sock, buf, nbytes=0):
+        raise NotImplementedError
+
+    @cython.iterable_coroutine
+    async def sock_sendto(self, sock, data, address):
+        raise NotImplementedError
 
     @cython.iterable_coroutine
     async def connect_accepted_socket(self, protocol_factory, sock, *,

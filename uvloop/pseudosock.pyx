@@ -41,8 +41,8 @@ cdef class PseudoSocket:
 
     def __repr__(self):
         s = ("<uvloop.PseudoSocket fd={}, family={!s}, "
-             "type={!s}, proto={}").format(self.fileno(), self.family,
-                                           self.type, self.proto)
+             "type={!s}, proto={}").format(self.fileno(), self.family.name,
+                                           self.type.name, self.proto)
 
         if self._fd != -1:
             try:
