@@ -1424,7 +1424,7 @@ cdef class Loop:
 
         An optional keyword-only context argument allows specifying a custom
         contextvars.Context for the coro to run in. The current context copy is
-        created when no context is provided. Only available in Python 3.11.
+        created when no context is provided.
         """
         self._check_closed()
         if PY311:
@@ -1433,12 +1433,16 @@ cdef class Loop:
             else:
                 task = self._task_factory(self, coro, context=context)
         else:
-            if UVLOOP_DEBUG:
-                assert context is None
-            if self._task_factory is None:
-                task = aio_Task(coro, loop=self)
+            if context is None:
+                if self._task_factory is None:
+                    task = aio_Task(coro, loop=self)
+                else:
+                    task = self._task_factory(self, coro)
             else:
-                task = self._task_factory(self, coro)
+                if self._task_factory is None:
+                    task = context.run(aio_Task, coro, self)
+                else:
+                    task = context.run(self._task_factory, self, coro)
 
         # copied from asyncio.tasks._set_task_name (bpo-34270)
         if name is not None:
