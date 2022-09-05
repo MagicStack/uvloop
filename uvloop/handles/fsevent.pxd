@@ -1,12 +1,12 @@
 cdef class UVFSEvent(UVHandle):
     cdef:
         object callback
+        bint running
 
-    cdef _init(self, Loop loop, char* path, object callback,
-               int flags)
-
+    cdef _init(self, Loop loop, object callback, object context)
     cdef _close(self)
+    cdef start(self, char* path, int flags)
+    cdef stop(self)
 
     @staticmethod
-    cdef UVFSEvent new(Loop loop, char* path, object callback,
-               int flags)
+    cdef UVFSEvent new(Loop loop, object callback, object context)

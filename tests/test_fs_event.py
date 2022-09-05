@@ -3,7 +3,7 @@ import os.path
 import tempfile
 
 from uvloop import _testbase as tb
-from uvloop.const import FS_EVENT
+from uvloop.loop import FileSystemEvent
 
 
 class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
@@ -21,10 +21,10 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
         self.fname = ''
         self.q = asyncio.Queue()
 
-    def event_cb(self, ev_fname: bytes, evt: int):
+    def event_cb(self, ev_fname: bytes, evt: FileSystemEvent):
         _d, fn = os.path.split(self.fname)
         self.assertEqual(ev_fname, fn)
-        self.assertEqual(evt, FS_EVENT.CHANGE)
+        self.assertEqual(evt, FileSystemEvent.CHANGE)
         self.change_event_count += 1
         if self.change_event_count < 4:
             self.q.put_nowait(0)
@@ -44,11 +44,13 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
 
         with tempfile.NamedTemporaryFile('wt') as tf:
             self.fname = tf.name.encode()
-            h = self.loop.monitor_fs(tf.name, self.event_cb, False)
+            h = self.loop._monitor_fs(tf.name, self.event_cb)
+            self.assertFalse(h.cancelled())
             try:
                 self.loop.run_until_complete(run(
                     self.loop.create_task(self._file_writer())))
-                h.close()
+                h.cancel()
+                self.assertTrue(h.cancelled())
             finally:
                 self.loop.close()
 
@@ -68,9 +70,9 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
         self.changed_set = {self.changed_name, self.changed_name + '-new'}
         self.q = asyncio.Queue()
 
-    def event_cb(self, ev_fname: bytes, evt: int):
+    def event_cb(self, ev_fname: bytes, evt: FileSystemEvent):
         ev_fname = ev_fname.decode()
-        self.assertEqual(evt, FS_EVENT.RENAME)
+        self.assertEqual(evt, FileSystemEvent.RENAME)
         self.changed_set.remove(ev_fname)
         if len(self.changed_set) == 0:
             self.q.put_nowait(None)
@@ -91,11 +93,13 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
             f = open(os.path.join(td_name, self.changed_name), 'wt')
             f.write('hello!')
             f.close()
-            h = self.loop.monitor_fs(td_name, self.event_cb, False)
+            h = self.loop._monitor_fs(td_name, self.event_cb)
+            self.assertFalse(h.cancelled())
             try:
                 self.loop.run_until_complete(run(
                     self.loop.create_task(self._file_renamer())))
-                h.close()
+                h.cancel()
+                self.assertTrue(h.cancelled())
             finally:
                 self.loop.close()
 

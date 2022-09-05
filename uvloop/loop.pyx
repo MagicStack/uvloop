@@ -3148,12 +3148,18 @@ cdef class Loop:
         await waiter
         return udp, protocol
 
-    def monitor_fs(self, path: str, callback, recursive: bool) -> asyncio.Handle:
+    def _monitor_fs(self, path: str, callback) -> asyncio.Handle:
+        cdef:
+            UVFSEvent fs_handle
+            char* c_str_path
+
         self._check_closed()
+        fs_handle = UVFSEvent.new(self, callback, None)
         p_bytes = path.encode('UTF-8')
-        flags = 4 if recursive else 0
-        cdef char* c_str_path = p_bytes
-        return UVFSEvent.new(self, c_str_path, callback, flags)
+        c_str_path = p_bytes
+        flags = 0
+        fs_handle.start(c_str_path, flags)
+        return fs_handle
 
     def _check_default_executor(self):
         if self._executor_shutdown_called:
@@ -3223,9 +3229,6 @@ cdef class Loop:
     def get_uv_loop_t_ptr(self):
         return PyCapsule_New(<void *>self.uvloop, NULL, NULL)
 
-
-cdef extern uv.uv_loop_t* get_uv_loop_ptr(PyObject* loop) nogil:
-    return (<Loop>loop).uvloop
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
@@ -3320,8 +3323,6 @@ include "handles/udp.pyx"
 
 include "server.pyx"
 
-DEF FS_EVENT_CHANGE = 2
-DEF FS_EVENT_RENAME = 1
 
 # Used in UVProcess
 cdef vint __atfork_installed = 0

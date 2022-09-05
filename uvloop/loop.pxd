@@ -4,7 +4,7 @@
 from .includes cimport uv
 from .includes cimport system
 
-from libc.stdint cimport uint64_t, uint32_t, int64_t, uintptr_t
+from libc.stdint cimport uint64_t, uint32_t, int64_t
 
 
 include "includes/consts.pxi"

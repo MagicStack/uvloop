@@ -219,14 +219,9 @@ cdef extern from "uv.h" nogil:
         UV_LEAVE_GROUP = 0,
         UV_JOIN_GROUP
 
-    ctypedef enum uv_fs_event:
+    cpdef enum uv_fs_event:
         UV_RENAME = 1,
         UV_CHANGE = 2
-
-    ctypedef enum uv_fs_event_flags:
-        UV_FS_EVENT_WATCH_ENTRY = 1,
-        UV_FS_EVENT_STAT = 2,
-        UV_FS_EVENT_RECURSIVE = 4
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
@@ -266,7 +261,10 @@ cdef extern from "uv.h" nogil:
                                     const uv_buf_t* buf,
                                     const system.sockaddr* addr,
                                     unsigned flags) with gil
-    ctypedef void (*uv_fs_event_cb)(uv_fs_event_t* handle, const char *filename, int events, int status) with gil
+    ctypedef void (*uv_fs_event_cb)(uv_fs_event_t* handle,
+                                    const char *filename,
+                                    int events,
+                                    int status) with gil
 
     # Generic request functions
     int uv_cancel(uv_req_t* req)
@@ -414,7 +412,8 @@ cdef extern from "uv.h" nogil:
     # FS Event
 
     int uv_fs_event_init(uv_loop_t *loop, uv_fs_event_t *handle)
-    int uv_fs_event_start(uv_fs_event_t *handle, uv_fs_event_cb cb, const char *path, unsigned int flags)
+    int uv_fs_event_start(uv_fs_event_t *handle, uv_fs_event_cb cb,
+                          const char *path, unsigned int flags)
     int uv_fs_event_stop(uv_fs_event_t *handle)
 
     # Misc
