@@ -4,6 +4,7 @@ import enum
 class FileSystemEvent(enum.IntEnum):
     RENAME = uv.UV_RENAME
     CHANGE = uv.UV_CHANGE
+    RENAME_CHANGE = RENAME | CHANGE
 
 
 @cython.no_gc_clear
