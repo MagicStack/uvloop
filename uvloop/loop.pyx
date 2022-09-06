@@ -223,8 +223,9 @@ cdef class Loop:
         return main_thread_id == PyThread_get_thread_ident()
 
     def __init__(self):
-        self.set_debug((not sys_ignore_environment
-                        and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
+        self.set_debug(
+            sys_dev_mode or (not sys_ignore_environment
+                             and bool(os_environ.get('PYTHONASYNCIODEBUG'))))
 
     def __dealloc__(self):
         if self._running == 1:
