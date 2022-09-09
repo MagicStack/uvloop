@@ -21,7 +21,6 @@ cdef class UVStream(UVBaseTransport):
     cdef inline _init(self, Loop loop, object protocol, Server server,
                       object waiter, object context)
 
-    cdef inline _exec_write(self)
 
     cdef inline _shutdown(self)
     cdef inline _accept(self, UVStream server)
@@ -31,7 +30,15 @@ cdef class UVStream(UVBaseTransport):
     cdef inline __reading_started(self)
     cdef inline __reading_stopped(self)
 
-    cdef inline _write(self, object data)
+    # The user API firstly calls _buffer_write() to buffer up user data chunks,
+    # potentially multiple times in writelines(), and then call _start_write()
+    # to start writing either immediately or in the next iteration.
+    cdef inline _buffer_write(self, object data)
+    cdef inline _start_write(self)
+
+    # _exec_write() is the method that does the actual send, and _try_write()
+    # is a fast-path used in _exec_write() to send a single chunk.
+    cdef inline _exec_write(self)
     cdef inline _try_write(self, object data)
 
     cdef _close(self)
