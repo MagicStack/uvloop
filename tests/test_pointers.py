@@ -16,3 +16,7 @@ class Test_UV_Pointers(tb.UVTestCase):
 
         self.assertTrue(cython_helper.capsule_equals(cap1, cap2))
         self.assertFalse(cython_helper.capsule_equals(cap1, cap3))
+
+    def test_get_uv_version(self):
+        from uvloop.loop import get_uv_version
+        self.assertGreater(get_uv_version(), 0)

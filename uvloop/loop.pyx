@@ -3231,6 +3231,10 @@ cdef class Loop:
         return PyCapsule_New(<void *>self.uvloop, NULL, NULL)
 
 
+def get_uv_version():
+    return uv.uv_version()
+
+
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
                               uv.uv_buf_t* buf) with gil:
