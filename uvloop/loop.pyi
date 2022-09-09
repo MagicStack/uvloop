@@ -1,5 +1,6 @@
 import asyncio
 import ssl
+import sys
 from socket import AddressFamily, SocketKind, _Address, _RetAddress, socket
 from typing import (
     IO,
@@ -21,6 +22,7 @@ _T = TypeVar('_T')
 _Context = Dict[str, Any]
 _ExceptionHandler = Callable[[asyncio.AbstractEventLoop, _Context], Any]
 _SSLContext = Union[bool, None, ssl.SSLContext]
+_ProtocolT = TypeVar("_ProtocolT", bound=asyncio.BaseProtocol)
 
 class Loop:
     def call_soon(
@@ -142,7 +144,7 @@ class Loop:
     @overload
     async def create_connection(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         host: str = ...,
         port: int = ...,
         *,
@@ -155,11 +157,11 @@ class Loop:
         server_hostname: Optional[str] = ...,
         ssl_handshake_timeout: Optional[float] = ...,
         ssl_shutdown_timeout: Optional[float] = ...,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     @overload
     async def create_connection(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         host: None = ...,
         port: None = ...,
         *,
@@ -172,7 +174,7 @@ class Loop:
         server_hostname: Optional[str] = ...,
         ssl_handshake_timeout: Optional[float] = ...,
         ssl_shutdown_timeout: Optional[float] = ...,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def create_unix_server(
         self,
         protocol_factory: asyncio.events._ProtocolFactory,
@@ -187,7 +189,7 @@ class Loop:
     ) -> asyncio.AbstractServer: ...
     async def create_unix_connection(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         path: Optional[str] = ...,
         *,
         ssl: _SSLContext = ...,
@@ -195,7 +197,7 @@ class Loop:
         server_hostname: Optional[str] = ...,
         ssl_handshake_timeout: Optional[float] = ...,
         ssl_shutdown_timeout: Optional[float] = ...,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     def default_exception_handler(self, context: _Context) -> None: ...
     def get_exception_handler(self) -> Optional[_ExceptionHandler]: ...
     def set_exception_handler(self, handler: Optional[_ExceptionHandler]) -> None: ...
@@ -209,51 +211,54 @@ class Loop:
     async def sock_sendall(self, sock: socket, data: bytes) -> None: ...
     async def sock_accept(self, sock: socket) -> Tuple[socket, _RetAddress]: ...
     async def sock_connect(self, sock: socket, address: _Address) -> None: ...
+    async def sock_recvfrom(self, sock: socket, bufsize: int) -> bytes: ...
+    async def sock_recvfrom_into(self, sock: socket, buf: bytearray, nbytes: int = ...) -> int: ...
+    async def sock_sendto(self, sock: socket, data: bytes, address: _Address) -> None: ...
     async def connect_accepted_socket(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         sock: socket,
         *,
         ssl: _SSLContext = ...,
         ssl_handshake_timeout: Optional[float] = ...,
         ssl_shutdown_timeout: Optional[float] = ...,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def run_in_executor(
         self, executor: Any, func: Callable[..., _T], *args: Any
     ) -> _T: ...
     def set_default_executor(self, executor: Any) -> None: ...
     async def subprocess_shell(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         cmd: Union[bytes, str],
         *,
         stdin: Any = ...,
         stdout: Any = ...,
         stderr: Any = ...,
         **kwargs: Any,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def subprocess_exec(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         *args: Any,
         stdin: Any = ...,
         stdout: Any = ...,
         stderr: Any = ...,
         **kwargs: Any,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def connect_read_pipe(
-        self, protocol_factory: asyncio.events._ProtocolFactory, pipe: Any
-    ) -> asyncio.events._TransProtPair: ...
+        self, protocol_factory: Callable[[], _ProtocolT], pipe: Any
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def connect_write_pipe(
-        self, protocol_factory: asyncio.events._ProtocolFactory, pipe: Any
-    ) -> asyncio.events._TransProtPair: ...
+        self, protocol_factory: Callable[[], _ProtocolT], pipe: Any
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     def add_signal_handler(
         self, sig: int, callback: Callable[..., Any], *args: Any
     ) -> None: ...
     def remove_signal_handler(self, sig: int) -> bool: ...
     async def create_datagram_endpoint(
         self,
-        protocol_factory: asyncio.events._ProtocolFactory,
+        protocol_factory: Callable[[], _ProtocolT],
         local_addr: Optional[Tuple[str, int]] = ...,
         remote_addr: Optional[Tuple[str, int]] = ...,
         *,
@@ -264,7 +269,7 @@ class Loop:
         reuse_port: Optional[bool] = ...,
         allow_broadcast: Optional[bool] = ...,
         sock: Optional[socket] = ...,
-    ) -> asyncio.events._TransProtPair: ...
+    ) -> tuple[asyncio.BaseProtocol, _ProtocolT]: ...
     async def shutdown_asyncgens(self) -> None: ...
     async def shutdown_default_executor(self) -> None: ...
     # Loop doesn't implement these, but since they are marked as abstract in typeshed,

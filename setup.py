@@ -17,23 +17,26 @@ import subprocess
 import sys
 
 from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext as build_ext
-from setuptools.command.sdist import sdist as sdist
+from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.24,<0.30.0)'
+CYTHON_DEPENDENCY = 'Cython(>=0.29.32,<0.30.0)'
 
 # Minimal dependencies required to test uvloop.
 TEST_DEPENDENCIES = [
     # pycodestyle is a dependency of flake8, but it must be frozen because
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    'aiohttp',
+    # aiohttp doesn't support 3.11 yet,
+    # see https://github.com/aio-libs/aiohttp/issues/6600
+    'aiohttp ; python_version < "3.11"',
     'flake8~=3.9.2',
     'psutil',
     'pycodestyle~=2.7.0',
-    'pyOpenSSL~=19.0.0',
+    'pyOpenSSL~=22.0.0',
     'mypy>=0.800',
+    CYTHON_DEPENDENCY,
 ]
 
 # Dependencies required to build documentation.
@@ -55,7 +58,7 @@ EXTRA_DEPENDENCIES = {
 
 
 MACHINE = platform.machine()
-CFLAGS = ['-O2']
+MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
 LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
@@ -301,7 +304,7 @@ setup(
             sources=[
                 "uvloop/loop.pyx",
             ],
-            extra_compile_args=CFLAGS
+            extra_compile_args=MODULES_CFLAGS
         ),
     ],
     classifiers=[

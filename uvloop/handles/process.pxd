@@ -8,7 +8,7 @@ cdef class UVProcess(UVHandle):
         object _preexec_fn
         bint _restore_signals
 
-        set _fds_to_close
+        list _fds_to_close
 
         # Attributes used to compose uv_process_options_t:
         uv.uv_process_options_t options

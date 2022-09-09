@@ -44,7 +44,6 @@ cdef class Loop:
         bint _stopping
 
         uint64_t _thread_id
-        bint _thread_is_main
 
         object _task_factory
         object _exception_handler
@@ -220,6 +219,7 @@ include "handles/streamserver.pxd"
 include "handles/tcp.pxd"
 include "handles/pipe.pxd"
 include "handles/process.pxd"
+include "handles/fsevent.pxd"
 
 include "request.pxd"
 include "sslproto.pxd"
