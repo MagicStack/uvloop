@@ -218,7 +218,7 @@ cdef class Loop:
     cdef inline _is_main_thread(self):
         cdef uint64_t main_thread_id = system.MAIN_THREAD_ID
         if system.MAIN_THREAD_ID_SET == 0:
-            main_thread_id = <uint64_t><int64_t>threading_main_thread().ident
+            main_thread_id = <uint64_t>threading_main_thread().ident
             system.setMainThreadID(main_thread_id)
         return main_thread_id == PyThread_get_thread_ident()
 
@@ -711,7 +711,7 @@ cdef class Loop:
             return
 
         cdef uint64_t thread_id
-        thread_id = <uint64_t><int64_t>PyThread_get_thread_ident()
+        thread_id = <uint64_t>PyThread_get_thread_ident()
 
         if thread_id != self._thread_id:
             raise RuntimeError(
