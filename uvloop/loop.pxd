@@ -219,6 +219,7 @@ include "handles/streamserver.pxd"
 include "handles/tcp.pxd"
 include "handles/pipe.pxd"
 include "handles/process.pxd"
+include "handles/fsevent.pxd"
 
 include "request.pxd"
 include "sslproto.pxd"
