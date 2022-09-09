@@ -40,19 +40,16 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
                 await asyncio.wait_for(write_task, 4)
             except asyncio.TimeoutError:
                 write_task.cancel()
-            self.loop.stop()
 
         with tempfile.NamedTemporaryFile('wt') as tf:
             self.fname = tf.name.encode()
             h = self.loop._monitor_fs(tf.name, self.event_cb)
             self.assertFalse(h.cancelled())
-            try:
-                self.loop.run_until_complete(run(
-                    self.loop.create_task(self._file_writer())))
-                h.cancel()
-                self.assertTrue(h.cancelled())
-            finally:
-                self.loop.close()
+
+            self.loop.run_until_complete(run(
+                self.loop.create_task(self._file_writer())))
+            h.cancel()
+            self.assertTrue(h.cancelled())
 
         self.assertEqual(self.change_event_count, 4)
 
@@ -86,7 +83,6 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
                 await asyncio.wait_for(write_task, 4)
             except asyncio.TimeoutError:
                 write_task.cancel()
-            self.loop.stop()
 
         with tempfile.TemporaryDirectory() as td_name:
             self.dname = td_name
@@ -95,12 +91,10 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
             f.close()
             h = self.loop._monitor_fs(td_name, self.event_cb)
             self.assertFalse(h.cancelled())
-            try:
-                self.loop.run_until_complete(run(
-                    self.loop.create_task(self._file_renamer())))
-                h.cancel()
-                self.assertTrue(h.cancelled())
-            finally:
-                self.loop.close()
+
+            self.loop.run_until_complete(run(
+                self.loop.create_task(self._file_renamer())))
+            h.cancel()
+            self.assertTrue(h.cancelled())
 
         self.assertEqual(len(self.changed_set), 0)
