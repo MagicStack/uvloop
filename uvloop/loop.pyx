@@ -3226,9 +3226,14 @@ cdef class Loop:
         except Exception as ex:
             self.call_soon_threadsafe(future.set_exception, ex)
 
-    # Expose pointer for integration with other C-extensions
-    def get_uv_loop_t_ptr(self):
-        return PyCapsule_New(<void *>self.uvloop, NULL, NULL)
+
+# Expose pointer for integration with other C-extensions
+def libuv_get_loop_t_ptr(loop):
+    return PyCapsule_New(<void *>(<Loop>loop).uvloop, NULL, NULL)
+
+
+def libuv_get_version():
+    return uv.uv_version()
 
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
