@@ -420,7 +420,7 @@ cdef class UVStream(UVBaseTransport):
         self._buffer_size += dlen
         self._buffer.append(data)
 
-    cdef inline _start_write(self):
+    cdef inline _initiate_write(self):
         if (not self._protocol_paused and
                 (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
                 self._buffer_size > self._high_water):
@@ -681,7 +681,7 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
         self._buffer_write(buf)
-        self._start_write()
+        self._initiate_write()
 
     def writelines(self, bufs):
         self._ensure_alive()
@@ -693,7 +693,7 @@ cdef class UVStream(UVBaseTransport):
             return
         for buf in bufs:
             self._buffer_write(buf)
-        self._start_write()
+        self._initiate_write()
 
     def write_eof(self):
         self._ensure_alive()
