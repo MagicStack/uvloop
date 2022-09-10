@@ -47,9 +47,9 @@ docs:
 
 
 test:
-	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest -v tests.suite
-	$(PYTHON) -m unittest -v tests.suite
+	PYTHONASYNCIODEBUG=1 $(PYTHON) -m unittest discover -v tests
+	$(PYTHON) -m unittest discover -v tests
 
 
 testinstalled:
-	cd "$${HOME}" && $(PYTHON) $(ROOT)/tests/__init__.py
+	cd "$${HOME}" && $(PYTHON) -m unittest discover -v $(ROOT)/tests
