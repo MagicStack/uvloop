@@ -224,15 +224,26 @@ cdef __static_getaddrinfo(object host, object port,
             return (family, type, proto)
 
 
-# This bitmask is used in __static_getaddrinfo_pyaddr() to manage
-# if ai_canonname should be set if AI_CANONNAME flag is set.
-# This bitmask is lazily set in loop.getaddrinfo() to make sure that
+# This flag is used in __static_getaddrinfo_pyaddr() to manage
+# if ai_canonname should be returned when AI_CANONNAME flag is set,
+# because its behavior varies in different libc implementations (see #494).
+# This flag is lazily set in loop.getaddrinfo() to make sure that
 # __static_getaddrinfo_pyaddr() behaves consistently as libc getaddrinfo().
-# 1 << 0 : If 1 << 1 is set
-# 1 << 1 : If ai_canonname should be set if AI_CANONNAME is set
-# 1 << 2 : If 1 << 3 is set
-# 1 << 3 : If ai_canonname should be set if AI_CANONNAME is not set
 cdef int __static_getaddrinfo_canonname_mode = 0
+
+# Bitmasks for __static_getaddrinfo_canonname_mode:
+
+# If STATIC_GETADDRINFO_CANONNAME_ON_RETURN is set
+cdef int STATIC_GETADDRINFO_CANONNAME_ON_BEHAVIOR_SET = 1 << 0
+
+# If ai_canonname should be returned when AI_CANONNAME is set
+cdef int STATIC_GETADDRINFO_CANONNAME_ON_RETURN = 1 << 1
+
+# If STATIC_GETADDRINFO_CANONNAME_OFF_RETURN is set
+cdef int STATIC_GETADDRINFO_CANONNAME_OFF_BEHAVIOR_SET = 1 << 2
+
+# If ai_canonname should be returned when AI_CANONNAME is not set
+cdef int STATIC_GETADDRINFO_CANONNAME_OFF_RETURN = 1 << 3
 
 
 cdef __static_getaddrinfo_pyaddr(object host, object port,
@@ -257,7 +268,8 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
         return
 
     if __static_getaddrinfo_canonname_mode & (
-        1 << 1 if flags & socket_AI_CANONNAME else 1 << 3
+        STATIC_GETADDRINFO_CANONNAME_ON_RETURN if flags & socket_AI_CANONNAME
+        else STATIC_GETADDRINFO_CANONNAME_OFF_RETURN
     ):
         if isinstance(host, str):
             canon_name = host

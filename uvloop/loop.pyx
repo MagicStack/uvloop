@@ -1529,23 +1529,32 @@ cdef class Loop:
                                            type, proto, flags)
         if addr is not None:
             if __static_getaddrinfo_canonname_mode & (
-                1 << 0 if flags & socket_AI_CANONNAME else 1 << 2
+                STATIC_GETADDRINFO_CANONNAME_ON_BEHAVIOR_SET
+                if flags & socket_AI_CANONNAME
+                else STATIC_GETADDRINFO_CANONNAME_OFF_BEHAVIOR_SET
             ):
                 return [addr]
 
             rv = await self._getaddrinfo(
                 host, port, family, type, proto, flags, 1)
 
+            _af, _type, _proto, canon_name, _addr = rv[0]
             if flags & socket_AI_CANONNAME:
-                if rv[0][3]:
-                    __static_getaddrinfo_canonname_mode |= 1 << 0 | 1 << 1
-                else:
-                    __static_getaddrinfo_canonname_mode |= 1 << 0
+                __static_getaddrinfo_canonname_mode |= (
+                    STATIC_GETADDRINFO_CANONNAME_ON_BEHAVIOR_SET
+                )
+                if canon_name:
+                    __static_getaddrinfo_canonname_mode |= (
+                        STATIC_GETADDRINFO_CANONNAME_ON_RETURN
+                    )
             else:
-                if rv[0][3]:
-                    __static_getaddrinfo_canonname_mode |= 1 << 2 | 1 << 3
-                else:
-                    __static_getaddrinfo_canonname_mode |= 1 << 2
+                __static_getaddrinfo_canonname_mode |= (
+                    STATIC_GETADDRINFO_CANONNAME_OFF_BEHAVIOR_SET
+                )
+                if canon_name:
+                    __static_getaddrinfo_canonname_mode |= (
+                        STATIC_GETADDRINFO_CANONNAME_OFF_RETURN
+                    )
 
             return rv
 
