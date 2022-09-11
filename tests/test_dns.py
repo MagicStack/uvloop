@@ -165,7 +165,8 @@ class BaseTestDNS:
 
     def test_getaddrinfo_19(self):
         # musl always returns ai_canonname while macOS never return for IPs,
-        # but we strictly follow the docs to use the AI_CANONNAME flag
+        # but we strictly follow the docs to use the AI_CANONNAME flag in a
+        # shortcut __static_getaddrinfo_pyaddr()
         patch = self.implementation != 'asyncio'
 
         self._test_getaddrinfo('::1', 80)
@@ -176,7 +177,8 @@ class BaseTestDNS:
 
     def test_getaddrinfo_20(self):
         # musl always returns ai_canonname while macOS never return for IPs,
-        # but we strictly follow the docs to use the AI_CANONNAME flag
+        # but we strictly follow the docs to use the AI_CANONNAME flag in a
+        # shortcut __static_getaddrinfo_pyaddr()
         patch = self.implementation != 'asyncio'
 
         self._test_getaddrinfo('127.0.0.1', 80)

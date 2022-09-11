@@ -319,7 +319,8 @@ class _TestTCP:
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_server(
-                    lambda: None, host='::', port=0, ssl_handshake_timeout=10))
+                    lambda: None, host='::', port=0,
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
     def test_create_server_9(self):
         async def handle_client(reader, writer):
@@ -550,7 +551,8 @@ class _TestTCP:
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_connection(
-                    lambda: None, host='::', port=0, ssl_handshake_timeout=10))
+                    lambda: None, host='::', port=0,
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
     def test_transport_shutdown(self):
         CNT = 0           # number of clients that were successful
@@ -1224,7 +1226,7 @@ class _TestSSL(tb.SSLTestCase):
     def test_create_server_ssl_1(self):
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
-        TIMEOUT = 10.0    # timeout for this test
+        TIMEOUT = 20.0    # timeout for this test
 
         A_DATA = b'A' * 1024 * 1024
         B_DATA = b'B' * 1024 * 1024
@@ -2038,7 +2040,7 @@ class _TestSSL(tb.SSLTestCase):
 
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
-        TIMEOUT = 20.0    # timeout for this test
+        TIMEOUT = 60.0    # timeout for this test
 
         A_DATA = b'A' * 1024 * 1024
         B_DATA = b'B' * 1024 * 1024
