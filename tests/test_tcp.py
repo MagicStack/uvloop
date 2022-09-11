@@ -222,7 +222,7 @@ class _TestTCP:
 
             with self.assertRaisesRegex(OSError,
                                         r"error while attempting.*\('127.*: "
-                                        r"address already in use"):
+                                        r"address( already)? in use"):
 
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr))

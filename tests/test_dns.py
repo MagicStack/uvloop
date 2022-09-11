@@ -130,10 +130,14 @@ class BaseTestDNS:
     def test_getaddrinfo_19(self):
         self._test_getaddrinfo('::1', 80)
         self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
+                               flags=socket.AI_CANONNAME)
 
     def test_getaddrinfo_20(self):
         self._test_getaddrinfo('127.0.0.1', 80)
         self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
+                               flags=socket.AI_CANONNAME)
 
     ######
 

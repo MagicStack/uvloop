@@ -72,6 +72,7 @@ cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
 cdef int SO_BROADCAST = getattr(socket, 'SO_BROADCAST')
 cdef int SOCK_NONBLOCK = getattr(socket, 'SOCK_NONBLOCK', -1)
+cdef int socket_AI_CANONNAME = getattr(socket, 'AI_CANONNAME')
 
 cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error

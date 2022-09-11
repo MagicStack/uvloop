@@ -224,6 +224,17 @@ cdef __static_getaddrinfo(object host, object port,
             return (family, type, proto)
 
 
+# This bitmask is used in __static_getaddrinfo_pyaddr() to manage
+# if ai_canonname should be set if AI_CANONNAME flag is set.
+# This bitmask is lazily set in loop.getaddrinfo() to make sure that
+# __static_getaddrinfo_pyaddr() behaves consistently as libc getaddrinfo().
+# 1 << 0 : If 1 << 1 is set
+# 1 << 1 : If ai_canonname should be set if AI_CANONNAME is set
+# 1 << 2 : If 1 << 3 is set
+# 1 << 3 : If ai_canonname should be set if AI_CANONNAME is not set
+cdef int __static_getaddrinfo_canonname_mode = 0
+
+
 cdef __static_getaddrinfo_pyaddr(object host, object port,
                                  int family, int type,
                                  int proto, int flags):
@@ -245,7 +256,23 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
     except Exception:
         return
 
-    return af, type, proto, '', pyaddr
+    if __static_getaddrinfo_canonname_mode & (
+        1 << 1 if flags & socket_AI_CANONNAME else 1 << 3
+    ):
+        if isinstance(host, str):
+            canon_name = host
+        else:
+            canon_name = host.decode('ascii')
+    else:
+        canon_name = ''
+
+    return (
+        _intenum_converter(af, socket_AddressFamily),
+        _intenum_converter(type, socket_SocketKind),
+        proto,
+        canon_name,
+        pyaddr,
+    )
 
 
 @cython.freelist(DEFAULT_FREELIST_SIZE)
@@ -276,8 +303,8 @@ cdef class AddrInfo:
         while ptr != NULL:
             if ptr.ai_addr.sa_family in (uv.AF_INET, uv.AF_INET6):
                 result.append((
-                    ptr.ai_family,
-                    ptr.ai_socktype,
+                    _intenum_converter(ptr.ai_family, socket_AddressFamily),
+                    _intenum_converter(ptr.ai_socktype, socket_SocketKind),
                     ptr.ai_protocol,
                     ('' if ptr.ai_canonname is NULL else
                         (<bytes>ptr.ai_canonname).decode()),
@@ -368,6 +395,13 @@ cdef class NameInfoRequest(UVRequest):
         if err < 0:
             self.on_done()
             self.callback(convert_error(err))
+
+
+cdef _intenum_converter(value, enum_klass):
+    try:
+        return enum_klass(value)
+    except ValueError:
+        return value
 
 
 cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
