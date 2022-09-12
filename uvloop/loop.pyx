@@ -1523,40 +1523,11 @@ cdef class Loop:
     @cython.iterable_coroutine
     async def getaddrinfo(self, object host, object port, *,
                           int family=0, int type=0, int proto=0, int flags=0):
-        global __static_getaddrinfo_canonname_mode
 
         addr = __static_getaddrinfo_pyaddr(host, port, family,
                                            type, proto, flags)
         if addr is not None:
-            if __static_getaddrinfo_canonname_mode & (
-                STATIC_GETADDRINFO_CANONNAME_ON_BEHAVIOR_SET
-                if flags & socket_AI_CANONNAME
-                else STATIC_GETADDRINFO_CANONNAME_OFF_BEHAVIOR_SET
-            ):
-                return [addr]
-
-            rv = await self._getaddrinfo(
-                host, port, family, type, proto, flags, 1)
-
-            _af, _type, _proto, canon_name, _addr = rv[0]
-            if flags & socket_AI_CANONNAME:
-                __static_getaddrinfo_canonname_mode |= (
-                    STATIC_GETADDRINFO_CANONNAME_ON_BEHAVIOR_SET
-                )
-                if canon_name:
-                    __static_getaddrinfo_canonname_mode |= (
-                        STATIC_GETADDRINFO_CANONNAME_ON_RETURN
-                    )
-            else:
-                __static_getaddrinfo_canonname_mode |= (
-                    STATIC_GETADDRINFO_CANONNAME_OFF_BEHAVIOR_SET
-                )
-                if canon_name:
-                    __static_getaddrinfo_canonname_mode |= (
-                        STATIC_GETADDRINFO_CANONNAME_OFF_RETURN
-                    )
-
-            return rv
+            return [addr]
 
         return await self._getaddrinfo(
             host, port, family, type, proto, flags, 1)
