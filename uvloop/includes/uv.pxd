@@ -183,6 +183,10 @@ cdef extern from "uv.h" nogil:
         int pid
         # ...
 
+    ctypedef struct uv_fs_event_t:
+        void* data
+        # ...
+
     ctypedef enum uv_req_type:
         UV_UNKNOWN_REQ = 0,
         UV_REQ,
@@ -214,6 +218,10 @@ cdef extern from "uv.h" nogil:
     ctypedef enum uv_membership:
         UV_LEAVE_GROUP = 0,
         UV_JOIN_GROUP
+
+    cpdef enum uv_fs_event:
+        UV_RENAME = 1,
+        UV_CHANGE = 2
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
@@ -253,6 +261,10 @@ cdef extern from "uv.h" nogil:
                                     const uv_buf_t* buf,
                                     const system.sockaddr* addr,
                                     unsigned flags) with gil
+    ctypedef void (*uv_fs_event_cb)(uv_fs_event_t* handle,
+                                    const char *filename,
+                                    int events,
+                                    int status) with gil
 
     # Generic request functions
     int uv_cancel(uv_req_t* req)
@@ -397,6 +409,13 @@ cdef extern from "uv.h" nogil:
     int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb)
     int uv_poll_stop(uv_poll_t* poll)
 
+    # FS Event
+
+    int uv_fs_event_init(uv_loop_t *loop, uv_fs_event_t *handle)
+    int uv_fs_event_start(uv_fs_event_t *handle, uv_fs_event_cb cb,
+                          const char *path, unsigned int flags)
+    int uv_fs_event_stop(uv_fs_event_t *handle)
+
     # Misc
 
     ctypedef struct uv_timeval_t:
@@ -482,3 +501,5 @@ cdef extern from "uv.h" nogil:
                  const uv_process_options_t* options)
 
     int uv_process_kill(uv_process_t* handle, int signum)
+
+    unsigned int uv_version()

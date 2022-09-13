@@ -5,12 +5,32 @@ import unittest
 from uvloop import _testbase as tb
 
 
+def patched_getaddrinfo(*args, **kwargs):
+    # corrected socket.getaddrinfo() behavior: ai_canonname always follows the
+    # flag AI_CANONNAME, even if `host` is an IP
+    rv = []
+    result = socket.getaddrinfo(*args, **kwargs)
+    for af, sk, proto, canon_name, addr in result:
+        if kwargs.get('flags', 0) & socket.AI_CANONNAME:
+            if not canon_name:
+                canon_name = args[0]
+                if not isinstance(canon_name, str):
+                    canon_name = canon_name.decode('ascii')
+        elif canon_name:
+            canon_name = ''
+        rv.append((af, sk, proto, canon_name, addr))
+    return rv
+
+
 class BaseTestDNS:
 
-    def _test_getaddrinfo(self, *args, **kwargs):
+    def _test_getaddrinfo(self, *args, _patch=False, **kwargs):
         err = None
         try:
-            a1 = socket.getaddrinfo(*args, **kwargs)
+            if _patch:
+                a1 = patched_getaddrinfo(*args, **kwargs)
+            else:
+                a1 = socket.getaddrinfo(*args, **kwargs)
         except socket.gaierror as ex:
             err = ex
 
@@ -100,20 +120,36 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_12(self):
+        # musl always returns ai_canonname but we don't
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo('127.0.0.1', '80')
-        self._test_getaddrinfo('127.0.0.1', '80', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('127.0.0.1', '80', type=socket.SOCK_STREAM,
+                               _patch=patch)
 
     def test_getaddrinfo_13(self):
+        # musl always returns ai_canonname but we don't
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo(b'127.0.0.1', b'80')
-        self._test_getaddrinfo(b'127.0.0.1', b'80', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo(b'127.0.0.1', b'80', type=socket.SOCK_STREAM,
+                               _patch=patch)
 
     def test_getaddrinfo_14(self):
+        # musl always returns ai_canonname but we don't
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo(b'127.0.0.1', b'http')
-        self._test_getaddrinfo(b'127.0.0.1', b'http', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo(b'127.0.0.1', b'http', type=socket.SOCK_STREAM,
+                               _patch=patch)
 
     def test_getaddrinfo_15(self):
+        # musl always returns ai_canonname but we don't
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo('127.0.0.1', 'http')
-        self._test_getaddrinfo('127.0.0.1', 'http', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('127.0.0.1', 'http', type=socket.SOCK_STREAM,
+                               _patch=patch)
 
     def test_getaddrinfo_16(self):
         self._test_getaddrinfo('localhost', 'http')
@@ -128,12 +164,26 @@ class BaseTestDNS:
         self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_19(self):
+        # musl always returns ai_canonname while macOS never return for IPs,
+        # but we strictly follow the docs to use the AI_CANONNAME flag
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo('::1', 80)
-        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
+                               _patch=patch)
+        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
+                               flags=socket.AI_CANONNAME, _patch=patch)
 
     def test_getaddrinfo_20(self):
+        # musl always returns ai_canonname while macOS never return for IPs,
+        # but we strictly follow the docs to use the AI_CANONNAME flag
+        patch = self.implementation != 'asyncio'
+
         self._test_getaddrinfo('127.0.0.1', 80)
-        self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
+                               _patch=patch)
+        self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
+                               flags=socket.AI_CANONNAME, _patch=patch)
 
     ######
 

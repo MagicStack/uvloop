@@ -7,7 +7,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = NULL
         self._returncode = None
         self._pid = None
-        self._fds_to_close = set()
+        self._fds_to_close = list()
         self._preexec_fn = None
         self._restore_signals = True
         self.context = Context_CopyCurrent()
@@ -69,6 +69,11 @@ cdef class UVProcess(UVHandle):
                 'Racing with another loop to spawn a process.')
 
         self._errpipe_read, self._errpipe_write = os_pipe()
+        fds_to_close = self._fds_to_close
+        self._fds_to_close = None
+        fds_to_close.append(self._errpipe_read)
+        # add the write pipe last so we can close it early
+        fds_to_close.append(self._errpipe_write)
         try:
             os_set_inheritable(self._errpipe_write, True)
 
@@ -100,8 +105,8 @@ cdef class UVProcess(UVHandle):
 
             self._finish_init()
 
-            os_close(self._errpipe_write)
-            self._errpipe_write = -1
+            # close the write pipe early
+            os_close(fds_to_close.pop())
 
             if preexec_fn is not None:
                 errpipe_data = bytearray()
@@ -115,17 +120,8 @@ cdef class UVProcess(UVHandle):
                         break
 
         finally:
-            os_close(self._errpipe_read)
-            try:
-                os_close(self._errpipe_write)
-            except OSError:
-                # Might be already closed
-                pass
-
-            fds_to_close = self._fds_to_close
-            self._fds_to_close = None
-            for fd in fds_to_close:
-                os_close(fd)
+            while fds_to_close:
+                os_close(fds_to_close.pop())
 
             for fd in restore_inheritable:
                 os_set_inheritable(fd, False)
@@ -202,7 +198,7 @@ cdef class UVProcess(UVHandle):
         if self._fds_to_close is None:
             raise RuntimeError(
                 'UVProcess._close_after_spawn called after uv_spawn')
-        self._fds_to_close.add(fd)
+        self._fds_to_close.append(fd)
 
     def __dealloc__(self):
         if self.uv_opt_env is not NULL:
@@ -220,9 +216,6 @@ cdef class UVProcess(UVHandle):
             bytes el
 
             char **ret
-
-        if UVLOOP_DEBUG:
-            assert arr_len > 0
 
         ret = <char **>PyMem_RawMalloc((arr_len + 1) * sizeof(char *))
         if ret is NULL:
@@ -289,7 +282,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = self.__to_cstring_array(self.__args)
 
     cdef _init_env(self, dict env):
-        if env is not None and len(env):
+        if env is not None:
             self.__env = list()
             for key in env:
                 val = env[key]
@@ -500,10 +493,7 @@ cdef class UVProcessTransport(UVProcess):
                     # shouldn't ever happen
                     raise RuntimeError('cannot apply subprocess.STDOUT')
 
-                newfd = os_dup(io[1])
-                os_set_inheritable(newfd, True)
-                self._close_after_spawn(newfd)
-                io[2] = newfd
+                io[2] = self._file_redirect_stdio(io[1])
             elif _stderr == subprocess_DEVNULL:
                 io[2] = self._file_devnull()
             else:

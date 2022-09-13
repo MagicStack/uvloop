@@ -222,7 +222,7 @@ class _TestTCP:
 
             with self.assertRaisesRegex(OSError,
                                         r"error while attempting.*\('127.*: "
-                                        r"address already in use"):
+                                        r"address( already)? in use"):
 
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr))
@@ -651,43 +651,6 @@ class _TestTCP:
 
         self.assertIsNone(
             self.loop.run_until_complete(connection_lost_called))
-
-    def test_context_run_segfault(self):
-        is_new = False
-        done = self.loop.create_future()
-
-        def server(sock):
-            sock.sendall(b'hello')
-
-        class Protocol(asyncio.Protocol):
-            def __init__(self):
-                self.transport = None
-
-            def connection_made(self, transport):
-                self.transport = transport
-
-            def data_received(self, data):
-                try:
-                    self = weakref.ref(self)
-                    nonlocal is_new
-                    if is_new:
-                        done.set_result(data)
-                    else:
-                        is_new = True
-                        new_proto = Protocol()
-                        self().transport.set_protocol(new_proto)
-                        new_proto.connection_made(self().transport)
-                        new_proto.data_received(data)
-                except Exception as e:
-                    done.set_exception(e)
-
-        async def test(addr):
-            await self.loop.create_connection(Protocol, *addr)
-            data = await done
-            self.assertEqual(data, b'hello')
-
-        with self.tcp_server(server) as srv:
-            self.loop.run_until_complete(test(srv.addr))
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):

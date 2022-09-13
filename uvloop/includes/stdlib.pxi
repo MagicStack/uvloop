@@ -72,6 +72,7 @@ cdef int has_SO_REUSEPORT = hasattr(socket, 'SO_REUSEPORT')
 cdef int SO_REUSEPORT = getattr(socket, 'SO_REUSEPORT', 0)
 cdef int SO_BROADCAST = getattr(socket, 'SO_BROADCAST')
 cdef int SOCK_NONBLOCK = getattr(socket, 'SOCK_NONBLOCK', -1)
+cdef int socket_AI_CANONNAME = getattr(socket, 'AI_CANONNAME')
 
 cdef socket_gaierror = socket.gaierror
 cdef socket_error = socket.error
@@ -116,6 +117,7 @@ cdef os_fspath = os.fspath
 cdef stat_S_ISSOCK = stat.S_ISSOCK
 
 cdef sys_ignore_environment = sys.flags.ignore_environment
+cdef sys_dev_mode = sys.flags.dev_mode
 cdef sys_exc_info = sys.exc_info
 cdef sys_set_coroutine_wrapper = getattr(sys, 'set_coroutine_wrapper', None)
 cdef sys_get_coroutine_wrapper = getattr(sys, 'get_coroutine_wrapper', None)
@@ -135,8 +137,8 @@ cdef int ssl_SSL_ERROR_WANT_READ = ssl.SSL_ERROR_WANT_READ
 cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
 cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
-cdef uint64_t MAIN_THREAD_ID = <uint64_t><int64_t>threading.main_thread().ident
 cdef threading_Thread = threading.Thread
+cdef threading_main_thread = threading.main_thread
 
 cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT

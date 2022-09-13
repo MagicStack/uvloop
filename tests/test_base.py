@@ -540,7 +540,9 @@ class _TestBase:
         async def coro():
             pass
 
-        factory = lambda loop, coro: MyTask(coro, loop=loop)
+        factory = lambda loop, coro, **kwargs: MyTask(
+            coro, loop=loop, **kwargs
+        )
 
         self.assertIsNone(self.loop.get_task_factory())
         self.loop.set_task_factory(factory)
@@ -577,7 +579,9 @@ class _TestBase:
         async def coro():
             pass
 
-        factory = lambda loop, coro: MyTask(coro, loop=loop)
+        factory = lambda loop, coro, **kwargs: MyTask(
+            coro, loop=loop, **kwargs
+        )
 
         self.assertIsNone(self.loop.get_task_factory())
         task = self.loop.create_task(coro(), name="mytask")

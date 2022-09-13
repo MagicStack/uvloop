@@ -162,7 +162,7 @@ cdef class _StreamWriteContext:
                     PyObject_GetBuffer(
                         buf, &p_pybufs[py_bufs_len], PyBUF_SIMPLE)
                 except Exception:
-                    # This shouldn't ever happen, as `UVStream._write`
+                    # This shouldn't ever happen, as `UVStream._buffer_write`
                     # casts non-bytes objects to `memoryviews`.
                     ctx.py_bufs_len = py_bufs_len
                     ctx.free_bufs()
@@ -407,7 +407,7 @@ cdef class UVStream(UVBaseTransport):
 
         return written
 
-    cdef inline _write(self, object data):
+    cdef inline _buffer_write(self, object data):
         cdef int dlen
 
         if not PyBytes_CheckExact(data):
@@ -420,6 +420,7 @@ cdef class UVStream(UVBaseTransport):
         self._buffer_size += dlen
         self._buffer.append(data)
 
+    cdef inline _initiate_write(self):
         if (not self._protocol_paused and
                 (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
                 self._buffer_size > self._high_water):
@@ -443,10 +444,10 @@ cdef class UVStream(UVBaseTransport):
                 # If not all of the data was sent successfully,
                 # we might need to pause the protocol.
                 self._maybe_pause_protocol()
-            return
 
-        self._maybe_pause_protocol()
-        self._loop._queue_write(self)
+        elif self._buffer_size > 0:
+            self._maybe_pause_protocol()
+            self._loop._queue_write(self)
 
     cdef inline _exec_write(self):
         cdef:
@@ -679,7 +680,8 @@ cdef class UVStream(UVBaseTransport):
         if self._conn_lost:
             self._conn_lost += 1
             return
-        self._write(buf)
+        self._buffer_write(buf)
+        self._initiate_write()
 
     def writelines(self, bufs):
         self._ensure_alive()
@@ -690,7 +692,8 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
         for buf in bufs:
-            self._write(buf)
+            self._buffer_write(buf)
+        self._initiate_write()
 
     def write_eof(self):
         self._ensure_alive()
