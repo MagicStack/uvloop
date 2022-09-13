@@ -245,7 +245,21 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
     except Exception:
         return
 
-    return af, type, proto, '', pyaddr
+    if flags & socket_AI_CANONNAME:
+        if isinstance(host, str):
+            canon_name = host
+        else:
+            canon_name = host.decode('ascii')
+    else:
+        canon_name = ''
+
+    return (
+        _intenum_converter(af, socket_AddressFamily),
+        _intenum_converter(type, socket_SocketKind),
+        proto,
+        canon_name,
+        pyaddr,
+    )
 
 
 @cython.freelist(DEFAULT_FREELIST_SIZE)
@@ -276,8 +290,8 @@ cdef class AddrInfo:
         while ptr != NULL:
             if ptr.ai_addr.sa_family in (uv.AF_INET, uv.AF_INET6):
                 result.append((
-                    ptr.ai_family,
-                    ptr.ai_socktype,
+                    _intenum_converter(ptr.ai_family, socket_AddressFamily),
+                    _intenum_converter(ptr.ai_socktype, socket_SocketKind),
                     ptr.ai_protocol,
                     ('' if ptr.ai_canonname is NULL else
                         (<bytes>ptr.ai_canonname).decode()),
@@ -368,6 +382,13 @@ cdef class NameInfoRequest(UVRequest):
         if err < 0:
             self.on_done()
             self.callback(convert_error(err))
+
+
+cdef _intenum_converter(value, enum_klass):
+    try:
+        return enum_klass(value)
+    except ValueError:
+        return value
 
 
 cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,

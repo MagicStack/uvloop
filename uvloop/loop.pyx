@@ -1527,9 +1527,7 @@ cdef class Loop:
         addr = __static_getaddrinfo_pyaddr(host, port, family,
                                            type, proto, flags)
         if addr is not None:
-            fut = self._new_future()
-            fut.set_result([addr])
-            return await fut
+            return [addr]
 
         return await self._getaddrinfo(
             host, port, family, type, proto, flags, 1)
