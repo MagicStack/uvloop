@@ -10,6 +10,9 @@ import sys
 from uvloop import _testbase as tb
 
 
+SSL_HANDSHAKE_TIMEOUT = 15.0
+
+
 class _TestUnix:
     def test_create_unix_server_1(self):
         CNT = 0           # number of clients that were successful
@@ -160,7 +163,8 @@ class _TestUnix:
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_unix_server(
-                    lambda: None, path='/tmp/a', ssl_handshake_timeout=10))
+                    lambda: None, path='/tmp/a',
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
     def test_create_unix_server_existing_path_sock(self):
         with self.unix_sock_name() as path:
@@ -368,7 +372,8 @@ class _TestUnix:
                 ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_unix_connection(
-                    lambda: None, path='/tmp/a', ssl_handshake_timeout=10))
+                    lambda: None, path='/tmp/a',
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
@@ -567,7 +572,7 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
-            extras = dict(ssl_handshake_timeout=10.0)
+            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             with tempfile.TemporaryDirectory() as td:
                 sock_name = os.path.join(td, 'sock')
@@ -628,7 +633,7 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
-            extras = dict(ssl_handshake_timeout=10.0)
+            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             reader, writer = await asyncio.open_unix_connection(
                 addr,

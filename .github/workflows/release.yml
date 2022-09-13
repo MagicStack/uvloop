@@ -44,7 +44,7 @@ jobs:
 
   build-sdist:
     needs: validate-release-request
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
