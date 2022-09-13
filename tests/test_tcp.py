@@ -654,6 +654,59 @@ class _TestTCP:
         self.assertIsNone(
             self.loop.run_until_complete(connection_lost_called))
 
+    def test_resume_writing_write_different_transport(self):
+        loop = self.loop
+
+        class P1(asyncio.Protocol):
+            def __init__(self, t2):
+                self.t2 = t2
+                self.paused = False
+                self.waiter = loop.create_future()
+
+            def data_received(self, data):
+                self.waiter.set_result(data)
+
+            def pause_writing(self):
+                self.paused = True
+
+            def resume_writing(self):
+                self.paused = False
+                self.t2.write(b'hello')
+
+        s1, s2 = socket.socketpair()
+        s1.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
+        s2.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+
+        async def _test(t1, p1, t2):
+            t1.set_write_buffer_limits(1024, 1023)
+
+            # fill s1 up first
+            t2.pause_reading()
+            while not p1.paused:
+                t1.write(b' ' * 1024)
+
+            # trigger resume_writing() in _exec_queued_writes() with tight loop
+            t2.resume_reading()
+            while p1.paused:
+                t1.write(b' ')
+                await asyncio.sleep(0)
+
+            # t2.write() in p1.resume_writing() should work fine
+            data = await asyncio.wait_for(p1.waiter, 5)
+            self.assertEqual(data, b'hello')
+
+        async def test():
+            t2, _ = await loop.create_connection(asyncio.Protocol, sock=s2)
+            t1, p1 = await loop.create_connection(lambda: P1(t2), sock=s1)
+            try:
+                await _test(t1, p1, t2)
+            finally:
+                t1.close()
+                t2.close()
+
+        with s1, s2:
+            loop.run_until_complete(test())
+
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 

@@ -177,6 +177,7 @@ cdef class Loop:
         self._default_executor = None
 
         self._queued_streams = set()
+        self._executing_streams = set()
         self._ready = col_deque()
         self._ready_len = 0
 
@@ -645,25 +646,20 @@ cdef class Loop:
 
         cdef:
             UVStream stream
-            int queued_len
 
-        if UVLOOP_DEBUG:
-            queued_len = len(self._queued_streams)
-
-        for pystream in self._queued_streams:
-            stream = <UVStream>pystream
-            stream._exec_write()
-
-        if UVLOOP_DEBUG:
-            if len(self._queued_streams) != queued_len:
-                raise RuntimeError(
-                    'loop._queued_streams are not empty after '
-                    '_exec_queued_writes')
-
-        self._queued_streams.clear()
+        streams = self._queued_streams
+        self._queued_streams = self._executing_streams
+        self._executing_streams = streams
+        try:
+            for pystream in streams:
+                stream = <UVStream>pystream
+                stream._exec_write()
+        finally:
+            streams.clear()
 
         if self.handler_check__exec_writes.running:
-            self.handler_check__exec_writes.stop()
+            if len(self._queued_streams) == 0:
+                self.handler_check__exec_writes.stop()
 
     cdef inline _call_soon(self, object callback, object args, object context):
         cdef Handle handle
