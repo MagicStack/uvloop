@@ -245,6 +245,29 @@ cdef __static_getaddrinfo_pyaddr(object host, object port,
     except Exception:
         return
 
+    # When the host is an IP while type is one of TCP or UDP, different libc
+    # implementations of getaddrinfo() behave differently:
+    # 1. When AI_CANONNAME is set:
+    #    * glibc: returns ai_canonname
+    #    * musl: returns ai_canonname
+    #    * macOS: returns an empty string for ai_canonname
+    # 2. When AI_CANONNAME is NOT set:
+    #    * glibc: returns an empty string for ai_canonname
+    #    * musl: returns ai_canonname
+    #    * macOS: returns an empty string for ai_canonname
+    # At the same time, libuv and CPython both uses libc directly, even though
+    # this different behavior is violating what is in the documentation.
+    #
+    # uvloop potentially should be a 100% drop-in replacement for asyncio,
+    # doing whatever asyncio does, especially when the libc implementations are
+    # also different in the same way. However, making our implementation to be
+    # consistent with libc/CPython would be complex and hard to maintain
+    # (including caching libc behaviors when flag is/not set), therefore we
+    # decided to simply normalize the behavior in uvloop for this very marginal
+    # case following the documentation, even though uvloop would behave
+    # differently to asyncio on macOS and musl platforms, when again the host
+    # is an IP and type is one of TCP or UDP.
+    # All other cases are still asyncio-compatible.
     if flags & socket_AI_CANONNAME:
         if isinstance(host, str):
             canon_name = host
