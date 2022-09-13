@@ -177,6 +177,7 @@ cdef class Loop:
         self._default_executor = None
 
         self._queued_streams = set()
+        self._executing_streams = set()
         self._ready = col_deque()
         self._ready_len = 0
 
@@ -646,12 +647,15 @@ cdef class Loop:
         cdef:
             UVStream stream
 
-        streams = list(self._queued_streams)
-        self._queued_streams.clear()
-
-        for pystream in streams:
-            stream = <UVStream>pystream
-            stream._exec_write()
+        streams = self._queued_streams
+        self._queued_streams = self._executing_streams
+        self._executing_streams = streams
+        try:
+            for pystream in streams:
+                stream = <UVStream>pystream
+                stream._exec_write()
+        finally:
+            streams.clear()
 
         if self.handler_check__exec_writes.running:
             if len(self._queued_streams) == 0:
