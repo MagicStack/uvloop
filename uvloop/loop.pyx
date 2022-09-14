@@ -94,7 +94,7 @@ cdef inline socket_dec_io_ref(sock):
 cdef inline run_in_context(context, method):
     # This method is internally used to workaround a reference issue that in
     # certain circumstances, inlined context.run() will not hold a reference to
-    # the given method instance, which - if deallocated - will cause segault.
+    # the given method instance, which - if deallocated - will cause segfault.
     # See also: edgedb/edgedb#2222
     Py_INCREF(method)
     try:
