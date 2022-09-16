@@ -620,8 +620,6 @@ cdef class SSLProtocol:
     cdef _do_shutdown(self, object context=None):
         """Send close_notify and wait for the same from the peer."""
         try:
-            # we must skip all application data (if any) before unwrap
-            self._do_read_into_void(context)
             try:
                 self._sslobj.unwrap()
             except ssl_SSLAgainErrors as exc:
