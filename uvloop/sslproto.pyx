@@ -536,6 +536,7 @@ cdef class SSLProtocol:
                            cipher=sslobj.cipher(),
                            compression=sslobj.compression(),
                            ssl_object=sslobj)
+        self._ssl_version = sslobj.version()
         if self._app_state == STATE_INIT:
             self._app_state = STATE_CON_MADE
             self._app_protocol.connection_made(self._get_app_transport())
@@ -585,6 +586,9 @@ cdef class SSLProtocol:
         """
         cdef:
             bint close_notify = False
+        if self._app_state == STATE_EOF:
+            # close_notify was already received
+            return
         try:
             while True:
                 if not self._sslobj_read(SSL_READ_MAX_SIZE):
@@ -626,6 +630,11 @@ cdef class SSLProtocol:
                 self._sslobj.unwrap()
             except ssl_SSLAgainErrors as exc:
                 self._process_outgoing()
+                if self._ssl_version != "TLSv1.3":
+                    # don't wait for close_notify from the peer in TLSv1.2 or
+                    # lower to conform with widespread implementation practice
+                    if not self._get_write_buffer_size():
+                        self._on_shutdown_complete(None)
             else:
                 self._process_outgoing()
                 if not self._get_write_buffer_size():

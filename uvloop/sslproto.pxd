@@ -84,6 +84,8 @@ cdef class SSLProtocol:
         object _handshake_timeout_handle
         object _shutdown_timeout_handle
 
+        str _ssl_version
+
     cdef _set_app_protocol(self, app_protocol)
     cdef _wakeup_waiter(self, exc=*)
     cdef _get_extra_info(self, name, default=*)
