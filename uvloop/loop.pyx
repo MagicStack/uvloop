@@ -628,6 +628,10 @@ cdef class Loop:
             self._default_executor = None
             executor.shutdown(wait=False)
 
+    cdef uint64_t _event_loop_idle_time(self):
+        # asyncio doesn't have a time cache, neither should uvloop.
+        return uv.uv_metrics_idle_time(self.uvloop)
+
     cdef uint64_t _time(self):
         # asyncio doesn't have a time cache, neither should uvloop.
         uv.uv_update_time(self.uvloop)  # void
@@ -1336,6 +1340,12 @@ cdef class Loop:
         """
         return self.call_later(
             when - self.time(), callback, *args, context=context)
+
+    def event_loop_idle_time(self):
+        """Retrieve the amount of time the event loop has been idle in the
+        kernel’s event provider.
+        """
+        return self._event_loop_idle_time()
 
     def time(self):
         """Return the time according to the event loop's clock.
