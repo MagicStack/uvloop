@@ -123,6 +123,7 @@ cdef inline run_in_context2(context, method, arg1, arg2):
 # *reuse_address* parameter
 _unset = object()
 
+
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
