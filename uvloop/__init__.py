@@ -8,7 +8,7 @@ from .loop import Loop as __BaseLoop, LoopOption  # NOQA
 from ._version import __version__  # NOQA
 
 
-__all__ = ('new_event_loop', 'install', 'EventLoopPolicy')
+__all__ = ('new_event_loop', 'LoopOption', 'install', 'EventLoopPolicy')
 
 
 class Loop(__BaseLoop, __asyncio.AbstractEventLoop):  # type: ignore[misc]
