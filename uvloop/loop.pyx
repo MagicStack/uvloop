@@ -123,6 +123,9 @@ cdef inline run_in_context2(context, method, arg1, arg2):
 # *reuse_address* parameter
 _unset = object()
 
+cpdef enum LoopOption:
+    LOOP_BLOCK_SIGNAL = uv.UV_LOOP_BLOCK_SIGNAL,
+    METRICS_IDLE_TIME = uv.UV_METRICS_IDLE_TIME
 
 @cython.no_gc_clear
 cdef class Loop:
@@ -508,6 +511,13 @@ cdef class Loop:
         if err < 0:
             raise convert_error(err)
 
+    cdef _loop_configure(self, uv.uv_loop_option options):
+        cdef int err
+
+        err = uv.uv_loop_configure(self.uvloop, options)
+        if err < 0:
+            raise convert_error(err)
+
     cdef _run(self, uv.uv_run_mode mode):
         cdef int err
 
@@ -627,6 +637,9 @@ cdef class Loop:
         if executor is not None:
             self._default_executor = None
             executor.shutdown(wait=False)
+
+    cdef uint64_t _event_loop_idle_time(self):
+        return uv.uv_metrics_idle_time(self.uvloop)
 
     cdef uint64_t _time(self):
         # asyncio doesn't have a time cache, neither should uvloop.
@@ -1337,6 +1350,12 @@ cdef class Loop:
         return self.call_later(
             when - self.time(), callback, *args, context=context)
 
+    def event_loop_idle_time(self):
+        """Retrieve the amount of time the event loop has been idle in the
+        kernel’s event provider.
+        """
+        return self._event_loop_idle_time()
+
     def time(self):
         """Return the time according to the event loop's clock.
 
@@ -1360,6 +1379,21 @@ cdef class Loop:
                 None,
                 self,
                 None))
+
+    def loop_configure(self, LoopOption options):
+        """ Set additional loop options. 
+        
+        You should normally call this before the first call to run_*() unless
+        mentioned otherwise.
+        """
+        if options == LOOP_BLOCK_SIGNAL:
+            _option = uv.UV_LOOP_BLOCK_SIGNAL
+        elif options == METRICS_IDLE_TIME:
+            _option = uv.UV_METRICS_IDLE_TIME
+        else:
+            raise ValueError("Unrecognized loop option")
+
+        self._loop_configure(_option)
 
     def run_forever(self):
         """Run the event loop until stop() is called."""

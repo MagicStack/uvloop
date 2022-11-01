@@ -4,7 +4,7 @@ import typing as _typing
 from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 
 from . import includes as __includes  # NOQA
-from .loop import Loop as __BaseLoop  # NOQA
+from .loop import Loop as __BaseLoop, LoopOption  # NOQA
 from ._version import __version__  # NOQA
 
 
