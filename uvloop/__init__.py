@@ -4,11 +4,11 @@ import typing as _typing
 from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
 
 from . import includes as __includes  # NOQA
-from .loop import Loop as __BaseLoop, LoopOption  # NOQA
+from .loop import Loop as __BaseLoop  # NOQA
 from ._version import __version__  # NOQA
 
 
-__all__ = ('new_event_loop', 'LoopOption', 'install', 'EventLoopPolicy')
+__all__ = ('new_event_loop', 'install', 'EventLoopPolicy')
 
 
 class Loop(__BaseLoop, __asyncio.AbstractEventLoop):  # type: ignore[misc]

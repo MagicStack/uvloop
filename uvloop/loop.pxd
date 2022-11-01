@@ -134,7 +134,6 @@ cdef class Loop:
     cdef _on_idle(self)
 
     cdef __run(self, uv.uv_run_mode)
-    cdef _loop_configure(self, uv.uv_loop_option options)
     cdef _run(self, uv.uv_run_mode)
 
     cdef _close(self)

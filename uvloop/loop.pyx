@@ -123,10 +123,6 @@ cdef inline run_in_context2(context, method, arg1, arg2):
 # *reuse_address* parameter
 _unset = object()
 
-cpdef enum LoopOption:
-    LOOP_BLOCK_SIGNAL = uv.UV_LOOP_BLOCK_SIGNAL,
-    METRICS_IDLE_TIME = uv.UV_METRICS_IDLE_TIME
-
 @cython.no_gc_clear
 cdef class Loop:
     def __cinit__(self):
@@ -165,6 +161,10 @@ cdef class Loop:
         self._recv_buffer_in_use = 0
 
         err = uv.uv_loop_init(self.uvloop)
+        if err < 0:
+            raise convert_error(err)
+
+        err = uv.uv_loop_configure(self.uvloop, uv.UV_METRICS_IDLE_TIME)
         if err < 0:
             raise convert_error(err)
         self.uvloop.data = <void*> self
@@ -508,13 +508,6 @@ cdef class Loop:
             err = uv.uv_run(self.uvloop, mode)
         Py_DECREF(self)
 
-        if err < 0:
-            raise convert_error(err)
-
-    cdef _loop_configure(self, uv.uv_loop_option options):
-        cdef int err
-
-        err = uv.uv_loop_configure(self.uvloop, options)
         if err < 0:
             raise convert_error(err)
 
@@ -1379,21 +1372,6 @@ cdef class Loop:
                 None,
                 self,
                 None))
-
-    def loop_configure(self, LoopOption options):
-        """ Set additional loop options. 
-        
-        You should normally call this before the first call to run_*() unless
-        mentioned otherwise.
-        """
-        if options == LOOP_BLOCK_SIGNAL:
-            _option = uv.UV_LOOP_BLOCK_SIGNAL
-        elif options == METRICS_IDLE_TIME:
-            _option = uv.UV_METRICS_IDLE_TIME
-        else:
-            raise ValueError("Unrecognized loop option")
-
-        self._loop_configure(_option)
 
     def run_forever(self):
         """Run the event loop until stop() is called."""
