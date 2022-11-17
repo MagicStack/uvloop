@@ -36,6 +36,7 @@ TEST_DEPENDENCIES = [
     'psutil',
     'pycodestyle~=2.7.0',
     'pyOpenSSL~=22.0.0',
+    'pytest>=3.6.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
 ]
