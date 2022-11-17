@@ -2,6 +2,7 @@ import asyncio
 import asyncio.sslproto
 import gc
 import os
+import pytest
 import select
 import socket
 import unittest.mock
