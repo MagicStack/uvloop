@@ -32,6 +32,7 @@ TEST_DEPENDENCIES = [
     # see https://github.com/aio-libs/aiohttp/issues/6600
     'aiohttp ; python_version < "3.11"',
     'flake8~=3.9.2',
+    'importlib-metadata>=1.1.0,<4.3',
     'psutil',
     'pycodestyle~=2.7.0',
     'pyOpenSSL~=22.0.0',
