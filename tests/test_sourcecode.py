@@ -30,7 +30,9 @@ class TestSourceCode(unittest.TestCase):
                     stderr=subprocess.PIPE,
                     cwd=os.path.join(edgepath, subdir))
             except subprocess.CalledProcessError as ex:
-                output = ex.output.decode()
+                output = ex.stdout.decode()
+                output += '\n'
+                output += ex.stderr.decode()
                 raise AssertionError(
                     'flake8 validation failed: {}\n{}'.format(ex, output)
                 ) from None
@@ -62,7 +64,9 @@ class TestSourceCode(unittest.TestCase):
                 cwd=edgepath
             )
         except subprocess.CalledProcessError as ex:
-            output = ex.output.decode()
+            output = ex.stdout.decode()
+            output += '\n'
+            output += ex.stderr.decode()
             raise AssertionError(
                 'mypy validation failed: {}\n{}'.format(ex, output)
             ) from None
