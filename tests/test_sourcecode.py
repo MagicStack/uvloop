@@ -32,7 +32,8 @@ class TestSourceCode(unittest.TestCase):
             except subprocess.CalledProcessError as ex:
                 output = ex.output.decode()
                 raise AssertionError(
-                    'flake8 validation failed: {}\n{}'.format(ex, output)) from None
+                    'flake8 validation failed: {}\n{}'.format(ex, output)
+                ) from None
 
     def test_mypy(self):
         edgepath = find_uvloop_root()
@@ -63,4 +64,5 @@ class TestSourceCode(unittest.TestCase):
         except subprocess.CalledProcessError as ex:
             output = ex.output.decode()
             raise AssertionError(
-                'mypy validation failed: {}\n{}'.format(ex, output)) from None
+                'mypy validation failed: {}\n{}'.format(ex, output)
+        ) from None
