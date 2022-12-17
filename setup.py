@@ -33,7 +33,7 @@ TEST_DEPENDENCIES = [
     'aiohttp ; python_version < "3.11"',
     'flake8~=5.0',
     'psutil',
-    'pycodestyle~=2.7.0',
+    'pycodestyle~=2.9.0',
     'pyOpenSSL~=22.0.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
