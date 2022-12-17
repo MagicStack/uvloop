@@ -31,7 +31,7 @@ TEST_DEPENDENCIES = [
     # aiohttp doesn't support 3.11 yet,
     # see https://github.com/aio-libs/aiohttp/issues/6600
     'aiohttp ; python_version < "3.11"',
-    'flake8~=6.0.0',
+    'flake8~=5',
     'psutil',
     'pycodestyle~=2.7.0',
     'pyOpenSSL~=22.0.0',
