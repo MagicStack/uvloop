@@ -65,4 +65,4 @@ class TestSourceCode(unittest.TestCase):
             output = ex.output.decode()
             raise AssertionError(
                 'mypy validation failed: {}\n{}'.format(ex, output)
-        ) from None
+            ) from None
