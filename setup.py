@@ -30,22 +30,13 @@ TEST_DEPENDENCIES = [
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
     # aiohttp doesn't support 3.11 yet,
     # see https://github.com/aio-libs/aiohttp/issues/6600
-    'aiohttp==3.8.2',
+    'aiohttp ; python_version < "3.11"',
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
     'pyOpenSSL~=22.0.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
-
-    # TODO: cleanup, just debugging back to the most recent successful ci run
-    #       https://github.com/MagicStack/uvloop/actions/runs/3095350858/jobs/5009673775#step:6:77
-    'aiosignal==1.2.0',
-    'cryptography==38.0.1',
-    'frozenlist==1.3.1',
-    'multidict==5.2.0',
-    'psutil==5.9.2',
-    'yarl==1.8.1',
 ]
 
 # Dependencies required to build documentation.
