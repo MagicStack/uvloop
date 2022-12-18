@@ -2824,9 +2824,6 @@ class _TestSSL(tb.SSLTestCase):
                 self.fail('Unexpected ResourceWarning: {}'.format(cm.warning))
 
     def test_handshake_timeout_handler_leak(self):
-        # TODO: skipping to see if this avoids the hangs
-        raise unittest.SkipTest()
-
         if self.implementation == 'asyncio':
             # Okay this turns out to be an issue for asyncio.sslproto too
             raise unittest.SkipTest()
