@@ -30,7 +30,7 @@ TEST_DEPENDENCIES = [
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
     # aiohttp doesn't support 3.11 yet,
     # see https://github.com/aio-libs/aiohttp/issues/6600
-    'aiohttp==3.8.2 ; python_version < "3.11"',
+    'aiohttp==3.8.2',
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
