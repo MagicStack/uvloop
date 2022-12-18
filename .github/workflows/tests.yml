@@ -48,6 +48,17 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    - name: create and activate a venv
+      run: |
+        python -m venv venv
+        which python
+        echo "$(realpath venv/bin/)" >> $GITHUB_PATH
+
+    - name: check python to be used
+      run: |
+        which python
+        python --version --version
+
     - name: Install macOS deps
       if: matrix.os == 'macos-latest' && steps.release.outputs.version == 0
       run: |
