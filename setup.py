@@ -37,6 +37,15 @@ TEST_DEPENDENCIES = [
     'pyOpenSSL~=22.0.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
+
+    # TODO: cleanup, just debugging back to the most recent successful ci run
+    #       https://github.com/MagicStack/uvloop/actions/runs/3166123561/jobs/5155626399
+    'aiosignal==1.2.0',
+    'cryptography==38.0.1',
+    'frozenlist==1.3.1',
+    'multidict==6.0.2',
+    'psutil==5.9.2',
+    'yarl==1.8.1',
 ]
 
 # Dependencies required to build documentation.
