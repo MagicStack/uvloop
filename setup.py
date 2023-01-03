@@ -34,7 +34,7 @@ TEST_DEPENDENCIES = [
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
-    'pyOpenSSL~=22.0.0',
+    'pyOpenSSL~=23.0.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
 ]
