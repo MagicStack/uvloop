@@ -879,6 +879,17 @@ class TestBaseUV(_TestBase, UVTestCase):
         l2 = len(self.loop.get_ready_queue())
         self.assertEqual(l1, l2 - 1)
 
+    def test_ready_handle(self):
+        def cb(a, b):
+            return None
+        args = 1, 2
+        self.loop.call_soon(cb, *args)
+        handle = list(self.loop.get_ready_queue())[-1]
+        self.assertIsInstance(handle, uvloop.loop.Handle)
+        cb2, args2 = handle.get_callback()
+        self.assertIs(cb, cb2)
+        self.assertEqual(args, args2)
+
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass

@@ -161,6 +161,16 @@ cdef class Handle:
     def cancelled(self):
         return self._cancelled
 
+    def get_callback(self):
+        """
+        Allow access to a python callback and its args.
+        Return a (callback, args) tuple or None if it is an
+        internal callback.
+        """
+        if self.cb_type == 1:
+            return self.arg1, self.arg2
+        return None
+
 
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
