@@ -122,7 +122,7 @@ cdef class UVStreamServer(UVSocketHandle):
 
 
 cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
-                                      int status) with gil:
+                                      int status) noexcept with gil:
 
     # callback for uv_listen
 
