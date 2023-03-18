@@ -72,7 +72,7 @@ cdef class UVTimer(UVHandle):
         return handle
 
 
-cdef void __uvtimer_callback(uv.uv_timer_t* handle) with gil:
+cdef void __uvtimer_callback(uv.uv_timer_t* handle) noexcept with gil:
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVTimer callback") == 0:
         return
 
