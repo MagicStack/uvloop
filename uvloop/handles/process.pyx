@@ -849,6 +849,11 @@ cdef class UVProcessTransport(UVProcess):
         self._exit_waiters.append(fut)
         return fut
 
+    def __dealloc__(self):
+        if self._closed :
+            return
+        self.close()
+        super().__dealloc__()
 
 class WriteSubprocessPipeProto(aio_BaseProtocol):
 

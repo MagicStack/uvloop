@@ -367,6 +367,10 @@ cdef void __close_all_handles(Loop loop) noexcept:
     uv.uv_walk(loop.uvloop,
                __uv_walk_close_all_handles_cb,
                <void*>loop)  # void
+<<<<<<< HEAD
+=======
+    #print('__close_all_handles.CloseIOCP({})'.format(os.getpid()))
+>>>>>>> ed57e95 (This is a first pass commit of windows port, alot of tests pass, and some skipped)
     system.CloseIOCP(<void *> loop.uvloop)
 
 
