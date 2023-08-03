@@ -1,4 +1,8 @@
-DEF __PREALLOCED_BUFS = 4
+cdef extern from *:
+    '''
+    enum {__PREALLOCED_BUFS = 4};
+    '''
+    const bint __PREALLOCED_BUFS
 
 
 @cython.no_gc_clear
@@ -279,7 +283,7 @@ cdef class UVStream(UVBaseTransport):
     cdef inline _close_on_read_error(self):
         self.__read_error_close = 1
 
-    cdef bint _is_reading(self):
+    cdef bint _is_reading(self) noexcept:
         return self.__reading
 
     cdef _start_reading(self):
@@ -370,21 +374,34 @@ cdef class UVStream(UVBaseTransport):
             # Empty data, do nothing.
             return 0
 
-        fd = self._fileno()
-        # Use `unistd.h/write` directly, it's faster than
-        # uv_try_write -- less layers of code.  The error
-        # checking logic is copied from libuv.
-        written = system.write(fd, buf, blen)
-        while written == -1 and (
-                errno.errno == errno.EINTR or
-                (system.PLATFORM_IS_APPLE and
-                    errno.errno == errno.EPROTOTYPE)):
-            # From libuv code (unix/stream.c):
-            #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
-            #   EPROTOTYPE can be returned while trying to write to a socket
-            #   that is shutting down. If we retry the write, we should get
-            #   the expected EPIPE instead.
+        if system.PLATFORM_IS_WINDOWS :
+            if used_buf == 0:
+                used_buf = 1
+                PyObject_GetBuffer(data, &py_buf, PyBUF_SIMPLE)
+
+            write_tot = 0
+            while (write_tot < blen):
+                written = uv.uv_try_write(<uv.uv_stream_t*>self._handle, <uv.uv_buf_t*>&py_buf, used_buf)
+                if written < 0:
+                    break
+                write_tot += written
+        else:
+            fd = self._fileno()
+            # Use `unistd.h/write` directly, it's faster than
+            # uv_try_write -- less layers of code.  The error
+            # checking logic is copied from libuv.
             written = system.write(fd, buf, blen)
+            while written == -1 and (
+                    errno.errno == errno.EINTR or
+                    (system.PLATFORM_IS_APPLE and
+                        errno.errno == errno.EPROTOTYPE)):
+                # From libuv code (unix/stream.c):
+                #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
+                #   EPROTOTYPE can be returned while trying to write to a socket
+                #   that is shutting down. If we retry the write, we should get
+                #   the expected EPIPE instead.
+                written = system.write(fd, buf, blen)
+
         saved_errno = errno.errno
 
         if used_buf:
@@ -578,7 +595,7 @@ cdef class UVStream(UVBaseTransport):
 
         self._maybe_resume_protocol()
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         if self._handle is NULL:
             return 0
         return ((<uv.uv_stream_t*>self._handle).write_queue_size +
@@ -723,7 +740,7 @@ cdef class UVStream(UVBaseTransport):
 
 
 cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
-                                  int status) with gil:
+                                  int status) noexcept with gil:
 
     # callback for uv_shutdown
 
@@ -752,7 +769,7 @@ cdef void __uv_stream_on_shutdown(uv.uv_shutdown_t* req,
 
 
 cdef inline bint __uv_stream_on_read_common(UVStream sc, Loop loop,
-                                            ssize_t nread):
+                                            ssize_t nread) noexcept:
     if sc._closed:
         # The stream was closed, there is no reason to
         # do any work now.
@@ -813,7 +830,7 @@ cdef inline bint __uv_stream_on_read_common(UVStream sc, Loop loop,
 
 cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
                                           ssize_t nread,
-                                          const uv.uv_buf_t* buf):
+                                          const uv.uv_buf_t* buf) noexcept:
     cdef:
         UVStream sc = <UVStream>stream.data
         Loop loop = sc._loop
@@ -841,7 +858,7 @@ cdef inline void __uv_stream_on_read_impl(uv.uv_stream_t* stream,
         sc._fatal_error(exc, False)
 
 
-cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
+cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status) noexcept:
     cdef:
         _StreamWriteContext ctx = <_StreamWriteContext> req.data
         UVStream stream = <UVStream>ctx.stream
@@ -874,7 +891,7 @@ cdef inline void __uv_stream_on_write_impl(uv.uv_write_t* req, int status):
 
 cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
                               ssize_t nread,
-                              const uv.uv_buf_t* buf) with gil:
+                              const uv.uv_buf_t* buf) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>stream,
                             "UVStream read callback") == 0:
@@ -884,7 +901,7 @@ cdef void __uv_stream_on_read(uv.uv_stream_t* stream,
     __uv_stream_on_read_impl(stream, nread, buf)
 
 
-cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
+cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) noexcept with gil:
 
     if UVLOOP_DEBUG:
         if req.data is NULL:
@@ -899,7 +916,7 @@ cdef void __uv_stream_on_write(uv.uv_write_t* req, int status) with gil:
 
 cdef void __uv_stream_buffered_alloc(uv.uv_handle_t* stream,
                                      size_t suggested_size,
-                                     uv.uv_buf_t* uvbuf) with gil:
+                                     uv.uv_buf_t* uvbuf) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>stream,
                             "UVStream alloc buffer callback") == 0:
@@ -947,7 +964,7 @@ cdef void __uv_stream_buffered_alloc(uv.uv_handle_t* stream,
 
 cdef void __uv_stream_buffered_on_read(uv.uv_stream_t* stream,
                                        ssize_t nread,
-                                       const uv.uv_buf_t* buf) with gil:
+                                       const uv.uv_buf_t* buf) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>stream,
                             "UVStream buffered read callback") == 0:

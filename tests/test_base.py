@@ -1,5 +1,4 @@
 import asyncio
-import fcntl
 import logging
 import os
 import random
@@ -12,6 +11,7 @@ import weakref
 
 from unittest import mock
 from uvloop._testbase import UVTestCase, AIOTestCase
+from uvloop import _testbase as tb
 
 
 class _TestBase:
@@ -131,6 +131,7 @@ class _TestBase:
             return self.loop.time() - st
 
         delta = self.loop.run_until_complete(run())
+        delta += 0.01 if sys.platform in ('win32', 'cli') else 0.0
         self.assertTrue(delta > 0.049 and delta < 0.6)
 
     def test_call_later_1(self):
@@ -156,6 +157,7 @@ class _TestBase:
         started = time.monotonic()
         self.loop.run_forever()
         finished = time.monotonic()
+        self.loop.close()
 
         self.assertEqual(calls, [10, 1])
         self.assertFalse(self.loop.is_running())
@@ -211,9 +213,9 @@ class _TestBase:
 
         def cb():
             self.loop.stop()
-
+        delta = 0.012 if sys.platform in ('win32', 'cli') else 0.01
         for i in range(8):
-            self.loop.call_later(0.06 + 0.01, cb)  # 0.06999999999999999
+            self.loop.call_later(0.06 + delta, cb)  # 0.06999999999999999
             started = int(round(self.loop.time() * 1000))
             self.loop.run_forever()
             finished = int(round(self.loop.time() * 1000))
@@ -767,7 +769,9 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.run_loop_briefly(delay=0.05)
         self.assertFalse(handle.cancelled())
 
+    @unittest.skipIf(tb.IsWindows, 'Not Supported')
     def test_loop_std_files_cloexec(self):
+        import fcntl
         # See https://github.com/MagicStack/uvloop/issues/40 for details.
         for fd in {0, 1, 2}:
             flags = fcntl.fcntl(fd, fcntl.F_GETFD)

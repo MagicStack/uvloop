@@ -1,13 +1,9 @@
 from libc.stdint cimport int8_t, uint64_t
 
-cdef extern from "arpa/inet.h" nogil:
-
-    int ntohl(int)
-    int htonl(int)
-    int ntohs(int)
-
-
-cdef extern from "sys/socket.h" nogil:
+cdef extern from "includes/system.h":
+    int ntohl(int) nogil
+    int htonl(int) nogil
+    int ntohs(int) nogil
 
     struct sockaddr:
         unsigned short sa_family
@@ -39,34 +35,25 @@ cdef extern from "sys/socket.h" nogil:
         unsigned short ss_family
         # ...
 
-    const char *gai_strerror(int errcode)
-
-    int socketpair(int domain, int type, int protocol, int socket_vector[2])
-
-    int setsockopt(int socket, int level, int option_name,
-                   const void *option_value, int option_len)
-
-
-cdef extern from "sys/un.h" nogil:
-
-    struct sockaddr_un:
+    struct sockaddr_un :
         unsigned short sun_family
-        char*          sun_path
-        # ...
+        char           sun_path[108]
+    # ...
 
+    const char* gai_strerror(int errcode) nogil
 
-cdef extern from "unistd.h" nogil:
+    int socketpair(int domain, int type, int protocol, int socket_vector[2]) nogil
 
-    ssize_t write(int fd, const void *buf, size_t count)
-    void _exit(int status)
+    int setsockopt(int socket, int level, int option_name, const void* option_value, int option_len) nogil
 
+    ssize_t write(int fd, const void *buf, size_t count) nogil
+    void _exit(int status) nogil
 
-cdef extern from "pthread.h":
+    int pthread_atfork (
+            void (*prepare)(),
+            void (*parent)(),
+            void (*child)())
 
-    int pthread_atfork(
-        void (*prepare)(),
-        void (*parent)(),
-        void (*child)())
 
 
 cdef extern from "includes/compat.h" nogil:
@@ -75,6 +62,7 @@ cdef extern from "includes/compat.h" nogil:
 
     cdef int PLATFORM_IS_APPLE
     cdef int PLATFORM_IS_LINUX
+    cdef int PLATFORM_IS_WINDOWS
 
     struct epoll_event:
         # We don't use the fields
@@ -83,6 +71,13 @@ cdef extern from "includes/compat.h" nogil:
     int EPOLL_CTL_DEL
     int epoll_ctl(int epfd, int op, int fd, epoll_event *event)
     object MakeUnixSockPyAddr(sockaddr_un *addr)
+    void DebugBreak()
+    void DbgBreak()
+    void stdio_container_init(void *pipe, int fd)
+    void process_init(void *process)
+    void CloseIOCP(void* loop)
+    void PrintAllHandle(void* loop)
+    int create_tcp_socket()
 
 
 cdef extern from "includes/fork_handler.h":

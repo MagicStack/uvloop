@@ -77,7 +77,6 @@ cdef extern from "uv.h" nogil:
     cdef int SIGTERM
 
     ctypedef int uv_os_sock_t
-    ctypedef int uv_file
     ctypedef int uv_os_fd_t
 
     ctypedef struct uv_buf_t:
@@ -266,6 +265,8 @@ cdef extern from "uv.h" nogil:
                                     int events,
                                     int status) with gil
 
+    uv_buf_t uv_buf_init(char* base, unsigned int len)
+
     # Generic request functions
     int uv_cancel(uv_req_t* req)
 
@@ -281,7 +282,7 @@ cdef extern from "uv.h" nogil:
     int uv_loop_close(uv_loop_t* loop)
     int uv_loop_alive(uv_loop_t* loop)
     int uv_loop_fork(uv_loop_t* loop)
-    int uv_backend_fd(uv_loop_t* loop)
+    uv_os_fd_t uv_backend_fd(uv_loop_t* loop)
 
     void uv_update_time(uv_loop_t* loop)
     uint64_t uv_now(const uv_loop_t*)
@@ -359,6 +360,7 @@ cdef extern from "uv.h" nogil:
 
     # TCP
 
+    int create_tcp_socket()
     int uv_tcp_init_ex(uv_loop_t*, uv_tcp_t* handle, unsigned int flags)
     int uv_tcp_nodelay(uv_tcp_t* handle, int enable)
     int uv_tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay)
@@ -377,7 +379,7 @@ cdef extern from "uv.h" nogil:
     # Pipes
 
     int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc)
-    int uv_pipe_open(uv_pipe_t* handle, uv_file file)
+    int uv_pipe_open(uv_pipe_t* handle, uv_os_fd_t file)
     int uv_pipe_bind(uv_pipe_t* handle, const char* name)
 
     void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,

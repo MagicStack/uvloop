@@ -6,6 +6,7 @@ cimport cython
 from .includes.debug cimport UVLOOP_DEBUG
 from .includes cimport uv
 from .includes cimport system
+from cpython.pystate cimport PyGILState_Ensure, PyGILState_Release, PyGILState_STATE
 from .includes.python cimport (
     PY_VERSION_HEX,
     PyMem_RawMalloc, PyMem_RawFree,
@@ -43,7 +44,7 @@ from cpython.pycapsule cimport PyCapsule_New
 from . import _noop
 
 
-include "includes/consts.pxi"
+
 include "includes/stdlib.pxi"
 
 include "errors.pyx"
@@ -117,6 +118,13 @@ cdef inline run_in_context2(context, method, arg1, arg2):
         return context.run(method, arg1, arg2)
     finally:
         Py_DECREF(method)
+
+
+cdef inline create_tcp_socket(sock):
+    if system.PLATFORM_IS_WINDOWS:
+        return system.create_tcp_socket()
+    else:
+        return sock.fileno()
 
 
 # Used for deprecation and removal of `loop.create_datagram_endpoint()`'s
@@ -1118,15 +1126,16 @@ cdef class Loop:
 
     cdef _sock_set_reuseport(self, int fd):
         cdef:
-            int err
+            int err = 0
             int reuseport_flag = 1
 
-        err = system.setsockopt(
-            fd,
-            uv.SOL_SOCKET,
-            SO_REUSEPORT,
-            <char*>&reuseport_flag,
-            sizeof(reuseport_flag))
+        if hasattr(socket, 'SO_REUSEPORT'):
+            err = system.setsockopt(
+                fd,
+                uv.SOL_SOCKET,
+                SO_REUSEPORT,
+                <char*>&reuseport_flag,
+                sizeof(reuseport_flag))
 
         if err < 0:
             raise convert_error(-errno.errno)
@@ -1774,7 +1783,7 @@ cdef class Loop:
 
                         if reuse_address:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
-                        if reuse_port:
+                        if hasattr(sock, 'SO_REUSEPORT') and reuse_port:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEPORT, 1)
                         # Disable IPv4/IPv6 dual stack support (enabled by
                         # default on Linux) which makes a single socket
@@ -1798,7 +1807,7 @@ cdef class Loop:
                                             ssl_shutdown_timeout)
 
                         try:
-                            tcp._open(sock.fileno())
+                            tcp._open(create_tcp_socket(sock))
                         except (KeyboardInterrupt, SystemExit):
                             raise
                         except BaseException:
@@ -1834,7 +1843,7 @@ cdef class Loop:
                                 ssl_shutdown_timeout)
 
             try:
-                tcp._open(sock.fileno())
+                tcp._open(create_tcp_socket(sock))
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException:
@@ -2057,7 +2066,7 @@ cdef class Loop:
             tr = TCPTransport.new(self, protocol, None, waiter, context)
             try:
                 # libuv will make socket non-blocking
-                tr._open(sock.fileno())
+                tr._open(create_tcp_socket(sock))
                 tr._init_protocol()
                 await waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2198,7 +2207,7 @@ cdef class Loop:
             ssl, ssl_handshake_timeout, ssl_shutdown_timeout)
 
         try:
-            pipe._open(sock.fileno())
+            pipe._open(create_tcp_socket(sock))
         except (KeyboardInterrupt, SystemExit):
             raise
         except BaseException:
@@ -2688,7 +2697,7 @@ cdef class Loop:
             raise ValueError(
                 'invalid socket family, expected AF_UNIX, AF_INET or AF_INET6')
 
-        transport._open(sock.fileno())
+        transport._open(create_tcp_socket(sock))
         transport._init_protocol()
         transport._attach_fileobj(sock)
 
@@ -2801,9 +2810,12 @@ cdef class Loop:
         if not shell:
             raise ValueError("shell must be True")
 
-        args = [cmd]
         if shell:
-            args = [b'/bin/sh', b'-c'] + args
+            if system.PLATFORM_IS_WINDOWS:
+                # CHANGED WINDOWS Shell see : https://github.com/libuv/libuv/pull/2627 for more details...
+                args = [b"cmd", b"/s /c", cmd]
+            else:
+                args = [b'/bin/sh', b'-c', cmd]
 
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
@@ -2893,7 +2905,7 @@ cdef class Loop:
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
-        if sig == uv.SIGCHLD:
+        if hasattr(signal, 'SIGCHLD') and sig == uv.SIGCHLD:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
@@ -3086,7 +3098,7 @@ cdef class Loop:
                     udp = UDPTransport.__new__(UDPTransport)
                     udp._init(self, family)
 
-                if reuse_port:
+                if has_SO_REUSEPORT and reuse_port:
                     self._sock_set_reuseport(udp._fileno())
 
             else:
@@ -3095,7 +3107,7 @@ cdef class Loop:
                     try:
                         udp = UDPTransport.__new__(UDPTransport)
                         udp._init(self, lai.ai_family)
-                        if reuse_port:
+                        if has_SO_REUSEPORT and reuse_port:
                             self._sock_set_reuseport(udp._fileno())
                         udp._bind(lai.ai_addr)
                     except (KeyboardInterrupt, SystemExit):
@@ -3232,7 +3244,7 @@ def libuv_get_version():
 
 cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
                               size_t suggested_size,
-                              uv.uv_buf_t* buf) with gil:
+                              uv.uv_buf_t* buf) noexcept with gil:
     cdef:
         Loop loop = (<UVHandle>uvhandle.data)._loop
 

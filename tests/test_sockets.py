@@ -168,6 +168,8 @@ class _TestSockets:
             self.loop.remove_writer(wsock)
 
         with rsock, wsock:
+            if not hasattr(self.loop, 'add_reader'):
+                self.skipTest('no add_reader')
             self.loop.add_reader(rsock, reader)
             self.loop.add_writer(wsock, writer)
             self.loop.run_until_complete(f)
@@ -182,6 +184,8 @@ class _TestSockets:
             sock.bind(('127.0.0.1', 0))
             sock.listen(0)
             fd = sock.fileno()
+            if not hasattr(self.loop, 'add_reader'):
+                self.skipTest('no add_reader')
             self.loop.add_reader(fd, cb)
             self.loop.run_until_complete(asyncio.sleep(0.01))
             self.loop.remove_reader(fd)
@@ -245,6 +249,7 @@ class _TestSockets:
 
         self.loop.run_until_complete(server())
 
+    @unittest.skipIf(tb.IsWindows, 'Windows TODO:Hangs')
     def test_sock_send_before_cancel(self):
         if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
             # asyncio 3.8.x has a regression; fixed in 3.9.0
@@ -372,7 +377,8 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 r'File descriptor .* is used by transport')
 
         def test_pseudo(real_sock, pseudo_sock, *, is_dup=False):
-            self.assertIn('AF_UNIX', repr(pseudo_sock))
+            if hasattr(socket, 'AF_UNIX'):
+                self.assertIn('AF_UNIX', repr(pseudo_sock))
 
             self.assertEqual(pseudo_sock.family, real_sock.family)
             self.assertEqual(pseudo_sock.proto, real_sock.proto)

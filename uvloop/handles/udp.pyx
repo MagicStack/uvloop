@@ -127,12 +127,12 @@ cdef class UDPTransport(UVBaseTransport):
             exc = convert_error(err)
             raise exc
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         if self._handle is NULL:
             return 0
         return (<uv.uv_udp_t*>self._handle).send_queue_size
 
-    cdef bint _is_reading(self):
+    cdef bint _is_reading(self) noexcept:
         return self.__receiving
 
     cdef _start_reading(self):
@@ -309,7 +309,7 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
                               ssize_t nread,
                               const uv.uv_buf_t* buf,
                               const system.sockaddr* addr,
-                              unsigned flags) with gil:
+                              unsigned flags) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle,
                             "UDPTransport receive callback") == 0:
@@ -348,9 +348,9 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
         pyaddr = None
     elif addr.sa_family == uv.AF_UNSPEC:
         # https://github.com/MagicStack/uvloop/issues/304
-        IF UNAME_SYSNAME == "Linux":
+        if system.PLATFORM_IS_LINUX:
             pyaddr = None
-        ELSE:
+        else:
             pyaddr = ''
     else:
         try:
@@ -375,7 +375,7 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
         udp._error(exc, False)
 
 
-cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) with gil:
+cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) noexcept with gil:
 
     if req.data is NULL:
         # Shouldn't happen as:

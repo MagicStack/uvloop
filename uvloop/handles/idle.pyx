@@ -57,7 +57,7 @@ cdef class UVIdle(UVHandle):
         return handle
 
 
-cdef void cb_idle_callback(uv.uv_idle_t* handle) with gil:
+cdef void cb_idle_callback(uv.uv_idle_t* handle) noexcept with gil:
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVIdle callback") == 0:
         return
 

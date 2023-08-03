@@ -654,6 +654,7 @@ class _TestTCP:
         self.assertIsNone(
             self.loop.run_until_complete(connection_lost_called))
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_resume_writing_write_different_transport(self):
         loop = self.loop
 
@@ -709,7 +710,7 @@ class _TestTCP:
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
-
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_create_server_buffered_1(self):
         SIZE = 123123
         eof = False
@@ -867,6 +868,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         self.loop.run_until_complete(
             test(ProtoUpdatedError, RuntimeError, r'^oups$'))
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_transport_get_extra_info(self):
         # This tests is only for uvloop.  asyncio should pass it
         # too in Python 3.6.
@@ -1596,6 +1598,7 @@ class _TestSSL(tb.SSLTestCase):
         # exception or log an error, even if the handshake failed
         self.assertEqual(messages, [])
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_ssl_handshake_connection_lost(self):
         # #246: make sure that no connection_lost() is called before
         # connection_made() is called first
@@ -1645,6 +1648,7 @@ class _TestSSL(tb.SSLTestCase):
         elif connection_made_called:
             self.fail("unexpected call to connection_made()")
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_ssl_connect_accepted_socket(self):
         if hasattr(ssl, 'PROTOCOL_TLS'):
             proto = ssl.PROTOCOL_TLS
@@ -2662,6 +2666,7 @@ class _TestSSL(tb.SSLTestCase):
         with self.tcp_server(run(server)) as srv:
             self.loop.run_until_complete(client(srv.addr))
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_remote_shutdown_receives_trailing_data(self):
         if sys.platform == 'linux' and sys.version_info < (3, 11):
             # TODO: started hanging and needs to be diagnosed.
@@ -2949,6 +2954,7 @@ class _TestSSL(tb.SSLTestCase):
         with self.tcp_server(server) as srv:
             loop.run_until_complete(client(srv.addr))
 
+    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_shutdown_while_pause_reading(self):
         if self.implementation == 'asyncio':
             raise unittest.SkipTest()

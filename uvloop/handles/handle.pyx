@@ -335,7 +335,7 @@ cdef inline bint __ensure_handle_data(uv.uv_handle_t* handle,
     return 1
 
 
-cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
+cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) noexcept with gil:
     cdef UVHandle h
 
     if handle.data is NULL:
@@ -363,14 +363,16 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) with gil:
             Py_DECREF(h)  # Was INCREFed in UVHandle._close
 
 
-cdef void __close_all_handles(Loop loop):
+cdef void __close_all_handles(Loop loop) noexcept:
     uv.uv_walk(loop.uvloop,
                __uv_walk_close_all_handles_cb,
                <void*>loop)  # void
+    #print('__close_all_handles.CloseIOCP({})'.format(os.getpid()))
+    system.CloseIOCP(<void *> loop.uvloop)
 
 
 cdef void __uv_walk_close_all_handles_cb(
-        uv.uv_handle_t* handle, void* arg) with gil:
+        uv.uv_handle_t* handle, void* arg) noexcept with gil:
 
     cdef:
         Loop loop = <Loop>arg
