@@ -27,6 +27,8 @@ cdef class UVProcess(UVHandle):
                _stdin, _stdout, _stderr, pass_fds,
                debug_flags, preexec_fn, restore_signals)
 
+    cdef _init_named_pipes(self)
+
     cdef _after_fork(self)
 
     cdef char** __to_cstring_array(self, list arr)
@@ -63,6 +65,7 @@ cdef class UVProcessTransport(UVProcess):
     cdef _file_devnull(self)
     cdef _file_inpipe(self)
     cdef _file_outpipe(self)
+    cdef _init_named_pipes(self)
 
     cdef _check_proc(self)
     cdef _pipe_connection_lost(self, int fd, exc)

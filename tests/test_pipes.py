@@ -2,6 +2,7 @@ import asyncio
 import io
 import os
 import socket
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -69,6 +70,7 @@ class MyWritePipeProto(asyncio.BaseProtocol):
         self.paused = False
 
 
+@unittest.skipIf(tb.IsWindows, 'openpty not supported by Windows')
 class _BasePipeTest:
     def test_read_pipe(self):
         proto = MyReadPipeProto(loop=self.loop)
@@ -102,6 +104,7 @@ class _BasePipeTest:
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
 
+    @unittest.skipIf(tb.IsWindows, 'openpty not supported by Windows')
     def test_read_pty_output(self):
         proto = MyReadPipeProto(loop=self.loop)
 
@@ -172,6 +175,7 @@ class _BasePipeTest:
         self.assertEqual('CONNECTED', proto.state)
 
         os.close(rpipe)
+        os.close(wpipe)
 
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
@@ -203,6 +207,7 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual('CLOSED', proto.state)
 
+    @unittest.skipIf(tb.IsWindows, 'openpty not supported by Windows')
     def test_write_pty(self):
         master, slave = os.openpty()
         os.set_blocking(master, False)

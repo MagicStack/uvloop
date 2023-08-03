@@ -42,13 +42,16 @@ cdef class UVBaseTransport(UVSocketHandle):
     cdef _clear_protocol(self)
 
     cdef inline _init_protocol(self)
+
+    cdef inline _init_protocol_fd(self, int fd)
+
     cdef inline _add_extra_info(self, str name, object obj)
 
     # === overloads ===
 
     cdef _new_socket(self)
-    cdef size_t _get_write_buffer_size(self)
+    cdef size_t _get_write_buffer_size(self) noexcept
 
-    cdef bint _is_reading(self)
+    cdef bint _is_reading(self) noexcept
     cdef _start_reading(self)
     cdef _stop_reading(self)

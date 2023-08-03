@@ -57,7 +57,7 @@ cdef class UVCheck(UVHandle):
         return handle
 
 
-cdef void cb_check_callback(uv.uv_check_t* handle) with gil:
+cdef void cb_check_callback(uv.uv_check_t* handle) noexcept with gil:
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVCheck callback") == 0:
         return
 

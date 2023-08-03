@@ -4,8 +4,8 @@ vi = sys.version_info
 if vi < (3, 7):
     raise RuntimeError('uvloop requires Python 3.7 or greater')
 
-if sys.platform in ('win32', 'cygwin', 'cli'):
-    raise RuntimeError('uvloop does not support Windows at the moment')
+if sys.platform in ('cygwin', ):
+    raise RuntimeError('uvloop does not support Cygnus Windows at the moment')
 
 import os
 import os.path
@@ -21,7 +21,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.32,<0.30.0)'
+CYTHON_DEPENDENCY = 'Cython(>=0.29.32)'
 
 # Minimal dependencies required to test uvloop.
 TEST_DEPENDENCIES = [
@@ -56,9 +56,14 @@ EXTRA_DEPENDENCIES = {
     ] + DOC_DEPENDENCIES + TEST_DEPENDENCIES
 }
 
+DEBUG = os.path.basename(sys.executable).startswith('python_d')
+if sys.platform in ('win32', 'cli'):
+    C_OPT = '-Od' if DEBUG else '-O2'
+else:
+    C_OPT = '-O2'
 
 MACHINE = platform.machine()
-MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
+MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', C_OPT)]
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
 LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
@@ -179,7 +184,9 @@ class uvloop_build_ext(build_ext):
             self.distribution.ext_modules[:] = cythonize(
                 self.distribution.ext_modules,
                 compiler_directives=directives,
-                annotate=self.cython_annotate)
+                annotate=self.cython_annotate,
+                compile_time_env=dict(DEFAULT_FREELIST_SIZE=250),
+                emit_linenums=True)
 
         super().finalize_options()
 
@@ -188,7 +195,17 @@ class uvloop_build_ext(build_ext):
 
         # Make sure configure and friends are present in case
         # we are building from a git checkout.
-        _libuv_autogen(env)
+        if sys.platform in ('win32', 'cli'):
+            print(r'''
+"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" amd64'''  # noqa: E501
+                  '''
+cd vendor\\libuv
+mkdir build
+cd build
+cmake .. -G "Visual Studio 17 2022"
+''')
+        else:
+            _libuv_autogen(env)
 
         # Copy the libuv tree to build/ so that its build
         # products don't pollute sdist accidentally.
@@ -226,9 +243,18 @@ class uvloop_build_ext(build_ext):
                 # Support macports on Mac OS X.
                 self.compiler.add_include_dir('/opt/local/include')
         else:
-            libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
-            if not os.path.exists(libuv_lib):
-                self.build_libuv()
+            if sys.platform in ('win32', 'cli'):
+                if DEBUG:
+                    # static lib debug
+                    libuv_lib = os.path.join(LIBUV_DIR, 'out', 'build',
+                                             'x64-Debug', 'libuv.lib')
+                else:
+                    libuv_lib = os.path.join(LIBUV_DIR, 'out', 'build',
+                                             'x64-Release', 'libuv.lib')
+            else:
+                libuv_lib = os.path.join(LIBUV_BUILD_DIR, '.libs', 'libuv.a')
+                if not os.path.exists(libuv_lib):
+                    self.build_libuv()
             if not os.path.exists(libuv_lib):
                 raise RuntimeError('failed to build libuv')
 
@@ -242,7 +268,19 @@ class uvloop_build_ext(build_ext):
         elif sys.platform.startswith('sunos'):
             self.compiler.add_library('kstat')
 
-        self.compiler.add_library('pthread')
+        if sys.platform in ('win32', 'cli'):
+            self.compiler.add_library('ws2_32')
+            # Added for static linking:
+            self.compiler.add_library('advapi32')
+            self.compiler.add_library('dbghelp')
+            self.compiler.add_library('iphlpapi')
+            self.compiler.add_library('ole32')
+            self.compiler.add_library('secur32')
+            self.compiler.add_library('shell32')
+            self.compiler.add_library('user32')
+            self.compiler.add_library('userenv')
+        else:
+            self.compiler.add_library('pthread')
 
         super().build_extensions()
 
@@ -277,7 +315,7 @@ setup(
     license='MIT',
     author='Yury Selivanov',
     author_email='yury@magic.io',
-    platforms=['macOS', 'POSIX'],
+    platforms=['macOS', 'POSIX', 'Windows'],
     version=VERSION,
     packages=['uvloop'],
     cmdclass={
@@ -290,7 +328,8 @@ setup(
             sources=[
                 "uvloop/loop.pyx",
             ],
-            extra_compile_args=MODULES_CFLAGS
+            extra_compile_args=MODULES_CFLAGS,
+            define_macros=[('CYTHON_TRACE_NOGIL', '1')],
         ),
     ],
     classifiers=[
@@ -301,6 +340,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'License :: OSI Approved :: Apache Software License',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',

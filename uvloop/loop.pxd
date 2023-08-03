@@ -1,14 +1,34 @@
 # cython: language_level=3
 
+cdef extern from *:
+    '''
+    enum { UV_STREAM_RECV_BUF_SIZE = 256000,
+           SSL_READ_MAX_SIZE = 256 * 1024,  // 250kb
+          };
+    const float SSL_HANDSHAKE_TIMEOUT = 60.0; // Number of seconds to wait for SSL handshake to complete The default timeout matches that of Nginx.
+    const float SSL_SHUTDOWN_TIMEOUT  = 30.0; // Number of seconds to wait for SSL shutdown to complete The default timeout mimics lingering_time
+    '''
+    const bint UV_STREAM_RECV_BUF_SIZE
+    const bint SSL_READ_MAX_SIZE
+
+    const float SSL_HANDSHAKE_TIMEOUT
+    const float SSL_SHUTDOWN_TIMEOUT
+
+cdef enum:
+    FLOW_CONTROL_HIGH_WATER = 64  # KiB
+    FLOW_CONTROL_HIGH_WATER_SSL_READ = 256  # KiB
+    FLOW_CONTROL_HIGH_WATER_SSL_WRITE = 512  # KiB
+
+    DNS_PYADDR_TO_SOCKADDR_CACHE_SIZE = 2048
+    DEBUG_STACK_DEPTH = 10
+    __PROCESS_DEBUG_SLEEP_AFTER_FORK = 1
+    LOG_THRESHOLD_FOR_CONNLOST_WRITES = 5
+
 
 from .includes cimport uv
 from .includes cimport system
 
 from libc.stdint cimport uint64_t, uint32_t, int64_t
-
-
-include "includes/consts.pxi"
-
 
 cdef extern from *:
     ctypedef int vint "volatile int"

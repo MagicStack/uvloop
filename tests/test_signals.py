@@ -10,6 +10,11 @@ from uvloop import _testbase as tb
 
 DELAY = 0.1
 
+if tb.IsWindows:
+    SIGINT = signal.SIGTERM
+else:
+    SIGINT = signal.SIGINT
+
 
 class _TestSignal:
     NEW_LOOP = None
@@ -47,7 +52,7 @@ run()
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(SIGINT)
             out, err = await proc.communicate()
             self.assertIn(b'KeyboardInterrupt', err)
             self.assertEqual(out, b'')
@@ -92,7 +97,7 @@ run()
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(SIGINT)
             out, err = await proc.communicate()
             self.assertEqual(err, b'')
             self.assertEqual(out, b'oups\ndone\n')
@@ -132,7 +137,7 @@ finally:
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(SIGINT)
             out, err = await proc.communicate()
             self.assertIn(b'KeyboardInterrupt', err)
 
@@ -171,12 +176,13 @@ finally:
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(SIGINT)
             out, err = await proc.communicate()
             self.assertIn(b'KeyboardInterrupt', err)
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipUnless(hasattr(signal, 'SIGHUP'), 'No SIGHUP')
     @tb.silence_long_exec_warning()
     def test_signals_sigint_and_custom_handler(self):
         async def runner():
@@ -230,6 +236,7 @@ finally:
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipUnless(hasattr(signal, 'SIGHUP'), 'No SIGHUP')
     @tb.silence_long_exec_warning()
     def test_signals_and_custom_handler_1(self):
         async def runner():
@@ -297,6 +304,7 @@ finally:
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipUnless(hasattr(signal, 'SIGKILL'), 'No SIGKILL')
     def test_signals_invalid_signal(self):
         with self.assertRaisesRegex(RuntimeError,
                                     'sig {} cannot be caught'.format(
@@ -304,6 +312,7 @@ finally:
 
             self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
 
+    @unittest.skipUnless(hasattr(signal, 'SIGHUP'), 'No SIGHUP')
     def test_signals_coro_callback(self):
         async def coro():
             pass
@@ -323,13 +332,13 @@ def get_wakeup_fd():
     signal.set_wakeup_fd(fd)
     return fd
 
-async def f(): pass
+async def f():
+    return get_wakeup_fd()
 
-fd0 = get_wakeup_fd()
 loop = """ + self.NEW_LOOP + """
 try:
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(f())
+    fd0 = loop.run_until_complete(f())
     fd1 = get_wakeup_fd()
 finally:
     loop.close()
@@ -349,6 +358,7 @@ print(fd0 == fd1, flush=True)
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipIf(tb.IsWindows, 'macOS/windows use spawn not fork')
     def test_signals_fork_in_thread(self):
         # Refs #452, when forked from a thread, the main-thread-only signal
         # operations failed thread ID checks because we didn't update
@@ -389,12 +399,14 @@ run()
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'
 
+    @unittest.skipUnless(hasattr(signal, 'SIGCHLD'), 'No SIGCHLD')
     def test_signals_no_SIGCHLD(self):
         with self.assertRaisesRegex(RuntimeError,
                                     r"cannot add.*handler.*SIGCHLD"):
 
             self.loop.add_signal_handler(signal.SIGCHLD, lambda *a: None)
 
+    @unittest.skipUnless(hasattr(signal, 'SIGCHLD'), 'No SIGCHLD')
     @unittest.skipIf(sys.version_info[:3] >= (3, 8, 0),
                      'in 3.8 a ThreadedChildWatcher is used '
                      '(does not rely on SIGCHLD)')

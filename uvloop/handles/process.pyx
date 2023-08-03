@@ -1,3 +1,4 @@
+import os
 @cython.no_gc_clear
 cdef class UVProcess(UVHandle):
     """Abstract class; wrapper over uv_process_t handle."""
@@ -29,10 +30,10 @@ cdef class UVProcess(UVHandle):
 
         global __forking
         global __forking_loop
-        global __forkHandler
 
         cdef int err
 
+        #system.DebugBreak()
         self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*>PyMem_RawMalloc(
@@ -41,6 +42,7 @@ cdef class UVProcess(UVHandle):
             self._abort_init()
             raise MemoryError()
 
+        system.process_init(<uv.uv_handle_t*>self._handle)
         # Too early to call _finish_init, but still a lot of work to do.
         # Let's set handle.data to NULL, so in case something goes wrong,
         # callbacks have a chance to avoid casting *something* into UVHandle.
@@ -51,11 +53,13 @@ cdef class UVProcess(UVHandle):
                                _stdin, _stdout, _stderr)
 
             restore_inheritable = set()
-            if pass_fds:
-                for fd in pass_fds:
-                    if not os_get_inheritable(fd):
-                        restore_inheritable.add(fd)
+            if system.PLATFORM_IS_WINDOWS :
+                if pass_fds:
+                    for fd in pass_fds:
+                        if not os_get_inheritable(fd):
+                            restore_inheritable.add(fd)
                         os_set_inheritable(fd, True)
+
         except Exception:
             self._abort_init()
             raise
@@ -68,63 +72,95 @@ cdef class UVProcess(UVHandle):
             raise RuntimeError(
                 'Racing with another loop to spawn a process.')
 
-        self._errpipe_read, self._errpipe_write = os_pipe()
-        fds_to_close = self._fds_to_close
-        self._fds_to_close = None
-        fds_to_close.append(self._errpipe_read)
-        # add the write pipe last so we can close it early
-        fds_to_close.append(self._errpipe_write)
-        try:
-            os_set_inheritable(self._errpipe_write, True)
-
-            self._preexec_fn = preexec_fn
-            self._restore_signals = restore_signals
-
-            loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
-
-            PyOS_BeforeFork()
-
+        errpipe_data = None
+        if system.PLATFORM_IS_WINDOWS :
+            system.DbgBreak()
+            py_gil_state = PyGILState_Ensure()
             err = uv.uv_spawn(loop.uvloop,
-                              <uv.uv_process_t*>self._handle,
-                              &self.options)
+                          <uv.uv_process_t *> self._handle,
+                          &self.options)
+            PyGILState_Release(py_gil_state)
 
-            __forking = 0
-            __forking_loop = None
-            system.resetForkHandler()
-            loop.active_process_handler = None
-
-            PyOS_AfterFork_Parent()
-
+            print('@@@::uv_spawn return ({})'.format(err))
+            system.PrintAllHandle(<void*>loop.uvloop)
             if err < 0:
                 self._close_process_handle()
                 self._abort_init()
                 raise convert_error(err)
 
+            self._init_named_pipes()
             self._finish_init()
 
-            # close the write pipe early
-            os_close(fds_to_close.pop())
-
-            if preexec_fn is not None:
+            #TODO: fix read from error pipe
+            if preexec_fn is not None and self.options.stdio_count > 2:
                 errpipe_data = bytearray()
-                while True:
-                    # XXX: This is a blocking code that has to be
-                    # rewritten (using loop.connect_read_pipe() or
-                    # otherwise.)
-                    part = os_read(self._errpipe_read, 50000)
-                    errpipe_data += part
-                    if not part or len(errpipe_data) > 50000:
-                        break
+                #while True:
+                    # XXX: This is a blocking code that has to be rewritten (using loop.connect_read_pipe() or otherwise.)
+                    #part = os_read(self.options.stdio[2].data.stream, 50000)
+                    #errpipe_data += part
+                    #if not part or len(errpipe_data) > 50000:
+                    #    break
 
-        finally:
-            while fds_to_close:
+            __forking = 0
+            __forking_loop = None
+            loop.active_process_handler = None
+        else :
+            self._errpipe_read, self._errpipe_write = os_pipe()
+            fds_to_close = self._fds_to_close
+            self._fds_to_close = None
+            fds_to_close.append(self._errpipe_read)
+            # add the write pipe last so we can close it early
+            fds_to_close.append(self._errpipe_write)
+            try:
+                os_set_inheritable(self._errpipe_write, True)
+
+                self._preexec_fn = preexec_fn
+                self._restore_signals = restore_signals
+
+                loop.active_process_handler = self
+                __forking = 1
+                __forking_loop = loop
+                system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
+
+                PyOS_BeforeFork()
+
+                err = uv.uv_spawn(loop.uvloop,
+                                  <uv.uv_process_t*>self._handle,
+                                  &self.options)
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
+                loop.active_process_handler = None
+
+                PyOS_AfterFork_Parent()
+
+                if err < 0:
+                    self._close_process_handle()
+                    self._abort_init()
+                    raise convert_error(err)
+
+                self._finish_init()
+
+                # close the write pipe early
                 os_close(fds_to_close.pop())
 
-            for fd in restore_inheritable:
-                os_set_inheritable(fd, False)
+                if preexec_fn is not None:
+                    errpipe_data = bytearray()
+                    while True:
+                        # XXX: This is a blocking code that has to be
+                        # rewritten (using loop.connect_read_pipe() or
+                        # otherwise.)
+                        part = os_read(self._errpipe_read, 50000)
+                        errpipe_data += part
+                        if not part or len(errpipe_data) > 50000:
+                            break
+
+            finally:
+                while fds_to_close:
+                    os_close(fds_to_close.pop())
+
+                    for fd in restore_inheritable:
+                        os_set_inheritable(fd, False)
 
         # asyncio caches the PID in BaseSubprocessTransport,
         # so that the transport knows what the PID was even
@@ -162,6 +198,9 @@ cdef class UVProcess(UVHandle):
             exc.__cause__ = exc_cls(exc_msg)
             self._close()
             raise exc
+
+    cdef _init_named_pipes(self):
+        pass
 
     cdef _after_fork(self):
         # See CPython/_posixsubprocess.c for details
@@ -201,6 +240,7 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close.append(fd)
 
     def __dealloc__(self):
+        print('UVProcess.__dealloc__')
         if self.uv_opt_env is not NULL:
             PyMem_RawFree(self.uv_opt_env)
             self.uv_opt_env = NULL
@@ -227,6 +267,7 @@ cdef class UVProcess(UVHandle):
             # we have to be careful when the "arr" is GCed,
             # and it shouldn't be ever mutated.
             ret[i] = PyBytes_AsString(el)
+            print('TODO: >>>',repr(ret[i]))
 
         ret[arr_len] = NULL
         return ret
@@ -282,7 +323,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = self.__to_cstring_array(self.__args)
 
     cdef _init_env(self, dict env):
-        if env is not None:
+        if env is not None and len(env):
             self.__env = list()
             for key in env:
                 val = env[key]
@@ -327,17 +368,66 @@ cdef class UVProcess(UVHandle):
         self._close()
 
     cdef _close(self):
+        print('UVProcess._close()')
         try:
             if self._loop is not None:
                 self._loop._untrack_process(self)
+                print('_close.CloseIOCP({})'.format(os.getpid()))
+                system.CloseIOCP(<void*>self._loop.uvloop)  #TODO: close loop->iocp,
         finally:
+            print('UVHandle._close()')
             UVHandle._close(self)
 
+cdef enum:
+    _CALL_PIPE_DATA_RECEIVED = 0
+    _CALL_PIPE_CONNECTION_LOST = 1
+    _CALL_PROCESS_EXITED = 2
+    _CALL_CONNECTION_LOST = 3
 
-DEF _CALL_PIPE_DATA_RECEIVED = 0
-DEF _CALL_PIPE_CONNECTION_LOST = 1
-DEF _CALL_PROCESS_EXITED = 2
-DEF _CALL_CONNECTION_LOST = 3
+
+@cython.no_gc_clear
+cdef class NamedPipeTransport(UVStream):
+    @staticmethod
+    cdef NamedPipeTransport new(Loop loop, object protocol, object init_futs, int fd):
+        cdef :
+            int                err
+            NamedPipeTransport handle
+
+        handle = NamedPipeTransport.__new__(NamedPipeTransport)
+
+        handle._close_on_read_error()
+        # This is only used in connect_read_pipe() and subprocess_shell/exec()
+        # directly, we could simply copy the current context.
+        waiter = loop._new_future()
+        handle._init(loop, protocol, None, waiter, Context_CopyCurrent())
+        init_futs.append(waiter)
+
+        handle._handle = <uv.uv_handle_t *> PyMem_RawMalloc(sizeof(uv.uv_pipe_t))
+        if handle._handle is NULL:
+            handle._abort_init()
+            raise MemoryError()
+
+        system.stdio_container_init(<uv.uv_handle_t*>handle._handle, fd) #used to memset handle not needed
+        err = uv.uv_pipe_init(<uv.uv_loop_t *> loop.uvloop, <uv.uv_pipe_t *> handle._handle, 0)
+        if err < 0:
+            raise MemoryError()
+
+        handle._init_protocol_fd(fd)
+        handle._finish_init()
+        return handle
+
+    #def close(self):
+    #    pass
+    #    print('NamedPipeTransport.close')
+    #    print('TODO: FIXME')
+        #self._shutdown()
+        #self._free()
+
+    cdef inline _close(self):
+        print('NamedPipeTransport._close')
+
+    cdef inline _stop_reading(self):
+        print('NamedPipeTransport._stop_reading')
 
 
 @cython.no_gc_clear
@@ -371,6 +461,7 @@ cdef class UVProcessTransport(UVProcess):
                 waiter.set_result(self._returncode)
         self._exit_waiters.clear()
 
+        print('_on_exit()')
         self._close()
 
     cdef _check_proc(self):
@@ -378,6 +469,7 @@ cdef class UVProcessTransport(UVProcess):
             raise ProcessLookupError()
 
     cdef _pipe_connection_lost(self, int fd, exc):
+        print('_pipe_connection_lost')
         if self._stdio_ready:
             self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc,
                                  context=self.context)
@@ -416,99 +508,187 @@ cdef class UVProcessTransport(UVProcess):
         self._close_after_spawn(r)
         return r, w
 
+    cdef _init_named_pipes(self):
+        if self.options.stdio[0].flags != uv.UV_IGNORE:
+            self._stdin._finish_init()
+
+        if self.options.stdio[1].flags != uv.UV_IGNORE:
+            self._stdout._finish_init()
+
+        if self.options.stdio[2].flags != uv.UV_IGNORE:
+            self._stderr._finish_init()
+
     cdef _init_files(self, _stdin, _stdout, _stderr):
         cdef uv.uv_stdio_container_t *iocnt
 
         UVProcess._init_files(self, _stdin, _stdout, _stderr)
 
-        io = [None, None, None]
-
         self.options.stdio_count = 3
         self.options.stdio = self.iocnt
 
-        if _stdin is not None:
-            if _stdin == subprocess_PIPE:
-                r, w = self._file_inpipe()
-                io[0] = r
+        if system.PLATFORM_IS_WINDOWS :
+            io = [None, None, None]
+            if _stdin is not None:
+                if _stdin == subprocess_PIPE:
+                    print('std::in subprocess_PIPE')
+                    self.options.stdio[0].flags = <uv.uv_stdio_flags> (uv.UV_CREATE_PIPE | uv.UV_READABLE_PIPE)
+                    self.stdin_proto = WriteSubprocessPipeProto(self, 0)
+                    self._stdin = <WriteUnixTransport>NamedPipeTransport.new(self._loop, self.stdin_proto, self._init_futs, 0)
+                    self.options.stdio[0].data.stream = <uv.uv_stream_t*>self._stdin._handle
+                elif _stdin == subprocess_DEVNULL:
+                    print('std::in subprocess_DEVNULL')
+                    #io[0] = self._file_devnull()
+                    #self.options.stdio[0].data.stream = <uv.uv_stream_t*>io[0]
+                    self.options.stdio[0].flags = uv.UV_IGNORE
+                else:
+                    print('std::in file_redirect_stdio')
+                    #io[0] = self._file_redirect_stdio(_stdin)
+                    #self.options.stdio[0].data.stream = <uv.uv_stream_t*>io[0]
+                    self.options.stdio[0].flags = uv.UV_IGNORE
+            else :
+                #io[0] = self._file_redirect_stdio(0)
+                #self.options.stdio[0].data.stream = <uv.uv_stream_t*>io[0]
+                self.options.stdio[0].flags = uv.UV_IGNORE
 
-                self.stdin_proto = WriteSubprocessPipeProto(self, 0)
-                waiter = self._loop._new_future()
-                self._stdin = WriteUnixTransport.new(
-                    self._loop, self.stdin_proto, None, waiter)
-                self._init_futs.append(waiter)
-                self._stdin._open(w)
-                self._stdin._init_protocol()
-            elif _stdin == subprocess_DEVNULL:
-                io[0] = self._file_devnull()
-            elif _stdout == subprocess_STDOUT:
-                raise ValueError(
-                    'subprocess.STDOUT is supported only by stderr parameter')
+            if _stdout is not None:
+                if _stdout == subprocess_PIPE:
+                    print('std::out subprocess_PIPE')
+                    self.options.stdio[1].flags = <uv.uv_stdio_flags> (uv.UV_CREATE_PIPE | uv.UV_WRITABLE_PIPE)
+                    self.stdout_proto = ReadSubprocessPipeProto(self, 1)
+                    self._stdout = <ReadUnixTransport>NamedPipeTransport.new(self._loop, self.stdout_proto, self._init_futs, 1)
+                    self.options.stdio[1].data.stream = <uv.uv_stream_t*>self._stdout._handle
+                elif _stdout == subprocess_DEVNULL:
+                    print('std::out subprocess_DEVNULL')
+                    #io[1] = self._file_devnull()
+                    #self.options.stdio[1].data.stream = <uv.uv_stream_t*>io[1]
+                    self.options.stdio[1].flags = uv.UV_IGNORE
+                elif _stdout == subprocess_STDOUT:
+                    print('std::out subprocess_DEVNULL !stderr')
+                    raise ValueError('subprocess.STDOUT is supported only by stderr parameter')
+                else:
+                    print('_file_redirect_stdio')
+                    #io[1] = self._file_redirect_stdio(_stdout)
+                    #self.options.stdio[1].data.stream = <uv.uv_stream_t*>io[1]
+                    self.options.stdio[1].flags = uv.UV_INHERIT_FD
             else:
-                io[0] = self._file_redirect_stdio(_stdin)
+                #io[1] = self._file_redirect_stdio(1)
+                #self.options.stdio[1].data.stream = <uv.uv_stream_t*>io[1]
+                self.options.stdio[1].flags = uv.UV_IGNORE
+
+            if _stderr is not None:
+                if _stderr == subprocess_PIPE:
+                    waiter = self._loop._new_future()
+                    self.options.stdio[2].flags = <uv.uv_stdio_flags> (uv.UV_CREATE_PIPE | uv.UV_WRITABLE_PIPE)
+                    self.stderr_proto = ReadSubprocessPipeProto(self, 2)
+                    self._stderr = <ReadUnixTransport>NamedPipeTransport.new(self._loop, self.stderr_proto, self._init_futs, 2)
+                    #io[2] = self._stderr #TODO: check ._handle
+                    self.options.stdio[2].data.stream = <uv.uv_stream_t*>self._stderr._handle
+                elif _stderr == subprocess_STDOUT:
+                    if &self.options.stdio[1] == NULL:
+                        # shouldn't ever happen
+                        raise RuntimeError('cannot apply subprocess.STDOUT')
+
+                    #newfd = os_dup(<int>self.options.stdio[1].data.stream)
+                    #os_set_inheritable(newfd, True)
+                    #self.options.stdio[2].data.stream = <uv.uv_stream_t*>newfd
+                    self.options.stdio[2].flags = uv.UV_INHERIT_FD
+                elif _stderr == subprocess_DEVNULL:
+                    #io[2] = self._file_devnull()
+                    #self.options.stdio[2].data.stream = <uv.uv_stream_t*>io[2]
+                    self.options.stdio[2].flags = uv.UV_IGNORE
+                else:
+                    #io[2] = self._file_redirect_stdio(_stderr)
+                    #self.options.stdio[2].data.stream = <uv.uv_stream_t*>io[2]
+                    self.options.stdio[2].flags = uv.UV_INHERIT_FD
+            else:
+                #io[2] = self._file_redirect_stdio(2)
+                #self.options.stdio[2].data.stream = <uv.uv_stream_t*>io[2]
+                self.options.stdio[2].flags = uv.UV_IGNORE
         else:
-            io[0] = self._file_redirect_stdio(0)
+            io = [None, None, None]
+            if _stdin is not None:
+                if _stdin == subprocess_PIPE:
+                    r, w = self._file_inpipe()
+                    io[0] = r
 
-        if _stdout is not None:
-            if _stdout == subprocess_PIPE:
-                # We can't use UV_CREATE_PIPE here, since 'stderr' might be
-                # set to 'subprocess.STDOUT', and there is no way to
-                # emulate that functionality with libuv high-level
-                # streams API. Therefore, we create pipes for stdout and
-                # stderr manually.
-
-                r, w = self._file_outpipe()
-                io[1] = w
-
-                self.stdout_proto = ReadSubprocessPipeProto(self, 1)
-                waiter = self._loop._new_future()
-                self._stdout = ReadUnixTransport.new(
-                    self._loop, self.stdout_proto, None, waiter)
-                self._init_futs.append(waiter)
-                self._stdout._open(r)
-                self._stdout._init_protocol()
-            elif _stdout == subprocess_DEVNULL:
-                io[1] = self._file_devnull()
-            elif _stdout == subprocess_STDOUT:
-                raise ValueError(
-                    'subprocess.STDOUT is supported only by stderr parameter')
+                    self.stdin_proto = WriteSubprocessPipeProto(self, 0)
+                    waiter = self._loop._new_future()
+                    self._stdin = WriteUnixTransport.new(
+                        self._loop, self.stdin_proto, None, waiter)
+                    self._init_futs.append(waiter)
+                    self._stdin._open(w)
+                    self._stdin._init_protocol()
+                elif _stdin == subprocess_DEVNULL:
+                    io[0] = self._file_devnull()
+                elif _stdout == subprocess_STDOUT:
+                    raise ValueError(
+                        'subprocess.STDOUT is supported only by stderr parameter')
+                else:
+                    io[0] = self._file_redirect_stdio(_stdin)
             else:
-                io[1] = self._file_redirect_stdio(_stdout)
-        else:
-            io[1] = self._file_redirect_stdio(1)
+                io[0] = self._file_redirect_stdio(0)
 
-        if _stderr is not None:
-            if _stderr == subprocess_PIPE:
-                r, w = self._file_outpipe()
-                io[2] = w
+            if _stdout is not None:
+                if _stdout == subprocess_PIPE:
+                    # We can't use UV_CREATE_PIPE here, since 'stderr' might be
+                    # set to 'subprocess.STDOUT', and there is no way to
+                    # emulate that functionality with libuv high-level
+                    # streams API. Therefore, we create pipes for stdout and
+                    # stderr manually.
 
-                self.stderr_proto = ReadSubprocessPipeProto(self, 2)
-                waiter = self._loop._new_future()
-                self._stderr = ReadUnixTransport.new(
-                    self._loop, self.stderr_proto, None, waiter)
-                self._init_futs.append(waiter)
-                self._stderr._open(r)
-                self._stderr._init_protocol()
-            elif _stderr == subprocess_STDOUT:
-                if io[1] is None:
-                    # shouldn't ever happen
-                    raise RuntimeError('cannot apply subprocess.STDOUT')
+                    r, w = self._file_outpipe()
+                    io[1] = w
 
-                io[2] = self._file_redirect_stdio(io[1])
-            elif _stderr == subprocess_DEVNULL:
-                io[2] = self._file_devnull()
+                    self.stdout_proto = ReadSubprocessPipeProto(self, 1)
+                    waiter = self._loop._new_future()
+                    self._stdout = ReadUnixTransport.new(
+                        self._loop, self.stdout_proto, None, waiter)
+                    self._init_futs.append(waiter)
+                    self._stdout._open(r)
+                    self._stdout._init_protocol()
+                elif _stdout == subprocess_DEVNULL:
+                    io[1] = self._file_devnull()
+                elif _stdout == subprocess_STDOUT:
+                    raise ValueError(
+                        'subprocess.STDOUT is supported only by stderr parameter')
+                else:
+                    io[1] = self._file_redirect_stdio(_stdout)
             else:
-                io[2] = self._file_redirect_stdio(_stderr)
-        else:
-            io[2] = self._file_redirect_stdio(2)
+                io[1] = self._file_redirect_stdio(1)
 
-        assert len(io) == 3
-        for idx in range(3):
-            iocnt = &self.iocnt[idx]
-            if io[idx] is not None:
-                iocnt.flags = uv.UV_INHERIT_FD
-                iocnt.data.fd = io[idx]
+            if _stderr is not None:
+                if _stderr == subprocess_PIPE:
+                    r, w = self._file_outpipe()
+                    io[2] = w
+
+                    self.stderr_proto = ReadSubprocessPipeProto(self, 2)
+                    waiter = self._loop._new_future()
+                    self._stderr = ReadUnixTransport.new(
+                        self._loop, self.stderr_proto, None, waiter)
+                    self._init_futs.append(waiter)
+                    self._stderr._open(r)
+                    self._stderr._init_protocol()
+                elif _stderr == subprocess_STDOUT:
+                    if io[1] is None:
+                        # shouldn't ever happen
+                        raise RuntimeError('cannot apply subprocess.STDOUT')
+
+                    io[2] = self._file_redirect_stdio(io[1])
+                elif _stderr == subprocess_DEVNULL:
+                    io[2] = self._file_devnull()
+                else:
+                    io[2] = self._file_redirect_stdio(_stderr)
             else:
-                iocnt.flags = uv.UV_IGNORE
+                io[2] = self._file_redirect_stdio(2)
+
+            assert len(io) == 3
+            for idx in range(3):
+                iocnt = &self.iocnt[idx]
+                if io[idx] is not None:
+                    iocnt.flags = uv.UV_INHERIT_FD
+                    iocnt.data.stream = <uv.uv_stream_t*>io[idx]
+                else:
+                    iocnt.flags = uv.UV_IGNORE
 
     cdef _call_connection_made(self, waiter):
         try:
@@ -648,15 +828,19 @@ cdef class UVProcessTransport(UVProcess):
         return self._closed
 
     def close(self):
+        print('UVProcessTransport.close()')
         if self._returncode is None:
             self._kill(uv.SIGKILL)
 
         if self._stdin is not None:
             self._stdin.close()
+            self._stdin._shutdown()
         if self._stdout is not None:
             self._stdout.close()
+            self._stdout._shutdown()
         if self._stderr is not None:
             self._stderr.close()
+            self._stderr._shutdown()
 
         if self._returncode is not None:
             # The process is dead, just close the UV handle.
@@ -679,6 +863,12 @@ cdef class UVProcessTransport(UVProcess):
         self._exit_waiters.append(fut)
         return fut
 
+    def __dealloc__(self):
+        print('UVProcessTransport.__dealloc__')
+        if self._closed :
+            return
+        self.close()
+        super().__dealloc__()
 
 class WriteSubprocessPipeProto(aio_BaseProtocol):
 
@@ -732,7 +922,7 @@ cdef __process_convert_fileno(object obj):
 
 cdef void __uvprocess_on_exit_callback(uv.uv_process_t *handle,
                                        int64_t exit_status,
-                                       int term_signal) with gil:
+                                       int term_signal) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle,
                             "UVProcess exit callback") == 0:
@@ -749,17 +939,24 @@ cdef __socketpair():
     cdef:
         int fds[2]
         int err
+        sockType = uv.AF_INET if system.PLATFORM_IS_WINDOWS else uv.AF_UNIX
 
-    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    err = system.socketpair(sockType, uv.SOCK_STREAM, 0, fds)
     if err:
         exc = convert_error(-err)
         raise exc
 
-    os_set_inheritable(fds[0], False)
-    os_set_inheritable(fds[1], False)
+    if system.PLATFORM_IS_WINDOWS :
+        os_set_inheritable(fds[0], False)
+        os_set_inheritable(fds[1], False)
 
     return fds[0], fds[1]
 
 
-cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) with gil:
+cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) noexcept with gil:
+    PyMem_RawFree(handle)
+
+cdef void __uv_close_named_pipe_cb(uv.uv_handle_t* handle) with gil:
+    print('named_pipe_cb')
+    #handle._shutdown()
     PyMem_RawFree(handle)

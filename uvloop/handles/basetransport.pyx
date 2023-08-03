@@ -18,7 +18,7 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         self._closing = 0
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         return 0
 
     cdef inline _schedule_call_connection_made(self):
@@ -206,12 +206,18 @@ cdef class UVBaseTransport(UVSocketHandle):
             raise RuntimeError('invalid _init_protocol call')
         self._schedule_call_connection_made()
 
+    cdef inline _init_protocol_fd(self, int fd):
+        self._loop._transports[fd] = self
+        if self._protocol is None:
+            raise RuntimeError('invalid _init_protocol_fd call')
+        self._schedule_call_connection_made()
+
     cdef inline _add_extra_info(self, str name, object obj):
         if self._extra_info is None:
             self._extra_info = {}
         self._extra_info[name] = obj
 
-    cdef bint _is_reading(self):
+    cdef bint _is_reading(self) noexcept:
         raise NotImplementedError
 
     cdef _start_reading(self):

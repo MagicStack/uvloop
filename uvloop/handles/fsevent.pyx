@@ -90,7 +90,7 @@ cdef class UVFSEvent(UVHandle):
 
 
 cdef void __uvfsevent_callback(uv.uv_fs_event_t* handle, const char *filename,
-                               int events, int status) with gil:
+                               int events, int status) noexcept with gil:
     if __ensure_handle_data(
         <uv.uv_handle_t*>handle, "UVFSEvent callback"
     ) == 0:

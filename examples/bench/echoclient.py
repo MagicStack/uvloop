@@ -8,6 +8,35 @@ import socket
 import ssl
 import time
 
+def run_test(n):
+    print('Sending', NMESSAGES, 'messages')
+    if args.mpr:
+        n //= args.mpr
+
+    if unix:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    else:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except (OSError, NameError):
+        pass
+
+    if client_context:
+        sock = client_context.wrap_socket(sock)
+
+    sock.connect(addr)
+
+    while n > 0:
+        sock.sendall(msg)
+        nrecv = 0
+        while nrecv < REQSIZE:
+            resp = sock.recv(REQSIZE)
+            if not resp:
+                raise SystemExit()
+            nrecv += len(resp)
+        n -= 1
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -53,36 +82,6 @@ if __name__ == '__main__':
     msg = b'x' * (MSGSIZE - 1) + b'\n'
     if args.mpr:
         msg *= args.mpr
-
-    def run_test(n):
-        print('Sending', NMESSAGES, 'messages')
-        if args.mpr:
-            n //= args.mpr
-
-        if unix:
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        else:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        try:
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        except (OSError, NameError):
-            pass
-
-        if client_context:
-            sock = client_context.wrap_socket(sock)
-
-        sock.connect(addr)
-
-        while n > 0:
-            sock.sendall(msg)
-            nrecv = 0
-            while nrecv < REQSIZE:
-                resp = sock.recv(REQSIZE)
-                if not resp:
-                    raise SystemExit()
-                nrecv += len(resp)
-            n -= 1
 
     TIMES = args.times
     N = args.workers

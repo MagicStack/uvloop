@@ -6,6 +6,7 @@ from threading import Thread
 from unittest import TestCase
 
 import uvloop
+from uvloop import _testbase as tb
 
 
 class ProcessSpawningTestCollection(TestCase):
@@ -74,16 +75,20 @@ class ProcessSpawningTestCollection(TestCase):
 
         def spawn_process():
             """Spawn external process via `popen` system call."""
-
-            stdio = ctypes.CDLL(ctypes.util.find_library('c'))
+            if tb.IsWindows:
+                stdio = ctypes.CDLL(ctypes.util.find_library('ucrtbase'))
+                popen = stdio._popen
+                pclose = stdio._pclose
+            else:
+                stdio = ctypes.CDLL(ctypes.util.find_library('c'))
+                popen = stdio.popen
+                pclose = stdio.pclose
 
             # popen system call
-            popen = stdio.popen
             popen.argtypes = (ctypes.c_char_p, ctypes.c_char_p)
             popen.restype = ctypes.c_void_p
 
             # pclose system call
-            pclose = stdio.pclose
             pclose.argtypes = (ctypes.c_void_p,)
             pclose.restype = ctypes.c_int
 

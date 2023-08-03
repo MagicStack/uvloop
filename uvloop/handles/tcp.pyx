@@ -204,7 +204,7 @@ cdef class _TCPConnectRequest(UVRequest):
             raise exc
 
 
-cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) with gil:
+cdef void __tcp_connect_callback(uv.uv_connect_t* req, int status) noexcept with gil:
     cdef:
         _TCPConnectRequest wrapper
         TCPTransport transport

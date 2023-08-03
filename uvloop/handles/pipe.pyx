@@ -25,7 +25,7 @@ cdef __pipe_init_uv_handle(UVStream handle, Loop loop):
 cdef __pipe_open(UVStream handle, int fd):
     cdef int err
     err = uv.uv_pipe_open(<uv.uv_pipe_t *>handle._handle,
-                          <uv.uv_file>fd)
+                          <uv.uv_os_fd_t>fd)
     if err < 0:
         exc = convert_error(err)
         raise exc
@@ -202,7 +202,7 @@ cdef class _PipeConnectRequest(UVRequest):
                            addr,
                            __pipe_connect_callback)
 
-cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
+cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) noexcept with gil:
     cdef:
         _PipeConnectRequest wrapper
         UnixTransport transport

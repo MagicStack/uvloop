@@ -30,7 +30,7 @@ class _TestExecutors:
 
     @unittest.skipIf(
         multiprocessing.get_start_method(False) == 'spawn',
-        'no need to test on macOS where spawn is used instead of fork')
+        'no need to test on macOS/windows where spawn is used instead of fork')
     def test_executors_process_pool_01(self):
         self.run_pool_test(concurrent.futures.ProcessPoolExecutor)
 

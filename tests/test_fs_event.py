@@ -1,6 +1,7 @@
 import asyncio
 import os.path
 import tempfile
+import unittest
 
 from uvloop import _testbase as tb
 from uvloop.loop import FileSystemEvent
@@ -31,6 +32,8 @@ class Test_UV_FS_EVENT_CHANGE(tb.UVTestCase):
         else:
             self.q.put_nowait(None)
 
+    @unittest.skipIf(tb.IsWindows,
+                     'ProactorEventLoop object has no attribute _monitor_fs')
     def test_fs_event_change(self):
         self.fs_event_setup()
 
@@ -74,6 +77,8 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
         if len(self.changed_set) == 0:
             self.q.put_nowait(None)
 
+    @unittest.skipIf(tb.IsWindows,
+                     'ProactorEventLoop object has no attribute _monitor_fs')
     def test_fs_event_rename(self):
         self.fs_event_setup()
 

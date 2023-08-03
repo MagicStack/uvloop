@@ -11,8 +11,10 @@ from uvloop import _testbase as tb
 
 
 SSL_HANDSHAKE_TIMEOUT = 15.0
+HAS_AF_UNIX = hasattr(socket, 'AF_UNIX')
 
 
+@unittest.skipIf(tb.IsWindows, 'AF_UNIX not supported')
 class _TestUnix:
     def test_create_unix_server_1(self):
         CNT = 0           # number of clients that were successful
@@ -340,7 +342,8 @@ class _TestUnix:
         self.loop.run_until_complete(runner())
 
     def test_create_unix_connection_5(self):
-        s1, s2 = socket.socketpair(socket.AF_UNIX)
+        s1, s2 = socket.socketpair(socket.AF_UNIX) if \
+            HAS_AF_UNIX else socket.socketpair()
 
         excs = []
 
@@ -417,7 +420,8 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
 
             t.close()
 
-        s1, s2 = socket.socketpair(socket.AF_UNIX)
+        s1, s2 = socket.socketpair(socket.AF_UNIX) if \
+            HAS_AF_UNIX else socket.socketpair()
         with s1, s2:
             self.loop.run_until_complete(test(s1))
 
@@ -504,6 +508,7 @@ class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
     pass
 
 
+@unittest.skipIf(tb.IsWindows, 'start_unix_server not supported')
 class _TestSSL(tb.SSLTestCase):
 
     ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')
@@ -609,6 +614,7 @@ class _TestSSL(tb.SSLTestCase):
         for client in clients:
             client.stop()
 
+    @unittest.skipIf(tb.IsWsl, 'hangs in wsl')
     def test_create_unix_connection_ssl_1(self):
         CNT = 0
         TOTAL_CNT = 25
