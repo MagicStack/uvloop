@@ -98,6 +98,7 @@ void CloseIOCP(void* handle) {
   }
 }
 
+<<<<<<< HEAD
 
 void PrintAllHandle(void* handle) {
     uv_loop_t* loop = (uv_loop_t*)handle;
@@ -105,6 +106,8 @@ void PrintAllHandle(void* handle) {
     printf("loop=0x%p, active_count=%d\n",loop, loop->active_handles);
 }
 
+=======
+>>>>>>> a97c088 (fix linux compilation)
 void DbgBreak() {
     if(IsDebuggerPresent())
     {
@@ -113,8 +116,12 @@ void DbgBreak() {
 }
 #else
 #define PLATFORM_IS_WINDOWS 0
+<<<<<<< HEAD
 
 void CloseIOCP(void*) {}
+=======
+void CloseIOCP(void* handle) {}
+>>>>>>> a97c088 (fix linux compilation)
 
 void DebugBreak(void)
 {
