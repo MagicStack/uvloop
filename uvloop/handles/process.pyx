@@ -74,7 +74,6 @@ cdef class UVProcess(UVHandle):
 
         errpipe_data = None
         if system.PLATFORM_IS_WINDOWS :
-            system.DbgBreak()
             py_gil_state = PyGILState_Ensure()
             err = uv.uv_spawn(loop.uvloop,
                           <uv.uv_process_t *> self._handle,
