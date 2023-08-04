@@ -98,12 +98,6 @@ void CloseIOCP(void* handle) {
   }
 }
 
-void PrintAllHandle(void* handle) {
-    uv_loop_t* loop = (uv_loop_t*)handle;
-    uv_print_all_handles(loop, stderr);
-    printf("loop=0x%p, active_count=%d\n",loop, loop->active_handles);
-}
-
 void DbgBreak() {
     if(IsDebuggerPresent())
     {
@@ -112,13 +106,19 @@ void DbgBreak() {
 }
 #else
 #define PLATFORM_IS_WINDOWS 0
-void CloseIOCP(void*) {}
+void CloseIOCP(void* handle) {}
 
 void DebugBreak(void)
 {
     raise(SIGTRAP);
 }
 #endif
+
+void PrintAllHandle(void* handle) {
+    uv_loop_t* loop = (uv_loop_t*)handle;
+    uv_print_all_handles(loop, stderr);
+    printf("loop=0x%p, active_count=%d\n",loop, loop->active_handles);
+}
 
 int create_tcp_socket(void) {
   return (int)socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
