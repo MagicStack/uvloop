@@ -72,7 +72,6 @@ cdef extern from "includes/compat.h" nogil:
     int epoll_ctl(int epfd, int op, int fd, epoll_event *event)
     object MakeUnixSockPyAddr(sockaddr_un *addr)
     void DebugBreak()
-    void DbgBreak()
     void stdio_container_init(void *pipe, int fd)
     void process_init(void *process)
     void CloseIOCP(void* loop)
