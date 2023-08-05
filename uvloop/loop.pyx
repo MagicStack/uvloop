@@ -1129,7 +1129,7 @@ cdef class Loop:
             int err = 0
             int reuseport_flag = 1
 
-        if hasattr(socket, 'SO_REUSEPORT'):
+        if not system.PLATFORM_IS_WINDOWS:
             err = system.setsockopt(
                 fd,
                 uv.SOL_SOCKET,

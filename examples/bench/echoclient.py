@@ -8,6 +8,7 @@ import socket
 import ssl
 import time
 
+
 def run_test(n):
     print('Sending', NMESSAGES, 'messages')
     if args.mpr:
@@ -37,6 +38,7 @@ def run_test(n):
                 raise SystemExit()
             nrecv += len(resp)
         n -= 1
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
