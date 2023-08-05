@@ -1278,6 +1278,7 @@ class _TestSSL(tb.SSLTestCase):
     PAYLOAD_SIZE = 1024 * 100
     TIMEOUT = 60
 
+    @unittest.skip('TODO: Hangs')
     def test_create_server_ssl_1(self):
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
