@@ -32,8 +32,6 @@ cdef class UVProcess(UVHandle):
         global __forking_loop
 
         cdef int err
-
-        #system.DebugBreak()
         self._start_init(loop)
 
         self._handle = <uv.uv_handle_t*>PyMem_RawMalloc(
@@ -53,7 +51,7 @@ cdef class UVProcess(UVHandle):
                                _stdin, _stdout, _stderr)
 
             restore_inheritable = set()
-            if system.PLATFORM_IS_WINDOWS :
+            if not system.PLATFORM_IS_WINDOWS :
                 if pass_fds:
                     for fd in pass_fds:
                         if not os_get_inheritable(fd):
@@ -80,7 +78,6 @@ cdef class UVProcess(UVHandle):
                           &self.options)
             PyGILState_Release(py_gil_state)
 
-            print('@@@::uv_spawn return ({})'.format(err))
             system.PrintAllHandle(<void*>loop.uvloop)
             if err < 0:
                 self._close_process_handle()
@@ -126,6 +123,7 @@ cdef class UVProcess(UVHandle):
                 err = uv.uv_spawn(loop.uvloop,
                                   <uv.uv_process_t*>self._handle,
                                   &self.options)
+
                 __forking = 0
                 __forking_loop = None
                 system.resetForkHandler()
@@ -239,7 +237,6 @@ cdef class UVProcess(UVHandle):
         self._fds_to_close.append(fd)
 
     def __dealloc__(self):
-        print('UVProcess.__dealloc__')
         if self.uv_opt_env is not NULL:
             PyMem_RawFree(self.uv_opt_env)
             self.uv_opt_env = NULL
@@ -266,7 +263,6 @@ cdef class UVProcess(UVHandle):
             # we have to be careful when the "arr" is GCed,
             # and it shouldn't be ever mutated.
             ret[i] = PyBytes_AsString(el)
-            print('TODO: >>>',repr(ret[i]))
 
         ret[arr_len] = NULL
         return ret
@@ -322,7 +318,7 @@ cdef class UVProcess(UVHandle):
         self.uv_opt_args = self.__to_cstring_array(self.__args)
 
     cdef _init_env(self, dict env):
-        if env is not None and len(env):
+        if env is not None:
             self.__env = list()
             for key in env:
                 val = env[key]
@@ -367,14 +363,11 @@ cdef class UVProcess(UVHandle):
         self._close()
 
     cdef _close(self):
-        print('UVProcess._close()')
         try:
             if self._loop is not None:
                 self._loop._untrack_process(self)
-                print('_close.CloseIOCP({})'.format(os.getpid()))
                 system.CloseIOCP(<void*>self._loop.uvloop)  #TODO: close loop->iocp,
         finally:
-            print('UVHandle._close()')
             UVHandle._close(self)
 
 cdef enum:
@@ -460,7 +453,6 @@ cdef class UVProcessTransport(UVProcess):
                 waiter.set_result(self._returncode)
         self._exit_waiters.clear()
 
-        print('_on_exit()')
         self._close()
 
     cdef _check_proc(self):
@@ -468,7 +460,6 @@ cdef class UVProcessTransport(UVProcess):
             raise ProcessLookupError()
 
     cdef _pipe_connection_lost(self, int fd, exc):
-        print('_pipe_connection_lost')
         if self._stdio_ready:
             self._loop.call_soon(self._protocol.pipe_connection_lost, fd, exc,
                                  context=self.context)
@@ -685,7 +676,7 @@ cdef class UVProcessTransport(UVProcess):
                 iocnt = &self.iocnt[idx]
                 if io[idx] is not None:
                     iocnt.flags = uv.UV_INHERIT_FD
-                    iocnt.data.stream = <uv.uv_stream_t*>io[idx]
+                    iocnt.data.fd = io[idx]
                 else:
                     iocnt.flags = uv.UV_IGNORE
 
@@ -827,19 +818,15 @@ cdef class UVProcessTransport(UVProcess):
         return self._closed
 
     def close(self):
-        print('UVProcessTransport.close()')
         if self._returncode is None:
             self._kill(uv.SIGKILL)
 
         if self._stdin is not None:
             self._stdin.close()
-            self._stdin._shutdown()
         if self._stdout is not None:
             self._stdout.close()
-            self._stdout._shutdown()
         if self._stderr is not None:
             self._stderr.close()
-            self._stderr._shutdown()
 
         if self._returncode is not None:
             # The process is dead, just close the UV handle.
@@ -862,12 +849,6 @@ cdef class UVProcessTransport(UVProcess):
         self._exit_waiters.append(fut)
         return fut
 
-    def __dealloc__(self):
-        print('UVProcessTransport.__dealloc__')
-        if self._closed :
-            return
-        self.close()
-        super().__dealloc__()
 
 class WriteSubprocessPipeProto(aio_BaseProtocol):
 
@@ -945,7 +926,7 @@ cdef __socketpair():
         exc = convert_error(-err)
         raise exc
 
-    if system.PLATFORM_IS_WINDOWS :
+    if not system.PLATFORM_IS_WINDOWS :
         os_set_inheritable(fds[0], False)
         os_set_inheritable(fds[1], False)
 
@@ -953,9 +934,4 @@ cdef __socketpair():
 
 
 cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) noexcept with gil:
-    PyMem_RawFree(handle)
-
-cdef void __uv_close_named_pipe_cb(uv.uv_handle_t* handle) with gil:
-    print('named_pipe_cb')
-    #handle._shutdown()
     PyMem_RawFree(handle)
