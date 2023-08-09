@@ -175,7 +175,6 @@ class _BasePipeTest:
         self.assertEqual('CONNECTED', proto.state)
 
         os.close(rpipe)
-        os.close(wpipe)
 
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info('pipe'))

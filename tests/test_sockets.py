@@ -249,7 +249,6 @@ class _TestSockets:
 
         self.loop.run_until_complete(server())
 
-    @unittest.skipIf(tb.IsWindows, 'Windows TODO:Hangs')
     def test_sock_send_before_cancel(self):
         if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
             # asyncio 3.8.x has a regression; fixed in 3.9.0

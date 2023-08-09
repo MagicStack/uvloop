@@ -583,7 +583,7 @@ cdef class UVProcessTransport(UVProcess):
                     #io[2] = self._stderr #TODO: check ._handle
                     self.options.stdio[2].data.stream = <uv.uv_stream_t*>self._stderr._handle
                 elif _stderr == subprocess_STDOUT:
-                    if &self.options.stdio[1] == NULL:
+                    if self.options.stdio[1].data.stream == NULL:
                         # shouldn't ever happen
                         raise RuntimeError('cannot apply subprocess.STDOUT')
 

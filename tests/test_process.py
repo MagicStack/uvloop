@@ -37,7 +37,7 @@ class _TestProcess:
         try:
             import psutil
             return psutil.Process(os.getpid()).num_fds()
-        except:
+        except ModuleNotFoundError:
             return 0
 
     def test_process_env_1(self):
@@ -179,7 +179,7 @@ class _TestProcess:
         async def test():
             proc = await asyncio.create_subprocess_exec(
                 pathlib.Path(sys.executable),
-               b'-c', b'print("spam")',
+                b'-c', b'print("spam")',
                 stdout=subprocess.PIPE)
 
             out, err = await proc.communicate()
@@ -235,15 +235,18 @@ exit(11)
             proc.stdin.write(b'HELLO' + tb.LineEnding)
             await proc.stdin.drain()
 
-            self.assertEqual(await proc.stdout.readline(), b'HELLO' + tb.LineEnding)
+            self.assertEqual(await proc.stdout.readline(),
+                             b'HELLO' + tb.LineEnding)
 
             proc.send_signal(signal.SIGUSR1)
 
             proc.stdin.write(b'!' + tb.LineEnding)
             await proc.stdin.drain()
 
-            self.assertEqual(await proc.stdout.readline(), b'WORLD' + tb.LineEnding)
-            self.assertEqual(await proc.stdout.readline(), b'!' + tb.LineEnding)
+            self.assertEqual(await proc.stdout.readline(),
+                             b'WORLD' + tb.LineEnding)
+            self.assertEqual(await proc.stdout.readline(),
+                             b'!' + tb.LineEnding)
             self.assertEqual(await proc.wait(), 11)
 
         self.loop.run_until_complete(test())
@@ -314,7 +317,8 @@ print('err', file=sys.stderr, flush=True)
 
             out, err = await proc.communicate()
             self.assertIsNone(err)
-            self.assertEqual(out, b'out' + tb.LineEnding + b'err' + tb.LineEnding)
+            self.assertEqual(out,
+                             b'out' + tb.LineEnding + b'err' + tb.LineEnding)
 
         self.loop.run_until_complete(test())
 
@@ -480,7 +484,7 @@ class _AsyncioTests:
 
     # Program blocking
     PROGRAM_BLOCKED = [sys.executable,
-                      b'-c', b'import time; time.sleep(3600)']
+                       b'-c', b'import time; time.sleep(3600)']
 
     # Program copying input to output
     PROGRAM_CAT = [
@@ -650,7 +654,7 @@ class _AsyncioTests:
             return returncode
 
         returncode = self.loop.run_until_complete(send_signal(proc))
-        self.assertEqual(1 if tb.IsWindows else -signal.SIGTHUP, returncode)
+        self.assertEqual(1 if tb.IsWindows else -signal.SIGHUP, returncode)
 
     @unittest.skipIf(tb.IsWindows, 'TODO: FIXME')
     def test_cancel_process_wait(self):
@@ -930,7 +934,7 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                __uvloop_sleep_after_fork=True))
+                uvloop_sleep_after_fork=True))
         self.assertIsNot(transport, None)
         self.assertEqual(transport.get_returncode(), 0)
         self.assertEqual(
@@ -949,7 +953,7 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 stdin=None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                __uvloop_sleep_after_fork=True))
+                uvloop_sleep_after_fork=True))
         self.assertIsNot(transport, None)
         self.assertEqual(transport.get_returncode(), 0)
         self.assertEqual(
