@@ -332,13 +332,13 @@ def get_wakeup_fd():
     signal.set_wakeup_fd(fd)
     return fd
 
-async def f():
-    return get_wakeup_fd()
+async def f(): pass
 
+fd0 = get_wakeup_fd()
 loop = """ + self.NEW_LOOP + """
 try:
     asyncio.set_event_loop(loop)
-    fd0 = loop.run_until_complete(f())
+    loop.run_until_complete(f())
     fd1 = get_wakeup_fd()
 finally:
     loop.close()
