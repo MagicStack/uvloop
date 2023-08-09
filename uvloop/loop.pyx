@@ -1783,7 +1783,7 @@ cdef class Loop:
 
                         if reuse_address:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
-                        if hasattr(sock, 'SO_REUSEPORT') and reuse_port:
+                        if reuse_port:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEPORT, 1)
                         # Disable IPv4/IPv6 dual stack support (enabled by
                         # default on Linux) which makes a single socket
@@ -2905,7 +2905,7 @@ cdef class Loop:
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
-        if hasattr(signal, 'SIGCHLD') and sig == uv.SIGCHLD:
+        if sig == uv.SIGCHLD:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
@@ -3098,7 +3098,7 @@ cdef class Loop:
                     udp = UDPTransport.__new__(UDPTransport)
                     udp._init(self, family)
 
-                if has_SO_REUSEPORT and reuse_port:
+                if reuse_port:
                     self._sock_set_reuseport(udp._fileno())
 
             else:
@@ -3107,7 +3107,7 @@ cdef class Loop:
                     try:
                         udp = UDPTransport.__new__(UDPTransport)
                         udp._init(self, lai.ai_family)
-                        if has_SO_REUSEPORT and reuse_port:
+                        if reuse_port:
                             self._sock_set_reuseport(udp._fileno())
                         udp._bind(lai.ai_addr)
                     except (KeyboardInterrupt, SystemExit):

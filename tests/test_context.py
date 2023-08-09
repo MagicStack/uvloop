@@ -377,7 +377,6 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_test(test)
 
-    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_create_server_connection_protocol(self):
         async def test(proto, s, **_):
             inner = await proto.connection_made_fut
@@ -397,9 +396,8 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_server_test(test, async_sock=True)
 
-    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_create_ssl_server_connection_protocol(self):
-        async def test(cvar, proto, ssl_sock=None, **_):
+        async def test(cvar, proto, ssl_sock, **_):
             def resume_reading(transport):
                 cvar.set("resume_reading")
                 transport.resume_reading()
@@ -438,7 +436,6 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_server_test(test, use_ssl='yes')
 
-    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_create_server_manual_connection_lost(self):
         if self.implementation == 'asyncio':
             raise unittest.SkipTest('this seems to be a bug in asyncio')
@@ -497,7 +494,6 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_server_test(test, use_ssl='yes')
 
-    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_create_connection_protocol(self):
         async def test(cvar, proto, addr, sslctx, client_sslctx, family,
                        use_sock, use_ssl, use_tcp):
@@ -644,7 +640,6 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_test(test, use_ssl='yes', ssl_over_ssl='both')
 
-    @unittest.skipIf(tb.IsWindows, 'Hangs')
     def test_connect_accepted_socket(self):
         async def test(proto, addr, family, sslctx, client_sslctx,
                        use_ssl, **_):
@@ -689,7 +684,6 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_test(test, use_ssl='both')
 
-    @unittest.skipIf(tb.IsWindows, 'Crashes')
     def test_subprocess_protocol(self):
         cvar = contextvars.ContextVar('cvar', default='outer')
         proto = _SubprocessProtocol(cvar, loop=self.loop)
