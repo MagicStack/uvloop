@@ -115,7 +115,7 @@ class _TestProcess:
                 cmd, b'-W', b'ignore', '-c',
                 'import os,sys;sys.stdout.write(os.getenv("FRUIT"))',
                 stdout=subprocess.PIPE,
-                preexec_fn=lambda: os.putenv("FRUIT", "apple"))
+                env=dict(os.environ, FRUIT="apple"))
 
             out, _ = await proc.communicate()
             self.assertEqual(out, b'apple')
