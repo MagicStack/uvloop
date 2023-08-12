@@ -21,14 +21,14 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.35,<0.30.0)'
+CYTHON_DEPENDENCY = 'Cython~=3.0.0'
 
 # Minimal dependencies required to test uvloop.
 TEST_DEPENDENCIES = [
     # pycodestyle is a dependency of flake8, but it must be frozen because
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    'aiohttp>=3.8.1 ; python_version < "3.12"',
+    'aiohttp>=3.8.1',
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
