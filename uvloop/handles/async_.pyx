@@ -41,7 +41,7 @@ cdef class UVAsync(UVHandle):
         return handle
 
 
-cdef void __uvasync_callback(uv.uv_async_t* handle) with gil:
+cdef void __uvasync_callback(uv.uv_async_t* handle) noexcept with gil:
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVAsync callback") == 0:
         return
 

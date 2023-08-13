@@ -732,7 +732,7 @@ cdef __process_convert_fileno(object obj):
 
 cdef void __uvprocess_on_exit_callback(uv.uv_process_t *handle,
                                        int64_t exit_status,
-                                       int term_signal) with gil:
+                                       int term_signal) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle,
                             "UVProcess exit callback") == 0:
@@ -761,5 +761,5 @@ cdef __socketpair():
     return fds[0], fds[1]
 
 
-cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) with gil:
+cdef void __uv_close_process_handle_cb(uv.uv_handle_t* handle) noexcept with gil:
     PyMem_RawFree(handle)

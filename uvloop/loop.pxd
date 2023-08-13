@@ -150,7 +150,7 @@ cdef class Loop:
     cdef _call_later(self, uint64_t delay, object callback, object args,
                      object context)
 
-    cdef void _handle_exception(self, object ex)
+    cdef void _handle_exception(self, object ex) noexcept
 
     cdef inline _is_main_thread(self)
 

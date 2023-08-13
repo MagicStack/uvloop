@@ -29,7 +29,7 @@ cdef class UVPoll(UVHandle):
         handle._init(loop, fd)
         return handle
 
-    cdef int is_active(self):
+    cdef int is_active(self) noexcept:
         return (self.reading_handle is not None or
                 self.writing_handle is not None)
 
@@ -191,7 +191,7 @@ cdef class UVPoll(UVHandle):
 
 
 cdef void __on_uvpoll_event(uv.uv_poll_t* handle,
-                            int status, int events) with gil:
+                            int status, int events) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle, "UVPoll callback") == 0:
         return

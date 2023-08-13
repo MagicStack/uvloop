@@ -861,7 +861,7 @@ cdef class SSLProtocol:
                     'protocol': self,
                 })
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         return self._outgoing.pending + self._write_buffer_size
 
     cdef _set_write_buffer_limits(self, high=None, low=None):
@@ -903,7 +903,7 @@ cdef class SSLProtocol:
         self._incoming_high_water = high
         self._incoming_low_water = low
 
-    cdef size_t _get_read_buffer_size(self):
+    cdef size_t _get_read_buffer_size(self) noexcept:
         return self._incoming.pending
 
     # Flow control for writes to SSL socket
