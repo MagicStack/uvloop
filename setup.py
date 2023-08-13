@@ -163,9 +163,7 @@ class uvloop_build_ext(build_ext):
 
             from Cython.Build import cythonize
 
-            directives = {
-                'language_level':2
-            }
+            directives = {}
             if self.cython_directives:
                 for directive in self.cython_directives.split(','):
                     k, _, v = directive.partition('=')
