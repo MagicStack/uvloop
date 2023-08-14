@@ -2750,7 +2750,7 @@ cdef class Loop:
                                executable=None,
                                pass_fds=(),
                                # For tests only! Do not use in your code. Ever.
-                               __uvloop_sleep_after_fork=False):
+                               _uvloop_sleep_after_fork=False):
 
         # TODO: Implement close_fds (might not be very important in
         # Python 3.5, since all FDs aren't inheritable by default.)
@@ -2770,7 +2770,7 @@ cdef class Loop:
         if executable is not None:
             args[0] = executable
 
-        if __uvloop_sleep_after_fork:
+        if _uvloop_sleep_after_fork:
             debug_flags |= __PROCESS_DEBUG_SLEEP_AFTER_FORK
 
         waiter = self._new_future()
