@@ -253,11 +253,7 @@ class _TestBase:
             def cb():
                 pass
 
-            #TODO: wrap throw exception as args are wrong so inline loop.set_debug(debug)
-            loop._debug = bool(enabled)
-            if loop.is_running():
-                loop.call_soon_threadsafe(loop._set_coroutine_debug, loop, loop._debug)
-
+            loop.set_debug(debug)
             if debug:
                 msg = ("Non-thread-safe operation invoked on an "
                        "event loop other than the current one")
