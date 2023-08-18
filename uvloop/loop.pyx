@@ -1406,7 +1406,7 @@ cdef class Loop:
         self._debug = bool(enabled)
         if self.is_running():
             self.call_soon_threadsafe(
-                self._set_coroutine_debug, self, self._debug)
+                self._set_coroutine_debug, self._debug)
 
     def is_running(self):
         """Return whether the event loop is currently running."""
