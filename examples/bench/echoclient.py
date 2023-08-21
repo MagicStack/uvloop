@@ -8,6 +8,7 @@ import socket
 import ssl
 import time
 
+
 def run_test(n):
     print('Sending', NMESSAGES, 'messages')
     if args.mpr:
