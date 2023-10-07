@@ -305,11 +305,13 @@ cdef class UDPTransport(UVBaseTransport):
         self._send(data, addr)
 
 
-cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
-                              ssize_t nread,
-                              const uv.uv_buf_t* buf,
-                              const system.sockaddr* addr,
-                              unsigned flags) with gil:
+cdef void __uv_udp_on_receive(
+    uv.uv_udp_t* handle,
+    ssize_t nread,
+    const uv.uv_buf_t* buf,
+    const system.sockaddr* addr,
+    unsigned flags
+) noexcept with gil:
 
     if __ensure_handle_data(<uv.uv_handle_t*>handle,
                             "UDPTransport receive callback") == 0:
@@ -375,7 +377,10 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
         udp._error(exc, False)
 
 
-cdef void __uv_udp_on_send(uv.uv_udp_send_t* req, int status) with gil:
+cdef void __uv_udp_on_send(
+    uv.uv_udp_send_t* req,
+    int status,
+) noexcept with gil:
 
     if req.data is NULL:
         # Shouldn't happen as:

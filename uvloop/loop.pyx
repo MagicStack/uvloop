@@ -3239,9 +3239,11 @@ def libuv_get_version():
     return uv.uv_version()
 
 
-cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
-                              size_t suggested_size,
-                              uv.uv_buf_t* buf) with gil:
+cdef void __loop_alloc_buffer(
+    uv.uv_handle_t* uvhandle,
+    size_t suggested_size,
+    uv.uv_buf_t* buf
+) noexcept with gil:
     cdef:
         Loop loop = (<UVHandle>uvhandle.data)._loop
 
@@ -3339,7 +3341,7 @@ cdef vint __forking = 0
 cdef Loop __forking_loop = None
 
 
-cdef void __get_fork_handler() nogil:
+cdef void __get_fork_handler() noexcept nogil:
     with gil:
         if (__forking and __forking_loop is not None and
                 __forking_loop.active_process_handler is not None):

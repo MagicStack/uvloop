@@ -202,7 +202,10 @@ cdef class _PipeConnectRequest(UVRequest):
                            addr,
                            __pipe_connect_callback)
 
-cdef void __pipe_connect_callback(uv.uv_connect_t* req, int status) with gil:
+cdef void __pipe_connect_callback(
+    uv.uv_connect_t* req,
+    int status,
+) noexcept with gil:
     cdef:
         _PipeConnectRequest wrapper
         UnixTransport transport
