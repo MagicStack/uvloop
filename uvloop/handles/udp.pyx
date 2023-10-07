@@ -348,9 +348,9 @@ cdef void __uv_udp_on_receive(uv.uv_udp_t* handle,
         pyaddr = None
     elif addr.sa_family == uv.AF_UNSPEC:
         # https://github.com/MagicStack/uvloop/issues/304
-        IF UNAME_SYSNAME == "Linux":
+        if system.PLATFORM_IS_LINUX:
             pyaddr = None
-        ELSE:
+        else:
             pyaddr = ''
     else:
         try:
