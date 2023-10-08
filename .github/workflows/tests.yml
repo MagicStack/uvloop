@@ -50,7 +50,7 @@ jobs:
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
       run: |
-        pip install -e .[test]
+        pip install -e .[test] --no-cache-dir
 
     - name: Test
       if: steps.release.outputs.version == 0
