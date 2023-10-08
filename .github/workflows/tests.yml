@@ -47,6 +47,11 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
+    - name: Install setuptools for 3.12
+      if: matrix.python-version == '3.12'
+      run: |
+        pip install setuptools
+
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
       run: |
