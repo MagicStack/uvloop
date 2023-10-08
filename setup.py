@@ -28,7 +28,6 @@ TEST_DEPENDENCIES = [
     # pycodestyle is a dependency of flake8, but it must be frozen because
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    'aiohttp>=3.8.1',
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
@@ -36,6 +35,15 @@ TEST_DEPENDENCIES = [
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
 ]
+
+if vi < (3, 12):
+    # XXX Revert this change later.
+    #
+    # Python 3.12 is new and there's no aiohttp wheel for it yet.
+    # And pip helfully fails on building a wheel for it and I've
+    # no idea how to disable that.
+    TEST_DEPENDENCIES += ['aiohttp>=3.8.1']
+
 
 # Dependencies required to build documentation.
 DOC_DEPENDENCIES = [
