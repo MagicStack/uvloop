@@ -1,22 +1,23 @@
 from uvloop import _testbase as tb
 from uvloop.loop import libuv_get_loop_t_ptr, libuv_get_version
+from uvloop.loop import _testhelper_unwrap_capsuled_pointer as unwrap
 
 
 class Test_UV_libuv(tb.UVTestCase):
     def test_libuv_get_loop_t_ptr(self):
-        loop = self.new_loop()
-        cap1 = libuv_get_loop_t_ptr(loop)
-        cap2 = libuv_get_loop_t_ptr(loop)
-        cap3 = libuv_get_loop_t_ptr(self.new_loop())
+        loop1 = self.new_loop()
+        cap1 = libuv_get_loop_t_ptr(loop1)
+        cap2 = libuv_get_loop_t_ptr(loop1)
 
-        import pyximport
+        loop2 = self.new_loop()
+        cap3 = libuv_get_loop_t_ptr(loop2)
 
-        pyximport.install()
-
-        import cython_helper
-
-        self.assertTrue(cython_helper.capsule_equals(cap1, cap2))
-        self.assertFalse(cython_helper.capsule_equals(cap1, cap3))
+        try:
+            self.assertEqual(unwrap(cap1), unwrap(cap2))
+            self.assertNotEqual(unwrap(cap1), unwrap(cap3))
+        finally:
+            loop1.close()
+            loop2.close()
 
     def test_libuv_get_version(self):
         self.assertGreater(libuv_get_version(), 0)

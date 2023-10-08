@@ -38,7 +38,7 @@ from cpython cimport (
     PyBytes_AsStringAndSize,
     Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
 )
-from cpython.pycapsule cimport PyCapsule_New
+from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 
 from . import _noop
 
@@ -3237,6 +3237,10 @@ def libuv_get_loop_t_ptr(loop):
 
 def libuv_get_version():
     return uv.uv_version()
+
+
+def _testhelper_unwrap_capsuled_pointer(obj):
+    return <uint64_t>PyCapsule_GetPointer(obj, NULL)
 
 
 cdef void __loop_alloc_buffer(
