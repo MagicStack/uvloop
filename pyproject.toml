@@ -1,0 +1,75 @@
+[project]
+name = "uvloop"
+description = "Fast implementation of asyncio event loop on top of libuv"
+authors = [{name = "Yury Selivanov", email = "yury@magic.io"}]
+requires-python = '>=3.7.0'
+readme = "README.rst"
+license = {text = "MIT License"}
+dynamic = ["version"]
+keywords = [
+    "asyncio",
+    "networking",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: System :: Networking",
+]
+
+[project.urls]
+github = "https://github.com/MagicStack/uvloop"
+
+[project.optional-dependencies]
+test = [
+    # pycodestyle is a dependency of flake8, but it must be frozen because
+    # their combination breaks too often
+    # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
+    'aiohttp>=3.8.1; python_version < "3.12"',
+    'aiohttp==3.9.0b0; python_version >= "3.12"',
+    'flake8~=5.0',
+    'psutil',
+    'pycodestyle~=2.9.0',
+    'pyOpenSSL~=23.0.0',
+    'mypy>=0.800',
+    'Cython(>=0.29.36,<0.30.0)',
+]
+docs = [
+    'Sphinx~=4.1.2',
+    'sphinxcontrib-asyncio~=0.3.0',
+    'sphinx_rtd_theme~=0.5.2',
+]
+
+[build-system]
+requires = [
+    "setuptools>=60",
+    "wheel",
+    "Cython(>=0.29.36,<0.30.0)",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+zip-safe = false
+packages = ["uvloop"]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+test-extras = "test"
+test-command = "python -m unittest discover -v {project}/tests"
+
+[tool.pytest.ini_options]
+addopts = "--capture=no --assert=plain --strict-markers --tb=native --import-mode=importlib"
+testpaths = "tests"
+filterwarnings = "default"
