@@ -133,6 +133,15 @@ class _TestTCP:
             self.loop.call_soon(srv.close)
             await srv.wait_closed()
 
+            if (
+                self.implementation == 'asyncio'
+                and sys.version_info[:3] >= (3, 12, 0)
+            ):
+                # asyncio regression in 3.12 -- wait_closed()
+                # doesn't wait for `close()` to actually complete.
+                # https://github.com/python/cpython/issues/79033
+                await asyncio.sleep(1)
+
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
                 self.assertEqual(srv_sock.fileno(), -1)
@@ -167,6 +176,15 @@ class _TestTCP:
 
             srv.close()
             await srv.wait_closed()
+
+            if (
+                self.implementation == 'asyncio'
+                and sys.version_info[:3] >= (3, 12, 0)
+            ):
+                # asyncio regression in 3.12 -- wait_closed()
+                # doesn't wait for `close()` to actually complete.
+                # https://github.com/python/cpython/issues/79033
+                await asyncio.sleep(1)
 
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
@@ -204,6 +222,15 @@ class _TestTCP:
 
                 self.loop.call_soon(srv.close)
                 await srv.wait_closed()
+
+                if (
+                    self.implementation == 'asyncio'
+                    and sys.version_info[:3] >= (3, 12, 0)
+                ):
+                    # asyncio regression in 3.12 -- wait_closed()
+                    # doesn't wait for `close()` to actually complete.
+                    # https://github.com/python/cpython/issues/79033
+                    await asyncio.sleep(1)
 
                 # Check that the server cleaned-up proxy-sockets
                 for srv_sock in srv_socks:

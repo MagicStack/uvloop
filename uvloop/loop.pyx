@@ -38,7 +38,7 @@ from cpython cimport (
     PyBytes_AsStringAndSize,
     Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
 )
-from cpython.pycapsule cimport PyCapsule_New
+from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 
 from . import _noop
 
@@ -3200,7 +3200,7 @@ cdef class Loop:
                 })
 
     @cython.iterable_coroutine
-    async def shutdown_default_executor(self):
+    async def shutdown_default_executor(self, timeout=None):
         """Schedule the shutdown of the default executor."""
         self._executor_shutdown_called = True
         if self._default_executor is None:
@@ -3211,7 +3211,16 @@ cdef class Loop:
         try:
             await future
         finally:
-            thread.join()
+            thread.join(timeout)
+
+        if thread.is_alive():
+            warnings.warn(
+                "The executor did not finishing joining "
+                f"its threads within {timeout} seconds.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+            self._default_executor.shutdown(wait=False)
 
     def _do_shutdown(self, future):
         try:
@@ -3230,9 +3239,15 @@ def libuv_get_version():
     return uv.uv_version()
 
 
-cdef void __loop_alloc_buffer(uv.uv_handle_t* uvhandle,
-                              size_t suggested_size,
-                              uv.uv_buf_t* buf) with gil:
+def _testhelper_unwrap_capsuled_pointer(obj):
+    return <uint64_t>PyCapsule_GetPointer(obj, NULL)
+
+
+cdef void __loop_alloc_buffer(
+    uv.uv_handle_t* uvhandle,
+    size_t suggested_size,
+    uv.uv_buf_t* buf
+) noexcept with gil:
     cdef:
         Loop loop = (<UVHandle>uvhandle.data)._loop
 
@@ -3330,7 +3345,7 @@ cdef vint __forking = 0
 cdef Loop __forking_loop = None
 
 
-cdef void __get_fork_handler() nogil:
+cdef void __get_fork_handler() noexcept nogil:
     with gil:
         if (__forking and __forking_loop is not None and
                 __forking_loop.active_process_handler is not None):

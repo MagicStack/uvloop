@@ -851,8 +851,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
                 )
                 await proc.communicate()
 
-            uvloop.install()
-            asyncio.run(test())
+            uvloop.run(test())
 
             stdin, stdout, stderr = dups
             (r, w), = pipes
