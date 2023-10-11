@@ -1,5 +1,6 @@
 from libc.stdint cimport uint16_t, uint32_t, uint64_t, int64_t
 from posix.types cimport gid_t, uid_t
+from posix.unistd cimport getuid
 
 from . cimport system
 
