@@ -41,7 +41,9 @@ if _typing.TYPE_CHECKING:
     def run(
         main: _typing.Coroutine[_typing.Any, _typing.Any, _T],
         *,
-        loop_factory: _typing.Optional[_typing.Callable[[], Loop]] = new_event_loop,
+        loop_factory: _typing.Optional[
+            _typing.Callable[[], Loop]
+        ] = new_event_loop,
         debug: _typing.Optional[bool]=None,
     ) -> _T:
         """The preferred way of running a coroutine with uvloop."""
@@ -68,7 +70,9 @@ else:
                     "asyncio.run() cannot be called from a running event loop")
 
             if not __asyncio.iscoroutine(main):
-                raise ValueError("a coroutine was expected, got {!r}".format(main))
+                raise ValueError(
+                    "a coroutine was expected, got {!r}".format(main)
+                )
 
             loop = loop_factory()
             try:
@@ -81,7 +85,9 @@ else:
                     _cancel_all_tasks(loop)
                     loop.run_until_complete(loop.shutdown_asyncgens())
                     if hasattr(loop, 'shutdown_default_executor'):
-                        loop.run_until_complete(loop.shutdown_default_executor())
+                        loop.run_until_complete(
+                            loop.shutdown_default_executor()
+                        )
                 finally:
                     __asyncio.set_event_loop(None)
                     loop.close()
