@@ -319,8 +319,6 @@ class _TestUDP:
                 raise unittest.SkipTest()
             if (3, 8, 0) <= sys.version_info < (3, 8, 1):
                 raise unittest.SkipTest()
-            if (3, 7, 0) <= sys.version_info < (3, 7, 6):
-                raise unittest.SkipTest()
 
     def test_create_datagram_endpoint_reuse_address_error(self):
         # bpo-37228: Ensure that explicit passing of `reuse_address=True`
@@ -400,9 +398,5 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
-    @unittest.skipIf(
-        sys.version_info[:3] == (3, 7, 0),
-        'bpo-27500: bug fixed in Python 3.7.1 and above.',
-    )
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()

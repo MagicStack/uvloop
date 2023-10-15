@@ -20,36 +20,6 @@ class _TestSockets:
             buf += await self.loop.sock_recv(sock, nbytes - len(buf))
         return buf
 
-    def test_socket_connect_recv_send(self):
-        if sys.version_info[:3] >= (3, 8, 0):
-            # @asyncio.coroutine is deprecated in 3.8
-            raise unittest.SkipTest()
-
-        def srv_gen(sock):
-            sock.send(b'helo')
-            data = sock.recv_all(4 * _SIZE)
-            self.assertEqual(data, b'ehlo' * _SIZE)
-            sock.send(b'O')
-            sock.send(b'K')
-
-        # We use @asyncio.coroutine & `yield from` to test
-        # the compatibility of Cython's 'async def' coroutines.
-        @asyncio.coroutine
-        def client(sock, addr):
-            yield from self.loop.sock_connect(sock, addr)
-            data = yield from self.recv_all(sock, 4)
-            self.assertEqual(data, b'helo')
-            yield from self.loop.sock_sendall(sock, b'ehlo' * _SIZE)
-            data = yield from self.recv_all(sock, 2)
-            self.assertEqual(data, b'OK')
-
-        with self.tcp_server(srv_gen) as srv:
-
-            sock = socket.socket()
-            with sock:
-                sock.setblocking(False)
-                self.loop.run_until_complete(client(sock, srv.addr))
-
     def test_socket_accept_recv_send(self):
         async def server():
             sock = socket.socket()
