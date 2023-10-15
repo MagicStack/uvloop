@@ -53,6 +53,27 @@ uvloop with::
 Using uvloop
 ------------
 
+As of uvloop 0.18, the preferred way of using it is via the
+``uvloop.run()`` helper function:
+
+
+.. code:: python
+
+    import uvloop
+
+    async def main():
+        # Main entry-point.
+        ...
+
+    uvloop.run(main())
+
+``uvloop.run()`` works by simply configuring ``asyncio.run()``
+to use uvloop, passing all of the arguments to it, such as ``debug``,
+e.g. ``uvloop.run(main(), debug=True)``.
+
+With Python 3.11 and earlier the following alternative
+snippet can be used:
+
 .. code:: python
 
     import asyncio

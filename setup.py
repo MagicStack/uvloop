@@ -21,40 +21,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.32,<0.30.0)'
-
-# Minimal dependencies required to test uvloop.
-TEST_DEPENDENCIES = [
-    # pycodestyle is a dependency of flake8, but it must be frozen because
-    # their combination breaks too often
-    # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    'aiohttp>=3.8.1',
-    'flake8~=5.0',
-    'psutil',
-    'pycodestyle~=2.9.0',
-    'pyOpenSSL~=23.0.0',
-    'mypy>=0.800',
-    CYTHON_DEPENDENCY,
-]
-
-# Dependencies required to build documentation.
-DOC_DEPENDENCIES = [
-    'Sphinx~=4.1.2',
-    'sphinxcontrib-asyncio~=0.3.0',
-    'sphinx_rtd_theme~=0.5.2',
-]
-
-EXTRA_DEPENDENCIES = {
-    'docs': DOC_DEPENDENCIES,
-    'test': TEST_DEPENDENCIES,
-    # Dependencies required to develop uvloop.
-    'dev': [
-        CYTHON_DEPENDENCY,
-        'pytest>=3.6.0',
-    ] + DOC_DEPENDENCIES + TEST_DEPENDENCIES
-}
-
-
+CYTHON_DEPENDENCY = 'Cython(>=0.29.36,<0.30.0)'
 MACHINE = platform.machine()
 MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
@@ -245,10 +212,6 @@ class uvloop_build_ext(build_ext):
         super().build_extensions()
 
 
-with open(str(_ROOT / 'README.rst')) as f:
-    readme = f.read()
-
-
 with open(str(_ROOT / 'uvloop' / '_version.py')) as f:
     for line in f:
         if line.startswith('__version__ ='):
@@ -268,16 +231,7 @@ if not (_ROOT / 'uvloop' / 'loop.c').exists() or '--cython-always' in sys.argv:
 
 
 setup(
-    name='uvloop',
-    description='Fast implementation of asyncio event loop on top of libuv',
-    long_description=readme,
-    url='http://github.com/MagicStack/uvloop',
-    license='MIT',
-    author='Yury Selivanov',
-    author_email='yury@magic.io',
-    platforms=['macOS', 'POSIX'],
     version=VERSION,
-    packages=['uvloop'],
     cmdclass={
         'sdist': uvloop_sdist,
         'build_ext': uvloop_build_ext
@@ -291,20 +245,5 @@ setup(
             extra_compile_args=MODULES_CFLAGS
         ),
     ],
-    classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Framework :: AsyncIO',
-        'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'License :: OSI Approved :: Apache Software License',
-        'License :: OSI Approved :: MIT License',
-        'Intended Audience :: Developers',
-    ],
-    include_package_data=True,
-    extras_require=EXTRA_DEPENDENCIES,
     setup_requires=setup_requires,
-    python_requires='>=3.7',
 )

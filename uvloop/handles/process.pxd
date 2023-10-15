@@ -34,7 +34,7 @@ cdef class UVProcess(UVHandle):
     cdef _init_env(self, dict env)
     cdef _init_files(self, _stdin, _stdout, _stderr)
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
-                       _stdin, _stdout, _stderr)
+                       _stdin, _stdout, _stderr, bint force_fork)
 
     cdef _close_after_spawn(self, int fd)
 
