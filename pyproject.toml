@@ -63,6 +63,9 @@ build-backend = "setuptools.build_meta"
 zip-safe = false
 packages = ["uvloop"]
 
+[tool.setuptools.exclude-package-data]
+"*" = ["*.c", "*.h"]
+
 [tool.cibuildwheel]
 build-frontend = "build"
 test-extras = "test"
