@@ -414,8 +414,11 @@ cdef _intenum_converter(value, enum_klass):
         return value
 
 
-cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
-                                 int status, system.addrinfo *res) with gil:
+cdef void __on_addrinfo_resolved(
+    uv.uv_getaddrinfo_t *resolver,
+    int status,
+    system.addrinfo *res,
+) noexcept with gil:
 
     if resolver.data is NULL:
         aio_logger.error(
@@ -443,10 +446,12 @@ cdef void __on_addrinfo_resolved(uv.uv_getaddrinfo_t *resolver,
         request.on_done()
 
 
-cdef void __on_nameinfo_resolved(uv.uv_getnameinfo_t* req,
-                                 int status,
-                                 const char* hostname,
-                                 const char* service) with gil:
+cdef void __on_nameinfo_resolved(
+    uv.uv_getnameinfo_t* req,
+    int status,
+    const char* hostname,
+    const char* service,
+) noexcept with gil:
     cdef:
         NameInfoRequest request = <NameInfoRequest> req.data
         Loop loop = request.loop

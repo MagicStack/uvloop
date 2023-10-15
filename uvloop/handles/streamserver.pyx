@@ -121,8 +121,10 @@ cdef class UVStreamServer(UVSocketHandle):
             transport._force_close(exc)
 
 
-cdef void __uv_streamserver_on_listen(uv.uv_stream_t* handle,
-                                      int status) with gil:
+cdef void __uv_streamserver_on_listen(
+    uv.uv_stream_t* handle,
+    int status,
+) noexcept with gil:
 
     # callback for uv_listen
 

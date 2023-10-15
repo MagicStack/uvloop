@@ -30,14 +30,12 @@ class TestDealloc(tb.UVTestCase):
         async def test():
             prog = '''\
 import uvloop
-import asyncio
 
 async def foo():
     return 42
 
 def main():
-    uvloop.install()
-    loop = asyncio.get_event_loop()
+    loop = uvloop.new_event_loop()
     loop.set_debug(True)
     loop.run_until_complete(foo())
     # Do not close the loop on purpose: let __dealloc__ methods run.
