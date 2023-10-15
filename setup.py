@@ -28,13 +28,11 @@ TEST_DEPENDENCIES = [
     # pycodestyle is a dependency of flake8, but it must be frozen because
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    # aiohttp doesn't support 3.11 yet,
-    # see https://github.com/aio-libs/aiohttp/issues/6600
-    'aiohttp ; python_version < "3.11"',
-    'flake8~=3.9.2',
+    'aiohttp>=3.8.1',
+    'flake8~=5.0',
     'psutil',
-    'pycodestyle~=2.7.0',
-    'pyOpenSSL~=22.0.0',
+    'pycodestyle~=2.9.0',
+    'pyOpenSSL~=23.0.0',
     'mypy>=0.800',
     CYTHON_DEPENDENCY,
 ]
