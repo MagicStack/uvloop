@@ -3201,7 +3201,12 @@ cdef class Loop:
 
     @cython.iterable_coroutine
     async def shutdown_default_executor(self, timeout=None):
-        """Schedule the shutdown of the default executor."""
+        """Schedule the shutdown of the default executor.
+
+        The timeout parameter specifies the amount of time the executor will
+        be given to finish joining. The default value is None, which means
+        that the executor will be given an unlimited amount of time.
+        """
         self._executor_shutdown_called = True
         if self._default_executor is None:
             return
@@ -3214,7 +3219,7 @@ cdef class Loop:
             thread.join(timeout)
 
         if thread.is_alive():
-            warnings.warn(
+            warnings_warn(
                 "The executor did not finishing joining "
                 f"its threads within {timeout} seconds.",
                 RuntimeWarning,
