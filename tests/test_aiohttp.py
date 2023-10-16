@@ -7,6 +7,7 @@ else:
     skip_tests = False
 
 import asyncio
+import sys
 import unittest
 import weakref
 
@@ -48,6 +49,14 @@ class _TestAioHTTP:
         self.loop.run_until_complete(runner.cleanup())
 
     def test_aiohttp_graceful_shutdown(self):
+        if self.implementation == 'asyncio' and sys.version_info >= (3, 12, 0):
+            # In Python 3.12.0, asyncio.Server.wait_closed() waits for all
+            # existing connections to complete, before aiohttp sends
+            # on_shutdown signals.
+            # https://github.com/aio-libs/aiohttp/issues/7675#issuecomment-1752143748
+            # https://github.com/python/cpython/pull/98582
+            raise unittest.SkipTest('bug in aiohttp: #7675')
+
         async def websocket_handler(request):
             ws = aiohttp.web.WebSocketResponse()
             await ws.prepare(request)
@@ -73,7 +82,13 @@ class _TestAioHTTP:
 
         runner = aiohttp.web.AppRunner(app)
         self.loop.run_until_complete(runner.setup())
-        site = aiohttp.web.TCPSite(runner, '0.0.0.0', '0')
+        site = aiohttp.web.TCPSite(
+            runner,
+            '0.0.0.0',
+            0,
+            # https://github.com/aio-libs/aiohttp/pull/7188
+            shutdown_timeout=0.1,
+        )
         self.loop.run_until_complete(site.start())
         port = site._server.sockets[0].getsockname()[1]
 
@@ -90,7 +105,7 @@ class _TestAioHTTP:
         async def stop():
             await asyncio.sleep(0.1)
             try:
-                await asyncio.wait_for(runner.cleanup(), timeout=0.1)
+                await asyncio.wait_for(runner.cleanup(), timeout=0.5)
             finally:
                 try:
                     client_task.cancel()

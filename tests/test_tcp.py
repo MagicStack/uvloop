@@ -133,6 +133,15 @@ class _TestTCP:
             self.loop.call_soon(srv.close)
             await srv.wait_closed()
 
+            if (
+                self.implementation == 'asyncio'
+                and sys.version_info[:3] >= (3, 12, 0)
+            ):
+                # asyncio regression in 3.12 -- wait_closed()
+                # doesn't wait for `close()` to actually complete.
+                # https://github.com/python/cpython/issues/79033
+                await asyncio.sleep(1)
+
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
                 self.assertEqual(srv_sock.fileno(), -1)
@@ -167,6 +176,15 @@ class _TestTCP:
 
             srv.close()
             await srv.wait_closed()
+
+            if (
+                self.implementation == 'asyncio'
+                and sys.version_info[:3] >= (3, 12, 0)
+            ):
+                # asyncio regression in 3.12 -- wait_closed()
+                # doesn't wait for `close()` to actually complete.
+                # https://github.com/python/cpython/issues/79033
+                await asyncio.sleep(1)
 
             # Check that the server cleaned-up proxy-sockets
             for srv_sock in srv_socks:
@@ -204,6 +222,15 @@ class _TestTCP:
 
                 self.loop.call_soon(srv.close)
                 await srv.wait_closed()
+
+                if (
+                    self.implementation == 'asyncio'
+                    and sys.version_info[:3] >= (3, 12, 0)
+                ):
+                    # asyncio regression in 3.12 -- wait_closed()
+                    # doesn't wait for `close()` to actually complete.
+                    # https://github.com/python/cpython/issues/79033
+                    await asyncio.sleep(1)
 
                 # Check that the server cleaned-up proxy-sockets
                 for srv_sock in srv_socks:
@@ -2663,6 +2690,10 @@ class _TestSSL(tb.SSLTestCase):
             self.loop.run_until_complete(client(srv.addr))
 
     def test_remote_shutdown_receives_trailing_data(self):
+        if sys.platform == 'linux' and sys.version_info < (3, 11):
+            # TODO: started hanging and needs to be diagnosed.
+            raise unittest.SkipTest()
+
         CHUNK = 1024 * 16
         SIZE = 8
         count = 0

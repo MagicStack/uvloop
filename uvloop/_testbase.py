@@ -13,6 +13,7 @@ import re
 import select
 import socket
 import ssl
+import sys
 import tempfile
 import threading
 import time
@@ -313,12 +314,14 @@ class AIOTestCase(BaseTestCase):
     def setUp(self):
         super().setUp()
 
-        watcher = asyncio.SafeChildWatcher()
-        watcher.attach_loop(self.loop)
-        asyncio.set_child_watcher(watcher)
+        if sys.version_info < (3, 12):
+            watcher = asyncio.SafeChildWatcher()
+            watcher.attach_loop(self.loop)
+            asyncio.set_child_watcher(watcher)
 
     def tearDown(self):
-        asyncio.set_child_watcher(None)
+        if sys.version_info < (3, 12):
+            asyncio.set_child_watcher(None)
         super().tearDown()
 
     def new_loop(self):
