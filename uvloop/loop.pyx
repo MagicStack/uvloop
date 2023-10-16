@@ -164,6 +164,10 @@ cdef class Loop:
         err = uv.uv_loop_init(self.uvloop)
         if err < 0:
             raise convert_error(err)
+
+        err = uv.uv_loop_configure(self.uvloop, uv.UV_METRICS_IDLE_TIME)
+        if err < 0:
+            raise convert_error(err)
         self.uvloop.data = <void*> self
 
         self._init_debug_fields()
@@ -527,6 +531,7 @@ cdef class Loop:
 
         self._thread_id = PyThread_get_thread_ident()
         self._running = 1
+        self._loop_start_time = self._time()
 
         self.handler_check__exec_writes.start()
         self.handler_idle.start()
@@ -627,6 +632,10 @@ cdef class Loop:
         if executor is not None:
             self._default_executor = None
             executor.shutdown(wait=False)
+
+    cdef uint64_t _event_loop_idle_time(self):
+        """Returns number of nanoseconds the loop has been idle"""
+        return uv.uv_metrics_idle_time(self.uvloop)
 
     cdef uint64_t _time(self):
         # asyncio doesn't have a time cache, neither should uvloop.
@@ -1336,6 +1345,24 @@ cdef class Loop:
         """
         return self.call_later(
             when - self.time(), callback, *args, context=context)
+
+    def _event_loop_utilization(self):
+        """Returns idle and active time in milliseconds and the percentage of
+        time the event loop is active
+        """
+
+        idle = 0.
+        active = 0.
+        utilization = 0.
+
+        if not self._running:
+            return idle, active, utilization
+
+        idle = self._event_loop_idle_time() / 10 ** 6
+        active = self._time() - self._loop_start_time - idle
+        utilization = active / (active + idle)
+
+        return idle, active, utilization
 
     def time(self):
         """Return the time according to the event loop's clock.

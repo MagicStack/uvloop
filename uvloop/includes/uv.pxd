@@ -202,6 +202,10 @@ cdef extern from "uv.h" nogil:
         UV_REQ_TYPE_PRIVATE,
         UV_REQ_TYPE_MAX
 
+    ctypedef enum uv_loop_option:
+        UV_LOOP_BLOCK_SIGNAL = 0,
+        UV_METRICS_IDLE_TIME
+
     ctypedef enum uv_run_mode:
         UV_RUN_DEFAULT = 0,
         UV_RUN_ONCE,
@@ -281,6 +285,7 @@ cdef extern from "uv.h" nogil:
     int uv_loop_init(uv_loop_t* loop)
     int uv_loop_close(uv_loop_t* loop)
     int uv_loop_alive(uv_loop_t* loop)
+    int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...)
     int uv_loop_fork(uv_loop_t* loop)
     int uv_backend_fd(uv_loop_t* loop)
 
@@ -457,6 +462,10 @@ cdef extern from "uv.h" nogil:
                              uv_realloc_func realloc_func,
                              uv_calloc_func calloc_func,
                              uv_free_func free_func)
+
+    # Metrics
+
+    uint64_t uv_metrics_idle_time(uv_loop_t* loop)
 
     # Process
 
