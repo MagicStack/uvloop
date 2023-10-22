@@ -561,9 +561,6 @@ class _TestBase:
         self.loop.run_until_complete(task)
 
     def test_set_task_name(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 8, 0):
-            raise unittest.SkipTest('unsupported task name')
-
         self.loop._process_events = mock.Mock()
 
         result = None
@@ -586,8 +583,7 @@ class _TestBase:
         self.assertIsNone(self.loop.get_task_factory())
         task = self.loop.create_task(coro(), name="mytask")
         self.assertFalse(isinstance(task, MyTask))
-        if sys.version_info >= (3, 8, 0):
-            self.assertEqual(task.get_name(), "mytask")
+        self.assertEqual(task.get_name(), "mytask")
         self.loop.run_until_complete(task)
 
         self.loop.set_task_factory(factory)

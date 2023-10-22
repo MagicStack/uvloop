@@ -1417,7 +1417,7 @@ cdef class Loop:
         Return a task object.
 
         If name is not None, task.set_name(name) will be called if the task
-        object has the set_name attribute, true for default Task in Python 3.8.
+        object has the set_name attribute, true for default Task in CPython.
 
         An optional keyword-only context argument allows specifying a custom
         contextvars.Context for the coro to run in. The current context copy is

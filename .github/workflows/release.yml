@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Validate release PR
-      uses: edgedb/action-release/validate-pr@master
+      uses: edgedb/action-release/validate-pr@bae6b9134e872166b43d218dd79397c851c41c9a
       id: checkver
       with:
         require_team: Release Managers
@@ -37,7 +37,7 @@ jobs:
         mkdir -p dist/
         echo "${VERSION}" > dist/VERSION
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32  # v3.1.3
       with:
         name: dist
         path: dist/
@@ -50,12 +50,12 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
       with:
         fetch-depth: 50
         submodules: true
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v4.7.1
       with:
         python-version: 3.x
 
@@ -64,7 +64,7 @@ jobs:
         python -m pip install --upgrade setuptools wheel pip
         python setup.py sdist
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32  # v3.1.3
       with:
         name: dist
         path: dist/*.tar.*
@@ -76,16 +76,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        cibw_python: ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+        cibw_python: ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
         cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
           - os: ubuntu-latest
             cibw_arch: universal2
           - os: macos-latest
             cibw_arch: aarch64
-          - os: macos-latest
-            cibw_python: "cp37-*"
-            cibw_arch: universal2
 
     defaults:
       run:
@@ -95,14 +92,14 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
       with:
         fetch-depth: 50
         submodules: true
 
     - name: Set up QEMU
       if: matrix.os == 'ubuntu-latest' && matrix.cibw_arch == 'aarch64'
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3  # v3.0.0
       with:
         platforms: arm64
 
@@ -111,14 +108,14 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
-    - uses: pypa/cibuildwheel@v2.16.2
+    - uses: pypa/cibuildwheel@fff9ec32ed25a9c576750c91e06b410ed0c15db7  # v2.16.2
       env:
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BUILD: ${{ matrix.cibw_python }}
         CIBW_ARCHS: ${{ matrix.cibw_arch }}
         CIBW_TEST_SKIP: "*universal2:arm64"
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32  # v3.1.3
       with:
         name: dist
         path: wheelhouse/*.whl
@@ -128,12 +125,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
       with:
         fetch-depth: 5
         submodules: false
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a  # v3.0.2
       with:
         name: dist
         path: dist/
@@ -142,11 +139,11 @@ jobs:
       id: relver
       run: |
         set -e
-        echo ::set-output name=version::$(cat dist/VERSION)
+        echo version=$(cat dist/VERSION) >> $GITHUB_OUTPUT
         rm dist/VERSION
 
     - name: Merge and tag the PR
-      uses: edgedb/action-release/merge@master
+      uses: edgedb/action-release/merge@bae6b9134e872166b43d218dd79397c851c41c9a
       with:
         github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
         ssh_key: ${{ secrets.RELEASE_BOT_SSH_KEY }}
@@ -169,7 +166,7 @@ jobs:
         ls -al dist/
 
     - name: Upload to PyPI
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@b7f401de30cb6434a1e19f805ff006643653240e  # v1.8.10
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}

@@ -14,20 +14,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
         os: [ubuntu-latest, macos-latest]
 
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
       with:
         fetch-depth: 50
         submodules: true
 
     - name: Check if release PR.
-      uses: edgedb/action-release/validate-pr@master
+      uses: edgedb/action-release/validate-pr@bae6b9134e872166b43d218dd79397c851c41c9a
       id: release
       with:
         github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
@@ -37,7 +37,7 @@ jobs:
           __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v4.7.1
       if: steps.release.outputs.version == 0
       with:
         python-version: ${{ matrix.python-version }}

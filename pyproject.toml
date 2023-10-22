@@ -2,7 +2,7 @@
 name = "uvloop"
 description = "Fast implementation of asyncio event loop on top of libuv"
 authors = [{name = "Yury Selivanov", email = "yury@magic.io"}]
-requires-python = '>=3.7.0'
+requires-python = '>=3.8.0'
 readme = "README.rst"
 license = {text = "MIT License"}
 dynamic = ["version"]
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: POSIX",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -63,6 +62,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 zip-safe = false
 packages = ["uvloop"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.c", "*.h"]
 
 [tool.cibuildwheel]
 build-frontend = "build"

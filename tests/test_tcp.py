@@ -1063,49 +1063,6 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         self.loop.run_until_complete(run())
 
-    @unittest.skipIf(sys.version_info[:3] >= (3, 8, 0),
-                     "3.8 has a different method of GCing unclosed streams")
-    def test_tcp_handle_unclosed_gc(self):
-        fut = self.loop.create_future()
-
-        async def server(reader, writer):
-            writer.transport.abort()
-            fut.set_result(True)
-
-        async def run():
-            addr = srv.sockets[0].getsockname()
-            await asyncio.open_connection(*addr)
-            await fut
-            srv.close()
-            await srv.wait_closed()
-
-        srv = self.loop.run_until_complete(asyncio.start_server(
-            server,
-            '127.0.0.1', 0,
-            family=socket.AF_INET))
-
-        if self.loop.get_debug():
-            rx = r'unclosed resource <TCP.*; ' \
-                 r'object created at(.|\n)*test_tcp_handle_unclosed_gc'
-        else:
-            rx = r'unclosed resource <TCP.*'
-
-        with self.assertWarnsRegex(ResourceWarning, rx):
-            self.loop.create_task(run())
-            self.loop.run_until_complete(srv.wait_closed())
-            self.loop.run_until_complete(asyncio.sleep(0.1))
-
-            srv = None
-            gc.collect()
-            gc.collect()
-            gc.collect()
-
-            self.loop.run_until_complete(asyncio.sleep(0.1))
-
-        # Since one TCPTransport handle wasn't closed correctly,
-        # we need to disable this check:
-        self.skip_unclosed_handles_check()
-
     def test_tcp_handle_abort_in_connection_made(self):
         async def server(reader, writer):
             try:

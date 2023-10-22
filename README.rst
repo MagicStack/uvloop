@@ -39,7 +39,7 @@ about it.
 Installation
 ------------
 
-uvloop requires Python 3.7 or greater and is available on PyPI.
+uvloop requires Python 3.8 or greater and is available on PyPI.
 Use pip to install it::
 
     $ pip install uvloop
@@ -96,7 +96,7 @@ snippet can be used:
 Building From Source
 --------------------
 
-To build uvloop, you'll need Python 3.7 or greater:
+To build uvloop, you'll need Python 3.8 or greater:
 
 1. Clone the repository:
 
