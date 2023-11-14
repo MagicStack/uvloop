@@ -17,6 +17,8 @@ The project documentation can be found
 `here <http://uvloop.readthedocs.org/>`_.  Please also check out the
 `wiki <https://github.com/MagicStack/uvloop/wiki>`_.
 
+**uvloop does not support windows.** You can use `Winloop <https://github.com/Vizonex/Winloop>`_.
+
 
 Performance
 -----------
