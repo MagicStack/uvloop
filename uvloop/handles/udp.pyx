@@ -127,12 +127,12 @@ cdef class UDPTransport(UVBaseTransport):
             exc = convert_error(err)
             raise exc
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         if self._handle is NULL:
             return 0
         return (<uv.uv_udp_t*>self._handle).send_queue_size
 
-    cdef bint _is_reading(self):
+    cdef bint _is_reading(self) noexcept:
         return self.__receiving
 
     cdef _start_reading(self):

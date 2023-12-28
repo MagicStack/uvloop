@@ -21,7 +21,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.36,<0.30.0)'
+CYTHON_DEPENDENCY = 'Cython(>=0.29.36)'
 MACHINE = platform.machine()
 MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
@@ -144,7 +144,9 @@ class uvloop_build_ext(build_ext):
             self.distribution.ext_modules[:] = cythonize(
                 self.distribution.ext_modules,
                 compiler_directives=directives,
-                annotate=self.cython_annotate)
+                annotate=self.cython_annotate,
+                compile_time_env=dict(DEFAULT_FREELIST_SIZE=250, SSL_READ_MAX_SIZE=256 * 1024),
+                emit_linenums=True)
 
         super().finalize_options()
 

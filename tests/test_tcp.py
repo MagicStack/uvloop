@@ -1630,17 +1630,22 @@ class _TestSSL(tb.SSLTestCase):
             self.fail("unexpected call to connection_made()")
 
     def test_ssl_connect_accepted_socket(self):
-        if hasattr(ssl, 'PROTOCOL_TLS'):
-            proto = ssl.PROTOCOL_TLS
+        if hasattr(ssl, 'PROTOCOL_TLS_SERVER'):
+            server_proto = ssl.PROTOCOL_TLS_SERVER
+            client_proto = ssl.PROTOCOL_TLS_CLIENT
         else:
-            proto = ssl.PROTOCOL_SSLv23
-        server_context = ssl.SSLContext(proto)
+            if hasattr(ssl, 'PROTOCOL_TLS'):
+                client_proto = server_proto = ssl.PROTOCOL_TLS
+            else:
+                client_proto = server_proto = ssl.PROTOCOL_SSLv23
+
+        server_context = ssl.SSLContext(server_proto)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
         if hasattr(server_context, 'check_hostname'):
             server_context.check_hostname = False
         server_context.verify_mode = ssl.CERT_NONE
 
-        client_context = ssl.SSLContext(proto)
+        client_context = ssl.SSLContext(client_proto)
         if hasattr(server_context, 'check_hostname'):
             client_context.check_hostname = False
         client_context.verify_mode = ssl.CERT_NONE
@@ -2233,7 +2238,7 @@ class _TestSSL(tb.SSLTestCase):
         sslctx.use_privatekey_file(self.ONLYKEY)
         sslctx.use_certificate_chain_file(self.ONLYCERT)
         client_sslctx = self._create_client_ssl_context()
-        if hasattr(ssl, 'OP_NO_TLSv1_3'):
+        if sys.version_info < (3, 8) and hasattr(ssl, 'OP_NO_TLSv1_3'):
             client_sslctx.options |= ssl.OP_NO_TLSv1_3
 
         def server(sock):
@@ -2592,7 +2597,7 @@ class _TestSSL(tb.SSLTestCase):
         sslctx_openssl.use_privatekey_file(self.ONLYKEY)
         sslctx_openssl.use_certificate_chain_file(self.ONLYCERT)
         client_sslctx = self._create_client_ssl_context()
-        if hasattr(ssl, 'OP_NO_TLSv1_3'):
+        if sys.version_info < (3, 8) and hasattr(ssl, 'OP_NO_TLSv1_3'):
             client_sslctx.options |= ssl.OP_NO_TLSv1_3
 
         future = None

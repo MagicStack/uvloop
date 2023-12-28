@@ -1,13 +1,9 @@
 from libc.stdint cimport int8_t, uint64_t
 
-cdef extern from "arpa/inet.h" nogil:
-
-    int ntohl(int)
-    int htonl(int)
-    int ntohs(int)
-
-
-cdef extern from "sys/socket.h" nogil:
+cdef extern from "includes/system.h":
+    int ntohl(int) nogil
+    int htonl(int) nogil
+    int ntohs(int) nogil
 
     struct sockaddr:
         unsigned short sa_family

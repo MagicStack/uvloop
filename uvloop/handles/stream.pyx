@@ -1,4 +1,8 @@
-DEF __PREALLOCED_BUFS = 4
+cdef extern from *:
+    '''
+    enum {__PREALLOCED_BUFS = 4};
+    '''
+    const bint __PREALLOCED_BUFS
 
 
 @cython.no_gc_clear
@@ -279,7 +283,7 @@ cdef class UVStream(UVBaseTransport):
     cdef inline _close_on_read_error(self):
         self.__read_error_close = 1
 
-    cdef bint _is_reading(self):
+    cdef bint _is_reading(self) noexcept:
         return self.__reading
 
     cdef _start_reading(self):
@@ -578,7 +582,7 @@ cdef class UVStream(UVBaseTransport):
 
         self._maybe_resume_protocol()
 
-    cdef size_t _get_write_buffer_size(self):
+    cdef size_t _get_write_buffer_size(self) noexcept:
         if self._handle is NULL:
             return 0
         return ((<uv.uv_stream_t*>self._handle).write_queue_size +
@@ -755,7 +759,7 @@ cdef inline bint __uv_stream_on_read_common(
     UVStream sc,
     Loop loop,
     ssize_t nread,
-):
+) noexcept:
     if sc._closed:
         # The stream was closed, there is no reason to
         # do any work now.
@@ -818,7 +822,7 @@ cdef inline void __uv_stream_on_read_impl(
     uv.uv_stream_t* stream,
     ssize_t nread,
     const uv.uv_buf_t* buf,
-):
+) noexcept:
     cdef:
         UVStream sc = <UVStream>stream.data
         Loop loop = sc._loop
@@ -849,7 +853,7 @@ cdef inline void __uv_stream_on_read_impl(
 cdef inline void __uv_stream_on_write_impl(
     uv.uv_write_t* req,
     int status,
-):
+) noexcept:
     cdef:
         _StreamWriteContext ctx = <_StreamWriteContext> req.data
         UVStream stream = <UVStream>ctx.stream

@@ -298,7 +298,7 @@ cdef class AddrInfo:
             uv.uv_freeaddrinfo(self.data)  # returns void
             self.data = NULL
 
-    cdef void set_data(self, system.addrinfo *data):
+    cdef void set_data(self, system.addrinfo *data) noexcept:
         self.data = data
 
     cdef unpack(self):
@@ -326,7 +326,7 @@ cdef class AddrInfo:
         return result
 
     @staticmethod
-    cdef int isinstance(object other):
+    cdef int isinstance(object other) noexcept:
         return type(other) is AddrInfo
 
 
