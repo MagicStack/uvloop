@@ -176,7 +176,7 @@ class uvloop_build_ext(build_ext):
             cmd,
             cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
+        j_flag = '-j{}'.format(len(os.sched_getaffinity(0)) or 1)
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
         subprocess.run(
             ['make', j_flag, c_flag],
