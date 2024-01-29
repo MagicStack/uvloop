@@ -113,6 +113,10 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
 
         port = __port_to_int(port, None)
 
+        # resolve special hostname <broadcast> to the broadcast address
+        if host == b'<broadcast>':
+            host = b'255.255.255.255'
+
         ret.addr_size = sizeof(system.sockaddr_in)
         err = uv.uv_ip4_addr(host, <int>port, <system.sockaddr_in*>&ret.addr)
         if err < 0:
