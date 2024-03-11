@@ -109,7 +109,7 @@ To build uvloop, you'll need Python 3.8 or greater:
 
    .. code::
 
-    $ python3.7 -m venv uvloop-dev
+    $ python3.8 -m venv uvloop-dev
     $ source uvloop-dev/bin/activate
 
 3. Install development dependencies:
