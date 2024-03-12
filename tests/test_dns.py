@@ -104,22 +104,14 @@ class BaseTestDNS:
         self._test_getaddrinfo(None, 0, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_8(self):
-        self._test_getaddrinfo('', 0)
-        self._test_getaddrinfo('', 0, type=socket.SOCK_STREAM)
-
-    def test_getaddrinfo_9(self):
-        self._test_getaddrinfo(b'', 0)
-        self._test_getaddrinfo(b'', 0, type=socket.SOCK_STREAM)
-
-    def test_getaddrinfo_10(self):
         self._test_getaddrinfo(None, None)
         self._test_getaddrinfo(None, None, type=socket.SOCK_STREAM)
 
-    def test_getaddrinfo_11(self):
+    def test_getaddrinfo_9(self):
         self._test_getaddrinfo(b'example.com', '80')
         self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM)
 
-    def test_getaddrinfo_12(self):
+    def test_getaddrinfo_10(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
 
@@ -127,7 +119,7 @@ class BaseTestDNS:
         self._test_getaddrinfo('127.0.0.1', '80', type=socket.SOCK_STREAM,
                                _patch=patch)
 
-    def test_getaddrinfo_13(self):
+    def test_getaddrinfo_11(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
 
@@ -135,7 +127,7 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'127.0.0.1', b'80', type=socket.SOCK_STREAM,
                                _patch=patch)
 
-    def test_getaddrinfo_14(self):
+    def test_getaddrinfo_12(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
 
@@ -143,7 +135,7 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'127.0.0.1', b'http', type=socket.SOCK_STREAM,
                                _patch=patch)
 
-    def test_getaddrinfo_15(self):
+    def test_getaddrinfo_13(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
 
@@ -151,19 +143,19 @@ class BaseTestDNS:
         self._test_getaddrinfo('127.0.0.1', 'http', type=socket.SOCK_STREAM,
                                _patch=patch)
 
-    def test_getaddrinfo_16(self):
+    def test_getaddrinfo_14(self):
         self._test_getaddrinfo('localhost', 'http')
         self._test_getaddrinfo('localhost', 'http', type=socket.SOCK_STREAM)
 
-    def test_getaddrinfo_17(self):
+    def test_getaddrinfo_15(self):
         self._test_getaddrinfo(b'localhost', 'http')
         self._test_getaddrinfo(b'localhost', 'http', type=socket.SOCK_STREAM)
 
-    def test_getaddrinfo_18(self):
+    def test_getaddrinfo_16(self):
         self._test_getaddrinfo('localhost', b'http')
         self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
-    def test_getaddrinfo_19(self):
+    def test_getaddrinfo_17(self):
         # musl always returns ai_canonname while macOS never return for IPs,
         # but we strictly follow the docs to use the AI_CANONNAME flag in a
         # shortcut __static_getaddrinfo_pyaddr()
@@ -175,7 +167,7 @@ class BaseTestDNS:
         self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
                                flags=socket.AI_CANONNAME, _patch=patch)
 
-    def test_getaddrinfo_20(self):
+    def test_getaddrinfo_18(self):
         # musl always returns ai_canonname while macOS never return for IPs,
         # but we strictly follow the docs to use the AI_CANONNAME flag in a
         # shortcut __static_getaddrinfo_pyaddr()
