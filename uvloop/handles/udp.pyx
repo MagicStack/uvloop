@@ -244,14 +244,20 @@ cdef class UDPTransport(UVBaseTransport):
                 ctx.close()
 
                 exc = convert_error(err)
-                self._fatal_error(exc, True)
+                if isinstance(exc, OSError):
+                    self._protocol.error_received(exc)
+                else:
+                    self._fatal_error(exc, True)
             else:
                 self._maybe_pause_protocol()
 
         else:
             if err < 0:
                 exc = convert_error(err)
-                self._fatal_error(exc, True)
+                if isinstance(exc, OSError):
+                    self._protocol.error_received(exc)
+                else:
+                    self._fatal_error(exc, True)
             else:
                 self._on_sent(None, self.context.copy())
 
