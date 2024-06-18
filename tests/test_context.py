@@ -202,16 +202,16 @@ class _ContextBaseTests(tb.SSLTestCase):
             for j in range(2):
                 fut = self.loop.create_future()
                 fut.add_done_callback(fut_on_done)
-                cvar.set('yes{}'.format(j))
+                cvar.set(f'yes{j}')
                 self.loop.call_soon(fut.set_result, None)
                 await fut
-                self.assertEqual(cvar.get(), 'yes{}'.format(j))
+                self.assertEqual(cvar.get(), f'yes{j}')
 
                 for i in range(3):
                     # Test that task passed its context to add_done_callback:
-                    cvar.set('yes{}-{}'.format(i, j))
+                    cvar.set(f'yes{i}-{j}')
                     await asyncio.sleep(0.001)
-                    self.assertEqual(cvar.get(), 'yes{}-{}'.format(i, j))
+                    self.assertEqual(cvar.get(), f'yes{i}-{j}')
 
         task = self.loop.create_task(main())
         self.loop.run_until_complete(task)

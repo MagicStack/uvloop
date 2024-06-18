@@ -138,7 +138,7 @@ if __name__ == '__main__':
         addr[1] = int(addr[1])
         addr = tuple(addr)
 
-    print('serving on: {}'.format(addr))
+    print(f'serving on: {addr}')
 
     server_context = None
     if args.ssl:

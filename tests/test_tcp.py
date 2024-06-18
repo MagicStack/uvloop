@@ -2806,7 +2806,7 @@ class _TestSSL(tb.SSLTestCase):
             except AssertionError as e:
                 self.assertEqual(str(e), 'ResourceWarning not triggered')
             else:
-                self.fail('Unexpected ResourceWarning: {}'.format(cm.warning))
+                self.fail(f'Unexpected ResourceWarning: {cm.warning}')
 
     def test_handshake_timeout_handler_leak(self):
         if self.implementation == 'asyncio':

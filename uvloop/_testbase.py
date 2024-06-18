@@ -141,14 +141,14 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
                                   handle_name=h_name):
                     self.assertEqual(
                         h_cnt, 0,
-                        'alive {} after test'.format(h_name))
+                        f'alive {h_name} after test')
 
             for h_name, h_cnt in self.loop._debug_handles_total.items():
                 with self.subTest('Total/closed handles',
                                   handle_name=h_name):
                     self.assertEqual(
                         h_cnt, self.loop._debug_handles_closed[h_name],
-                        'total != closed for {}'.format(h_name))
+                        f'total != closed for {h_name}')
 
         asyncio.set_event_loop(None)
         asyncio.set_event_loop_policy(None)
@@ -259,7 +259,7 @@ def find_free_port(start_from=50000):
         with sock:
             try:
                 sock.bind(('', port))
-            except socket.error:
+            except OSError:
                 continue
             else:
                 return port
@@ -386,7 +386,7 @@ class TestSocketWrapper:
         return getattr(self.__sock, name)
 
     def __repr__(self):
-        return '<{} {!r}>'.format(type(self).__name__, self.__sock)
+        return f'<{type(self).__name__} {self.__sock!r}>'
 
 
 class SocketThread(threading.Thread):

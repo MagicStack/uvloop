@@ -56,7 +56,7 @@ class ProcessSpawningTestCollection(TestCase):
         BufferType = ctypes.c_char * (BUFFER_LENGTH - 1)
 
         def run_echo(popen, fread, pclose):
-            fd = popen('echo test'.encode('ASCII'), 'r'.encode('ASCII'))
+            fd = popen(b'echo test', b'r')
             try:
                 while True:
                     buffer = BufferType()

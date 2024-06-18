@@ -86,7 +86,7 @@ class Test_UV_FS_EVENT_RENAME(tb.UVTestCase):
 
         with tempfile.TemporaryDirectory() as td_name:
             self.dname = td_name
-            f = open(os.path.join(td_name, self.changed_name), 'wt')
+            f = open(os.path.join(td_name, self.changed_name), 'w')
             f.write('hello!')
             f.close()
             h = self.loop._monitor_fs(td_name, self.event_cb)
