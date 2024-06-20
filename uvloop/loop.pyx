@@ -1775,7 +1775,7 @@ cdef class Loop:
                         if reuse_address:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
                         if reuse_port:
-                            sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEPORT, 1)
+                            sock.setsockopt(uv.SOL_SOCKET, SO_REUSEPORT, 1)
                         # Disable IPv4/IPv6 dual stack support (enabled by
                         # default on Linux) which makes a single socket
                         # listen on both address families.
