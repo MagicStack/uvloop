@@ -356,13 +356,6 @@ cdef class AddrInfoRequest(UVRequest):
         else:
             cport = <char*>port
 
-        if cport is NULL and chost is NULL:
-            self.on_done()
-            msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
-            ex = socket_gaierror(socket_EAI_NONAME, msg)
-            callback(ex)
-            return
-
         memset(&self.hints, 0, sizeof(system.addrinfo))
         self.hints.ai_flags = flags
         self.hints.ai_family = family
@@ -382,7 +375,13 @@ cdef class AddrInfoRequest(UVRequest):
 
         if err < 0:
             self.on_done()
-            callback(convert_error(err))
+            if err == uv.UV_EINVAL:
+                # Convert UV_EINVAL to EAI_NONAME to match libc behavior
+                msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
+                ex = socket_gaierror(socket_EAI_NONAME, msg)
+                callback(ex)
+            else:
+                callback(convert_error(err))
 
 
 cdef class NameInfoRequest(UVRequest):
