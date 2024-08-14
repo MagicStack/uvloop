@@ -349,6 +349,9 @@ cdef class AddrInfoRequest(UVRequest):
         if host is None:
             chost = NULL
         elif host == b'' and sys.platform == 'darwin':
+            # It seems `getaddrinfo("", ...)` on macOS is equivalent to
+            # `getaddrinfo("localhost", ...)`. This is inconsistent with
+            # libuv 1.48 which treats empty nodename as EINVAL.
             chost = <char*>'localhost'
         else:
             chost = <char*>host
@@ -377,13 +380,17 @@ cdef class AddrInfoRequest(UVRequest):
 
         if err < 0:
             self.on_done()
-            if err == uv.UV_EINVAL:
-                # Convert UV_EINVAL to EAI_NONAME to match libc behavior
-                msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
-                ex = socket_gaierror(socket_EAI_NONAME, msg)
+            try:
+                if err == uv.UV_EINVAL:
+                    # Convert UV_EINVAL to EAI_NONAME to match libc behavior
+                    msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
+                    ex = socket_gaierror(socket_EAI_NONAME, msg)
+                else:
+                    ex = convert_error(err)
+            except Exception as ex:
                 callback(ex)
             else:
-                callback(convert_error(err))
+                callback(ex)
 
 
 cdef class NameInfoRequest(UVRequest):
