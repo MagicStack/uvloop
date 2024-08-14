@@ -1,9 +1,5 @@
 import sys
 
-vi = sys.version_info
-if vi < (3, 8):
-    raise RuntimeError('uvloop requires Python 3.8 or greater')
-
 if sys.platform in ('win32', 'cygwin', 'cli'):
     raise RuntimeError('uvloop does not support Windows at the moment')
 
@@ -26,7 +22,7 @@ MACHINE = platform.machine()
 MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
-LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
+LIBUV_BUILD_DIR = str(_ROOT / 'build' / f'libuv-{MACHINE}')
 
 
 def _libuv_build_env():
@@ -176,7 +172,7 @@ class uvloop_build_ext(build_ext):
             cmd,
             cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
+        j_flag = f'-j{os.cpu_count() or 1}'
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
         subprocess.run(
             ['make', j_flag, c_flag],

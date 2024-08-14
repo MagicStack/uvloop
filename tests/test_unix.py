@@ -166,7 +166,7 @@ class _TestUnix:
     def test_create_unix_server_2(self):
         with tempfile.TemporaryDirectory() as td:
             sock_name = os.path.join(td, 'sock')
-            with open(sock_name, 'wt') as f:
+            with open(sock_name, 'w') as f:
                 f.write('x')
 
             with self.assertRaisesRegex(

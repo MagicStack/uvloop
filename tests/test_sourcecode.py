@@ -26,15 +26,14 @@ class TestSourceCode(unittest.TestCase):
                 subprocess.run(
                     [sys.executable, '-m', 'flake8', '--config', config_path],
                     check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     cwd=os.path.join(edgepath, subdir))
             except subprocess.CalledProcessError as ex:
                 output = ex.stdout.decode()
                 output += '\n'
                 output += ex.stderr.decode()
                 raise AssertionError(
-                    'flake8 validation failed: {}\n{}'.format(ex, output)
+                    f'flake8 validation failed: {ex}\n{output}'
                 ) from None
 
     def test_mypy(self):
@@ -59,8 +58,7 @@ class TestSourceCode(unittest.TestCase):
                     'uvloop'
                 ],
                 check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 cwd=edgepath
             )
         except subprocess.CalledProcessError as ex:
@@ -68,5 +66,5 @@ class TestSourceCode(unittest.TestCase):
             output += '\n'
             output += ex.stderr.decode()
             raise AssertionError(
-                'mypy validation failed: {}\n{}'.format(ex, output)
+                f'mypy validation failed: {ex}\n{output}'
             ) from None
