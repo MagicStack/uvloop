@@ -348,6 +348,8 @@ cdef class AddrInfoRequest(UVRequest):
 
         if host is None:
             chost = NULL
+        elif host == b'' and sys.platform == 'darwin':
+            chost = <char*>'localhost'
         else:
             chost = <char*>host
 
