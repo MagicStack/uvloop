@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stddef.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "Python.h"
@@ -83,3 +84,22 @@ int Context_Exit(PyObject *ctx) {
 }
 
 #endif
+
+/* inlined from cpython/Modules/signalmodule.c
+ * https://github.com/python/cpython/blob/v3.13.0a6/Modules/signalmodule.c#L1931-L1951
+ * private _Py_RestoreSignals has been moved to CPython internals in Python 3.13
+ * https://github.com/python/cpython/pull/106400 */
+
+void
+_Py_RestoreSignals(void)
+{
+#ifdef SIGPIPE
+    PyOS_setsig(SIGPIPE, SIG_DFL);
+#endif
+#ifdef SIGXFZ
+    PyOS_setsig(SIGXFZ, SIG_DFL);
+#endif
+#ifdef SIGXFSZ
+    PyOS_setsig(SIGXFSZ, SIG_DFL);
+#endif
+}
