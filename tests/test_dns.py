@@ -31,13 +31,13 @@ class BaseTestDNS:
                 a1 = patched_getaddrinfo(*args, **kwargs)
             else:
                 a1 = socket.getaddrinfo(*args, **kwargs)
-        except socket.gaierror as ex:
+        except (socket.gaierror, UnicodeError) as ex:
             err = ex
 
         try:
             a2 = self.loop.run_until_complete(
                 self.loop.getaddrinfo(*args, **kwargs))
-        except socket.gaierror as ex:
+        except (socket.gaierror, UnicodeError) as ex:
             if err is not None:
                 self.assertEqual(ex.args, err.args)
             else:
@@ -186,6 +186,18 @@ class BaseTestDNS:
                                _patch=patch)
         self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
                                flags=socket.AI_CANONNAME, _patch=patch)
+
+    # https://github.com/libuv/libuv/security/advisories/GHSA-f74f-cvh7-c6q6
+    # See also: https://github.com/MagicStack/uvloop/pull/600
+    def test_getaddrinfo_21(self):
+        payload = f'0x{"0" * 246}7f000001.example.com'.encode('ascii')
+        self._test_getaddrinfo(payload, 80)
+        self._test_getaddrinfo(payload, 80, type=socket.SOCK_STREAM)
+
+    def test_getaddrinfo_22(self):
+        payload = f'0x{"0" * 246}7f000001.example.com'
+        self._test_getaddrinfo(payload, 80)
+        self._test_getaddrinfo(payload, 80, type=socket.SOCK_STREAM)
 
     ######
 
