@@ -57,7 +57,7 @@ cdef extern from "uv.h" nogil:
     cdef int SOL_SOCKET
     cdef int SO_ERROR
     cdef int SO_REUSEADDR
-    cdef int SO_REUSEPORT
+    # use has_SO_REUSEPORT and SO_REUSEPORT in stdlib.pxi instead
     cdef int AF_INET
     cdef int AF_INET6
     cdef int AF_UNIX
