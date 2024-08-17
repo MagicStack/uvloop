@@ -681,14 +681,14 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
 
-        cdef ssize_t written
+        cdef ssize_t bytes_written
 
         if (not self._protocol_paused and self._buffer_size == 0 and
             (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
 
-            written_ = self._try_write(buf)
+            bytes_written_ = self._try_write(buf)
 
-            if written_ is None:
+            if bytes_written_ is None:
                 # A `self._fatal_error` was called.
                 # It might not raise an exception under some
                 # conditions.
@@ -698,16 +698,16 @@ cdef class UVStream(UVBaseTransport):
 
                 return
 
-            written = written_
+            bytes_written = bytes_written_
 
-            if written == 0:
-                # All data was successfully written.
+            if bytes_written == 0:
+                # All data was successfully bytes_written.
                 # on_write will call "maybe_resume_protocol".
                 return
 
-            if written > 0:
+            if bytes_written > 0:
                 if UVLOOP_DEBUG:
-                    if written == len(buf):
+                    if bytes_written == len(buf):
                         raise RuntimeError('_try_write sent all data and '
                                            'returned non-zero')
 
@@ -715,7 +715,7 @@ cdef class UVStream(UVBaseTransport):
                     # Cast bytes to memoryview to avoid copying
                     # data that wasn't sent.
                     buf = memoryview(buf)
-                buf = buf[written_:]
+                buf = buf[bytes_written_:]
 
             # At this point it's either data was sent partially,
             # or an EAGAIN has happened.
