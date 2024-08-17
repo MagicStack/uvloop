@@ -375,6 +375,7 @@ cdef class UVStream(UVBaseTransport):
         # uv_try_write -- less layers of code.  The error
         # checking logic is copied from libuv.
         written = system.write(fd, buf, blen)
+
         while written == -1 and (
                 errno.errno == errno.EINTR or
                 (system.PLATFORM_IS_APPLE and
@@ -464,7 +465,7 @@ cdef class UVStream(UVBaseTransport):
         if not buf_len:
             return
 
-        if (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
+        if not self._protocol_paused and (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
             # libuv internal write buffers for this stream are empty.
             if buf_len == 1:
                 # If we only have one piece of data to send, let's
@@ -681,14 +682,14 @@ cdef class UVStream(UVBaseTransport):
             self._conn_lost += 1
             return
 
-        cdef int sent
+        cdef ssize_t written
 
-        if (self._buffer_size == 0 and
+        if (not self._protocol_paused and self._buffer_size == 0 and
             (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
 
-            sent_ = self._try_write(buf)
+            written_ = self._try_write(buf)
 
-            if sent_ is None:
+            if written_ is None:
                 # A `self._fatal_error` was called.
                 # It might not raise an exception under some
                 # conditions.
@@ -698,17 +699,16 @@ cdef class UVStream(UVBaseTransport):
 
                 return
 
-            sent = sent_
+            written = written_
 
-            if sent == 0:
+            if written == 0:
                 # All data was successfully written.
                 # on_write will call "maybe_resume_protocol".
-                self._on_write()
                 return
 
-            if sent > 0:
+            if written > 0:
                 if UVLOOP_DEBUG:
-                    if sent == len(buf):
+                    if written == len(buf):
                         raise RuntimeError('_try_write sent all data and '
                                            'returned non-zero')
 
@@ -716,7 +716,7 @@ cdef class UVStream(UVBaseTransport):
                     # Cast bytes to memoryview to avoid copying
                     # data that wasn't sent.
                     buf = memoryview(buf)
-                buf = buf[sent:]
+                buf = buf[written_:]
 
             # At this point it's either data was sent partially,
             # or an EAGAIN has happened.
@@ -940,7 +940,6 @@ cdef void __uv_stream_on_write(
     uv.uv_write_t* req,
     int status,
 ) noexcept with gil:
-
     if UVLOOP_DEBUG:
         if req.data is NULL:
             aio_logger.error(

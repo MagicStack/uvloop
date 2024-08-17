@@ -512,9 +512,10 @@ class _ContextBaseTests(tb.SSLTestCase):
                         proto.transport.write(b'q' * 16384)
                         count += 1
                 else:
-                    proto.transport.write(b'q' * 16384)
                     proto.transport.set_write_buffer_limits(high=256, low=128)
-                    count += 1
+                    while not proto.transport.get_write_buffer_size():
+                        proto.transport.write(b'q' * 16384)
+                        count += 1
                 return count
 
             s = self.loop.run_in_executor(None, accept)
