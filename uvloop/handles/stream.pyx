@@ -375,7 +375,6 @@ cdef class UVStream(UVBaseTransport):
         # uv_try_write -- less layers of code.  The error
         # checking logic is copied from libuv.
         written = system.write(fd, buf, blen)
-
         while written == -1 and (
                 errno.errno == errno.EINTR or
                 (system.PLATFORM_IS_APPLE and

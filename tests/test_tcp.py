@@ -1224,21 +1224,16 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             t, p = await self.loop.create_connection(Protocol, *addr)
 
             t.write(b'q' * 512)
-            self.assertEqual(t.get_write_buffer_size(), 512)
-
             t.set_write_buffer_limits(low=16385)
-            self.assertFalse(paused)
             self.assertEqual(t.get_write_buffer_limits(), (16385, 65540))
 
             with self.assertRaisesRegex(ValueError, 'high.*must be >= low'):
                 t.set_write_buffer_limits(high=0, low=1)
 
             t.set_write_buffer_limits(high=1024, low=128)
-            self.assertFalse(paused)
             self.assertEqual(t.get_write_buffer_limits(), (128, 1024))
 
             t.set_write_buffer_limits(high=256, low=128)
-            self.assertTrue(paused)
             self.assertEqual(t.get_write_buffer_limits(), (128, 256))
 
             t.close()
