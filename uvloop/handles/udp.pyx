@@ -245,21 +245,14 @@ cdef class UDPTransport(UVBaseTransport):
 
                 exc = convert_error(err)
                 if isinstance(exc, OSError):
-                    self._protocol.error_received(exc)
+                    run_in_context1(self.context.copy(), self._protocol.error_received, exc)
                 else:
                     self._fatal_error(exc, True)
             else:
                 self._maybe_pause_protocol()
 
         else:
-            if err < 0:
-                exc = convert_error(err)
-                if isinstance(exc, OSError):
-                    self._protocol.error_received(exc)
-                else:
-                    self._fatal_error(exc, True)
-            else:
-                self._on_sent(None, self.context.copy())
+            self._on_sent(convert_error(err) if err < 0 else None, self.context.copy())
 
     cdef _on_receive(self, bytes data, object exc, object addr):
         if exc is None:
