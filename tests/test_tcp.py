@@ -248,8 +248,9 @@ class _TestTCP:
             addr = sock.getsockname()
 
             with self.assertRaisesRegex(OSError,
-                                        r"error while attempting.*\('127.*: "
-                                        r"address( already)? in use"):
+                                        r"error while attempting.*\('127.*:"
+                                        r"( \[errno \d+\])? address"
+                                        r"( already)? in use"):
 
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr))
