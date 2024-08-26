@@ -2239,8 +2239,7 @@ class _TestSSL(tb.SSLTestCase):
         sslctx.use_privatekey_file(self.ONLYKEY)
         sslctx.use_certificate_chain_file(self.ONLYCERT)
         client_sslctx = self._create_client_ssl_context()
-        if sys.version_info < (3, 8) and hasattr(ssl, 'OP_NO_TLSv1_3'):
-            client_sslctx.options |= ssl.OP_NO_TLSv1_3
+        client_sslctx.maximum_version = ssl.TLSVersion.TLSv1_2
 
         def server(sock):
             conn = openssl_ssl.Connection(sslctx, sock)
@@ -2598,8 +2597,7 @@ class _TestSSL(tb.SSLTestCase):
         sslctx_openssl.use_privatekey_file(self.ONLYKEY)
         sslctx_openssl.use_certificate_chain_file(self.ONLYCERT)
         client_sslctx = self._create_client_ssl_context()
-        if sys.version_info < (3, 8) and hasattr(ssl, 'OP_NO_TLSv1_3'):
-            client_sslctx.options |= ssl.OP_NO_TLSv1_3
+        client_sslctx.maximum_version = ssl.TLSVersion.TLSv1_2
 
         future = None
 
