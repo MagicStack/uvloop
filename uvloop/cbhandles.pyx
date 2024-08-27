@@ -76,8 +76,8 @@ cdef class Handle:
                     self.arg1, self.arg2, self.arg3, self.arg4)
 
             else:
-                raise RuntimeError('invalid Handle.cb_type: {} {!r}/{!r}'.format(
-                    cb_type, self.args1, self.args2))
+                raise RuntimeError('invalid Handle.cb_type: {}'.format(
+                    cb_type))
 
         except (KeyboardInterrupt, SystemExit):
             raise
