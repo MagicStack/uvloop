@@ -701,7 +701,7 @@ cdef class UVStream(UVBaseTransport):
             bytes_written = bytes_written_
 
             if bytes_written == 0:
-                # All data was successfully bytes_written.
+                # All data was successfully written.
                 # on_write will call "maybe_resume_protocol".
                 return
 
