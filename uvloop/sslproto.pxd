@@ -122,7 +122,7 @@ cdef class SSLProtocol:
     # Flow control for writes from APP socket
 
     cdef _control_app_writing(self, object context=*)
-    cdef size_t _get_write_buffer_size(self) noexcept
+    cdef size_t _get_write_buffer_size(self)
     cdef _set_write_buffer_limits(self, high=*, low=*)
 
     # Flow control for reads to APP socket

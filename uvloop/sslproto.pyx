@@ -861,7 +861,7 @@ cdef class SSLProtocol:
                     'protocol': self,
                 })
 
-    cdef size_t _get_write_buffer_size(self) noexcept:
+    cdef size_t _get_write_buffer_size(self):
         return self._outgoing.pending + self._write_buffer_size
 
     cdef _set_write_buffer_limits(self, high=None, low=None):

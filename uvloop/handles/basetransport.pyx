@@ -18,7 +18,7 @@ cdef class UVBaseTransport(UVSocketHandle):
 
         self._closing = 0
 
-    cdef size_t _get_write_buffer_size(self) noexcept:
+    cdef size_t _get_write_buffer_size(self):
         return 0
 
     cdef inline _schedule_call_connection_made(self):

@@ -582,7 +582,7 @@ cdef class UVStream(UVBaseTransport):
 
         self._maybe_resume_protocol()
 
-    cdef size_t _get_write_buffer_size(self) noexcept:
+    cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
             return 0
         return ((<uv.uv_stream_t*>self._handle).write_queue_size +
