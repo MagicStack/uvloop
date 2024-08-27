@@ -2748,8 +2748,7 @@ cdef class Loop:
                                start_new_session=False,
                                executable=None,
                                pass_fds=(),
-                               # For tests only! Do not use in your code. Ever.
-                               uvloop_sleep_after_fork=False):
+                               **kwargs):
 
         # TODO: Implement close_fds (might not be very important in
         # Python 3.5, since all FDs aren't inheritable by default.)
@@ -2769,8 +2768,12 @@ cdef class Loop:
         if executable is not None:
             args[0] = executable
 
-        if uvloop_sleep_after_fork:
+        # For tests only! Do not use in your code. Ever.
+        if kwargs.pop("__uvloop_sleep_after_fork", False):
             debug_flags |= __PROCESS_DEBUG_SLEEP_AFTER_FORK
+        if kwargs:
+            raise ValueError(
+                'unexpected kwargs: {}'.format(', '.join(kwargs.keys())))
 
         waiter = self._new_future()
         protocol = protocol_factory()
