@@ -43,7 +43,6 @@ from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 from . import _noop
 
 
-include "includes/consts.pxi"
 include "includes/stdlib.pxi"
 
 include "errors.pyx"
@@ -1118,7 +1117,7 @@ cdef class Loop:
 
     cdef _sock_set_reuseport(self, int fd):
         cdef:
-            int err
+            int err = 0
             int reuseport_flag = 1
 
         err = system.setsockopt(
@@ -1396,8 +1395,7 @@ cdef class Loop:
     def set_debug(self, enabled):
         self._debug = bool(enabled)
         if self.is_running():
-            self.call_soon_threadsafe(
-                self._set_coroutine_debug, self, self._debug)
+             self.call_soon_threadsafe(self._set_coroutine_debug, self._debug)
 
     def is_running(self):
         """Return whether the event loop is currently running."""
@@ -2749,8 +2747,7 @@ cdef class Loop:
                                start_new_session=False,
                                executable=None,
                                pass_fds=(),
-                               # For tests only! Do not use in your code. Ever.
-                               __uvloop_sleep_after_fork=False):
+                               **kwargs):
 
         # TODO: Implement close_fds (might not be very important in
         # Python 3.5, since all FDs aren't inheritable by default.)
@@ -2770,8 +2767,12 @@ cdef class Loop:
         if executable is not None:
             args[0] = executable
 
-        if __uvloop_sleep_after_fork:
+        # For tests only! Do not use in your code. Ever.
+        if kwargs.pop("__uvloop_sleep_after_fork", False):
             debug_flags |= __PROCESS_DEBUG_SLEEP_AFTER_FORK
+        if kwargs:
+            raise ValueError(
+                'unexpected kwargs: {}'.format(', '.join(kwargs.keys())))
 
         waiter = self._new_future()
         protocol = protocol_factory()
