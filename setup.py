@@ -140,6 +140,7 @@ class uvloop_build_ext(build_ext):
                         v = True
 
                     directives[k] = v
+                self.cython_directives = directives
 
             self.distribution.ext_modules[:] = cythonize(
                 self.distribution.ext_modules,

@@ -68,8 +68,7 @@ jobs:
         make test
 
     - name: Test (debug build)
-      # XXX Enable 3.12 and 3.13 once we migrate to Cython 3
-      if: steps.release.outputs.version == 0 && matrix.python-version != '3.12' && matrix.python-version != '3.13'
+      if: steps.release.outputs.version == 0
       run: |
         make distclean && make debug && make test
 
