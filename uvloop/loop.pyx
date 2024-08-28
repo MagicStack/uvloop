@@ -1130,7 +1130,7 @@ cdef class Loop:
         if err < 0:
             raise convert_error(-errno.errno)
 
-    cpdef _set_coroutine_debug(self, bint enabled):
+    cdef _set_coroutine_debug(self, bint enabled):
         enabled = bool(enabled)
         if self._coroutine_debug_set == enabled:
             return

@@ -200,7 +200,7 @@ cdef class Loop:
     cdef inline _ceval_process_signals(self)
     cdef _invoke_signals(self, bytes data)
 
-    cpdef _set_coroutine_debug(self, bint enabled)
+    cdef _set_coroutine_debug(self, bint enabled)
 
     cdef _print_debug_info(self)
 
