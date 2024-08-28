@@ -132,7 +132,7 @@ cdef class UDPTransport(UVBaseTransport):
             return 0
         return (<uv.uv_udp_t*>self._handle).send_queue_size
 
-    cdef bint _is_reading(self) noexcept:
+    cdef bint _is_reading(self):
         return self.__receiving
 
     cdef _start_reading(self):

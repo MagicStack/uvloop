@@ -283,7 +283,7 @@ cdef class UVStream(UVBaseTransport):
     cdef inline _close_on_read_error(self):
         self.__read_error_close = 1
 
-    cdef bint _is_reading(self) noexcept:
+    cdef bint _is_reading(self):
         return self.__reading
 
     cdef _start_reading(self):
