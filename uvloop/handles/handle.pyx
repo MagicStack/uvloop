@@ -363,7 +363,7 @@ cdef void __uv_close_handle_cb(uv.uv_handle_t* handle) noexcept with gil:
             Py_DECREF(h)  # Was INCREFed in UVHandle._close
 
 
-cdef void __close_all_handles(Loop loop):
+cdef void __close_all_handles(Loop loop) noexcept:
     uv.uv_walk(loop.uvloop,
                __uv_walk_close_all_handles_cb,
                <void*>loop)  # void

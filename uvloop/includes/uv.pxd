@@ -220,7 +220,7 @@ cdef extern from "uv.h" nogil:
         UV_LEAVE_GROUP = 0,
         UV_JOIN_GROUP
 
-    cpdef enum uv_fs_event:
+    cdef enum uv_fs_event:
         UV_RENAME = 1,
         UV_CHANGE = 2
 
@@ -282,7 +282,7 @@ cdef extern from "uv.h" nogil:
     int uv_loop_close(uv_loop_t* loop)
     int uv_loop_alive(uv_loop_t* loop)
     int uv_loop_fork(uv_loop_t* loop)
-    int uv_backend_fd(uv_loop_t* loop)
+    uv_os_fd_t uv_backend_fd(uv_loop_t* loop)
 
     void uv_update_time(uv_loop_t* loop)
     uint64_t uv_now(const uv_loop_t*)
@@ -378,7 +378,7 @@ cdef extern from "uv.h" nogil:
     # Pipes
 
     int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc)
-    int uv_pipe_open(uv_pipe_t* handle, uv_file file)
+    int uv_pipe_open(uv_pipe_t* handle, uv_os_fd_t file)
     int uv_pipe_bind(uv_pipe_t* handle, const char* name)
 
     void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
