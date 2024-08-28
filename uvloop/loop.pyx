@@ -50,6 +50,7 @@ include "errors.pyx"
 cdef:
     int PY39 = PY_VERSION_HEX >= 0x03090000
     int PY311 = PY_VERSION_HEX >= 0x030b0000
+    int PY313 = PY_VERSION_HEX >= 0x030d0000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
 
 
@@ -154,6 +155,8 @@ cdef class Loop:
         # This is how the selector module and hence asyncio behaves.
         self._fd_to_reader_fileobj = {}
         self._fd_to_writer_fileobj = {}
+
+        self._unix_server_sockets = {}
 
         self._timers = set()
         self._polls = {}
@@ -1704,7 +1707,10 @@ cdef class Loop:
                     'host/port and sock can not be specified at the same time')
             return await self.create_unix_server(
                 protocol_factory, sock=sock, backlog=backlog, ssl=ssl,
-                start_serving=start_serving)
+                start_serving=start_serving,
+                # asyncio won't clean up socket file using create_server() API
+                cleanup_socket=False,
+            )
 
         server = Server(self)
 
@@ -2089,7 +2095,7 @@ cdef class Loop:
                                  *, backlog=100, sock=None, ssl=None,
                                  ssl_handshake_timeout=None,
                                  ssl_shutdown_timeout=None,
-                                 start_serving=True):
+                                 start_serving=True, cleanup_socket=PY313):
         """A coroutine which creates a UNIX Domain Socket server.
 
         The return value is a Server object, which can be used to stop
@@ -2114,6 +2120,11 @@ cdef class Loop:
         ssl_shutdown_timeout is the time in seconds that an SSL server
         will wait for completion of the SSL shutdown before aborting the
         connection. Default is 30s.
+
+        If *cleanup_socket* is true then the Unix socket will automatically
+        be removed from the filesystem when the server is closed, unless the
+        socket has been replaced after the server has been created.
+        This defaults to True on Python 3.13 and above, or False otherwise.
         """
         cdef:
             UnixServer pipe
@@ -2190,6 +2201,15 @@ cdef class Loop:
             # libuv will set the socket to non-blocking mode, but
             # we want Python socket object to notice that.
             sock.setblocking(False)
+
+        if cleanup_socket:
+            path = sock.getsockname()
+            # Check for abstract socket. `str` and `bytes` paths are supported.
+            if path[0] not in (0, '\x00'):
+                try:
+                    self._unix_server_sockets[sock] = os_stat(path).st_ino
+                except FileNotFoundError:
+                    pass
 
         pipe = UnixServer.new(
             self, protocol_factory, server, backlog,
