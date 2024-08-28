@@ -43,7 +43,6 @@ from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 from . import _noop
 
 
-
 include "includes/stdlib.pxi"
 
 include "errors.pyx"

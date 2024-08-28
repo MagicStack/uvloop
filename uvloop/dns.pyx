@@ -326,7 +326,7 @@ cdef class AddrInfo:
         return result
 
     @staticmethod
-    cdef int isinstance(object other) noexcept:
+    cdef int isinstance(object other):
         return type(other) is AddrInfo
 
 

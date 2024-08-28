@@ -903,7 +903,7 @@ cdef class SSLProtocol:
         self._incoming_high_water = high
         self._incoming_low_water = low
 
-    cdef size_t _get_read_buffer_size(self) noexcept:
+    cdef size_t _get_read_buffer_size(self):
         return self._incoming.pending
 
     # Flow control for writes to SSL socket

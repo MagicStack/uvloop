@@ -134,5 +134,5 @@ cdef class SSLProtocol:
 
     cdef _control_ssl_reading(self)
     cdef _set_read_buffer_limits(self, high=*, low=*)
-    cdef size_t _get_read_buffer_size(self) noexcept
+    cdef size_t _get_read_buffer_size(self)
     cdef _fatal_error(self, exc, message=*)
