@@ -1,4 +1,8 @@
-DEF __PREALLOCED_BUFS = 4
+cdef extern from *:
+    '''
+    enum {__PREALLOCED_BUFS = 4};
+    '''
+    const bint __PREALLOCED_BUFS
 
 
 @cython.no_gc_clear

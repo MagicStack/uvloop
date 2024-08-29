@@ -36,14 +36,16 @@ test = [
     # pycodestyle is a dependency of flake8, but it must be frozen because
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
-    'aiohttp>=3.8.1; python_version < "3.12"',
-    'aiohttp==3.9.0b0; python_version >= "3.12"',
+    'aiohttp>=3.10.5',
     'flake8~=5.0',
     'psutil',
     'pycodestyle~=2.9.0',
     'pyOpenSSL~=23.0.0',
     'mypy>=0.800',
-    'Cython(>=0.29.36,<0.30.0)',
+]
+dev = [
+    'setuptools>=60',
+    'Cython~=3.0',
 ]
 docs = [
     'Sphinx~=4.1.2',
@@ -55,7 +57,7 @@ docs = [
 requires = [
     "setuptools>=60",
     "wheel",
-    "Cython(>=0.29.36,<0.30.0)",
+    "Cython~=3.0",
 ]
 build-backend = "setuptools.build_meta"
 

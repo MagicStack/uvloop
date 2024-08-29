@@ -10,7 +10,7 @@ cdef class UVPoll(UVHandle):
     cdef inline _poll_start(self, int flags)
     cdef inline _poll_stop(self)
 
-    cdef int is_active(self)
+    cdef int is_active(self) noexcept
 
     cdef is_reading(self)
     cdef is_writing(self)
