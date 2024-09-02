@@ -60,7 +60,7 @@ jobs:
       env:
         PIP_PRE: ${{ matrix.python-version == '3.13' && '1' || '0' }}
       run: |
-        pip install -e .[test]
+        pip install -e .[test,dev]
 
     - name: Test
       if: steps.release.outputs.version == 0
