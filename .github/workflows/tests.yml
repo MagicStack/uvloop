@@ -15,7 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version:
+        - "3.8"
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
         os: [ubuntu-latest, macos-latest]
 
     env:
@@ -42,6 +48,7 @@ jobs:
       if: steps.release.outputs.version == 0
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
 
     - name: Install macOS deps
       if: matrix.os == 'macos-latest' && steps.release.outputs.version == 0
@@ -50,8 +57,10 @@ jobs:
 
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
+      env:
+        PIP_PRE: ${{ matrix.python-version == '3.13' && '1' || '0' }}
       run: |
-        pip install -e .[test]
+        pip install -e .[test,dev]
 
     - name: Test
       if: steps.release.outputs.version == 0
@@ -59,8 +68,7 @@ jobs:
         make test
 
     - name: Test (debug build)
-      # XXX Re-enable 3.12 once we migrate to Cython 3
-      if: steps.release.outputs.version == 0 && matrix.python-version != '3.12'
+      if: steps.release.outputs.version == 0
       run: |
         make distclean && make debug && make test
 

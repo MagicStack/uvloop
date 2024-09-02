@@ -80,6 +80,27 @@ cdef class UnixServer(UVStreamServer):
                                context)
         return <UVStream>tr
 
+    cdef _close(self):
+        sock = self._fileobj
+        if sock is not None and sock in self._loop._unix_server_sockets:
+            path = sock.getsockname()
+        else:
+            path = None
+
+        UVStreamServer._close(self)
+
+        if path is not None:
+            prev_ino = self._loop._unix_server_sockets[sock]
+            del self._loop._unix_server_sockets[sock]
+            try:
+                if os_stat(path).st_ino == prev_ino:
+                    os_unlink(path)
+            except FileNotFoundError:
+                pass
+            except OSError as err:
+                aio_logger.error('Unable to clean up listening UNIX socket '
+                                 '%r: %r', path, err)
+
 
 @cython.no_gc_clear
 cdef class UnixTransport(UVStream):

@@ -96,10 +96,18 @@ class _TestUnix:
 
                     self.assertFalse(srv.is_serving())
 
-                # asyncio doesn't cleanup the sock file
-                self.assertTrue(os.path.exists(sock_name))
+                if sys.version_info < (3, 13):
+                    # asyncio doesn't cleanup the sock file under Python 3.13
+                    self.assertTrue(os.path.exists(sock_name))
+                else:
+                    self.assertFalse(os.path.exists(sock_name))
 
-        async def start_server_sock(start_server):
+        async def start_server_sock(start_server, is_unix_api=True):
+            # is_unix_api indicates whether `start_server` is calling
+            # `loop.create_unix_server()` or `loop.create_server()`,
+            # because asyncio `loop.create_server()` doesn't cleanup
+            # the socket file even if it's a UNIX socket.
+
             nonlocal CNT
             CNT = 0
 
@@ -140,8 +148,11 @@ class _TestUnix:
 
                     self.assertFalse(srv.is_serving())
 
-                # asyncio doesn't cleanup the sock file
-                self.assertTrue(os.path.exists(sock_name))
+                if sys.version_info < (3, 13) or not is_unix_api:
+                    # asyncio doesn't cleanup the sock file under Python 3.13
+                    self.assertTrue(os.path.exists(sock_name))
+                else:
+                    self.assertFalse(os.path.exists(sock_name))
 
         with self.subTest(func='start_unix_server(host, port)'):
             self.loop.run_until_complete(start_server())
@@ -160,7 +171,7 @@ class _TestUnix:
                 lambda sock: asyncio.start_server(
                     handle_client,
                     None, None,
-                    sock=sock)))
+                    sock=sock), is_unix_api=False))
             self.assertEqual(CNT, TOTAL_CNT)
 
     def test_create_unix_server_2(self):
@@ -455,16 +466,13 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
             socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
         with tempfile.NamedTemporaryFile() as file:
             fn = file.name
-        try:
-            with sock:
-                sock.bind(fn)
-                coro = self.loop.create_unix_server(lambda: None, path=None,
-                                                    sock=sock)
-                srv = self.loop.run_until_complete(coro)
-                srv.close()
-                self.loop.run_until_complete(srv.wait_closed())
-        finally:
-            os.unlink(fn)
+        with sock:
+            sock.bind(fn)
+            coro = self.loop.create_unix_server(lambda: None, path=None,
+                                                sock=sock, cleanup_socket=True)
+            srv = self.loop.run_until_complete(coro)
+            srv.close()
+            self.loop.run_until_complete(srv.wait_closed())
 
     @unittest.skipUnless(sys.platform.startswith('linux'), 'requires epoll')
     def test_epollhup(self):
