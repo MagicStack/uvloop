@@ -733,6 +733,21 @@ class _TestBase:
 
 class TestBaseUV(_TestBase, UVTestCase):
 
+    def test__event_loop_utilization(self):
+        self.assertTrue(self.loop._event_loop_utilization() == (0., 0., 0.))
+
+        async def run():
+            await asyncio.sleep(0.2)
+            time.sleep(0.05)
+            return self.loop._event_loop_utilization()
+
+        i, a, p = self.loop.run_until_complete(run())
+        self.assertTrue(100 < i < 400)
+        self.assertTrue(a > 0.)
+        self.assertTrue(0. < p < 1.)
+
+        self.assertTrue(self.loop._event_loop_utilization() == (0., 0., 0.))
+
     def test_loop_create_future(self):
         fut = self.loop.create_future()
         self.assertTrue(isinstance(fut, asyncio.Future))
