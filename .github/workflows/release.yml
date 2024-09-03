@@ -76,7 +76,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        cibw_python: ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+        cibw_python:
+        - "cp38-*"
+        - "cp39-*"
+        - "cp310-*"
+        - "cp311-*"
+        - "cp312-*"
+        - "cp313-*"
         cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
           - os: ubuntu-latest
@@ -108,7 +114,7 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
-    - uses: pypa/cibuildwheel@fff9ec32ed25a9c576750c91e06b410ed0c15db7  # v2.16.2
+    - uses: pypa/cibuildwheel@bd033a44476646b606efccdd5eed92d5ea1d77ad  # v2.20.0
       env:
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BUILD: ${{ matrix.cibw_python }}
