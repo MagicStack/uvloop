@@ -598,6 +598,16 @@ class _TestBase:
         self.loop.set_task_factory(None)
         self.assertIsNone(self.loop.get_task_factory())
 
+    def test_asyncgen_hooks(self):
+        async def acall(fn):
+            return fn()
+
+        # for sniffio to detect uvloop as asyncio efficiently the running loop
+        # call_soon module needs to match the asyncgen_hooks module
+        hooks = self.loop.run_until_complete(acall(sys.get_asyncgen_hooks))
+        self.assertEqual(hooks.finalizer.__module__, "uvloop.loop")
+        self.assertEqual(self.loop.call_soon.__module__, "uvloop.loop")
+
     def test_shutdown_asyncgens_01(self):
         finalized = list()
 
