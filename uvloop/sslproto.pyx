@@ -561,7 +561,7 @@ cdef class SSLProtocol:
             new_MethodHandle(self._loop,
                              "SSLProtocol._do_read",
                              <method_t> self._do_read,
-                             None,
+                             None, # current context is good
                              self))
 
     # Shutdown flow
@@ -761,7 +761,7 @@ cdef class SSLProtocol:
                         new_MethodHandle(self._loop,
                                          "SSLProtocol._do_read",
                                          <method_t>self._do_read,
-                                         None,
+                                         None, # current context is good
                                          self))
         except ssl_SSLAgainErrors as exc:
             pass
