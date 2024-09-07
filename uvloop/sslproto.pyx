@@ -370,7 +370,7 @@ cdef class SSLProtocol:
 
     def get_buffer(self, size_t n):
         # This pure python call is still used by some very peculiar test cases
-        
+
         cdef:
             char* buf
             size_t buf_size
