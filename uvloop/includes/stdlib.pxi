@@ -112,6 +112,7 @@ cdef os_pipe = os.pipe
 cdef os_read = os.read
 cdef os_remove = os.remove
 cdef os_stat = os.stat
+cdef os_unlink = os.unlink
 cdef os_fspath = os.fspath
 
 cdef stat_S_ISSOCK = stat.S_ISSOCK

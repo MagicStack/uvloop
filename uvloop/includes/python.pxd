@@ -11,8 +11,6 @@ cdef extern from "Python.h":
     object PyUnicode_EncodeFSDefault(object)
     void PyErr_SetInterrupt() nogil
 
-    void _Py_RestoreSignals()
-
     object PyMemoryView_FromMemory(char *mem, ssize_t size, int flags)
     object PyMemoryView_FromObject(object obj)
     int PyMemoryView_Check(object obj)
@@ -29,3 +27,5 @@ cdef extern from "includes/compat.h":
     void PyOS_BeforeFork()
     void PyOS_AfterFork_Parent()
     void PyOS_AfterFork_Child()
+
+    void _Py_RestoreSignals()

@@ -1,7 +1,10 @@
+#ifndef UVLOOP_FORK_HANDLER_H_
+#define UVLOOP_FORK_HANDLER_H_
+
 volatile uint64_t MAIN_THREAD_ID = 0;
 volatile int8_t MAIN_THREAD_ID_SET = 0;
 
-typedef void (*OnForkHandler)();
+typedef void (*OnForkHandler)(void);
 
 OnForkHandler __forkHandler = NULL;
 
@@ -36,3 +39,4 @@ void setMainThreadID(uint64_t id) {
     MAIN_THREAD_ID = id;
     MAIN_THREAD_ID_SET = 1;
 }
+#endif

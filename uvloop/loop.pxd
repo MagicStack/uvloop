@@ -58,6 +58,7 @@ cdef class Loop:
         set _processes
         dict _fd_to_reader_fileobj
         dict _fd_to_writer_fileobj
+        dict _unix_server_sockets
 
         set _signals
         dict _signal_handlers
