@@ -208,6 +208,10 @@ cdef class UDPTransport(UVBaseTransport):
         if addr is None:
             saddr = NULL
         else:
+            # resolve special hostname <broadcast> to the broadcast address before use
+            if self._family == uv.AF_INET and addr[0] == '<broadcast>':
+                addr = (b'255.255.255.255', addr[1])
+
             try:
                 __convert_pyaddr_to_sockaddr(self._family, addr,
                                              <system.sockaddr*>&saddr_st)
