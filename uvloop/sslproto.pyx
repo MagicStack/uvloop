@@ -548,7 +548,6 @@ cdef class SSLProtocol:
         if self._app_state == STATE_INIT:
             self._app_state = STATE_CON_MADE
             self._app_protocol.connection_made(self._get_app_transport())
-
         self._wakeup_waiter()
 
         # We should wakeup user code before sending the first data below. In
@@ -561,7 +560,7 @@ cdef class SSLProtocol:
             new_MethodHandle(self._loop,
                              "SSLProtocol._do_read",
                              <method_t> self._do_read,
-                             None, # current context is good
+                             None,  # current context is good
                              self))
 
     # Shutdown flow
@@ -761,7 +760,7 @@ cdef class SSLProtocol:
                         new_MethodHandle(self._loop,
                                          "SSLProtocol._do_read",
                                          <method_t>self._do_read,
-                                         None, # current context is good
+                                         None,  # current context is good
                                          self))
         except ssl_SSLAgainErrors as exc:
             pass
@@ -797,12 +796,10 @@ cdef class SSLProtocol:
                     data.append(chunk)
         except ssl_SSLAgainErrors as exc:
             pass
-
         if one:
             self._app_protocol.data_received(first)
         elif not zero:
             self._app_protocol.data_received(b''.join(data))
-
         if not chunk:
             # close_notify
             self._call_eof_received()
@@ -892,12 +889,11 @@ cdef class SSLProtocol:
             self._app_reading_paused = False
             if self._state == WRAPPED:
                 self._loop._call_soon_handle(
-                    new_MethodHandle1(self._loop,
-                                      "SSLProtocol._do_read",
-                                      <method1_t>self._do_read,
-                                      context,
-                                      self,
-                                      context))
+                    new_MethodHandle(self._loop,
+                                     "SSLProtocol._do_read",
+                                     <method_t>self._do_read,
+                                     context,
+                                     self))
 
     # Flow control for reads from SSL socket
 
