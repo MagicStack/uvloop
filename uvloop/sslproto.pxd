@@ -83,7 +83,11 @@ cdef class SSLProtocol:
         object _handshake_timeout_handle
         object _shutdown_timeout_handle
 
-    cdef inline get_buffer_c(self, size_t n, char** buf, size_t* buf_size)
+    # Instead of doing python calls, c methods *_impl are called directly
+    # from stream.pyx
+
+    cdef inline get_buffer_impl(self, size_t n, char** buf, size_t* buf_size)
+    cdef inline buffer_updated_impl(self, size_t nbytes)
 
     cdef inline _set_app_protocol(self, app_protocol)
     cdef inline _wakeup_waiter(self, exc=*)

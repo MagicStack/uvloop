@@ -233,7 +233,6 @@ cdef class UVStream(UVBaseTransport):
         UVBaseTransport._set_protocol(self, protocol)
 
         if isinstance(protocol, SSLProtocol):
-            self._protocol_buffer_updated = protocol.buffer_updated
             self.__buffered = 1
         elif (hasattr(protocol, 'get_buffer') and
                 not isinstance(protocol, aio_Protocol)):
@@ -930,13 +929,16 @@ cdef void __uv_stream_buffered_alloc(
     cdef UVStream sc = <UVStream>stream.data
 
     # Fast pass for our own SSLProtocol
-    # avoid python calls, memoryviews, etc
+    # avoid python calls, memoryviews, context enter/exit, etc
     if isinstance(sc._protocol, SSLProtocol):
         try:
-            (<SSLProtocol>sc._protocol).get_buffer_c(
+            (<SSLProtocol>sc._protocol).get_buffer_impl(
                 suggested_size, &uvbuf.base, &uvbuf.len)
             return
         except BaseException as exc:
+            # Can't call 'sc._fatal_error' or 'sc._close', libuv will SF.
+            # We'll do it later in __uv_stream_buffered_on_read when we
+            # receive UV_ENOBUFS.
             uvbuf.len = 0
             uvbuf.base = NULL
             return
@@ -1023,7 +1025,14 @@ cdef void __uv_stream_buffered_on_read(
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
-        run_in_context1(sc.context, sc._protocol_buffer_updated, nread)
+        if isinstance(sc._protocol, SSLProtocol):
+            Context_Enter(sc.context)
+            try:
+                (<SSLProtocol>sc._protocol).buffer_updated_impl(nread)
+            finally:
+                Context_Exit(sc.context)
+        else:
+            run_in_context1(sc.context, sc._protocol_buffer_updated, nread)
     except BaseException as exc:
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_errors_total += 1

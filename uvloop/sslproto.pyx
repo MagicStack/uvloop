@@ -355,7 +355,7 @@ cdef class SSLProtocol:
             self._handshake_timeout_handle.cancel()
             self._handshake_timeout_handle = None
 
-    cdef get_buffer_c(self, size_t n, char** buf, size_t* buf_size):
+    cdef get_buffer_impl(self, size_t n, char** buf, size_t* buf_size):
         cdef size_t want = n
         if want > SSL_READ_MAX_SIZE:
             want = SSL_READ_MAX_SIZE
@@ -368,17 +368,7 @@ cdef class SSLProtocol:
         buf[0] = self._ssl_buffer
         buf_size[0] = self._ssl_buffer_len
 
-    def get_buffer(self, size_t n):
-        # This pure python call is still used by some very peculiar test cases
-
-        cdef:
-            char* buf
-            size_t buf_size
-
-        self.get_buffer_c(n, &buf, &buf_size)
-        return PyMemoryView_FromMemory(buf, buf_size, PyBUF_WRITE)
-
-    def buffer_updated(self, size_t nbytes):
+    cdef buffer_updated_impl(self, size_t nbytes):
         self._incoming_write(PyMemoryView_FromMemory(
             self._ssl_buffer, nbytes, PyBUF_WRITE))
 
@@ -393,6 +383,18 @@ cdef class SSLProtocol:
 
         elif self._state == SHUTDOWN:
             self._do_shutdown()
+
+    def get_buffer(self, size_t n):
+        # This pure python call is still used by some very peculiar test cases
+        cdef:
+            char* buf
+            size_t buf_size
+
+        self.get_buffer_impl(n, &buf, &buf_size)
+        return PyMemoryView_FromMemory(buf, buf_size, PyBUF_WRITE)
+
+    def buffer_updated(self, size_t nbytes):
+        self.buffer_updated_impl(nbytes)
 
     def eof_received(self):
         """Called when the other end of the low-level stream
@@ -546,6 +548,7 @@ cdef class SSLProtocol:
         if self._app_state == STATE_INIT:
             self._app_state = STATE_CON_MADE
             self._app_protocol.connection_made(self._get_app_transport())
+
         self._wakeup_waiter()
 
         # We should wakeup user code before sending the first data below. In
@@ -558,7 +561,7 @@ cdef class SSLProtocol:
             new_MethodHandle(self._loop,
                              "SSLProtocol._do_read",
                              <method_t> self._do_read,
-                             None,  # current context is good
+                             None,
                              self))
 
     # Shutdown flow
@@ -758,7 +761,7 @@ cdef class SSLProtocol:
                         new_MethodHandle(self._loop,
                                          "SSLProtocol._do_read",
                                          <method_t>self._do_read,
-                                         None,  # current context is good
+                                         None,
                                          self))
         except ssl_SSLAgainErrors as exc:
             pass
@@ -794,10 +797,12 @@ cdef class SSLProtocol:
                     data.append(chunk)
         except ssl_SSLAgainErrors as exc:
             pass
+
         if one:
             self._app_protocol.data_received(first)
         elif not zero:
             self._app_protocol.data_received(b''.join(data))
+
         if not chunk:
             # close_notify
             self._call_eof_received()
@@ -887,11 +892,12 @@ cdef class SSLProtocol:
             self._app_reading_paused = False
             if self._state == WRAPPED:
                 self._loop._call_soon_handle(
-                    new_MethodHandle(self._loop,
-                                     "SSLProtocol._do_read",
-                                     <method_t>self._do_read,
-                                     context,
-                                     self))
+                    new_MethodHandle1(self._loop,
+                                      "SSLProtocol._do_read",
+                                      <method1_t>self._do_read,
+                                      context,
+                                      self,
+                                      context))
 
     # Flow control for reads from SSL socket
 
