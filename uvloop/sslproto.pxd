@@ -59,7 +59,6 @@ cdef class SSLProtocol:
         object _outgoing_read
         char* _ssl_buffer
         size_t _ssl_buffer_len
-        object _ssl_buffer_view
         SSLProtocolState _state
         size_t _conn_lost
         AppProtocolState _app_state
@@ -83,6 +82,8 @@ cdef class SSLProtocol:
         object _handshake_start_time
         object _handshake_timeout_handle
         object _shutdown_timeout_handle
+
+    cdef inline get_buffer_c(self, size_t n, char** buf, size_t* buf_size)
 
     cdef _set_app_protocol(self, app_protocol)
     cdef _wakeup_waiter(self, exc=*)

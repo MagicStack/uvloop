@@ -232,7 +232,10 @@ cdef class UVStream(UVBaseTransport):
 
         UVBaseTransport._set_protocol(self, protocol)
 
-        if (hasattr(protocol, 'get_buffer') and
+        if isinstance(protocol, SSLProtocol):
+            self._protocol_buffer_updated = protocol.buffer_updated
+            self.__buffered = 1
+        elif (hasattr(protocol, 'get_buffer') and
                 not isinstance(protocol, aio_Protocol)):
             try:
                 self._protocol_get_buffer = protocol.get_buffer
@@ -924,9 +927,21 @@ cdef void __uv_stream_buffered_alloc(
                             "UVStream alloc buffer callback") == 0:
         return
 
+    cdef UVStream sc = <UVStream>stream.data
+
+    # Fast pass for our own SSLProtocol
+    # avoid python calls, memoryviews, etc
+    if isinstance(sc._protocol, SSLProtocol):
+        try:
+            (<SSLProtocol>sc._protocol).get_buffer_c(
+                suggested_size, &uvbuf.base, &uvbuf.len)
+            return
+        except BaseException as exc:
+            uvbuf.len = 0
+            uvbuf.base = NULL
+            return
+
     cdef:
-        UVStream sc = <UVStream>stream.data
-        Loop loop = sc._loop
         Py_buffer* pybuf = &sc._read_pybuf
         int got_buf = 0
 
@@ -987,7 +1002,7 @@ cdef void __uv_stream_buffered_on_read(
         return
 
     try:
-        if nread > 0 and not sc._read_pybuf_acquired:
+        if nread > 0 and not isinstance(sc._protocol, SSLProtocol) and not sc._read_pybuf_acquired:
             # From libuv docs:
             #     nread is > 0 if there is data available or < 0 on error. When
             #     we’ve reached EOF, nread will be set to UV_EOF. When
@@ -1015,5 +1030,6 @@ cdef void __uv_stream_buffered_on_read(
 
         sc._fatal_error(exc, False)
     finally:
-        sc._read_pybuf_acquired = 0
-        PyBuffer_Release(pybuf)
+        if sc._read_pybuf_acquired:
+            sc._read_pybuf_acquired = 0
+            PyBuffer_Release(pybuf)

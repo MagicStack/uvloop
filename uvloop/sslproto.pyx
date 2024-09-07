@@ -204,11 +204,8 @@ cdef class SSLProtocol:
         self._ssl_buffer = <char*>PyMem_RawMalloc(self._ssl_buffer_len)
         if not self._ssl_buffer:
             raise MemoryError()
-        self._ssl_buffer_view = PyMemoryView_FromMemory(
-            self._ssl_buffer, self._ssl_buffer_len, PyBUF_WRITE)
 
     def __dealloc__(self):
-        self._ssl_buffer_view = None
         PyMem_RawFree(self._ssl_buffer)
         self._ssl_buffer = NULL
         self._ssl_buffer_len = 0
@@ -358,7 +355,7 @@ cdef class SSLProtocol:
             self._handshake_timeout_handle.cancel()
             self._handshake_timeout_handle = None
 
-    def get_buffer(self, n):
+    cdef get_buffer_c(self, size_t n, char** buf, size_t* buf_size):
         cdef size_t want = n
         if want > SSL_READ_MAX_SIZE:
             want = SSL_READ_MAX_SIZE
@@ -367,11 +364,21 @@ cdef class SSLProtocol:
             if not self._ssl_buffer:
                 raise MemoryError()
             self._ssl_buffer_len = want
-            self._ssl_buffer_view = PyMemoryView_FromMemory(
-                self._ssl_buffer, want, PyBUF_WRITE)
-        return self._ssl_buffer_view
 
-    def buffer_updated(self, nbytes):
+        buf[0] = self._ssl_buffer
+        buf_size[0] = self._ssl_buffer_len
+
+    def get_buffer(self, size_t n):
+        # This pure python call is still used by some very peculiar test cases
+        
+        cdef:
+            char* buf
+            size_t buf_size
+
+        self.get_buffer_c(n, &buf, &buf_size)
+        return PyMemoryView_FromMemory(buf, buf_size, PyBUF_WRITE)
+
+    def buffer_updated(self, size_t nbytes):
         self._incoming_write(PyMemoryView_FromMemory(
             self._ssl_buffer, nbytes, PyBUF_WRITE))
 
