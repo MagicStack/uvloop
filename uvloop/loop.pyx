@@ -98,7 +98,11 @@ cdef inline run_in_context(context, method):
     # See also: edgedb/edgedb#2222
     Py_INCREF(method)
     try:
-        return context.run(method)
+        Context_Enter(context)
+        try:
+            return method()
+        finally:
+            Context_Exit(context)
     finally:
         Py_DECREF(method)
 
@@ -106,7 +110,11 @@ cdef inline run_in_context(context, method):
 cdef inline run_in_context1(context, method, arg):
     Py_INCREF(method)
     try:
-        return context.run(method, arg)
+        Context_Enter(context)
+        try:
+            return method(arg)
+        finally:
+            Context_Exit(context)
     finally:
         Py_DECREF(method)
 
@@ -114,7 +122,11 @@ cdef inline run_in_context1(context, method, arg):
 cdef inline run_in_context2(context, method, arg1, arg2):
     Py_INCREF(method)
     try:
-        return context.run(method, arg1, arg2)
+        Context_Enter(context)
+        try:
+            return method(arg1, arg2)
+        finally:
+            Context_Exit(context)
     finally:
         Py_DECREF(method)
 
