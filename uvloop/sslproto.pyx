@@ -719,24 +719,39 @@ cdef class SSLProtocol:
 
     cdef _do_read__buffered(self):
         cdef:
-            Py_ssize_t pending = self._incoming.pending
-            object app_buffer = self._app_protocol_get_buffer(pending)
+            object app_buffer = self._app_protocol_get_buffer(self._incoming.pending)
             Py_ssize_t app_buffer_size = len(app_buffer)
 
         if app_buffer_size == 0:
             return
 
         cdef:
-            Py_ssize_t bytes_read
             Py_ssize_t total_bytes_read = 0
             Py_buffer pybuf
             bint pybuf_initialized = False
 
         try:
-            # SSLObject.read may not return all requested data in one go.
-            # We keep calling read until all pending data is read
-            # Run test_create_server_ssl_over_ssl to reproduce it
-            while pending > 0:
+            # SSLObject.read may not return all available data in one go.
+            # We have to keep calling read until it throw SSLWantReadError.
+            # However, throwing SSLWantReadError is very expensive
+            # (checked with python 3.12.5). Maybe it will be optimized later
+            # but we would like to prevent it as much as possible anyway.
+
+            # One way to do it is to check self._incoming.pending > 0.
+            # SSLObject.read may still throw SSLWantReadError
+            # even when self._incoming.pending > 0 but this should happen
+            # relatively rarely when ssl frame is split up by tcp stack.
+
+            # This optimization works really well especially for peers
+            # exchanging small messages and wanting to have minimal latency.
+
+            # On a side note: self._incoming.pending means how many data hasn't
+            # been processed by ssl yes (read: "still encrypted"). The final
+            # unencrypted data size maybe different.
+
+            # Run test_create_server_ssl_over_ssl to reproduce different cases
+            # for this method.
+            while self._incoming.pending > 0:
                 if total_bytes_read > 0:
                     if not pybuf_initialized:
                         PyObject_GetBuffer(app_buffer, &pybuf, PyBUF_WRITABLE)
@@ -747,13 +762,7 @@ cdef class SSLProtocol:
                         app_buffer_size - total_bytes_read,
                         PyBUF_WRITE)
 
-                print(f"calling initial SSLObject.read, wants={app_buffer_size}, pending={self._incoming.pending}")
-
-                bytes_read = self._sslobj_read(app_buffer_size, app_buffer)
-                total_bytes_read += bytes_read
-                pending -= bytes_read
-
-                print(f"SSLObject.read returned {bytes_read}")
+                total_bytes_read += <Py_ssize_t>self._sslobj_read(app_buffer_size, app_buffer)
 
                 # User buffer may not fit all available data.
                 # In such case we schedule _do_read to run again later
@@ -765,6 +774,8 @@ cdef class SSLProtocol:
                                          None,  # current context is good
                                          self))
                     break
+        except ssl_SSLAgainErrors as exc:
+            pass
         finally:
             if pybuf_initialized:
                 PyBuffer_Release(&pybuf)
