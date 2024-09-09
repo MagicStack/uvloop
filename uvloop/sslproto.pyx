@@ -705,7 +705,10 @@ cdef class SSLProtocol:
         if not self._ssl_writing_paused:
             data = self._outgoing_read()
             if len(data):
-                self._transport.write(data)
+                if isinstance(self._transport, UVStream):
+                    (<UVStream>self._transport).write(data)
+                else:
+                    self._transport.write(data)
 
     # Incoming flow
 

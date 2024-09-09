@@ -16,6 +16,8 @@ cdef class UVStream(UVBaseTransport):
         Py_buffer _read_pybuf
         bint _read_pybuf_acquired
 
+    cpdef write(self, object buf)
+
     # All "inline" methods are final
 
     cdef inline _init(self, Loop loop, object protocol, Server server,

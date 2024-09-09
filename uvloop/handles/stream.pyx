@@ -676,7 +676,7 @@ cdef class UVStream(UVBaseTransport):
             self.__reading,
             id(self))
 
-    def write(self, object buf):
+    cpdef write(self, object buf):
         self._ensure_alive()
 
         if self._eof:
