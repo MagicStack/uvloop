@@ -719,48 +719,60 @@ cdef class SSLProtocol:
 
     cdef _do_read__buffered(self):
         cdef:
-            Py_buffer pybuf
-            bint pybuf_inited = False
-            size_t wants, offset = 0
-            int count = 1
-            object buf
+            Py_ssize_t pending = self._incoming.pending
+            object app_buffer = self._app_protocol_get_buffer(pending)
+            Py_ssize_t app_buffer_size = len(app_buffer)
 
-        buf = self._app_protocol_get_buffer(self._get_read_buffer_size())
-        wants = len(buf)
+        if app_buffer_size == 0:
+            return
+
+        cdef:
+            Py_ssize_t bytes_read
+            Py_ssize_t total_bytes_read = 0
+            Py_buffer pybuf
+            bint pybuf_initialized = False
 
         try:
-            count = self._sslobj_read(wants, buf)
+            # SSLObject.read may not return all requested data in one go.
+            # We keep calling read until all pending data is read
+            # Run test_create_server_ssl_over_ssl to reproduce it
+            while pending > 0:
+                if total_bytes_read > 0:
+                    if not pybuf_initialized:
+                        PyObject_GetBuffer(app_buffer, &pybuf, PyBUF_WRITABLE)
+                        pybuf_initialized = True
 
-            if count > 0:
-                offset = count
-                if offset < wants:
-                    PyObject_GetBuffer(buf, &pybuf, PyBUF_WRITABLE)
-                    pybuf_inited = True
-                while offset < wants:
-                    buf = PyMemoryView_FromMemory(
-                        (<char*>pybuf.buf) + offset,
-                        wants - offset,
+                    app_buffer = PyMemoryView_FromMemory(
+                        (<char*>pybuf.buf) + total_bytes_read,
+                        app_buffer_size - total_bytes_read,
                         PyBUF_WRITE)
-                    count = self._sslobj_read(wants - offset, buf)
-                    if count > 0:
-                        offset += count
-                    else:
-                        break
-                else:
+
+                print(f"calling initial SSLObject.read, wants={app_buffer_size}, pending={self._incoming.pending}")
+
+                bytes_read = self._sslobj_read(app_buffer_size, app_buffer)
+                total_bytes_read += bytes_read
+                pending -= bytes_read
+
+                print(f"SSLObject.read returned {bytes_read}")
+
+                # User buffer may not fit all available data.
+                # In such case we schedule _do_read to run again later
+                if total_bytes_read == app_buffer_size:
                     self._loop._call_soon_handle(
                         new_MethodHandle(self._loop,
                                          "SSLProtocol._do_read",
-                                         <method_t>self._do_read,
+                                         <method_t> self._do_read,
                                          None,  # current context is good
                                          self))
-        except ssl_SSLAgainErrors as exc:
-            pass
+                    break
         finally:
-            if pybuf_inited:
+            if pybuf_initialized:
                 PyBuffer_Release(&pybuf)
-        if offset > 0:
-            self._app_protocol_buffer_updated(offset)
-        if not count:
+
+        if total_bytes_read > 0:
+            self._app_protocol_buffer_updated(total_bytes_read)
+
+        if self._incoming.eof:
             # close_notify
             self._call_eof_received()
             self._start_shutdown()
@@ -772,7 +784,7 @@ cdef class SSLProtocol:
             bint zero = True, one = False
 
         try:
-            while True:
+            while <size_t>self._incoming.pending > 0:
                 chunk = self._sslobj_read(SSL_READ_MAX_SIZE)
                 if not chunk:
                     break
