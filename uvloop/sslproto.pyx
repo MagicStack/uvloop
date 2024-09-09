@@ -726,6 +726,7 @@ cdef class SSLProtocol:
             return
 
         cdef:
+            Py_ssize_t last_bytes_read = -1
             Py_ssize_t total_bytes_read = 0
             Py_buffer pybuf
             bint pybuf_initialized = False
@@ -762,7 +763,8 @@ cdef class SSLProtocol:
                         app_buffer_size - total_bytes_read,
                         PyBUF_WRITE)
 
-                total_bytes_read += <Py_ssize_t>self._sslobj_read(app_buffer_size, app_buffer)
+                last_bytes_read = <Py_ssize_t>self._sslobj_read(app_buffer_size, app_buffer)
+                total_bytes_read += last_bytes_read
 
                 # User buffer may not fit all available data.
                 # In such case we schedule _do_read to run again later
@@ -783,7 +785,9 @@ cdef class SSLProtocol:
         if total_bytes_read > 0:
             self._app_protocol_buffer_updated(total_bytes_read)
 
-        if self._incoming.eof:
+        # SSLObject.read() may return 0 instead of throwing SSLWantReadError
+        # This indicates that we reached EOF
+        if last_bytes_read == 0:
             # close_notify
             self._call_eof_received()
             self._start_shutdown()
