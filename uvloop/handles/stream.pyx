@@ -470,7 +470,7 @@ cdef class UVStream(UVBaseTransport):
         if not buf_len:
             return
 
-        if not self._protocol_paused and (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
+        if (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
             # libuv internal write buffers for this stream are empty.
             if buf_len == 1:
                 # If we only have one piece of data to send, let's
