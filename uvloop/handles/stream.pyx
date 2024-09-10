@@ -943,7 +943,7 @@ cdef void __uv_stream_on_write(
     uv.uv_write_t* req,
     int status,
 ) noexcept with gil:
-    
+
     if UVLOOP_DEBUG:
         if req.data is NULL:
             aio_logger.error(
