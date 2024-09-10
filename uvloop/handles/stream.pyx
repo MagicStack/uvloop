@@ -424,11 +424,13 @@ cdef class UVStream(UVBaseTransport):
         self._buffer_size += dlen
         self._buffer.append(data)
 
-    cdef inline _initiate_write(self):
-        if (not self._protocol_paused and
-                (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
-                self._buffer_size > self._high_water):
+    cdef inline _initiate_write(self, bint skip_fast_path):
+        if (not skip_fast_path and
+            not self._protocol_paused and
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
+            self._buffer_size > self._high_water):
             # Fast-path.  If:
+            #   - the caller hasn't tried fast path itself
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,
             #   - the protocol will be paused if we continue to buffer data
@@ -687,9 +689,7 @@ cdef class UVStream(UVBaseTransport):
 
         cdef ssize_t bytes_written
 
-        if (not self._protocol_paused and self._buffer_size == 0 and
-            (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
-
+        if self._get_write_buffer_size() == 0:
             bytes_written_ = self._try_write(buf)
 
             if bytes_written_ is None:
@@ -726,7 +726,7 @@ cdef class UVStream(UVBaseTransport):
             # buffer remaining data and send it later
 
         self._buffer_write(buf)
-        self._initiate_write()
+        self._initiate_write(True)  # skip fast path in _initiate_write
 
     def writelines(self, bufs):
         self._ensure_alive()
@@ -738,7 +738,7 @@ cdef class UVStream(UVBaseTransport):
             return
         for buf in bufs:
             self._buffer_write(buf)
-        self._initiate_write()
+        self._initiate_write(False) # try fast path in _initiate_write
 
     def write_eof(self):
         self._ensure_alive()
