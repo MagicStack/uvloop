@@ -817,7 +817,7 @@ cdef class SSLProtocol:
 
         try:
             while (<size_t>self._incoming.pending > 0 or
-                   self._sslobj.pending() > 0):
+                   self._sslobj_pending() > 0):
                 chunk = self._sslobj_read(SSL_READ_MAX_SIZE)
                 if not chunk:
                     break
