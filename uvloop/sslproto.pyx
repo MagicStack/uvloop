@@ -552,7 +552,7 @@ cdef class SSLProtocol:
             new_MethodHandle(self._loop,
                              "SSLProtocol._do_read",
                              <method_t> self._do_read,
-                              None,  # current context is good
+                             None,  # current context is good
                              self))
 
     # Shutdown flow
