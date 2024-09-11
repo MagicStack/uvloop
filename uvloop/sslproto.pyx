@@ -742,18 +742,17 @@ cdef class SSLProtocol:
             # We have to keep calling read until it throw SSLWantReadError.
             # However, throwing SSLWantReadError is very expensive even in
             # the master trunk of cpython.
-            #
+            # See https://github.com/python/cpython/issues/123954
 
             # One way to reduce reliance on SSLWantReadError is to check
-            # self._incoming.pending > 0 or SSLObject.pending() > 0.
+            # self._incoming.pending > 0 and SSLObject.pending() > 0.
             # SSLObject.read may still throw SSLWantReadError even when
-            # self._incoming.pending > 0 but this should happen relatively
-            # rarely, only when ssl frame is partially received.
+            # self._incoming.pending > 0 SSLObject.pending() == 0,
+            # but this should happen relatively rarely, only when ssl frame
+            # is partially received.
 
             # This optimization works really well especially for peers
             # exchanging small messages and wanting to have minimal latency.
-
-            # On a side note:
 
             # self._incoming.pending means how much data hasn't
             # been processed by ssl yet (read: "still encrypted"). The final
