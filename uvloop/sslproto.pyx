@@ -375,13 +375,11 @@ cdef class SSLProtocol:
         self._incoming_write(PyMemoryView_FromMemory(
             self._ssl_buffer, nbytes, PyBUF_WRITE))
 
-        print(f"added {nbytes} to incoming bio, pending={self._incoming.pending}")
-
         if self._state == DO_HANDSHAKE:
             self._do_handshake()
 
         elif self._state == WRAPPED:
-            self._do_read(1)
+            self._do_read()
 
         elif self._state == FLUSHING:
             self._do_flush()
@@ -482,6 +480,7 @@ cdef class SSLProtocol:
                 server_hostname=self._server_hostname)
             self._sslobj_read = self._sslobj.read
             self._sslobj_write = self._sslobj.write
+            self._sslobj_pending = self._sslobj.pending
         except Exception as ex:
             self._on_handshake_complete(ex)
         else:
@@ -550,12 +549,11 @@ cdef class SSLProtocol:
         # that the user get a chance to e.g. check ALPN with the transport
         # before having to handle the first data.
         self._loop._call_soon_handle(
-            new_MethodHandle1(self._loop,
-                              "SSLProtocol._do_read",
-                              <method1_t> self._do_read,
+            new_MethodHandle(self._loop,
+                             "SSLProtocol._do_read",
+                             <method_t> self._do_read,
                               None,  # current context is good
-                              self,
-                              0))
+                             self))
 
     # Shutdown flow
 
@@ -703,13 +701,13 @@ cdef class SSLProtocol:
 
     # Incoming flow
 
-    cdef _do_read(self, bint use_pending_size):
+    cdef _do_read(self):
         if self._state != WRAPPED:
             return
         try:
             if not self._app_reading_paused:
                 if self._app_protocol_is_buffer:
-                    self._do_read__buffered(use_pending_size)
+                    self._do_read__buffered()
                 else:
                     self._do_read__copied()
                 if self._write_backlog:
@@ -720,15 +718,15 @@ cdef class SSLProtocol:
         except Exception as ex:
             self._fatal_error(ex, 'Fatal error on SSL protocol')
 
-    cdef _do_read__buffered(self, bint use_pending_size):
+    cdef _do_read__buffered(self):
         cdef:
-            object buffer_size_hint = \
-                self._incoming.pending if use_pending_size else \
-                max(16*1024, self._incoming.pending)
-            object app_buffer = self._app_protocol_get_buffer(buffer_size_hint)
+            Py_ssize_t total_pending = (<Py_ssize_t>self._incoming.pending
+                                        + <Py_ssize_t>self._sslobj_pending())
+            # Ask for a little extra in case when decrypted data is bigger than
+            # original
+            object app_buffer = self._app_protocol_get_buffer(
+                total_pending + 256)
             Py_ssize_t app_buffer_size = len(app_buffer)
-
-        print(f"entered _do_read__buffered, hint={buffer_size_hint}, bufsz={app_buffer_size}, use_pending_size={use_pending_size}")
 
         if app_buffer_size == 0:
             return
@@ -742,25 +740,31 @@ cdef class SSLProtocol:
         try:
             # SSLObject.read may not return all available data in one go.
             # We have to keep calling read until it throw SSLWantReadError.
-            # However, throwing SSLWantReadError is very expensive.
-            # (checked with python 3.12.5).
+            # However, throwing SSLWantReadError is very expensive even in
+            # the master trunk of cpython.
+            #
 
             # One way to reduce reliance on SSLWantReadError is to check
-            # self._incoming.pending > 0. SSLObject.read may still throw
-            # SSLWantReadError even when self._incoming.pending > 0 but this
-            # should happen relatively rarely when ssl frame is split up by
-            # tcp stack.
+            # self._incoming.pending > 0 or SSLObject.pending() > 0.
+            # SSLObject.read may still throw SSLWantReadError even when
+            # self._incoming.pending > 0 but this should happen relatively
+            # rarely, only when ssl frame is partially received.
 
             # This optimization works really well especially for peers
             # exchanging small messages and wanting to have minimal latency.
 
-            # On a side note: self._incoming.pending means how many data hasn't
-            # been processed by ssl yes (read: "still encrypted"). The final
+            # On a side note:
+
+            # self._incoming.pending means how much data hasn't
+            # been processed by ssl yet (read: "still encrypted"). The final
             # unencrypted data size maybe different.
+
+            # self._sslobj.pending() means how much data has been already
+            # decrypted and can be directly read with SSLObject.read.
 
             # Run test_create_server_ssl_over_ssl to reproduce different cases
             # for this method.
-            while not use_pending_size or <Py_ssize_t>self._incoming.pending > 0:
+            while total_pending > 0:
                 if total_bytes_read > 0:
                     if not pybuf_initialized:
                         PyObject_GetBuffer(app_buffer, &pybuf, PyBUF_WRITABLE)
@@ -771,27 +775,27 @@ cdef class SSLProtocol:
                         app_buffer_size - total_bytes_read,
                         PyBUF_WRITE)
 
-                print(f"call read(app_buffer={len(app_buffer)}), pending={self._incoming.pending}")
-                last_bytes_read = <Py_ssize_t>self._sslobj_read(app_buffer_size, app_buffer)
+                last_bytes_read = <Py_ssize_t>self._sslobj_read(
+                    app_buffer_size, app_buffer)
                 total_bytes_read += last_bytes_read
-                print(f"read(...)={last_bytes_read}, total_read={total_bytes_read}, pending={self._incoming.pending}")
 
                 if last_bytes_read == 0:
                     break
 
                 # User buffer may not fit all available data.
                 if total_bytes_read == app_buffer_size:
-                    print("reschedule _do_read")
                     self._loop._call_soon_handle(
-                        new_MethodHandle1(self._loop,
-                                          "SSLProtocol._do_read",
-                                          <method1_t> self._do_read,
-                                          None,  # current context is good
-                                          self,
-                                          0))
+                        new_MethodHandle(self._loop,
+                                         "SSLProtocol._do_read",
+                                         <method_t> self._do_read,
+                                         None,  # current context is good
+                                         self))
                     break
+
+                total_pending = (<Py_ssize_t>self._incoming.pending +
+                                 <Py_ssize_t>self._sslobj_pending())
         except ssl_SSLAgainErrors as exc:
-            print(f"SSLAgainErrors: pending={self._incoming.pending}, eof={self._incoming.eof}")
+            pass
         finally:
             if pybuf_initialized:
                 PyBuffer_Release(&pybuf)
@@ -813,7 +817,8 @@ cdef class SSLProtocol:
             bint zero = True, one = False
 
         try:
-            while <size_t>self._incoming.pending > 0:
+            while (<size_t>self._incoming.pending > 0 or
+                   self._sslobj.pending() > 0):
                 chunk = self._sslobj_read(SSL_READ_MAX_SIZE)
                 if not chunk:
                     break
@@ -921,12 +926,11 @@ cdef class SSLProtocol:
             self._app_reading_paused = False
             if self._state == WRAPPED:
                 self._loop._call_soon_handle(
-                    new_MethodHandle1(self._loop,
-                                      "SSLProtocol._do_read",
-                                      <method1_t>self._do_read,
-                                      context,
-                                      self,
-                                      0))
+                    new_MethodHandle(self._loop,
+                                     "SSLProtocol._do_read",
+                                     <method_t>self._do_read,
+                                     context,
+                                     self))
 
     # Flow control for reads from SSL socket
 

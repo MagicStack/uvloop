@@ -53,6 +53,7 @@ cdef class SSLProtocol:
         object _sslobj
         object _sslobj_read
         object _sslobj_write
+        object _sslobj_pending
         object _incoming
         object _incoming_write
         object _outgoing
@@ -114,8 +115,8 @@ cdef class SSLProtocol:
 
     # Incoming flow
 
-    cdef _do_read(self, bint use_pending_size)
-    cdef _do_read__buffered(self, bint use_pending_size)
+    cdef _do_read(self)
+    cdef _do_read__buffered(self)
     cdef _do_read__copied(self)
     cdef _call_eof_received(self, object context=*)
 
