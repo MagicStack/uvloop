@@ -3,7 +3,11 @@ import typing as _typing
 import sys as _sys
 import warnings as _warnings
 
-from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
+try:
+    from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
+except ImportError:
+    # https://github.com/python/cpython/issues/131148
+    from asyncio.events import _BaseDefaultEventLoopPolicy as __BasePolicy
 
 from . import includes as __includes  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
