@@ -2283,7 +2283,7 @@ cdef class Loop:
 
             waiter = self._new_future()
             tr = UnixTransport.new(self, protocol, None, waiter, context)
-            tr.connect(path)
+            tr.connect(path, len(path))
             try:
                 await waiter
             except (KeyboardInterrupt, SystemExit):

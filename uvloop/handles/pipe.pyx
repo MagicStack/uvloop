@@ -121,10 +121,10 @@ cdef class UnixTransport(UVStream):
     cdef _open(self, int sockfd):
         __pipe_open(<UVStream>self, sockfd)
 
-    cdef connect(self, char* addr):
+    cdef connect(self, const char* name, size_t namelen):
         cdef _PipeConnectRequest req
         req = _PipeConnectRequest(self._loop, self)
-        req.connect(addr)
+        req.connect(name, namelen)
 
 
 @cython.no_gc_clear
@@ -216,11 +216,12 @@ cdef class _PipeConnectRequest(UVRequest):
         self.request.data = <void*>self
         self.transport = transport
 
-    cdef connect(self, char* addr):
-        # uv_pipe_connect returns void
-        uv.uv_pipe_connect(<uv.uv_connect_t*>self.request,
+    cdef connect(self, const char* name, size_t namelen):
+        uv.uv_pipe_connect2(<uv.uv_connect_t*>self.request,
                            <uv.uv_pipe_t*>self.transport._handle,
-                           addr,
+                           name,
+                           namelen,
+                           0,
                            __pipe_connect_callback)
 
 cdef void __pipe_connect_callback(

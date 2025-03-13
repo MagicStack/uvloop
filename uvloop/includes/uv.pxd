@@ -381,8 +381,9 @@ cdef extern from "uv.h" nogil:
     int uv_pipe_open(uv_pipe_t* handle, uv_os_fd_t file)
     int uv_pipe_bind(uv_pipe_t* handle, const char* name)
 
-    void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
-                         const char* name, uv_connect_cb cb)
+    void uv_pipe_connect2(uv_connect_t* req, uv_pipe_t* handle,
+                         const char* name, size_t namelen,
+                         unsigned int flags, uv_connect_cb cb)
 
     # UDP
 

@@ -16,7 +16,7 @@ cdef class UnixTransport(UVStream):
     cdef UnixTransport new(Loop loop, object protocol, Server server,
                            object waiter, object context)
 
-    cdef connect(self, char* addr)
+    cdef connect(self, const char* name, size_t namelen)
 
 
 cdef class ReadUnixTransport(UVStream):
