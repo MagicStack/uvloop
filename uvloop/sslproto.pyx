@@ -402,12 +402,17 @@ cdef class SSLProtocol:
             if self._state == DO_HANDSHAKE:
                 self._on_handshake_complete(ConnectionResetError)
 
-            elif self._state == WRAPPED or self._state == FLUSHING:
-                # We treat a low-level EOF as a critical situation similar to a
-                # broken connection - just send whatever is in the buffer and
-                # close. No application level eof_received() is called -
-                # because we don't want the user to think that this is a
-                # graceful shutdown triggered by SSL "close_notify".
+            elif self._state == WRAPPED:
+                self._set_state(FLUSHING)
+                if self._app_reading_paused:
+                    return True
+                else:
+                    self._do_read_flush()
+
+            elif self._state == FLUSHING:
+                self._do_write()
+                self._process_outgoing()
+                self._control_app_writing()
                 self._set_state(SHUTDOWN)
                 self._on_shutdown_complete(None)
 
@@ -441,9 +446,6 @@ cdef class SSLProtocol:
             allowed = True
 
         elif self._state == WRAPPED and new_state == FLUSHING:
-            allowed = True
-
-        elif self._state == WRAPPED and new_state == SHUTDOWN:
             allowed = True
 
         elif self._state == FLUSHING and new_state == SHUTDOWN:
@@ -597,6 +599,11 @@ cdef class SSLProtocol:
         if close_notify:
             self._call_eof_received(context)
 
+    cdef _do_read_flush(self):
+        self._do_read()
+        self._set_state(SHUTDOWN)
+        self._on_shutdown_complete(None)
+
     cdef _do_flush(self, object context=None):
         """Flush the write backlog, discarding new data received.
 
@@ -701,7 +708,7 @@ cdef class SSLProtocol:
     # Incoming flow
 
     cdef _do_read(self):
-        if self._state != WRAPPED:
+        if self._state != WRAPPED and self._state != FLUSHING:
             return
         try:
             if not self._app_reading_paused:
@@ -883,6 +890,13 @@ cdef class SSLProtocol:
                     new_MethodHandle(self._loop,
                                      "SSLProtocol._do_read",
                                      <method_t>self._do_read,
+                                     context,
+                                     self))
+            elif self._state == FLUSHING:
+                self._loop._call_soon_handle(
+                    new_MethodHandle(self._loop,
+                                     "SSLProtocol._do_read_flush",
+                                     <method_t> self._do_read_flush,
                                      context,
                                      self))
 

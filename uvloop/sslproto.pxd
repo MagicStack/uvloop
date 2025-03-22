@@ -101,6 +101,7 @@ cdef class SSLProtocol:
     cdef _start_shutdown(self, object context=*)
     cdef _check_shutdown_timeout(self)
     cdef _do_read_into_void(self, object context)
+    cdef _do_read_flush(self)
     cdef _do_flush(self, object context=*)
     cdef _do_shutdown(self, object context=*)
     cdef _on_shutdown_complete(self, shutdown_exc)
