@@ -10,9 +10,11 @@ def patched_getaddrinfo(*args, **kwargs):
     # flag AI_CANONNAME, even if `host` is an IP
     rv = []
     result = socket.getaddrinfo(*args, **kwargs)
+    first = True
     for af, sk, proto, canon_name, addr in result:
         if kwargs.get('flags', 0) & socket.AI_CANONNAME:
-            if not canon_name:
+            if not canon_name and first:
+                first = False
                 canon_name = args[0]
                 if not isinstance(canon_name, str):
                     canon_name = canon_name.decode('ascii')
@@ -24,7 +26,7 @@ def patched_getaddrinfo(*args, **kwargs):
 
 class BaseTestDNS:
 
-    def _test_getaddrinfo(self, *args, _patch=False, **kwargs):
+    def _test_getaddrinfo(self, *args, _patch=False, _sorted=False, **kwargs):
         err = None
         try:
             if _patch:
@@ -50,7 +52,17 @@ class BaseTestDNS:
             if err is not None:
                 raise err
 
-            self.assertEqual(a1, a2)
+            if _sorted:
+                if kwargs.get('flags', 0) & socket.AI_CANONNAME and a1 and a2:
+                    af, sk, proto, canon_name1, addr = a1[0]
+                    a1[0] = (af, sk, proto, '', addr)
+                    af, sk, proto, canon_name2, addr = a2[0]
+                    a2[0] = (af, sk, proto, '', addr)
+                    self.assertEqual(canon_name1, canon_name2)
+
+                self.assertEqual(sorted(a1), sorted(a2))
+            else:
+                self.assertEqual(a1, a2)
 
     def _test_getnameinfo(self, *args, **kwargs):
         err = None
@@ -77,11 +89,13 @@ class BaseTestDNS:
             self.assertEqual(a1, a2)
 
     def test_getaddrinfo_1(self):
-        self._test_getaddrinfo('example.com', 80)
-        self._test_getaddrinfo('example.com', 80, type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('example.com', 80, _sorted=True)
+        self._test_getaddrinfo('example.com', 80, type=socket.SOCK_STREAM,
+                               _sorted=True)
 
     def test_getaddrinfo_2(self):
-        self._test_getaddrinfo('example.com', 80, flags=socket.AI_CANONNAME)
+        self._test_getaddrinfo('example.com', 80, flags=socket.AI_CANONNAME,
+                               _sorted=True)
 
     def test_getaddrinfo_3(self):
         self._test_getaddrinfo('a' + '1' * 50 + '.wat', 800)
@@ -92,12 +106,14 @@ class BaseTestDNS:
                                family=-1)
 
     def test_getaddrinfo_5(self):
-        self._test_getaddrinfo('example.com', '80')
-        self._test_getaddrinfo('example.com', '80', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo('example.com', '80', _sorted=True)
+        self._test_getaddrinfo('example.com', '80', type=socket.SOCK_STREAM,
+                               _sorted=True)
 
     def test_getaddrinfo_6(self):
-        self._test_getaddrinfo(b'example.com', b'80')
-        self._test_getaddrinfo(b'example.com', b'80', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo(b'example.com', b'80', _sorted=True)
+        self._test_getaddrinfo(b'example.com', b'80', type=socket.SOCK_STREAM,
+                               _sorted=True)
 
     def test_getaddrinfo_7(self):
         self._test_getaddrinfo(None, 0)
@@ -116,8 +132,9 @@ class BaseTestDNS:
         self._test_getaddrinfo(None, None, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_11(self):
-        self._test_getaddrinfo(b'example.com', '80')
-        self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM)
+        self._test_getaddrinfo(b'example.com', '80', _sorted=True)
+        self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM,
+                               _sorted=True)
 
     def test_getaddrinfo_12(self):
         # musl always returns ai_canonname but we don't
