@@ -576,9 +576,14 @@ class _TestBase:
         async def coro():
             pass
 
-        factory = lambda loop, coro, **kwargs: MyTask(
-            coro, loop=loop, **kwargs
-        )
+        def factory(loop, coro, **kwargs):
+            task = MyTask(coro, loop=loop, **kwargs)
+            # Python moved the responsibility to set the name to the Task
+            # class constructor, so MyTask.set_name is never called by
+            # Python's create_task.  Compensate for that here.
+            if self.is_asyncio_loop() and "name" in kwargs:
+                task.set_name(kwargs["name"])
+            return task
 
         self.assertIsNone(self.loop.get_task_factory())
         task = self.loop.create_task(coro(), name="mytask")
