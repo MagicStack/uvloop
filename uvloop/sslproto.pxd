@@ -59,7 +59,6 @@ cdef class SSLProtocol:
         object _outgoing_read
         char* _ssl_buffer
         size_t _ssl_buffer_len
-        object _ssl_buffer_view
         SSLProtocolState _state
         size_t _conn_lost
         AppProtocolState _app_state
@@ -84,55 +83,61 @@ cdef class SSLProtocol:
         object _handshake_timeout_handle
         object _shutdown_timeout_handle
 
-    cdef _set_app_protocol(self, app_protocol)
-    cdef _wakeup_waiter(self, exc=*)
-    cdef _get_extra_info(self, name, default=*)
-    cdef _set_state(self, SSLProtocolState new_state)
+    # Instead of doing python calls, c methods *_impl are called directly
+    # from stream.pyx
+
+    cdef inline get_buffer_impl(self, size_t n, char** buf, size_t* buf_size)
+    cdef inline buffer_updated_impl(self, size_t nbytes)
+
+    cdef inline _set_app_protocol(self, app_protocol)
+    cdef inline _wakeup_waiter(self, exc=*)
+    cdef inline _get_extra_info(self, name, default=*)
+    cdef inline _set_state(self, SSLProtocolState new_state)
 
     # Handshake flow
 
-    cdef _start_handshake(self)
-    cdef _check_handshake_timeout(self)
-    cdef _do_handshake(self)
-    cdef _on_handshake_complete(self, handshake_exc)
+    cdef inline _start_handshake(self)
+    cdef inline _check_handshake_timeout(self)
+    cdef inline _do_handshake(self)
+    cdef inline _on_handshake_complete(self, handshake_exc)
 
     # Shutdown flow
 
-    cdef _start_shutdown(self, object context=*)
-    cdef _check_shutdown_timeout(self)
-    cdef _do_read_into_void(self, object context)
-    cdef _do_flush(self, object context=*)
-    cdef _do_shutdown(self, object context=*)
-    cdef _on_shutdown_complete(self, shutdown_exc)
-    cdef _abort(self, exc)
+    cdef inline _start_shutdown(self, object context=*)
+    cdef inline _check_shutdown_timeout(self)
+    cdef inline _do_read_into_void(self, object context)
+    cdef inline _do_flush(self, object context=*)
+    cdef inline _do_shutdown(self, object context=*)
+    cdef inline _on_shutdown_complete(self, shutdown_exc)
+    cdef inline _abort(self, exc)
 
     # Outgoing flow
 
-    cdef _write_appdata(self, list_of_data, object context)
-    cdef _do_write(self)
-    cdef _process_outgoing(self)
+    cdef inline _write_appdata(self, list_of_data, object context)
+    cdef inline _do_write(self)
+    cdef inline _process_outgoing(self)
 
     # Incoming flow
 
-    cdef _do_read(self)
-    cdef _do_read__buffered(self)
-    cdef _do_read__copied(self)
-    cdef _call_eof_received(self, object context=*)
+    cdef inline _do_read(self)
+    cdef inline _do_read__buffered(self)
+    cdef inline _do_read__copied(self)
+    cdef inline _call_eof_received(self, object context=*)
 
     # Flow control for writes from APP socket
 
-    cdef _control_app_writing(self, object context=*)
-    cdef size_t _get_write_buffer_size(self)
-    cdef _set_write_buffer_limits(self, high=*, low=*)
+    cdef inline _control_app_writing(self, object context=*)
+    cdef inline size_t _get_write_buffer_size(self)
+    cdef inline _set_write_buffer_limits(self, high=*, low=*)
 
     # Flow control for reads to APP socket
 
-    cdef _pause_reading(self)
-    cdef _resume_reading(self, object context)
+    cdef inline _pause_reading(self)
+    cdef inline _resume_reading(self, object context)
 
     # Flow control for reads from SSL socket
 
-    cdef _control_ssl_reading(self)
-    cdef _set_read_buffer_limits(self, high=*, low=*)
-    cdef size_t _get_read_buffer_size(self)
-    cdef _fatal_error(self, exc, message=*)
+    cdef inline _control_ssl_reading(self)
+    cdef inline _set_read_buffer_limits(self, high=*, low=*)
+    cdef inline size_t _get_read_buffer_size(self)
+    cdef inline _fatal_error(self, exc, message=*)
