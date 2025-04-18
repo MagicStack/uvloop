@@ -21,7 +21,10 @@ The project documentation can be found
 Performance
 -----------
 
-uvloop makes asyncio 2-4x faster.
+**These benchmarks were run in old version of Python (3.5). Differences are not as great with
+newer Python versions.**
+
+uvloop makes asyncio 2-4x faster in old Python versions when asyncio was not yet mature.
 
 .. image:: https://raw.githubusercontent.com/MagicStack/uvloop/master/performance.png
     :target: http://magic.io/blog/uvloop-blazing-fast-python-networking/
