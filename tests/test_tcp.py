@@ -1,5 +1,6 @@
 import asyncio
 import asyncio.sslproto
+import contextlib
 import gc
 import os
 import select
@@ -3191,6 +3192,57 @@ class _TestSSL(tb.SSLTestCase):
             await server.wait_closed()
 
         self.loop.run_until_complete(run_main())
+
+    def test_connection_lost_when_busy(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest('bug in asyncio #118950 tests in CPython.')
+
+        ssl_context = self._create_server_ssl_context(
+            self.ONLYCERT, self.ONLYKEY)
+        client_ssl_context = self._create_client_ssl_context()
+        port = tb.find_free_port()
+
+        @contextlib.asynccontextmanager
+        async def server():
+            async def client_handler(reader, writer):
+                ...
+
+            srv = await asyncio.start_server(
+                client_handler, '0.0.0.0',
+                port, ssl=ssl_context, reuse_port=True)
+
+            try:
+                yield
+            finally:
+                srv.close()
+
+        async def client():
+            reader, writer = await asyncio.open_connection(
+                '0.0.0.0', port, ssl=client_ssl_context)
+            transport = writer.transport
+            s = transport.get_extra_info('socket')
+
+            if self.implementation == 'asyncio':
+                s._sock.close()
+            else:
+                os.close(s.fileno())
+
+            # FLOW_CONTROL_HIGH_WATER * 1024
+            bytes_to_send = 64 * 1024
+            iterations = 10
+            msg = b'An really important message :)'
+
+            # Busy drain loop
+            for _ in range(iterations + 1):
+                writer.write(msg * ((bytes_to_send // len(msg)) // iterations))
+                await writer.drain()
+
+        async def test():
+            async with server():
+                await client()
+
+        self.assertRaises(
+            ConnectionResetError, self.loop.run_until_complete, test())
 
 
 class Test_UV_TCPSSL(_TestSSL, tb.UVTestCase):

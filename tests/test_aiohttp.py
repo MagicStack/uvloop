@@ -7,6 +7,7 @@ else:
     skip_tests = False
 
 import asyncio
+import os
 import sys
 import unittest
 import weakref
@@ -14,7 +15,7 @@ import weakref
 from uvloop import _testbase as tb
 
 
-class _TestAioHTTP:
+class _TestAioHTTP(tb.SSLTestCase):
 
     def test_aiohttp_basic_1(self):
 
@@ -114,6 +115,64 @@ class _TestAioHTTP:
                     pass
 
         self.loop.run_until_complete(stop())
+
+    def test_aiohttp_connection_lost_when_busy(self):
+        if self.implementation == 'asyncio':
+            raise unittest.SkipTest('bug in asyncio #118950 tests in CPython.')
+
+        cert = tb._cert_fullname(__file__, 'ssl_cert.pem')
+        key = tb._cert_fullname(__file__, 'ssl_key.pem')
+        ssl_context = self._create_server_ssl_context(cert, key)
+        client_ssl_context = self._create_client_ssl_context()
+
+        asyncio.set_event_loop(self.loop)
+        app = aiohttp.web.Application()
+
+        async def handler(request):
+            ws = aiohttp.web.WebSocketResponse()
+            await ws.prepare(request)
+            async for msg in ws:
+                print("Received:", msg.data)
+            return ws
+
+        app.router.add_get('/', handler)
+
+        runner = aiohttp.web.AppRunner(app)
+        self.loop.run_until_complete(runner.setup())
+        host = '0.0.0.0'
+        site = aiohttp.web.TCPSite(runner, host, '0', ssl_context=ssl_context)
+        self.loop.run_until_complete(site.start())
+        port = site._server.sockets[0].getsockname()[1]
+        session = aiohttp.ClientSession(loop=self.loop)
+
+        async def test():
+            async with session.ws_connect(
+                f"wss://{host}:{port}/",
+                ssl=client_ssl_context
+            ) as ws:
+                transport = ws._writer.transport
+                s = transport.get_extra_info('socket')
+
+                if self.implementation == 'asyncio':
+                    s._sock.close()
+                else:
+                    os.close(s.fileno())
+
+                # FLOW_CONTROL_HIGH_WATER * 1024
+                bytes_to_send = 64 * 1024
+                iterations = 10
+                msg = b'Hello world, still there?'
+
+                # Send enough messages to trigger a socket write + one extra
+                for _ in range(iterations + 1):
+                    await ws.send_bytes(
+                        msg * ((bytes_to_send // len(msg)) // iterations))
+
+        self.assertRaises(
+            ConnectionResetError, self.loop.run_until_complete, test())
+
+        self.loop.run_until_complete(session.close())
+        self.loop.run_until_complete(runner.cleanup())
 
 
 @unittest.skipIf(skip_tests, "no aiohttp module")
