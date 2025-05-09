@@ -57,8 +57,6 @@ jobs:
 
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
-      env:
-        PIP_PRE: ${{ matrix.python-version == '3.13' && '1' || '0' }}
       run: |
         pip install -e .[test,dev]
 
