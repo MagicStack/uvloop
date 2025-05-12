@@ -1,4 +1,5 @@
-DEF __PREALLOCED_BUFS = 4
+cdef enum:
+    __PREALLOCED_BUFS = 4
 
 
 @cython.no_gc_clear

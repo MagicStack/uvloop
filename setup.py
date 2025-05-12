@@ -21,7 +21,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython(>=0.29.36,<0.30.0)'
+CYTHON_DEPENDENCY = 'Cython~=3.0'
 MACHINE = platform.machine()
 MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
@@ -140,11 +140,14 @@ class uvloop_build_ext(build_ext):
                         v = True
 
                     directives[k] = v
+                self.cython_directives = directives
 
             self.distribution.ext_modules[:] = cythonize(
                 self.distribution.ext_modules,
                 compiler_directives=directives,
-                annotate=self.cython_annotate)
+                annotate=self.cython_annotate,
+                compile_time_env=dict(DEFAULT_FREELIST_SIZE=250),
+                emit_linenums=self.debug)
 
         super().finalize_options()
 
@@ -176,7 +179,11 @@ class uvloop_build_ext(build_ext):
             cmd,
             cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
-        j_flag = '-j{}'.format(os.cpu_count() or 1)
+        try:
+            njobs = len(os.sched_getaffinity(0))
+        except AttributeError:
+            njobs = os.cpu_count()
+        j_flag = '-j{}'.format(njobs or 1)
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
         subprocess.run(
             ['make', j_flag, c_flag],
