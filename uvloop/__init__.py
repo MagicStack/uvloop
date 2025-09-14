@@ -8,7 +8,7 @@ from .loop import Loop as __BaseLoop  # NOQA
 from ._version import __version__  # NOQA
 
 
-__all__: _typing.Tuple[str, ...] = ('new_event_loop',)
+__all__: _typing.Tuple[str, ...] = ('new_event_loop', 'run')
 _AbstractEventLoop = __asyncio.AbstractEventLoop
 
 
