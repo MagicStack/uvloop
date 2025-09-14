@@ -8,7 +8,7 @@ from .loop import Loop as __BaseLoop  # NOQA
 from ._version import __version__  # NOQA
 
 
-__all__: tuple[str, ...] = ('new_event_loop',)
+__all__: _typing.Tuple[str, ...] = ('new_event_loop',)
 _AbstractEventLoop = __asyncio.AbstractEventLoop
 
 
@@ -147,7 +147,7 @@ if _sys.version_info[:2] < (3, 16):
         __asyncio.set_event_loop_policy(EventLoopPolicy())
 
     class EventLoopPolicy(
-        __asyncio.AbstractEventLoopPolicy  # type: ignore[name-defined,misc]
+        __asyncio.AbstractEventLoopPolicy  # type: ignore
     ):
         """Event loop policy for uvloop.
 
@@ -178,12 +178,12 @@ if _sys.version_info[:2] < (3, 16):
                 ...
 
         class _Local(_threading.local):
-            _loop: _typing.Optional[Loop] = None
+            _loop: _typing.Optional[_AbstractEventLoop] = None
 
         def __init__(self) -> None:
             self._local = self._Local()
 
-        def get_event_loop(self) -> Loop:
+        def get_event_loop(self) -> _AbstractEventLoop:
             """Get the event loop for the current context.
 
             Returns an instance of EventLoop or raises an exception.
@@ -196,7 +196,7 @@ if _sys.version_info[:2] < (3, 16):
 
             return self._local._loop
 
-        def set_event_loop(self, loop: Loop) -> None:
+        def set_event_loop(self, loop: _AbstractEventLoop) -> None:
             """Set the event loop."""
             if loop is not None and not isinstance(loop, _AbstractEventLoop):
                 raise TypeError(
