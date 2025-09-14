@@ -3,12 +3,6 @@ import typing as _typing
 import sys as _sys
 import warnings as _warnings
 
-try:
-    from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
-except ImportError:
-    # Python 3.14
-    from asyncio import DefaultEventLoopPolicy as __BasePolicy
-
 from . import includes as __includes  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
 from ._version import __version__  # NOQA
@@ -143,7 +137,7 @@ def _cancel_all_tasks(loop: __asyncio.AbstractEventLoop) -> None:
             })
 
 
-class EventLoopPolicy(__BasePolicy):
+class EventLoopPolicy(__asyncio.AbstractEventLoopPolicy):
     """Event loop policy.
 
     The preferred way to make your application use uvloop:
