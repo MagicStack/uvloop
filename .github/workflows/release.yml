@@ -83,6 +83,7 @@ jobs:
         - "cp311-*"
         - "cp312-*"
         - "cp313-*"
+        - "cp314-*"
         cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
           - os: ubuntu-latest
