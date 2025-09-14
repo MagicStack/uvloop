@@ -127,88 +127,102 @@ def _cancel_all_tasks(loop: _AbstractEventLoop) -> None:
 
 
 if _sys.version_info[:2] < (3, 16):
-    import threading as _threading
-
     __all__ += ('install', 'EventLoopPolicy')
 
-    def install() -> None:
-        """A helper function to install uvloop policy.
+    def __getattr__(name: str) -> _typing.Any:
+        if name not in __all__:
+            raise AttributeError(f"module 'uvloop' has no attribute '{name}'")
 
-        This function is deprecated and will be removed in Python 3.16.
-        Use `uvloop.run()` instead.
-        """
-        if _sys.version_info[:2] >= (3, 12):
-            _warnings.warn(
-                'uvloop.install() is deprecated in favor of uvloop.run() '
-                'starting with Python 3.12.',
-                DeprecationWarning,
-                stacklevel=1,
-            )
-        __asyncio.set_event_loop_policy(EventLoopPolicy())
+        import threading
 
-    class EventLoopPolicy(
-        __asyncio.AbstractEventLoopPolicy  # type: ignore
-    ):
-        """Event loop policy for uvloop.
+        def install() -> None:
+            """A helper function to install uvloop policy.
 
-        This class is deprecated and will be removed in Python 3.16.
-        Use `uvloop.run()` instead.
-
-        >>> import asyncio
-        >>> import uvloop
-        >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        >>> asyncio.get_event_loop()
-        <uvloop.Loop running=False closed=False debug=False>
-        """
-
-        def _loop_factory(self) -> Loop:
-            return new_event_loop()
-
-        if _typing.TYPE_CHECKING:
-            # EventLoopPolicy doesn't implement these, but since they are
-            # marked as abstract in typeshed, we have to put them in so mypy
-            # thinks the base methods are overridden. This is the same approach
-            # taken for the Windows event loop policy classes in typeshed.
-            def get_child_watcher(self) -> _typing.NoReturn:
-                ...
-
-            def set_child_watcher(
-                self, watcher: _typing.Any
-            ) -> _typing.NoReturn:
-                ...
-
-        class _Local(_threading.local):
-            _loop: _typing.Optional[_AbstractEventLoop] = None
-
-        def __init__(self) -> None:
-            self._local = self._Local()
-
-        def get_event_loop(self) -> _AbstractEventLoop:
-            """Get the event loop for the current context.
-
-            Returns an instance of EventLoop or raises an exception.
+            This function is deprecated and will be removed in Python 3.16.
+            Use `uvloop.run()` instead.
             """
-            if self._local._loop is None:
-                raise RuntimeError(
-                    'There is no current event loop in thread %r.'
-                    % _threading.current_thread().name
+            if _sys.version_info[:2] >= (3, 12):
+                _warnings.warn(
+                    'uvloop.install() is deprecated in favor of uvloop.run() '
+                    'starting with Python 3.12.',
+                    DeprecationWarning,
+                    stacklevel=1,
                 )
+            __asyncio.set_event_loop_policy(EventLoopPolicy())
 
-            return self._local._loop
+        class EventLoopPolicy(
+            # This is to avoid a mypy error about AbstractEventLoopPolicy
+            getattr(__asyncio, 'AbstractEventLoopPolicy')  # type: ignore[misc]
+        ):
+            """Event loop policy for uvloop.
 
-        def set_event_loop(self, loop: _AbstractEventLoop) -> None:
-            """Set the event loop."""
-            if loop is not None and not isinstance(loop, _AbstractEventLoop):
-                raise TypeError(
-                    f"loop must be an instance of AbstractEventLoop or None, "
-                    f"not '{type(loop).__name__}'"
-                )
-            self._local._loop = loop
+            This class is deprecated and will be removed in Python 3.16.
+            Use `uvloop.run()` instead.
 
-        def new_event_loop(self) -> Loop:
-            """Create a new event loop.
-
-            You must call set_event_loop() to make this the current event
-            loop.
+            >>> import asyncio
+            >>> import uvloop
+            >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            >>> asyncio.get_event_loop()
+            <uvloop.Loop running=False closed=False debug=False>
             """
-            return self._loop_factory()
+
+            def _loop_factory(self) -> Loop:
+                return new_event_loop()
+
+            if _typing.TYPE_CHECKING:
+                # EventLoopPolicy doesn't implement these, but since they are
+                # marked as abstract in typeshed, we have to put them in so
+                # mypy thinks the base methods are overridden. This is the same
+                # approach taken for the Windows event loop policy classes in
+                # typeshed.
+                def get_child_watcher(self) -> _typing.NoReturn:
+                    ...
+
+                def set_child_watcher(
+                    self, watcher: _typing.Any
+                ) -> _typing.NoReturn:
+                    ...
+
+            class _Local(threading.local):
+                _loop: _typing.Optional[_AbstractEventLoop] = None
+
+            def __init__(self) -> None:
+                self._local = self._Local()
+
+            def get_event_loop(self) -> _AbstractEventLoop:
+                """Get the event loop for the current context.
+
+                Returns an instance of EventLoop or raises an exception.
+                """
+                if self._local._loop is None:
+                    raise RuntimeError(
+                        'There is no current event loop in thread %r.'
+                        % threading.current_thread().name
+                    )
+
+                return self._local._loop
+
+            def set_event_loop(
+                self, loop: _typing.Optional[_AbstractEventLoop]
+            ) -> None:
+                """Set the event loop."""
+                if loop is not None and not isinstance(
+                    loop, _AbstractEventLoop
+                ):
+                    raise TypeError(
+                        f"loop must be an instance of AbstractEventLoop or "
+                        f"None, not '{type(loop).__name__}'"
+                    )
+                self._local._loop = loop
+
+            def new_event_loop(self) -> Loop:
+                """Create a new event loop.
+
+                You must call set_event_loop() to make this the current event
+                loop.
+                """
+                return self._loop_factory()
+
+        globals()['install'] = install
+        globals()['EventLoopPolicy'] = EventLoopPolicy
+        return globals()[name]
