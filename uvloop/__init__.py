@@ -9,12 +9,13 @@ from ._version import __version__  # NOQA
 
 
 __all__: tuple[str, ...] = ('new_event_loop',)
+_AbstractEventLoop = __asyncio.AbstractEventLoop
 
 
 _T = _typing.TypeVar("_T")
 
 
-class Loop(__BaseLoop, __asyncio.AbstractEventLoop):  # type: ignore[misc]
+class Loop(__BaseLoop, _AbstractEventLoop):  # type: ignore[misc]
     pass
 
 
@@ -100,7 +101,7 @@ else:
             )
 
 
-def _cancel_all_tasks(loop: __asyncio.AbstractEventLoop) -> None:
+def _cancel_all_tasks(loop: _AbstractEventLoop) -> None:
     # Copied from python/cpython
 
     to_cancel = __asyncio.all_tasks(loop)
@@ -197,9 +198,7 @@ if _sys.version_info[:2] < (3, 16):
 
         def set_event_loop(self, loop: Loop) -> None:
             """Set the event loop."""
-            if loop is not None and not isinstance(
-                loop, __asyncio.AbstractEventLoop
-            ):
+            if loop is not None and not isinstance(loop, _AbstractEventLoop):
                 raise TypeError(
                     f"loop must be an instance of AbstractEventLoop or None, "
                     f"not '{type(loop).__name__}'"
