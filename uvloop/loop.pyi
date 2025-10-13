@@ -6,19 +6,16 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
     Generator,
-    List,
     Optional,
     Sequence,
-    Tuple,
     TypeVar,
     Union,
     overload,
 )
 
 _T = TypeVar('_T')
-_Context = Dict[str, Any]
+_Context = dict[str, Any]
 _ExceptionHandler = Callable[[asyncio.AbstractEventLoop, _Context], Any]
 _SSLContext = Union[bool, None, ssl.SSLContext]
 _ProtocolT = TypeVar("_ProtocolT", bound=asyncio.BaseProtocol)
@@ -75,24 +72,24 @@ class Loop:
         type: int = ...,
         proto: int = ...,
         flags: int = ...,
-    ) -> List[
-        Tuple[
+    ) -> list[
+        tuple[
             AddressFamily,
             SocketKind,
             int,
             str,
-            Union[Tuple[str, int], Tuple[str, int, int, int]],
+            Union[tuple[str, int], tuple[str, int, int, int]],
         ]
     ]: ...
     async def getnameinfo(
         self,
         sockaddr: Union[
-            Tuple[str, int],
-            Tuple[str, int, int],
-            Tuple[str, int, int, int]
+            tuple[str, int],
+            tuple[str, int, int],
+            tuple[str, int, int, int]
         ],
         flags: int = ...,
-    ) -> Tuple[str, str]: ...
+    ) -> tuple[str, str]: ...
     async def start_tls(
         self,
         transport: asyncio.BaseTransport,
@@ -152,7 +149,7 @@ class Loop:
         proto: int = ...,
         flags: int = ...,
         sock: None = ...,
-        local_addr: Optional[Tuple[str, int]] = ...,
+        local_addr: Optional[tuple[str, int]] = ...,
         server_hostname: Optional[str] = ...,
         ssl_handshake_timeout: Optional[float] = ...,
         ssl_shutdown_timeout: Optional[float] = ...,
@@ -208,7 +205,7 @@ class Loop:
     async def sock_recv(self, sock: socket, nbytes: int) -> bytes: ...
     async def sock_recv_into(self, sock: socket, buf: bytearray) -> int: ...
     async def sock_sendall(self, sock: socket, data: bytes) -> None: ...
-    async def sock_accept(self, sock: socket) -> Tuple[socket, _RetAddress]: ...
+    async def sock_accept(self, sock: socket) -> tuple[socket, _RetAddress]: ...
     async def sock_connect(self, sock: socket, address: _Address) -> None: ...
     async def sock_recvfrom(self, sock: socket, bufsize: int) -> bytes: ...
     async def sock_recvfrom_into(self, sock: socket, buf: bytearray, nbytes: int = ...) -> int: ...
@@ -258,8 +255,8 @@ class Loop:
     async def create_datagram_endpoint(
         self,
         protocol_factory: Callable[[], _ProtocolT],
-        local_addr: Optional[Tuple[str, int]] = ...,
-        remote_addr: Optional[Tuple[str, int]] = ...,
+        local_addr: Optional[tuple[str, int]] = ...,
+        remote_addr: Optional[tuple[str, int]] = ...,
         *,
         family: int = ...,
         proto: int = ...,
