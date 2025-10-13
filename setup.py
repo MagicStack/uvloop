@@ -118,12 +118,16 @@ class uvloop_build_ext(build_ext):
                 import Cython
             except ImportError:
                 raise RuntimeError(
-                    f'please install {CYTHON_DEPENDENCY} to compile uvloop from source')
+                    f'please install {CYTHON_DEPENDENCY} to compile uvloop '
+                    'from source'
+                )
 
             cython_dep = pkg_resources.Requirement.parse(CYTHON_DEPENDENCY)
             if Cython.__version__ not in cython_dep:
                 raise RuntimeError(
-                    f'uvloop requires {CYTHON_DEPENDENCY}, got Cython=={Cython.__version__}')
+                    f'uvloop requires {CYTHON_DEPENDENCY}, '
+                    f'got Cython=={Cython.__version__}'
+                )
 
             from Cython.Build import cythonize
 

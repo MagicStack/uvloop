@@ -52,8 +52,8 @@ class BaseTestCaseMeta(type):
             for base in bases:
                 if hasattr(base, test_name):
                     raise RuntimeError(
-                        f'duplicate test {name}.{test_name} (also defined in {base.__name__} '
-                        'parent class)')
+                        f'duplicate test {name}.{test_name} (also defined in '
+                        f'{base.__name__} parent class)')
 
         return super().__new__(mcls, name, bases, dict(dct))
 
