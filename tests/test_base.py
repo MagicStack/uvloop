@@ -215,9 +215,9 @@ class _TestBase:
 
         for i in range(8):
             self.loop.call_later(0.06 + 0.01, cb)  # 0.06999999999999999
-            started = int(round(self.loop.time() * 1000))
+            started = round(self.loop.time() * 1000)
             self.loop.run_forever()
-            finished = int(round(self.loop.time() * 1000))
+            finished = round(self.loop.time() * 1000)
             self.assertGreaterEqual(finished - started, 69)
 
     def test_call_at(self):
