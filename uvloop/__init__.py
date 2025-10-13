@@ -161,7 +161,9 @@ def __getattr__(name: str) -> _typing.Any:
 
     class EventLoopPolicy(
         # This is to avoid a mypy error about AbstractEventLoopPolicy
-        getattr(__asyncio, 'AbstractEventLoopPolicy')  # type: ignore[misc]
+        getattr(  # type: ignore[misc]
+            __asyncio, 'AbstractEventLoopPolicy'
+        )  # noqa: B009
     ):
         """Event loop policy for uvloop.
 
