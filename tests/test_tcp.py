@@ -45,7 +45,7 @@ class MyBaseProto(asyncio.Protocol):
         self.state = 'EOF'
 
     def connection_lost(self, exc):
-        assert self.state in ('CONNECTED', 'EOF'), self.state
+        assert self.state in {'CONNECTED', 'EOF'}, self.state
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
