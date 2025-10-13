@@ -177,8 +177,7 @@ class _TestUnix:
                 f.write('x')
 
             with self.assertRaisesRegex(
-                    OSError, "Address '{}' is already in use".format(
-                        sock_name)):
+                    OSError, f"Address '{sock_name}' is already in use"):
 
                 self.loop.run_until_complete(
                     self.loop.create_unix_server(object, sock_name))
