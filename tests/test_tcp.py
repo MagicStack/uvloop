@@ -1,5 +1,4 @@
 import asyncio
-import asyncio.sslproto
 import gc
 import os
 import select
