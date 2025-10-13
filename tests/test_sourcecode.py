@@ -26,8 +26,7 @@ class TestSourceCode(unittest.TestCase):
                 subprocess.run(
                     [sys.executable, '-m', 'flake8', '--config', config_path],
                     check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     cwd=os.path.join(edgepath, subdir))
             except subprocess.CalledProcessError as ex:
                 output = ex.stdout.decode()
@@ -59,8 +58,7 @@ class TestSourceCode(unittest.TestCase):
                     'uvloop'
                 ],
                 check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 cwd=edgepath
             )
         except subprocess.CalledProcessError as ex:
