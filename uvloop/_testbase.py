@@ -2,7 +2,6 @@
 
 
 import asyncio
-import asyncio.events
 import collections
 import contextlib
 import gc
