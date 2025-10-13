@@ -71,9 +71,7 @@ class _TestUnix:
                     self.assertTrue(srv_socks)
                     self.assertTrue(srv.is_serving())
 
-                    tasks = []
-                    for _ in range(TOTAL_CNT):
-                        tasks.append(test_client(sock_name))
+                    tasks = [test_client(sock_name) for _ in range(TOTAL_CNT)]
 
                     await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -123,9 +121,7 @@ class _TestUnix:
                     self.assertTrue(srv_socks)
                     self.assertTrue(srv.is_serving())
 
-                    tasks = []
-                    for _ in range(TOTAL_CNT):
-                        tasks.append(test_client(sock_name))
+                    tasks = [test_client(sock_name) for _ in range(TOTAL_CNT)]
 
                     await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -282,9 +278,7 @@ class _TestUnix:
             with self.unix_server(server,
                                   max_clients=TOTAL_CNT,
                                   backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -343,9 +337,7 @@ class _TestUnix:
             with self.unix_server(server,
                                   max_clients=TOTAL_CNT,
                                   backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -610,9 +602,7 @@ class _TestSSL(tb.SSLTestCase):
                     **extras)
 
                 try:
-                    tasks = []
-                    for _ in range(TOTAL_CNT):
-                        tasks.append(test_client(sock_name))
+                    tasks = [test_client(sock_name) for _ in range(TOTAL_CNT)]
 
                     await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -686,9 +676,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.unix_server(server,
                                   max_clients=TOTAL_CNT,
                                   backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
