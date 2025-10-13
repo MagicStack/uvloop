@@ -61,7 +61,9 @@ class _BufferedProtocol(_BaseProtocol, asyncio.BufferedProtocol):
         if self.buffered_ctx is None:
             self.buffered_ctx = self.cvar.get()
         elif self.cvar.get() != self.buffered_ctx:
-            self.data_received_fut.set_exception(ValueError(f"{self.buffered_ctx} != {self.cvar.get()}"))
+            self.data_received_fut.set_exception(
+                ValueError(f"{self.buffered_ctx} != {self.cvar.get()}")
+            )
         return bytearray(65536)
 
     def buffer_updated(self, nbytes):
