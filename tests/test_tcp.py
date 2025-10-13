@@ -1621,11 +1621,10 @@ class _TestSSL(tb.SSLTestCase):
         if hasattr(ssl, 'PROTOCOL_TLS_SERVER'):
             server_proto = ssl.PROTOCOL_TLS_SERVER
             client_proto = ssl.PROTOCOL_TLS_CLIENT
+        elif hasattr(ssl, 'PROTOCOL_TLS'):
+            client_proto = server_proto = ssl.PROTOCOL_TLS
         else:
-            if hasattr(ssl, 'PROTOCOL_TLS'):
-                client_proto = server_proto = ssl.PROTOCOL_TLS
-            else:
-                client_proto = server_proto = ssl.PROTOCOL_SSLv23
+            client_proto = server_proto = ssl.PROTOCOL_SSLv23
 
         server_context = ssl.SSLContext(server_proto)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
