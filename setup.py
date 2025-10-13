@@ -26,7 +26,7 @@ MACHINE = platform.machine()
 MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
-LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
+LIBUV_BUILD_DIR = str(_ROOT / 'build' / f'libuv-{MACHINE}')
 
 
 def _libuv_build_env():
@@ -118,15 +118,12 @@ class uvloop_build_ext(build_ext):
                 import Cython
             except ImportError:
                 raise RuntimeError(
-                    'please install {} to compile uvloop from source'.format(
-                        CYTHON_DEPENDENCY))
+                    f'please install {CYTHON_DEPENDENCY} to compile uvloop from source')
 
             cython_dep = pkg_resources.Requirement.parse(CYTHON_DEPENDENCY)
             if Cython.__version__ not in cython_dep:
                 raise RuntimeError(
-                    'uvloop requires {}, got Cython=={}'.format(
-                        CYTHON_DEPENDENCY, Cython.__version__
-                    ))
+                    f'uvloop requires {CYTHON_DEPENDENCY}, got Cython=={Cython.__version__}')
 
             from Cython.Build import cythonize
 
@@ -183,7 +180,7 @@ class uvloop_build_ext(build_ext):
             njobs = len(os.sched_getaffinity(0))
         except AttributeError:
             njobs = os.cpu_count()
-        j_flag = '-j{}'.format(njobs or 1)
+        j_flag = f'-j{njobs or 1}'
         c_flag = "CFLAGS={}".format(env['CFLAGS'])
         subprocess.run(
             ['make', j_flag, c_flag],

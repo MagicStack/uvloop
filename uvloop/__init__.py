@@ -58,7 +58,7 @@ else:
 
             if not __asyncio.iscoroutine(main):
                 raise ValueError(
-                    "a coroutine was expected, got {!r}".format(main)
+                    f"a coroutine was expected, got {main!r}"
                 )
 
             loop = loop_factory()

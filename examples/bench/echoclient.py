@@ -45,7 +45,7 @@ if __name__ == '__main__':
         addr = args.addr.split(':')
         addr[1] = int(addr[1])
         addr = tuple(addr)
-    print('will connect to: {}'.format(addr))
+    print(f'will connect to: {addr}')
 
     MSGSIZE = args.msize
     REQSIZE = MSGSIZE * args.mpr
