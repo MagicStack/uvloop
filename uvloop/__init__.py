@@ -206,8 +206,7 @@ def __getattr__(name: str) -> _typing.Any:
             """
             if self._local._loop is None:
                 raise RuntimeError(
-                    'There is no current event loop in thread %r.'
-                    % threading.current_thread().name
+                    f'There is no current event loop in thread {threading.current_thread().name!r}.'
                 )
 
             return self._local._loop
