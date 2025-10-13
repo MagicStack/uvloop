@@ -1,6 +1,5 @@
 import asyncio
 import ssl
-import sys
 from socket import AddressFamily, SocketKind, _Address, _RetAddress, socket
 from typing import (
     IO,
