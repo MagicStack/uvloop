@@ -15,7 +15,7 @@ from typing import (
 _T = TypeVar('_T')
 _Context = dict[str, Any]
 _ExceptionHandler = Callable[[asyncio.AbstractEventLoop, _Context], Any]
-_SSLContext = bool | None | ssl.SSLContext
+_SSLContext = bool | ssl.SSLContext | None
 _ProtocolT = TypeVar("_ProtocolT", bound=asyncio.BaseProtocol)
 
 class Loop:
