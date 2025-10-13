@@ -5,6 +5,7 @@ import os.path
 import pathlib
 import socket
 import ssl
+import sys
 
 
 PRINT = 0
@@ -159,11 +160,11 @@ if __name__ == '__main__':
     if args.streams:
         if args.proto:
             print('cannot use --stream and --proto simultaneously')
-            exit(1)
+            sys.exit(1)
 
         if args.buffered:
             print('cannot use --stream and --buffered simultaneously')
-            exit(1)
+            sys.exit(1)
 
         print('using asyncio/streams')
         if unix:
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     elif args.proto:
         if args.streams:
             print('cannot use --stream and --proto simultaneously')
-            exit(1)
+            sys.exit(1)
 
         if args.buffered:
             print('using buffered protocol')
@@ -197,7 +198,7 @@ if __name__ == '__main__':
     else:
         if args.ssl:
             print('cannot use SSL for loop.sock_* methods')
-            exit(1)
+            sys.exit(1)
 
         print('using sock_recv/sock_sendall')
         loop.create_task(echo_server(loop, addr, unix))
