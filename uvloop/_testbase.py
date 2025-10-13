@@ -22,6 +22,8 @@ import uvloop
 
 
 class MockPattern(str):
+    __slots__ = ()
+
     def __eq__(self, other):
         return bool(re.search(str(self), other, re.S))
 
