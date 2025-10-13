@@ -260,7 +260,7 @@ def find_free_port(start_from=50000):
         with sock:
             try:
                 sock.bind(('', port))
-            except socket.error:
+            except OSError:
                 continue
             else:
                 return port
