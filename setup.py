@@ -4,7 +4,7 @@ vi = sys.version_info
 if vi < (3, 8):
     raise RuntimeError('uvloop requires Python 3.8 or greater')
 
-if sys.platform in ('win32', 'cygwin', 'cli'):
+if sys.platform in {'win32', 'cygwin', 'cli'}:
     raise RuntimeError('uvloop does not support Windows at the moment')
 
 import os
