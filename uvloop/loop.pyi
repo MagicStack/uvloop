@@ -10,14 +10,13 @@ from typing import (
     Optional,
     Sequence,
     TypeVar,
-    Union,
     overload,
 )
 
 _T = TypeVar('_T')
 _Context = dict[str, Any]
 _ExceptionHandler = Callable[[asyncio.AbstractEventLoop, _Context], Any]
-_SSLContext = Union[bool, None, ssl.SSLContext]
+_SSLContext = bool | None | ssl.SSLContext
 _ProtocolT = TypeVar("_ProtocolT", bound=asyncio.BaseProtocol)
 
 class Loop:
@@ -44,7 +43,7 @@ class Loop:
     def create_future(self) -> asyncio.Future[Any]: ...
     def create_task(
         self,
-        coro: Union[Awaitable[_T], Generator[Any, None, _T]],
+        coro: Awaitable[_T] | Generator[Any, None, _T],
         *,
         name: Optional[str] = ...,
     ) -> asyncio.Task[_T]: ...
@@ -65,8 +64,8 @@ class Loop:
     def run_until_complete(self, future: Awaitable[_T]) -> _T: ...
     async def getaddrinfo(
         self,
-        host: Optional[Union[str, bytes]],
-        port: Optional[Union[str, bytes, int]],
+        host: Optional[str | bytes],
+        port: Optional[str | bytes | int],
         *,
         family: int = ...,
         type: int = ...,
@@ -78,16 +77,12 @@ class Loop:
             SocketKind,
             int,
             str,
-            Union[tuple[str, int], tuple[str, int, int, int]],
+            tuple[str, int] | tuple[str, int, int, int],
         ]
     ]: ...
     async def getnameinfo(
         self,
-        sockaddr: Union[
-            tuple[str, int],
-            tuple[str, int, int],
-            tuple[str, int, int, int]
-        ],
+        sockaddr: tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         flags: int = ...,
     ) -> tuple[str, str]: ...
     async def start_tls(
@@ -105,7 +100,7 @@ class Loop:
     async def create_server(
         self,
         protocol_factory: asyncio.events._ProtocolFactory,
-        host: Optional[Union[str, Sequence[str]]] = ...,
+        host: Optional[str | Sequence[str]] = ...,
         port: int = ...,
         *,
         family: int = ...,
@@ -226,7 +221,7 @@ class Loop:
     async def subprocess_shell(
         self,
         protocol_factory: Callable[[], _ProtocolT],
-        cmd: Union[bytes, str],
+        cmd: bytes | str,
         *,
         stdin: Any = ...,
         stdout: Any = ...,
