@@ -124,9 +124,7 @@ class _TestTCP:
 
             addr = srv_socks[0].getsockname()
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -168,9 +166,7 @@ class _TestTCP:
             self.assertTrue(srv_socks)
             self.assertTrue(srv.is_serving())
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -472,9 +468,7 @@ class _TestTCP:
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -529,9 +523,7 @@ class _TestTCP:
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -628,9 +620,7 @@ class _TestTCP:
 
             addr = srv_socks[0].getsockname()
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -1337,9 +1327,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -1433,9 +1421,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -2207,9 +2193,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -2329,9 +2313,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks))
@@ -2422,9 +2404,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(
                     asyncio.gather(*tasks),
@@ -2494,9 +2474,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks))
