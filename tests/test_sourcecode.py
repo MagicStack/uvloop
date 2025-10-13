@@ -33,7 +33,7 @@ class TestSourceCode(unittest.TestCase):
                 output += '\n'
                 output += ex.stderr.decode()
                 raise AssertionError(
-                    'flake8 validation failed: {}\n{}'.format(ex, output)
+                    f'flake8 validation failed: {ex}\n{output}'
                 ) from None
 
     def test_mypy(self):
@@ -66,5 +66,5 @@ class TestSourceCode(unittest.TestCase):
             output += '\n'
             output += ex.stderr.decode()
             raise AssertionError(
-                'mypy validation failed: {}\n{}'.format(ex, output)
+                f'mypy validation failed: {ex}\n{output}'
             ) from None

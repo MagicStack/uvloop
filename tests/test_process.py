@@ -192,7 +192,7 @@ print(os.getpid())
                 stdout=subprocess.PIPE)
 
             pid = proc.pid
-            expected_result = '{}\n'.format(pid).encode()
+            expected_result = f'{pid}\n'.encode()
 
             out, err = await proc.communicate()
             self.assertEqual(out, expected_result)
