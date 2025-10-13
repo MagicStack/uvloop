@@ -1,5 +1,4 @@
 import asyncio
-import io
 import os
 import socket
 
@@ -74,7 +73,7 @@ class _BasePipeTest:
         proto = MyReadPipeProto(loop=self.loop)
 
         rpipe, wpipe = os.pipe()
-        pipeobj = io.open(rpipe, 'rb', 1024)
+        pipeobj = open(rpipe, 'rb', 1024)
 
         async def connect():
             t, p = await self.loop.connect_read_pipe(
@@ -106,7 +105,7 @@ class _BasePipeTest:
         proto = MyReadPipeProto(loop=self.loop)
 
         master, slave = os.openpty()
-        master_read_obj = io.open(master, 'rb', 0)
+        master_read_obj = open(master, 'rb', 0)
 
         async def connect():
             t, p = await self.loop.connect_read_pipe(
@@ -142,7 +141,7 @@ class _BasePipeTest:
     def test_write_pipe(self):
         rpipe, wpipe = os.pipe()
         os.set_blocking(rpipe, False)
-        pipeobj = io.open(wpipe, 'wb', 1024)
+        pipeobj = open(wpipe, 'wb', 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
@@ -185,7 +184,7 @@ class _BasePipeTest:
         rsock, wsock = socket.socketpair()
         rsock.setblocking(False)
 
-        pipeobj = io.open(wsock.detach(), 'wb', 1024)
+        pipeobj = open(wsock.detach(), 'wb', 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
@@ -207,7 +206,7 @@ class _BasePipeTest:
         master, slave = os.openpty()
         os.set_blocking(master, False)
 
-        slave_write_obj = io.open(slave, 'wb', 0)
+        slave_write_obj = open(slave, 'wb', 0)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, slave_write_obj)
@@ -250,7 +249,7 @@ class _BasePipeTest:
 
     def test_write_buffer_full(self):
         rpipe, wpipe = os.pipe()
-        pipeobj = io.open(wpipe, 'wb', 1024)
+        pipeobj = open(wpipe, 'wb', 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
