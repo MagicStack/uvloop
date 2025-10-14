@@ -404,7 +404,7 @@ class _TestTCP:
             writer.write(b'AAAA')
             self.assertEqual(await reader.readexactly(2), b'OK')
 
-            re = r'(a bytes-like object)|(must be byte-ish)'
+            re = r'(must be a bytes)|(a bytes-like object)|(must be byte-ish)'
             with self.assertRaisesRegex(TypeError, re):
                 writer.write('AAAA')
 
