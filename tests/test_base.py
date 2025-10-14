@@ -781,7 +781,8 @@ async def main():
 
 if __name__ == "__main__":
     if sys._is_gil_enabled():
-        sys.exit(2)  # Skip test if not running with GIL disabled
+        print("Not running with GIL disabled")
+        sys.exit(2)
 
     import {impl}
 
@@ -794,9 +795,9 @@ if __name__ == "__main__":
             text=True,
         )
         if result.returncode == 2:
-            raise unittest.SkipTest(result.stdout)
+            raise unittest.SkipTest(result.stdout.strip())
         elif result.returncode != 0:
-            self.fail(result.stdout)
+            self.fail(result.stdout.strip())
 
 
 class TestBaseUV(_TestBase, UVTestCase):
