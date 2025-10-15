@@ -41,7 +41,7 @@ test = [
     'flake8~=6.1',
     'psutil',
     'pycodestyle~=2.11.0',
-    'pyOpenSSL~=23.0.0',
+    'pyOpenSSL~=25.3.0',
     'mypy>=0.800',
 ]
 dev = [
@@ -58,7 +58,7 @@ docs = [
 requires = [
     "setuptools>=60",
     "wheel",
-    "Cython~=3.0",
+    "Cython~=3.1",
 ]
 build-backend = "setuptools.build_meta"
 

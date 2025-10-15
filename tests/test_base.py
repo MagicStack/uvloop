@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import sys
+import subprocess
 import threading
 import time
 import uvloop
@@ -734,6 +735,69 @@ class _TestBase:
         self.loop.run_forever()
         thread.join()
         self.assertEqual(counter[0], ITERATIONS)
+
+    def test_freethreading(self):
+        if not hasattr(sys, "_is_gil_enabled"):
+            raise unittest.SkipTest("No sys._is_gil_enabled()")
+        if os.cpu_count() < 2:
+            raise unittest.SkipTest("Flaky on single CPU machines")
+        prog = """\
+import asyncio
+import os
+import sys
+import threading
+import time
+
+
+counter = 0
+
+
+def job(barrier):
+    global counter
+    barrier.wait()
+    start_time = time.monotonic()
+    rv = 0
+    while time.monotonic() - start_time < 1:
+        for _i in range(10**4):
+            counter += 1
+            rv += 1
+    return rv
+
+
+async def main():
+    if sys._is_gil_enabled():
+        print("{impl} turned on GIL")
+        return False
+    loop = asyncio.get_running_loop()
+    n_jobs = os.cpu_count()
+    barrier = threading.Barrier(n_jobs)
+    fs = [loop.run_in_executor(None, job, barrier) for _ in range(n_jobs)]
+    result = sum(await asyncio.gather(*fs))
+    if counter == result:
+        print("Expected race condition did not happen")
+        return False
+    return True
+
+
+if __name__ == "__main__":
+    if sys._is_gil_enabled():
+        print("Not running with GIL disabled")
+        sys.exit(2)
+
+    import {impl}
+
+    if not {impl}.run(main()):
+        sys.exit(1)
+"""
+        result = subprocess.run(
+            [sys.executable, '-c', prog.format(impl=self.implementation)],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode == 2:
+            raise unittest.SkipTest(result.stdout.strip())
+        elif result.returncode != 0:
+            self.fail(result.stdout.strip())
 
 
 class TestBaseUV(_TestBase, UVTestCase):
