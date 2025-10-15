@@ -54,11 +54,12 @@ class BaseTestDNS:
 
             if _sorted:
                 if kwargs.get('flags', 0) & socket.AI_CANONNAME and a1 and a2:
-                    af, sk, proto, canon_name1, addr = a1[0]
-                    a1[0] = (af, sk, proto, '', addr)
-                    af, sk, proto, canon_name2, addr = a2[0]
-                    a2[0] = (af, sk, proto, '', addr)
-                    self.assertEqual(canon_name1, canon_name2)
+                    # The API doesn't guarantee the ai_canonname value if
+                    # multiple results are returned, but both implementations
+                    # must return the same value for the first result.
+                    self.assertEqual(a1[0][3], a2[0][3])
+                    a1 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a1]
+                    a2 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a2]
 
                 self.assertEqual(sorted(a1), sorted(a2))
             else:

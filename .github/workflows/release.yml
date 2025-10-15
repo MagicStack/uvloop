@@ -76,15 +76,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        cibw_python:
-        - "cp38-*"
-        - "cp39-*"
-        - "cp310-*"
-        - "cp311-*"
-        - "cp312-*"
-        - "cp313-*"
-        - "cp314-*"
-        - "cp314t-*"
+        python:
+        - "cp38"
+        - "cp39"
+        - "cp310"
+        - "cp311"
+        - "cp312"
+        - "cp313"
+        - "cp314"
+        - "cp314t"
         cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
           - os: ubuntu-latest
@@ -119,13 +119,13 @@ jobs:
     - uses: pypa/cibuildwheel@7c619efba910c04005a835b110b057fc28fd6e93  # v3.2.0
       env:
         CIBW_BUILD_VERBOSITY: 1
-        CIBW_BUILD: ${{ matrix.cibw_python }}
+        CIBW_BUILD: ${{ matrix.python }}-*
         CIBW_ARCHS: ${{ matrix.cibw_arch }}
         CIBW_TEST_SKIP: "*universal2:arm64"
 
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
-        name: dist-wheels
+        name: dist-wheels-${{ matrix.os }}-${{ matrix.python }}-${{ matrix.cibw_arch }}
         path: wheelhouse/*.whl
 
   publish:
