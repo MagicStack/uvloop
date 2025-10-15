@@ -1,6 +1,10 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - "ci"
+
   pull_request:
     branches:
       - "master"
@@ -10,67 +14,7 @@ on:
       - "uvloop/_version.py"
 
 jobs:
-  validate-release-request:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Validate release PR
-      uses: edgedb/action-release/validate-pr@bae6b9134e872166b43d218dd79397c851c41c9a
-      id: checkver
-      with:
-        require_team: Release Managers
-        require_approval: no
-        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
-        version_file: uvloop/_version.py
-        version_line_pattern: |
-          __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
-
-    - name: Stop if not approved
-      if: steps.checkver.outputs.approved != 'true'
-      run: |
-        echo ::error::PR is not approved yet.
-        exit 1
-
-    - name: Store release version for later use
-      env:
-        VERSION: ${{ steps.checkver.outputs.version }}
-      run: |
-        mkdir -p dist/
-        echo "${VERSION}" > dist/VERSION
-
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
-      with:
-        name: dist-version
-        path: dist/
-
-  build-sdist:
-    needs: validate-release-request
-    runs-on: ubuntu-22.04
-
-    env:
-      PIP_DISABLE_PIP_VERSION_CHECK: 1
-
-    steps:
-    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
-      with:
-        fetch-depth: 50
-        submodules: true
-
-    - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
-      with:
-        python-version: 3.x
-
-    - name: Build source distribution
-      run: |
-        python -m pip install --upgrade setuptools wheel pip
-        python setup.py sdist
-
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
-      with:
-        name: dist-sdist
-        path: dist/*.tar.*
-
   build-wheels:
-    needs: validate-release-request
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -127,57 +71,3 @@ jobs:
       with:
         name: dist-wheels-${{ matrix.os }}-${{ matrix.python }}-${{ matrix.cibw_arch }}
         path: wheelhouse/*.whl
-
-  publish:
-    needs: [build-sdist, build-wheels]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
-      with:
-        fetch-depth: 5
-        submodules: false
-
-    - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
-      with:
-        pattern: dist-*
-        merge-multiple: true
-        path: dist/
-
-    - name: Extract Release Version
-      id: relver
-      run: |
-        set -e
-        echo version=$(cat dist/VERSION) >> $GITHUB_OUTPUT
-        rm dist/VERSION
-
-    - name: Merge and tag the PR
-      uses: edgedb/action-release/merge@bae6b9134e872166b43d218dd79397c851c41c9a
-      with:
-        github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
-        ssh_key: ${{ secrets.RELEASE_BOT_SSH_KEY }}
-        gpg_key: ${{ secrets.RELEASE_BOT_GPG_KEY }}
-        gpg_key_id: "5C468778062D87BF!"
-        tag_name: v${{ steps.relver.outputs.version }}
-
-    - name: Publish Github Release
-      uses: elprans/gh-action-create-release@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.relver.outputs.version }}
-        release_name: v${{ steps.relver.outputs.version }}
-        target: ${{ github.event.pull_request.base.ref }}
-        body: ${{ github.event.pull_request.body }}
-        draft: false
-
-    - run: |
-        ls -al dist/
-
-    - name: Upload to PyPI
-      uses: pypa/gh-action-pypi-publish@b7f401de30cb6434a1e19f805ff006643653240e  # v1.8.10
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
-        # password: ${{ secrets.TEST_PYPI_TOKEN }}
-        # repository_url: https://test.pypi.org/legacy/

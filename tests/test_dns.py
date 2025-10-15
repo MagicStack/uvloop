@@ -61,7 +61,12 @@ class BaseTestDNS:
                     a1 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a1]
                     a2 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a2]
 
-                self.assertEqual(sorted(a1), sorted(a2))
+                try:
+                    self.assertEqual(sorted(a1), sorted(a2))
+                except AssertionError:
+                    for x, y in zip(sorted(a1), sorted(a2)):
+                        print(x, '\t', y)
+                    raise
             else:
                 self.assertEqual(a1, a2)
 
