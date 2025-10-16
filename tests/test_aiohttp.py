@@ -95,7 +95,7 @@ class _TestAioHTTP:
         async def client():
             async with aiohttp.ClientSession() as client:
                 async with client.ws_connect(
-                        'http://127.0.0.1:{}'.format(port)) as ws:
+                        f'http://127.0.0.1:{port}') as ws:
                     await ws.send_str("hello")
                     async for msg in ws:
                         assert msg.data == "hello"
