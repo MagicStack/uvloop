@@ -57,7 +57,6 @@ docs = [
 [build-system]
 requires = [
     "setuptools>=60",
-    "wheel",
     "Cython~=3.1",
 ]
 build-backend = "setuptools.build_meta"
