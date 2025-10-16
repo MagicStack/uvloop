@@ -1877,6 +1877,7 @@ cdef class Loop:
             AddrInfo ai_local = None
             AddrInfo ai_remote
             TCPTransport tr
+            int sockfd
 
             system.addrinfo *rai = NULL
             system.addrinfo *lai = NULL
@@ -2060,8 +2061,10 @@ cdef class Loop:
             waiter = self._new_future()
             tr = TCPTransport.new(self, protocol, None, waiter, context)
             try:
+                # Take ownership of the file descriptor
+                sockfd = sock.detach()
                 # libuv will make socket non-blocking
-                tr._open(sock.fileno())
+                tr._open(sockfd)
                 tr._init_protocol()
                 await waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2074,8 +2077,6 @@ cdef class Loop:
                 # `_close()` before it is fine.
                 tr._close()
                 raise
-
-            tr._attach_fileobj(sock)
 
         if ssl:
             app_transport = protocol._get_app_transport(context)
