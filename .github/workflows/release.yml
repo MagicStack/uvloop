@@ -75,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, ubuntu-22.04-arm]
         python:
         - "cp38"
         - "cp39"
@@ -89,8 +89,14 @@ jobs:
         exclude:
           - os: ubuntu-latest
             cibw_arch: universal2
+          - os: ubuntu-latest
+            cibw_arch: aarch64
           - os: macos-latest
             cibw_arch: aarch64
+          - os: ubuntu-22.04-arm
+            cibw_arch: x86_64
+          - os: ubuntu-22.04-arm
+            cibw_arch: universal2
 
     defaults:
       run:
@@ -104,12 +110,6 @@ jobs:
       with:
         fetch-depth: 50
         submodules: true
-
-    - name: Set up QEMU
-      if: matrix.os == 'ubuntu-latest' && matrix.cibw_arch == 'aarch64'
-      uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3  # v3.0.0
-      with:
-        platforms: arm64
 
     - name: Install macOS deps
       if: startsWith(matrix.os, 'macos')
