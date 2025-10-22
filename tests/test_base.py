@@ -941,7 +941,7 @@ class TestBaseUV(_TestBase, UVTestCase):
     def test_loop_call_later_0_returns_timer_handle(self):
         cb = lambda: False  # NoQA
         handle = self.loop.call_later(0, cb)
-        handle.when() # undesired behavior: handle is a Handle instead of TimerHandle
+        handle.when()
         handle.cancel()
 
 
