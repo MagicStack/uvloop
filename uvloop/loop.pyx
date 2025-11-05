@@ -2731,7 +2731,7 @@ cdef class Loop:
             return transport, protocol
 
     def run_in_executor(self, executor, func, *args):
-        if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
+        if aio_iscoroutine(func) or inspect_iscoroutinefunction(func):
             raise TypeError("coroutines cannot be used with run_in_executor()")
 
         self._check_closed()
@@ -2910,7 +2910,7 @@ cdef class Loop:
                 'the main thread')
 
         if (aio_iscoroutine(callback)
-                or aio_iscoroutinefunction(callback)):
+                or inspect_iscoroutinefunction(callback)):
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
