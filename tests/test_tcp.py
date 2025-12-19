@@ -1287,9 +1287,9 @@ class _TestSSL(tb.SSLTestCase):
             # Upgrade to TLS (server side)
             try:
                 # We need the wait_for because the broken version hangs here
-                await asyncio.wait_for(writer.start_tls(server_context),
-                    timeout=2
-                )
+                await asyncio.wait_for(
+                    writer.start_tls(server_context),
+                    timeout=2)
                 self.assertIsNotNone(writer.get_extra_info('sslcontext'))
             except asyncio.TimeoutError:
                 self.assertIsNotNone(writer.get_extra_info('sslcontext'))
@@ -1311,7 +1311,7 @@ class _TestSSL(tb.SSLTestCase):
             # Read buffered data before TLS
             buffered = await reader.readexactly(len(BUFFERED_MSG))
             self.assertEqual(buffered, BUFFERED_MSG,
-                             "Client didn't receive buffered data before TLS upgrade")
+                             "Wrong pre-TLS buffered data from server")
 
             # Write before TLS upgrade
             writer.write(HELLO_MSG)
@@ -1320,9 +1320,9 @@ class _TestSSL(tb.SSLTestCase):
             # Upgrade to TLS
             try:
                 # We need the wait_for because the broken version hangs here
-                await asyncio.wait_for(writer.start_tls(client_context),
-                    timeout=2
-                )
+                await asyncio.wait_for(
+                    writer.start_tls(client_context),
+                    timeout=2)
                 self.assertIsNotNone(writer.get_extra_info('sslcontext'))
             except asyncio.TimeoutError:
                 self.assertIsNotNone(writer.get_extra_info('sslcontext'))
@@ -1330,7 +1330,7 @@ class _TestSSL(tb.SSLTestCase):
             # Verify communication over TLS
             tls_data = await reader.readexactly(2)
             self.assertEqual(tls_data, b'OK',
-                             "Client didn't receive TLS response correctly")
+                             "Wrong data from server after TLS upgrade")
 
             # Continue over TLS
             writer.write(HELLO_MSG)
