@@ -1617,17 +1617,15 @@ cdef class Loop:
             call_connection_made=False)
 
         # Transfer buffered data from the old protocol to the new one.
-        if not hasattr(protocol, '_stream_reader'):
-            return
+        stream_buff = None
+        if hasattr(protocol, '_stream_reader'):
+            stream_reader = protocol._stream_reader
+            if stream_reader is not None:
+                stream_buff = getattr(stream_reader, '_buffer', None)
 
-        stream_reader = protocol._stream_reader
-        if stream_reader is None:
-            return
-
-        buffer = stream_reader._buffer
-        if buffer:
-            ssl_protocol._incoming.write(buffer)
-            buffer.clear()
+        if stream_buff is not None:
+            ssl_protocol._incoming.write(stream_buff)
+            stream_buff.clear()
 
         # Pause early so that "ssl_protocol.data_received()" doesn't
         # have a chance to get called before "ssl_protocol.connection_made()".
