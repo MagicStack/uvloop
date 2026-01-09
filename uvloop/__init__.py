@@ -3,38 +3,25 @@ import typing as _typing
 import sys as _sys
 import warnings as _warnings
 
-from asyncio.events import BaseDefaultEventLoopPolicy as __BasePolicy
-
 from . import includes as __includes  # NOQA
 from .loop import Loop as __BaseLoop  # NOQA
 from ._version import __version__  # NOQA
 
 
-__all__ = ('new_event_loop', 'install', 'EventLoopPolicy')
+__all__: _typing.Tuple[str, ...] = ('new_event_loop', 'run')
+_AbstractEventLoop = __asyncio.AbstractEventLoop
 
 
 _T = _typing.TypeVar("_T")
 
 
-class Loop(__BaseLoop, __asyncio.AbstractEventLoop):  # type: ignore[misc]
+class Loop(__BaseLoop, _AbstractEventLoop):  # type: ignore[misc]
     pass
 
 
 def new_event_loop() -> Loop:
     """Return a new event loop."""
     return Loop()
-
-
-def install() -> None:
-    """A helper function to install uvloop policy."""
-    if _sys.version_info[:2] >= (3, 12):
-        _warnings.warn(
-            'uvloop.install() is deprecated in favor of uvloop.run() '
-            'starting with Python 3.12.',
-            DeprecationWarning,
-            stacklevel=1,
-        )
-    __asyncio.set_event_loop_policy(EventLoopPolicy())
 
 
 if _typing.TYPE_CHECKING:
@@ -114,7 +101,7 @@ else:
             )
 
 
-def _cancel_all_tasks(loop: __asyncio.AbstractEventLoop) -> None:
+def _cancel_all_tasks(loop: _AbstractEventLoop) -> None:
     # Copied from python/cpython
 
     to_cancel = __asyncio.all_tasks(loop)
@@ -139,30 +126,108 @@ def _cancel_all_tasks(loop: __asyncio.AbstractEventLoop) -> None:
             })
 
 
-class EventLoopPolicy(__BasePolicy):
-    """Event loop policy.
+_deprecated_names = ('install', 'EventLoopPolicy')
 
-    The preferred way to make your application use uvloop:
 
-    >>> import asyncio
-    >>> import uvloop
-    >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    >>> asyncio.get_event_loop()
-    <uvloop.Loop running=False closed=False debug=False>
-    """
+if _sys.version_info[:2] < (3, 16):
+    __all__ += _deprecated_names
 
-    def _loop_factory(self) -> Loop:
-        return new_event_loop()
 
-    if _typing.TYPE_CHECKING:
-        # EventLoopPolicy doesn't implement these, but since they are marked
-        # as abstract in typeshed, we have to put them in so mypy thinks
-        # the base methods are overridden. This is the same approach taken
-        # for the Windows event loop policy classes in typeshed.
-        def get_child_watcher(self) -> _typing.NoReturn:
-            ...
+def __getattr__(name: str) -> _typing.Any:
+    if name not in _deprecated_names:
+        raise AttributeError(f"module 'uvloop' has no attribute '{name}'")
+    elif _sys.version_info[:2] >= (3, 16):
+        raise AttributeError(
+            f"module 'uvloop' has no attribute '{name}' "
+            f"(it was removed in Python 3.16, use uvloop.run() instead)"
+        )
 
-        def set_child_watcher(
-            self, watcher: _typing.Any
-        ) -> _typing.NoReturn:
-            ...
+    import threading
+
+    def install() -> None:
+        """A helper function to install uvloop policy.
+
+        This function is deprecated and will be removed in Python 3.16.
+        Use `uvloop.run()` instead.
+        """
+        if _sys.version_info[:2] >= (3, 12):
+            _warnings.warn(
+                'uvloop.install() is deprecated in favor of uvloop.run() '
+                'starting with Python 3.12.',
+                DeprecationWarning,
+                stacklevel=1,
+            )
+        __asyncio.set_event_loop_policy(EventLoopPolicy())
+
+    class EventLoopPolicy(
+        # This is to avoid a mypy error about AbstractEventLoopPolicy
+        getattr(__asyncio, 'AbstractEventLoopPolicy')  # type: ignore[misc]
+    ):
+        """Event loop policy for uvloop.
+
+        This class is deprecated and will be removed in Python 3.16.
+        Use `uvloop.run()` instead.
+
+        >>> import asyncio
+        >>> import uvloop
+        >>> asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        >>> asyncio.get_event_loop()
+        <uvloop.Loop running=False closed=False debug=False>
+        """
+
+        def _loop_factory(self) -> Loop:
+            return new_event_loop()
+
+        if _typing.TYPE_CHECKING:
+            # EventLoopPolicy doesn't implement these, but since they are
+            # marked as abstract in typeshed, we have to put them in so mypy
+            # thinks the base methods are overridden. This is the same approach
+            # taken for the Windows event loop policy classes in typeshed.
+            def get_child_watcher(self) -> _typing.NoReturn:
+                ...
+
+            def set_child_watcher(
+                self, watcher: _typing.Any
+            ) -> _typing.NoReturn:
+                ...
+
+        class _Local(threading.local):
+            _loop: _typing.Optional[_AbstractEventLoop] = None
+
+        def __init__(self) -> None:
+            self._local = self._Local()
+
+        def get_event_loop(self) -> _AbstractEventLoop:
+            """Get the event loop for the current context.
+
+            Returns an instance of EventLoop or raises an exception.
+            """
+            if self._local._loop is None:
+                raise RuntimeError(
+                    'There is no current event loop in thread %r.'
+                    % threading.current_thread().name
+                )
+
+            return self._local._loop
+
+        def set_event_loop(
+            self, loop: _typing.Optional[_AbstractEventLoop]
+        ) -> None:
+            """Set the event loop."""
+            if loop is not None and not isinstance(loop, _AbstractEventLoop):
+                raise TypeError(
+                    f"loop must be an instance of AbstractEventLoop or None, "
+                    f"not '{type(loop).__name__}'"
+                )
+            self._local._loop = loop
+
+        def new_event_loop(self) -> Loop:
+            """Create a new event loop.
+
+            You must call set_event_loop() to make this the current event loop.
+            """
+            return self._loop_factory()
+
+    globals()['install'] = install
+    globals()['EventLoopPolicy'] = EventLoopPolicy
+    return globals()[name]

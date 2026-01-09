@@ -22,6 +22,8 @@ jobs:
         - "3.11"
         - "3.12"
         - "3.13"
+        - "3.14"
+        - "3.14t"
         os: [ubuntu-latest, macos-latest]
 
     env:
@@ -44,7 +46,7 @@ jobs:
           __version__\s*=\s*(?:['"])([[:PEP440:]])(?:['"])
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v4.7.1
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
       if: steps.release.outputs.version == 0
       with:
         python-version: ${{ matrix.python-version }}
@@ -57,8 +59,6 @@ jobs:
 
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
-      env:
-        PIP_PRE: ${{ matrix.python-version == '3.13' && '1' || '0' }}
       run: |
         pip install -e .[test,dev]
 
