@@ -2741,7 +2741,7 @@ cdef class Loop:
             # Only check when the default executor is being used
             self._check_default_executor()
             if executor is None:
-                executor = cc_ThreadPoolExecutor()
+                executor = cc_ThreadPoolExecutor(thread_name_prefix='uvloop')
                 self._default_executor = executor
 
         return aio_wrap_future(executor.submit(func, *args), loop=self)
