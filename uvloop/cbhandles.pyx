@@ -1,3 +1,20 @@
+cdef inline void _debug_cb_handles_inc(Loop loop):
+    if _debug_cb_handles_lock != NULL:
+        PyThread_acquire_lock(_debug_cb_handles_lock, 1)
+    loop._debug_cb_handles_total += 1
+    loop._debug_cb_handles_count += 1
+    if _debug_cb_handles_lock != NULL:
+        PyThread_release_lock(_debug_cb_handles_lock)
+
+
+cdef inline void _debug_cb_handles_dec(Loop loop):
+    if _debug_cb_handles_lock != NULL:
+        PyThread_acquire_lock(_debug_cb_handles_lock, 1)
+    loop._debug_cb_handles_count -= 1
+    if _debug_cb_handles_lock != NULL:
+        PyThread_release_lock(_debug_cb_handles_lock)
+
+
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
 cdef class Handle:
@@ -9,8 +26,7 @@ cdef class Handle:
     cdef inline _set_loop(self, Loop loop):
         self.loop = loop
         if UVLOOP_DEBUG:
-            loop._debug_cb_handles_total += 1
-            loop._debug_cb_handles_count += 1
+            _debug_cb_handles_inc(loop)
         if loop._debug:
             self._source_traceback = extract_stack()
 
@@ -21,7 +37,7 @@ cdef class Handle:
 
     def __dealloc__(self):
         if UVLOOP_DEBUG and self.loop is not None:
-            self.loop._debug_cb_handles_count -= 1
+            _debug_cb_handles_dec(self.loop)
         if self.loop is None:
             raise RuntimeError('Handle.loop is None in Handle.__dealloc__')
 

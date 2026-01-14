@@ -31,6 +31,12 @@ from libc cimport errno
 from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
+from cpython.pythread cimport (
+    PyThread_type_lock,
+    PyThread_allocate_lock,
+    PyThread_acquire_lock,
+    PyThread_release_lock,
+)
 from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport (
     PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE,
@@ -52,6 +58,7 @@ cdef:
     int PY311 = PY_VERSION_HEX >= 0x030b0000
     int PY313 = PY_VERSION_HEX >= 0x030d0000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
+    PyThread_type_lock _debug_cb_handles_lock = PyThread_allocate_lock()
 
 
 cdef _is_sock_stream(sock_type):
