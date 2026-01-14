@@ -11,7 +11,9 @@ class Test_UV_FS_Event(tb.UVTestCase):
     def setUp(self):
         super().setUp()
         self.exit_stack = contextlib.ExitStack()
-        self.tmp_dir = self.exit_stack.enter_context(tempfile.TemporaryDirectory())
+        self.tmp_dir = self.exit_stack.enter_context(
+            tempfile.TemporaryDirectory()
+        )
 
     def tearDown(self):
         self.exit_stack.close()
@@ -43,7 +45,9 @@ class Test_UV_FS_Event(tb.UVTestCase):
                     q.put_nowait(None)
 
             h = self.loop._monitor_fs(path, event_cb)
-            self.loop.run_until_complete(asyncio.sleep(0.1))  # let monitor start
+            self.loop.run_until_complete(
+                asyncio.sleep(0.1)  # let monitor start
+            )
             self.assertFalse(h.cancelled())
 
             self.loop.run_until_complete(asyncio.wait_for(file_writer(), 4))
