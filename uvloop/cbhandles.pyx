@@ -423,19 +423,14 @@ cdef extract_stack():
     if f is None:
         return
 
+    if getattr(f, "f_lineno", None) is None or getattr(f, "f_code", None) is None:
+        return None
     try:
-        frames = []
-        while f is not None:
-            lineno = getattr(f, "f_lineno", None)
-            if lineno is None:
-                break
-            if getattr(f, "f_code", None) is None:
-                break
-            frames.append((f, lineno))
-            f = getattr(f, "f_back", None)
-        stack = tb_StackSummary.extract(frames,
+        stack = tb_StackSummary.extract(tb_walk_stack(f),
                                         limit=DEBUG_STACK_DEPTH,
                                         lookup_lines=False)
+    except (AttributeError, TypeError):
+        return None
     finally:
         f = None
 
