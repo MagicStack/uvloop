@@ -685,6 +685,12 @@ class _AsyncioTests:
             self.loop.run_until_complete(cancel_make_transport())
 
     def test_cancel_post_init(self):
+        if sys.version_info >= (3, 13) and self.implementation == 'asyncio':
+            # https://github.com/python/cpython/issues/103847#issuecomment-3736561321
+            # This test started to flake on CPython 3.13 and later,
+            # so we skip it for asyncio tests until the issue is resolved.
+            self.skipTest('flaky test on CPython 3.13+')
+
         async def cancel_make_transport():
             coro = self.loop.subprocess_exec(asyncio.SubprocessProtocol,
                                              *self.PROGRAM_BLOCKED)

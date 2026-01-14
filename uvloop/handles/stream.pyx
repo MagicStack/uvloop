@@ -1,8 +1,5 @@
-cdef extern from *:
-    '''
-    enum {__PREALLOCED_BUFS = 4};
-    '''
-    const bint __PREALLOCED_BUFS
+cdef enum:
+    __PREALLOCED_BUFS = 4
 
 
 @cython.no_gc_clear

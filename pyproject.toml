@@ -2,7 +2,7 @@
 name = "uvloop"
 description = "Fast implementation of asyncio event loop on top of libuv"
 authors = [{name = "Yury Selivanov", email = "yury@magic.io"}]
-requires-python = '>=3.8.0'
+requires-python = '>=3.8.1'
 readme = "README.rst"
 license = {text = "MIT License"}
 dynamic = ["version"]
@@ -38,10 +38,10 @@ test = [
     # their combination breaks too often
     # (example breakage: https://gitlab.com/pycqa/flake8/issues/427)
     'aiohttp>=3.10.5',
-    'flake8~=5.0',
+    'flake8~=6.1',
     'psutil',
-    'pycodestyle~=2.9.0',
-    'pyOpenSSL~=23.0.0',
+    'pycodestyle~=2.11.0',
+    'pyOpenSSL~=25.3.0',
     'mypy>=0.800',
 ]
 dev = [
@@ -58,7 +58,7 @@ docs = [
 requires = [
     "setuptools>=60",
     "wheel",
-    "Cython~=3.0",
+    "Cython~=3.1",
 ]
 build-backend = "setuptools.build_meta"
 
