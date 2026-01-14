@@ -1,4 +1,4 @@
-# cython: language_level=3, embedsignature=True
+# cython: language_level=3, embedsignature=True, freethreading_compatible=True
 
 import asyncio
 cimport cython

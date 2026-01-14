@@ -405,6 +405,8 @@ class _TestTCP:
             self.assertEqual(await reader.readexactly(2), b'OK')
 
             re = r'(a bytes-like object)|(must be byte-ish)'
+            if sys.version_info >= (3, 13, 9):
+                re += r'|(must be a bytes, bytearray, or memoryview object)'
             with self.assertRaisesRegex(TypeError, re):
                 writer.write('AAAA')
 
