@@ -9,7 +9,8 @@ cdef class Handle:
     cdef inline _set_loop(self, Loop loop):
         self.loop = loop
         if UVLOOP_DEBUG:
-            loop._debug_cb_handles_total += 1
+            system.__atomic_fetch_add(
+                &loop._debug_cb_handles_total, 1, system.__ATOMIC_RELAXED)
             system.__atomic_fetch_add(
                 &loop._debug_cb_handles_count, 1, system.__ATOMIC_RELAXED)
         if loop._debug:
@@ -176,8 +177,10 @@ cdef class TimerHandle:
         self._cancelled = 0
 
         if UVLOOP_DEBUG:
-            self.loop._debug_cb_timer_handles_total += 1
-            self.loop._debug_cb_timer_handles_count += 1
+            system.__atomic_fetch_add(
+                &self.loop._debug_cb_timer_handles_total, 1, system.__ATOMIC_RELAXED)
+            system.__atomic_fetch_add(
+                &self.loop._debug_cb_timer_handles_count, 1, system.__ATOMIC_RELAXED)
 
         if context is None:
             context = Context_CopyCurrent()
@@ -207,7 +210,8 @@ cdef class TimerHandle:
 
     def __dealloc__(self):
         if UVLOOP_DEBUG:
-            self.loop._debug_cb_timer_handles_count -= 1
+            system.__atomic_fetch_sub(
+                &self.loop._debug_cb_timer_handles_count, 1, system.__ATOMIC_RELAXED)
         if self.timer is not None:
             raise RuntimeError('active TimerHandle is deallacating')
 
