@@ -35,7 +35,7 @@ cdef class UVStream(UVBaseTransport):
     # and then call _initiate_write() to start writing either immediately or in
     # the next iteration (loop._queue_write()).
     cdef inline _buffer_write(self, object data)
-    cdef inline _initiate_write(self)
+    cdef inline _initiate_write(self, bint skip_fast_path)
 
     # _exec_write() is the method that does the actual send, and _try_write()
     # is a fast-path used in _exec_write() to send a single chunk.

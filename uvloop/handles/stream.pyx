@@ -421,11 +421,13 @@ cdef class UVStream(UVBaseTransport):
         self._buffer_size += dlen
         self._buffer.append(data)
 
-    cdef inline _initiate_write(self):
-        if (not self._protocol_paused and
-                (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
-                self._buffer_size > self._high_water):
+    cdef inline _initiate_write(self, bint skip_fast_path):
+        if (not skip_fast_path and
+            not self._protocol_paused and
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
+            self._buffer_size > self._high_water):
             # Fast-path.  If:
+            #   - the caller hasn't tried fast path itself
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,
             #   - the protocol will be paused if we continue to buffer data
@@ -681,8 +683,47 @@ cdef class UVStream(UVBaseTransport):
         if self._conn_lost:
             self._conn_lost += 1
             return
+
+        cdef ssize_t bytes_written
+
+        if self._get_write_buffer_size() == 0:
+            bytes_written_ = self._try_write(buf)
+
+            if bytes_written_ is None:
+                # A `self._fatal_error` was called.
+                # It might not raise an exception under some
+                # conditions.
+                if not self._closing:
+                    raise RuntimeError('stream is open after '
+                                       'UVStream._try_write returned None')
+
+                return
+
+            bytes_written = bytes_written_
+
+            if bytes_written == 0:
+                # All data was successfully written.
+                # on_write will call "maybe_resume_protocol".
+                return
+
+            if bytes_written > 0:
+                if UVLOOP_DEBUG:
+                    if bytes_written == len(buf):
+                        raise RuntimeError('_try_write sent all data and '
+                                           'returned non-zero')
+
+                if PyBytes_CheckExact(buf):
+                    # Cast bytes to memoryview to avoid copying
+                    # data that wasn't sent.
+                    buf = memoryview(buf)
+                buf = buf[bytes_written_:]
+
+            # At this point it's either data was sent partially,
+            # or an EAGAIN has happened.
+            # buffer remaining data and send it later
+
         self._buffer_write(buf)
-        self._initiate_write()
+        self._initiate_write(True)  # skip fast path in _initiate_write
 
     def writelines(self, bufs):
         self._ensure_alive()
@@ -694,7 +735,7 @@ cdef class UVStream(UVBaseTransport):
             return
         for buf in bufs:
             self._buffer_write(buf)
-        self._initiate_write()
+        self._initiate_write(False) # try fast path in _initiate_write
 
     def write_eof(self):
         self._ensure_alive()
