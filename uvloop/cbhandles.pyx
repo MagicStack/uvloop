@@ -10,7 +10,8 @@ cdef class Handle:
         self.loop = loop
         if UVLOOP_DEBUG:
             loop._debug_cb_handles_total += 1
-            loop._debug_cb_handles_count += 1
+            system.__atomic_fetch_add(
+                &loop._debug_cb_handles_count, 1, system.__ATOMIC_RELAXED)
         if loop._debug:
             self._source_traceback = extract_stack()
 
@@ -21,7 +22,8 @@ cdef class Handle:
 
     def __dealloc__(self):
         if UVLOOP_DEBUG and self.loop is not None:
-            self.loop._debug_cb_handles_count -= 1
+            system.__atomic_fetch_sub(
+                &self.loop._debug_cb_handles_count, 1, system.__ATOMIC_RELAXED)
         if self.loop is None:
             raise RuntimeError('Handle.loop is None in Handle.__dealloc__')
 
