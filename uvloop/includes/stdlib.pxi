@@ -37,7 +37,6 @@ cdef aio_wait = asyncio.wait
 cdef aio_wrap_future = asyncio.wrap_future
 cdef aio_logger = asyncio.log.logger
 cdef aio_iscoroutine = asyncio.iscoroutine
-cdef aio_iscoroutinefunction = asyncio.iscoroutinefunction
 cdef aio_BaseProtocol = asyncio.BaseProtocol
 cdef aio_Protocol = asyncio.Protocol
 cdef aio_isfuture = getattr(asyncio, 'isfuture', None)
@@ -65,6 +64,7 @@ cdef gc_disable = gc.disable
 
 cdef iter_chain = itertools.chain
 cdef inspect_isgenerator = inspect.isgenerator
+cdef inspect_iscoroutinefunction = inspect.iscoroutinefunction
 
 cdef int has_IPV6_V6ONLY = hasattr(socket, 'IPV6_V6ONLY')
 cdef int IPV6_V6ONLY = getattr(socket, 'IPV6_V6ONLY', -1)
