@@ -16,11 +16,14 @@ from .includes.python cimport (
     Context_CopyCurrent,
     Context_Enter,
     Context_Exit,
+    Context_RunNoArgs,
+    Context_RunOneArg,
+    Context_RunTwoArgs
     PyMemoryView_FromMemory, PyBUF_WRITE,
     PyMemoryView_FromObject, PyMemoryView_Check,
     PyOS_AfterFork_Parent, PyOS_AfterFork_Child,
     PyOS_BeforeFork,
-    PyUnicode_FromString
+    PyUnicode_FromString,
 )
 from .includes.flowcontrol cimport add_flowcontrol_defaults
 
@@ -98,7 +101,7 @@ cdef inline run_in_context(context, method):
     # See also: edgedb/edgedb#2222
     Py_INCREF(method)
     try:
-        return context.run(method)
+        return Context_RunNoArgs(context, method)
     finally:
         Py_DECREF(method)
 
@@ -106,7 +109,7 @@ cdef inline run_in_context(context, method):
 cdef inline run_in_context1(context, method, arg):
     Py_INCREF(method)
     try:
-        return context.run(method, arg)
+        return Context_RunOneArg(context, method, arg)
     finally:
         Py_DECREF(method)
 
@@ -114,7 +117,7 @@ cdef inline run_in_context1(context, method, arg):
 cdef inline run_in_context2(context, method, arg1, arg2):
     Py_INCREF(method)
     try:
-        return context.run(method, arg1, arg2)
+        return Context_RunTwoArgs(context, method, arg1, arg2)
     finally:
         Py_DECREF(method)
 
