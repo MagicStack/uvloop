@@ -23,6 +23,10 @@ cdef extern from "includes/compat.h":
     object Context_CopyCurrent()
     int Context_Enter(object) except -1
     int Context_Exit(object) except -1
+    
+    object Context_RunNoArgs(object context, object method)
+    object Context_RunOneArg(object context, object method, object arg)
+    object Context_RunTwoArgs(object context, object method, object arg1, object arg2)
 
     void PyOS_BeforeFork()
     void PyOS_AfterFork_Parent()
