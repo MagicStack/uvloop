@@ -1,4 +1,5 @@
 import asyncio as __asyncio
+from types import FrameType
 import typing as _typing
 import sys as _sys
 import warnings as _warnings
@@ -202,6 +203,33 @@ def __getattr__(name: str) -> _typing.Any:
 
             Returns an instance of EventLoop or raises an exception.
             """
+            if (
+                self._local._loop is None
+                and threading.current_thread() is threading.main_thread()
+            ):
+                # Replicate the behavior of asyncio.get_event_loop() as closely
+                # as possible, including the warning and stack level.
+                stacklevel = 2
+                try:
+                    f: _typing.Optional[FrameType] = _sys._getframe(1)
+                except AttributeError:
+                    pass
+                else:
+                    # Move up the call stack so that the warning is attached
+                    # to the line outside uvloop itself.
+                    while f is not None:
+                        module = f.f_globals['__name__']
+                        if not (module == 'uvloop' or module.startswith('uvloop.')):
+                            break
+                        f = f.f_back
+                        stacklevel += 1
+                _warnings.warn(
+                    'There is no current event loop',
+                    DeprecationWarning,
+                    stacklevel=stacklevel
+                )
+                self._local._loop = self._loop_factory()
+
             if self._local._loop is None:
                 raise RuntimeError(
                     'There is no current event loop in thread %r.'
