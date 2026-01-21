@@ -2,7 +2,6 @@
 
 
 import asyncio
-import asyncio.events
 import collections
 import contextlib
 import gc
@@ -22,6 +21,8 @@ import uvloop
 
 
 class MockPattern(str):
+    __slots__ = ()
+
     def __eq__(self, other):
         return bool(re.search(str(self), other, re.S))
 
@@ -34,8 +35,7 @@ class TestCaseDict(collections.UserDict):
 
     def __setitem__(self, key, value):
         if key in self.data:
-            raise RuntimeError('duplicate test {}.{}'.format(
-                self.name, key))
+            raise RuntimeError(f'duplicate test {self.name}.{key}')
         super().__setitem__(key, value)
 
 
@@ -52,9 +52,8 @@ class BaseTestCaseMeta(type):
             for base in bases:
                 if hasattr(base, test_name):
                     raise RuntimeError(
-                        'duplicate test {}.{} (also defined in {} '
-                        'parent class)'.format(
-                            name, test_name, base.__name__))
+                        f'duplicate test {name}.{test_name} (also defined in '
+                        f'{base.__name__} parent class)')
 
         return super().__new__(mcls, name, bases, dict(dct))
 
@@ -141,14 +140,14 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
                                   handle_name=h_name):
                     self.assertEqual(
                         h_cnt, 0,
-                        'alive {} after test'.format(h_name))
+                        f'alive {h_name} after test')
 
             for h_name, h_cnt in self.loop._debug_handles_total.items():
                 with self.subTest('Total/closed handles',
                                   handle_name=h_name):
                     self.assertEqual(
                         h_cnt, self.loop._debug_handles_closed[h_name],
-                        'total != closed for {}'.format(h_name))
+                        f'total != closed for {h_name}')
 
         asyncio.set_event_loop(None)
         asyncio.set_event_loop_policy(None)
@@ -259,7 +258,7 @@ def find_free_port(start_from=50000):
         with sock:
             try:
                 sock.bind(('', port))
-            except socket.error:
+            except OSError:
                 continue
             else:
                 return port
@@ -388,7 +387,7 @@ class TestSocketWrapper:
         return getattr(self.__sock, name)
 
     def __repr__(self):
-        return '<{} {!r}>'.format(type(self).__name__, self.__sock)
+        return f'<{type(self).__name__} {self.__sock!r}>'
 
 
 class SocketThread(threading.Thread):

@@ -71,7 +71,7 @@ if __name__ == '__main__':
         addr = tuple(addr)
 
     print('readline performance test')
-    print('serving on: {}'.format(addr))
+    print(f'serving on: {addr}')
 
     print('using asyncio/streams')
     if unix:
