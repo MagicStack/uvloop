@@ -1264,9 +1264,11 @@ class _TestSSL(tb.SSLTestCase):
     TIMEOUT = 60
 
     def test_start_tls_buffer_transfer(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 11):
+        if self.implementation == 'asyncio' and sys.version_info[:2] <= (3, 11):
             # StreamWriter.start_tls() introduced in Python 3.11
-            raise unittest.SkipTest()
+            raise unittest.SkipTest(
+                'StreamWriter.start_tls() not supported'
+            )
 
         HELLO_MSG = b'1' * self.PAYLOAD_SIZE
         BUFFERED_MSG = b'buffered data before TLS'
