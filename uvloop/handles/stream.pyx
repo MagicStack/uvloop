@@ -213,13 +213,14 @@ cdef class UVStream(UVBaseTransport):
         self.__shutting_down = 0
         self.__reading = 0
         self.__read_error_close = 0
-        self.__buffered = 0
+
+        self.__protocol_type = ProtocolType.SIMPLE
+        self._protocol_get_buffer = None
+        self._protocol_buffer_updated = None
+
         self._eof = 0
         self._buffer = []
         self._buffer_size = 0
-
-        self._protocol_get_buffer = None
-        self._protocol_buffer_updated = None
 
         self._read_pybuf_acquired = False
 
@@ -230,23 +231,23 @@ cdef class UVStream(UVBaseTransport):
         UVBaseTransport._set_protocol(self, protocol)
 
         if isinstance(protocol, SSLProtocol):
-            self.__buffered = 1
+            self.__protocol_type = ProtocolType.SSL_PROTOCOL
         elif (hasattr(protocol, 'get_buffer') and
                 not isinstance(protocol, aio_Protocol)):
             try:
                 self._protocol_get_buffer = protocol.get_buffer
                 self._protocol_buffer_updated = protocol.buffer_updated
-                self.__buffered = 1
+                self.__protocol_type = ProtocolType.BUFFERED
             except AttributeError:
                 pass
         else:
-            self.__buffered = 0
+            self.__protocol_type = ProtocolType.SIMPLE
 
     cdef _clear_protocol(self):
         UVBaseTransport._clear_protocol(self)
         self._protocol_get_buffer = None
         self._protocol_buffer_updated = None
-        self.__buffered = 0
+        self.__protocol_type = ProtocolType.SIMPLE
 
     cdef inline _shutdown(self):
         cdef int err
@@ -296,14 +297,14 @@ cdef class UVStream(UVBaseTransport):
         if self.__reading:
             return
 
-        if self.__buffered:
-            err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
-                                   __uv_stream_buffered_alloc,
-                                   __uv_stream_buffered_on_read)
-        else:
+        if self.__protocol_type == ProtocolType.SIMPLE:
             err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
                                    __loop_alloc_buffer,
                                    __uv_stream_on_read)
+        else:
+            err = uv.uv_read_start(<uv.uv_stream_t *> self._handle,
+                                   __uv_stream_buffered_alloc,
+                                   __uv_stream_buffered_on_read)
         if err < 0:
             exc = convert_error(err)
             self._fatal_error(exc, True)
@@ -927,7 +928,7 @@ cdef void __uv_stream_buffered_alloc(
 
     # Fast pass for our own SSLProtocol
     # avoid python calls, memoryviews, context enter/exit, etc
-    if isinstance(sc._protocol, SSLProtocol):
+    if sc.__protocol_type == ProtocolType.SSL_PROTOCOL:
         try:
             (<SSLProtocol>sc._protocol).get_buffer_impl(
                 suggested_size, &uvbuf.base, &uvbuf.len)
@@ -1001,7 +1002,7 @@ cdef void __uv_stream_buffered_on_read(
         return
 
     try:
-        if nread > 0 and not isinstance(sc._protocol, SSLProtocol) and not sc._read_pybuf_acquired:
+        if nread > 0 and sc.__protocol_type != ProtocolType.SSL_PROTOCOL and not sc._read_pybuf_acquired:
             # From libuv docs:
             #     nread is > 0 if there is data available or < 0 on error. When
             #     we’ve reached EOF, nread will be set to UV_EOF. When
@@ -1022,7 +1023,7 @@ cdef void __uv_stream_buffered_on_read(
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
-        if isinstance(sc._protocol, SSLProtocol):
+        if sc.__protocol_type == ProtocolType.SSL_PROTOCOL:
             Context_Enter(sc.context)
             try:
                 (<SSLProtocol>sc._protocol).buffer_updated_impl(nread)

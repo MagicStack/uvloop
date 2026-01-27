@@ -1,3 +1,9 @@
+cdef enum ProtocolType:
+    SIMPLE = 0          # User Protocol doesn't support asyncio.BufferedProtocol
+    BUFFERED = 1        # User Protocol supports asyncio.BufferedProtocol
+    SSL_PROTOCOL = 2    # Our own SSLProtocol
+
+
 cdef class UVStream(UVBaseTransport):
     cdef:
         uv.uv_shutdown_t _shutdown_req
@@ -5,7 +11,7 @@ cdef class UVStream(UVBaseTransport):
         bint __reading
         bint __read_error_close
 
-        bint __buffered
+        ProtocolType __protocol_type
         object _protocol_get_buffer
         object _protocol_buffer_updated
 
