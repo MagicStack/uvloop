@@ -177,7 +177,6 @@ cdef class Loop:
         self._queued_streams = set()
         self._executing_streams = set()
         self._ready = col_deque()
-        self._ready_len = 0
 
         self.handler_async = UVAsync.new(
             self, <method_t>self._on_wake, self)
@@ -436,7 +435,7 @@ cdef class Loop:
             self.handler_async.send()
 
     cdef _on_wake(self):
-        if ((self._ready_len > 0 or self._stopping) and
+        if ((len(self._ready) > 0 or self._stopping) and
                 not self.handler_idle.running):
             self.handler_idle.start()
 
@@ -477,8 +476,7 @@ cdef class Loop:
         if len(self._queued_streams):
             self._exec_queued_writes()
 
-        self._ready_len = len(self._ready)
-        if self._ready_len == 0 and self.handler_idle.running:
+        if len(self._ready) == 0 and self.handler_idle.running:
             self.handler_idle.stop()
 
         if self._stopping:
@@ -566,7 +564,6 @@ cdef class Loop:
         for cb_handle in self._ready:
             cb_handle.cancel()
         self._ready.clear()
-        self._ready_len = 0
 
         if self._polls:
             for poll_handle in self._polls.values():
@@ -668,7 +665,6 @@ cdef class Loop:
     cdef inline _append_ready_handle(self, Handle handle):
         self._check_closed()
         self._ready.append(handle)
-        self._ready_len += 1
 
     cdef inline _call_soon_handle(self, Handle handle):
         self._append_ready_handle(handle)
@@ -2727,7 +2723,7 @@ cdef class Loop:
             return transport, protocol
 
     def run_in_executor(self, executor, func, *args):
-        if aio_iscoroutine(func) or aio_iscoroutinefunction(func):
+        if aio_iscoroutine(func) or inspect_iscoroutinefunction(func):
             raise TypeError("coroutines cannot be used with run_in_executor()")
 
         self._check_closed()
@@ -2906,7 +2902,7 @@ cdef class Loop:
                 'the main thread')
 
         if (aio_iscoroutine(callback)
-                or aio_iscoroutinefunction(callback)):
+                or inspect_iscoroutinefunction(callback)):
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
