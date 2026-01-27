@@ -1002,7 +1002,12 @@ cdef void __uv_stream_buffered_on_read(
         return
 
     try:
-        if nread > 0 and sc.__protocol_type != ProtocolType.SSL_PROTOCOL and not sc._read_pybuf_acquired:
+        # When our own SSLProtocol is used, we get buffer pointer directly,
+        # through SSLProtocol.get_buffer_impl, not through Py_Buffer interface.
+        # Therefore sc._read_pybuf_acquired is always False for SSLProtocol.
+        if (nread > 0 and
+            sc.__protocol_type == ProtocolType.BUFFERED and
+            not sc._read_pybuf_acquired):
             # From libuv docs:
             #     nread is > 0 if there is data available or < 0 on error. When
             #     we’ve reached EOF, nread will be set to UV_EOF. When
