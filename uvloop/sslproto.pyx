@@ -722,8 +722,8 @@ cdef class SSLProtocol:
         cdef:
             Py_ssize_t total_pending = (<Py_ssize_t>self._incoming.pending
                                         + <Py_ssize_t>self._sslobj_pending())
-            # Ask for a little extra in case when decrypted data is bigger than
-            # original
+            # Ask for a little extra in case when decrypted data is bigger
+            # than original
             object app_buffer = self._app_protocol_get_buffer(
                 total_pending + 256)
             Py_ssize_t app_buffer_size = len(app_buffer)
@@ -747,7 +747,7 @@ cdef class SSLProtocol:
             # One way to reduce reliance on SSLWantReadError is to check
             # self._incoming.pending > 0 and SSLObject.pending() > 0.
             # SSLObject.read may still throw SSLWantReadError even when
-            # self._incoming.pending > 0 SSLObject.pending() == 0,
+            # self._incoming.pending > 0 and SSLObject.pending() == 0,
             # but this should happen relatively rarely, only when ssl frame
             # is partially received.
 
@@ -775,7 +775,7 @@ cdef class SSLProtocol:
                         PyBUF_WRITE)
 
                 last_bytes_read = <Py_ssize_t>self._sslobj_read(
-                    app_buffer_size, app_buffer)
+                    app_buffer_size - total_bytes_read, app_buffer)
                 total_bytes_read += last_bytes_read
 
                 if last_bytes_read == 0:
