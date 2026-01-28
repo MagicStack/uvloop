@@ -67,13 +67,13 @@ cdef class SSLProtocol:
         bint _ssl_writing_paused
         bint _app_reading_paused
 
-        size_t _incoming_high_water
-        size_t _incoming_low_water
+        Py_ssize_t _incoming_high_water
+        Py_ssize_t _incoming_low_water
         bint _ssl_reading_paused
 
         bint _app_writing_paused
-        size_t _outgoing_high_water
-        size_t _outgoing_low_water
+        Py_ssize_t _outgoing_high_water
+        Py_ssize_t _outgoing_low_water
 
         object _app_protocol
         bint _app_protocol_is_buffer
