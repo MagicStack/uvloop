@@ -477,7 +477,7 @@ cdef class UVStream(UVBaseTransport):
                 sent = self._try_write(data)
 
                 if sent == len(data):
-                    # The most likely outcome,
+                    # The most likely and latency sensitive outcome goes first,
                     # all data was successfully written.
                     self._buffer_size = 0
                     self._buffer.clear()
