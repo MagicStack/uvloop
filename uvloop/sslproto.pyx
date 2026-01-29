@@ -200,6 +200,7 @@ cdef class SSLProtocol:
     """
 
     def __cinit__(self, *args, **kwargs):
+        self._ssl_read_max_size_obj = SSL_READ_MAX_SIZE
         self._ssl_buffer_len = SSL_READ_MAX_SIZE
         self._ssl_buffer = <char*>PyMem_RawMalloc(self._ssl_buffer_len)
         if not self._ssl_buffer:
@@ -587,7 +588,7 @@ cdef class SSLProtocol:
             bint close_notify = False
         try:
             while True:
-                if not self._sslobj_read(SSL_READ_MAX_SIZE):
+                if not self._sslobj_read(self._ssl_read_max_size_obj):
                     close_notify = True
                     break
         except ssl_SSLAgainErrors as exc:
@@ -773,7 +774,7 @@ cdef class SSLProtocol:
 
         try:
             while True:
-                chunk = self._sslobj_read(SSL_READ_MAX_SIZE)
+                chunk = self._sslobj_read(self._ssl_read_max_size_obj)
                 if not chunk:
                     break
                 if zero:

@@ -57,6 +57,7 @@ cdef class SSLProtocol:
         object _incoming_write
         object _outgoing
         object _outgoing_read
+        object _ssl_read_max_size_obj
         char* _ssl_buffer
         size_t _ssl_buffer_len
         object _ssl_buffer_view
