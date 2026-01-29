@@ -341,7 +341,7 @@ cdef class UVStream(UVBaseTransport):
         else:
             self.__reading_stopped()
 
-    cdef inline Py_ssize_t _try_write(self, object data) except? -2:
+    cdef inline Py_ssize_t _try_write(self, object data) except -2:
         # Returns number of bytes written.
         # -1 - in case of fatal errors
         cdef:
@@ -450,7 +450,7 @@ cdef class UVStream(UVBaseTransport):
             self._maybe_pause_protocol()
             self._loop._queue_write(self)
 
-    cdef inline bint _exec_write(self) except? -1:
+    cdef inline bint _exec_write(self) except -1:
         # Returns True if all data from self._buffers has been sent,
         # False - otherwise
         cdef:
