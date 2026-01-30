@@ -1,3 +1,9 @@
+cdef enum ProtocolType:
+    SIMPLE = 0          # User Protocol doesn't support asyncio.BufferedProtocol
+    BUFFERED = 1        # User Protocol supports asyncio.BufferedProtocol
+    SSL_PROTOCOL = 2    # Our own SSLProtocol
+
+
 cdef class UVStream(UVBaseTransport):
     cdef:
         uv.uv_shutdown_t _shutdown_req
@@ -5,7 +11,7 @@ cdef class UVStream(UVBaseTransport):
         bint __reading
         bint __read_error_close
 
-        bint __buffered
+        ProtocolType __protocol_type
         object _protocol_get_buffer
         object _protocol_buffer_updated
 
@@ -15,6 +21,8 @@ cdef class UVStream(UVBaseTransport):
 
         Py_buffer _read_pybuf
         bint _read_pybuf_acquired
+
+    cpdef write(self, object buf)
 
     # All "inline" methods are final
 
@@ -39,8 +47,8 @@ cdef class UVStream(UVBaseTransport):
 
     # _exec_write() is the method that does the actual send, and _try_write()
     # is a fast-path used in _exec_write() to send a single chunk.
-    cdef inline _exec_write(self)
-    cdef inline _try_write(self, object data)
+    cdef inline bint _exec_write(self) except -1
+    cdef inline Py_ssize_t _try_write(self, object data) except -2
 
     cdef _close(self)
 
