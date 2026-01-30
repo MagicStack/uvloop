@@ -53,6 +53,7 @@ cdef class SSLProtocol:
         object _sslobj
         object _sslobj_read
         object _sslobj_write
+        object _sslobj_pending
         object _incoming
         object _incoming_write
         object _outgoing
