@@ -3247,6 +3247,9 @@ cdef class Loop:
         except Exception as ex:
             self.call_soon_threadsafe(future.set_exception, ex)
 
+    # Allow external access to the ready queue for advanced scheduling and introspection
+    def get_ready_queue(self):
+        return self._ready
 
 # Expose pointer for integration with other C-extensions
 def libuv_get_loop_t_ptr(loop):
