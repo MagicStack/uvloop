@@ -2452,7 +2452,7 @@ cdef class Loop:
 
     def remove_reader(self, fileobj):
         """Remove a reader callback."""
-        self._remove_reader(fileobj)
+        return self._remove_reader(fileobj)
 
     def add_writer(self, fileobj, callback, *args):
         """Add a writer callback.."""
@@ -2462,7 +2462,7 @@ cdef class Loop:
 
     def remove_writer(self, fileobj):
         """Remove a writer callback."""
-        self._remove_writer(fileobj)
+        return self._remove_writer(fileobj)
 
     @cython.iterable_coroutine
     async def sock_recv(self, sock, n):
