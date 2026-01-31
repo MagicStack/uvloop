@@ -350,6 +350,9 @@ cdef class SSLProtocol:
         self._transport = None
         self._app_transport = None
         self._app_protocol = None
+        self._app_protocol_get_buffer = None
+        self._app_protocol_data_received = None
+        self._app_protocol_buffer_updated = None
         self._wakeup_waiter(exc)
 
         if self._shutdown_timeout_handle:
@@ -860,6 +863,8 @@ cdef class SSLProtocol:
         elif first_chunk is not None:
             self._app_protocol_data_received(first_chunk)
 
+        # SSLObject.read() may return 0 instead of throwing SSLWantReadError
+        # This indicates that we reached EOF
         if bytes_read == 0:
             # close_notify
             self._call_eof_received()
