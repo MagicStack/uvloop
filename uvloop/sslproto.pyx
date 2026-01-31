@@ -615,7 +615,8 @@ cdef class SSLProtocol:
             Py_ssize_t bytes_read = -1
         try:
             while bytes_read != 0:
-                bytes_read = self._sslobj_read(self._ssl_read_max_size_obj, buffer)
+                bytes_read = self._sslobj_read(
+                    self._ssl_read_max_size_obj, buffer)
         except ssl_SSLAgainErrors as exc:
             pass
         except ssl_SSLZeroReturnError:
