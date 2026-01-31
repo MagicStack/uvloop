@@ -610,17 +610,17 @@ cdef class SSLProtocol:
         If close_notify is received for the first time, call eof_received.
         """
         cdef:
-            bint close_notify = False
+            bytearray buffer = PyBytes_FromStringAndSize(
+                NULL, SSL_READ_DEFAULT_SIZE)
+            Py_ssize_t bytes_read = -1
         try:
-            while True:
-                if not self._sslobj_read(self._ssl_read_max_size_obj):
-                    close_notify = True
-                    break
+            while bytes_read != 0:
+                bytes_read = self._sslobj_read(self._ssl_read_max_size_obj, buffer)
         except ssl_SSLAgainErrors as exc:
             pass
         except ssl_SSLZeroReturnError:
-            close_notify = True
-        if close_notify:
+            bytes_read = 0
+        if bytes_read == 0:
             self._call_eof_received(context)
 
     cdef _do_flush(self, object context=None):
