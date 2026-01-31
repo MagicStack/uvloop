@@ -18,9 +18,10 @@ class _TestExecutors:
         async def run():
             pool = pool_factory()
             with pool:
-                coros = []
-                for i in range(0, 10):
-                    coros.append(self.loop.run_in_executor(pool, fib, i))
+                coros = [
+                    self.loop.run_in_executor(pool, fib, i)
+                    for i in range(0, 10)
+                ]
                 res = await asyncio.gather(*coros)
             self.assertEqual(res, fib10)
             await asyncio.sleep(0.01)

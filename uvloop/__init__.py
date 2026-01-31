@@ -58,7 +58,7 @@ else:
 
             if not __asyncio.iscoroutine(main):
                 raise ValueError(
-                    "a coroutine was expected, got {!r}".format(main)
+                    f"a coroutine was expected, got {main!r}"
                 )
 
             loop = loop_factory()
@@ -161,7 +161,9 @@ def __getattr__(name: str) -> _typing.Any:
 
     class EventLoopPolicy(
         # This is to avoid a mypy error about AbstractEventLoopPolicy
-        getattr(__asyncio, 'AbstractEventLoopPolicy')  # type: ignore[misc]
+        getattr(  # type: ignore[misc]
+            __asyncio, 'AbstractEventLoopPolicy'
+        )  # noqa: B009
     ):
         """Event loop policy for uvloop.
 
@@ -204,8 +206,8 @@ def __getattr__(name: str) -> _typing.Any:
             """
             if self._local._loop is None:
                 raise RuntimeError(
-                    'There is no current event loop in thread %r.'
-                    % threading.current_thread().name
+                    'There is no current event loop in '
+                    f'thread {threading.current_thread().name!r}.'
                 )
 
             return self._local._loop

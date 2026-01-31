@@ -1,5 +1,4 @@
 import asyncio
-import asyncio.sslproto
 import gc
 import os
 import select
@@ -46,7 +45,7 @@ class MyBaseProto(asyncio.Protocol):
         self.state = 'EOF'
 
     def connection_lost(self, exc):
-        assert self.state in ('CONNECTED', 'EOF'), self.state
+        assert self.state in {'CONNECTED', 'EOF'}, self.state
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
@@ -124,9 +123,7 @@ class _TestTCP:
 
             addr = srv_socks[0].getsockname()
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -168,9 +165,7 @@ class _TestTCP:
             self.assertTrue(srv_socks)
             self.assertTrue(srv.is_serving())
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -472,9 +467,7 @@ class _TestTCP:
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -529,9 +522,7 @@ class _TestTCP:
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -628,9 +619,7 @@ class _TestTCP:
 
             addr = srv_socks[0].getsockname()
 
-            tasks = []
-            for _ in range(TOTAL_CNT):
-                tasks.append(test_client(addr))
+            tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
             await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -1332,9 +1321,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -1428,9 +1415,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -1631,11 +1616,10 @@ class _TestSSL(tb.SSLTestCase):
         if hasattr(ssl, 'PROTOCOL_TLS_SERVER'):
             server_proto = ssl.PROTOCOL_TLS_SERVER
             client_proto = ssl.PROTOCOL_TLS_CLIENT
+        elif hasattr(ssl, 'PROTOCOL_TLS'):
+            client_proto = server_proto = ssl.PROTOCOL_TLS
         else:
-            if hasattr(ssl, 'PROTOCOL_TLS'):
-                client_proto = server_proto = ssl.PROTOCOL_TLS
-            else:
-                client_proto = server_proto = ssl.PROTOCOL_SSLv23
+            client_proto = server_proto = ssl.PROTOCOL_SSLv23
 
         server_context = ssl.SSLContext(server_proto)
         server_context.load_cert_chain(self.ONLYCERT, self.ONLYKEY)
@@ -2202,9 +2186,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(asyncio.gather(*tasks), TIMEOUT)
 
@@ -2324,9 +2306,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks))
@@ -2417,9 +2397,7 @@ class _TestSSL(tb.SSLTestCase):
 
                 addr = srv_socks[0].getsockname()
 
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(test_client(addr))
+                tasks = [test_client(addr) for _ in range(TOTAL_CNT)]
 
                 await asyncio.wait_for(
                     asyncio.gather(*tasks),
@@ -2489,9 +2467,7 @@ class _TestSSL(tb.SSLTestCase):
             with self.tcp_server(server,
                                  max_clients=TOTAL_CNT,
                                  backlog=TOTAL_CNT) as srv:
-                tasks = []
-                for _ in range(TOTAL_CNT):
-                    tasks.append(coro(srv.addr))
+                tasks = [coro(srv.addr) for _ in range(TOTAL_CNT)]
 
                 self.loop.run_until_complete(
                     asyncio.gather(*tasks))
@@ -2807,7 +2783,7 @@ class _TestSSL(tb.SSLTestCase):
             except AssertionError as e:
                 self.assertEqual(str(e), 'ResourceWarning not triggered')
             else:
-                self.fail('Unexpected ResourceWarning: {}'.format(cm.warning))
+                self.fail(f'Unexpected ResourceWarning: {cm.warning}')
 
     def test_handshake_timeout_handler_leak(self):
         if self.implementation == 'asyncio':

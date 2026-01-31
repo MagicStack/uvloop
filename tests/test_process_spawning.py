@@ -100,8 +100,8 @@ class ProcessSpawningTestCollection(TestCase):
                 t.start()
                 t.join(timeout=10.0)
                 if t.is_alive():
-                    raise Exception('process freeze detected at {}'
-                                    .format(iteration))
+                    raise Exception(f'process freeze detected at {iteration}'
+                                    )
 
             return True
 

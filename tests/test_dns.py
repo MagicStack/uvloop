@@ -248,7 +248,7 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
         try:
             # Check that we have internet connection
             socket.getaddrinfo('example.com', 80)
-        except socket.error:
+        except OSError:
             raise unittest.SkipTest
 
         async def run():
