@@ -4,7 +4,8 @@ description = "Fast implementation of asyncio event loop on top of libuv"
 authors = [{name = "Yury Selivanov", email = "yury@magic.io"}]
 requires-python = '>=3.8.1'
 readme = "README.rst"
-license = {text = "MIT License"}
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-APACHE", "LICENSE-MIT"]
 dynamic = ["version"]
 keywords = [
     "asyncio",
@@ -14,8 +15,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3 :: Only",
@@ -45,7 +44,7 @@ test = [
     'mypy>=0.800',
 ]
 dev = [
-    'setuptools>=60',
+    'setuptools>=77.0.3',
     'Cython~=3.0',
 ]
 docs = [
@@ -56,7 +55,7 @@ docs = [
 
 [build-system]
 requires = [
-    "setuptools>=60",
+    "setuptools>=77.0.3",
     "wheel",
     "Cython~=3.1",
 ]
