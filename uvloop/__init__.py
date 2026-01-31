@@ -203,10 +203,7 @@ def __getattr__(name: str) -> _typing.Any:
             Returns an instance of EventLoop or raises an exception.
             """
             if self._local._loop is None:
-                raise RuntimeError(
-                    'There is no current event loop in thread %r.'
-                    % threading.current_thread().name
-                )
+                self._local._loop = self._loop_factory()
 
             return self._local._loop
 
