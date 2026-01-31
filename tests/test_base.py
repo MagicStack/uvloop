@@ -938,6 +938,12 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.loop.run_until_complete(fut)
         self.assertEqual(handle.when(), when)
 
+    def test_loop_call_later_0_returns_timer_handle(self):
+        cb = lambda: False  # NoQA
+        handle = self.loop.call_later(0, cb)
+        handle.when()
+        handle.cancel()
+
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass
