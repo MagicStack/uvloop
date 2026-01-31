@@ -348,6 +348,12 @@ cdef class SSLProtocol:
                 self._loop.call_soon(self._app_protocol.connection_lost, exc)
         self._set_state(UNWRAPPED)
         self._transport = None
+
+        # Decrease ref counters to user instances to avoid cyclic references
+        # between user protocol, SSLProtocol and SSLTransport.
+        # This helps to deallocate useless objects asap.
+        # If not done then some tests like test_create_connection_memory_leak
+        # will fail.
         self._app_transport = None
         self._app_protocol = None
         self._app_protocol_get_buffer = None
