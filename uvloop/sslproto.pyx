@@ -293,6 +293,7 @@ cdef class SSLProtocol:
             self._ssl_read_buffer = None
         else:
             self._app_protocol_is_buffer = False
+            self._app_protocol_data_received = app_protocol.data_received
             if self._ssl_read_buffer is None:
                 self._ssl_read_buffer = PyByteArray_FromStringAndSize(
                     NULL, SSL_READ_MAX_SIZE)
@@ -361,7 +362,7 @@ cdef class SSLProtocol:
     cdef get_buffer_impl(self, size_t n, char** buf, size_t* buf_size):
         cdef Py_ssize_t want = min(<Py_ssize_t>n, SSL_READ_MAX_SIZE)
 
-        if len(self._plain_read_buffer) < want:
+        if PyByteArray_GET_SIZE(self._plain_read_buffer) < want:
             PyByteArray_Resize(self._plain_read_buffer, want)
             if self._ssl_read_buffer is not None:
                 PyByteArray_Resize(self._ssl_read_buffer, want)
@@ -371,7 +372,7 @@ cdef class SSLProtocol:
 
     cdef buffer_updated_impl(self, size_t nbytes):
         mv = PyMemoryView_FromMemory(
-            self._plain_read_buffer,
+            PyByteArray_AS_STRING(self._plain_read_buffer),
             nbytes,
             PyBUF_WRITE
         )
@@ -855,10 +856,11 @@ cdef class SSLProtocol:
             pass
 
         if data is not None:
-            self._app_protocol.data_received(b''.join(data))
+            self._app_protocol_data_received(b''.join(data))
         elif first_chunk is not None:
-            self._app_protocol.data_received(first_chunk)
-        elif bytes_read == 0:
+            self._app_protocol_data_received(first_chunk)
+
+        if bytes_read == 0:
             # close_notify
             self._call_eof_received()
             self._start_shutdown()

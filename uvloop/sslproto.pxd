@@ -81,6 +81,7 @@ cdef class SSLProtocol:
         bint _app_protocol_is_buffer
         object _app_protocol_get_buffer
         object _app_protocol_buffer_updated
+        object _app_protocol_data_received
 
         object _handshake_start_time
         object _handshake_timeout_handle
