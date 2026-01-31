@@ -156,7 +156,7 @@ cdef class ReadUnixTransport(UVStream):
     def get_write_buffer_size(self):
         raise NotImplementedError
 
-    def write(self, data):
+    cpdef write(self, data):
         raise NotImplementedError
 
     def writelines(self, list_of_data):

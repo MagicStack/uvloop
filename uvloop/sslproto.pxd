@@ -58,8 +58,10 @@ cdef class SSLProtocol:
         object _incoming_write
         object _outgoing
         object _outgoing_read
-        char* _ssl_buffer
-        size_t _ssl_buffer_len
+        bytearray _plain_read_buffer
+        bytearray _ssl_read_buffer
+        object _ssl_read_max_size_obj
+
         SSLProtocolState _state
         size_t _conn_lost
         AppProtocolState _app_state
