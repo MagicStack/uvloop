@@ -931,7 +931,6 @@ cdef void __uv_stream_buffered_alloc(
         try:
             (<SSLProtocol>sc._protocol).get_buffer_impl(
                 suggested_size, &uvbuf.base, &uvbuf.len)
-
             return
         except BaseException as exc:
             # Can't call 'sc._fatal_error' or 'sc._close', libuv will SF.

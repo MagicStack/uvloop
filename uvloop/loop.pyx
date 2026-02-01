@@ -35,8 +35,10 @@ from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
 from cpython cimport (
     PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE,
     Py_buffer, PyBytes_AsString, PyBytes_CheckExact,
-    PyBytes_AsStringAndSize,
-    Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE
+    PyBytes_AsStringAndSize, PyBytes_FromStringAndSize,
+    Py_SIZE, PyBytes_AS_STRING, PyBUF_WRITABLE,
+    PyByteArray_AS_STRING, PyByteArray_GET_SIZE, PyByteArray_Resize,
+    PyByteArray_FromStringAndSize
 )
 from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 

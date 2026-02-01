@@ -1,7 +1,3 @@
-from cpython.bytearray cimport PyByteArray_FromStringAndSize, PyByteArray_AS_STRING, PyByteArray_GET_SIZE, PyByteArray_Resize
-from cpython.bytes cimport PyBytes_FromStringAndSize
-
-
 cdef _create_transport_context(server_side, server_hostname):
     if server_side:
         raise ValueError('Server side SSL needs a valid SSLContext')
@@ -208,7 +204,6 @@ cdef class SSLProtocol:
                  call_connection_made=True,
                  ssl_handshake_timeout=None,
                  ssl_shutdown_timeout=None):
-
         if ssl_handshake_timeout is None:
             ssl_handshake_timeout = SSL_HANDSHAKE_TIMEOUT
         elif ssl_handshake_timeout <= 0:
