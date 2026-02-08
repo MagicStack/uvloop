@@ -251,7 +251,7 @@ cdef class SSLProtocol:
         self._outgoing = ssl_MemoryBIO()
         self._outgoing_read = self._outgoing.read
 
-        self._plain_read_buffer = PyByteArray_FromStringAndSize(
+        self._tcp_read_buffer = PyByteArray_FromStringAndSize(
             NULL, SSL_READ_DEFAULT_SIZE)
         self._ssl_read_max_size_obj = SSL_READ_MAX_SIZE
 
@@ -366,17 +366,17 @@ cdef class SSLProtocol:
     cdef get_buffer_impl(self, size_t n, char** buf, size_t* buf_size):
         cdef Py_ssize_t want = min(<Py_ssize_t>n, SSL_READ_MAX_SIZE)
 
-        if PyByteArray_GET_SIZE(self._plain_read_buffer) < want:
-            PyByteArray_Resize(self._plain_read_buffer, want)
+        if PyByteArray_GET_SIZE(self._tcp_read_buffer) < want:
+            PyByteArray_Resize(self._tcp_read_buffer, want)
             if self._ssl_read_buffer is not None:
                 PyByteArray_Resize(self._ssl_read_buffer, want)
 
-        buf[0] = PyByteArray_AS_STRING(self._plain_read_buffer)
-        buf_size[0] = PyByteArray_GET_SIZE(self._plain_read_buffer)
+        buf[0] = PyByteArray_AS_STRING(self._tcp_read_buffer)
+        buf_size[0] = PyByteArray_GET_SIZE(self._tcp_read_buffer)
 
     cdef buffer_updated_impl(self, size_t nbytes):
         mv = PyMemoryView_FromMemory(
-            PyByteArray_AS_STRING(self._plain_read_buffer),
+            PyByteArray_AS_STRING(self._tcp_read_buffer),
             nbytes,
             PyBUF_WRITE
         )

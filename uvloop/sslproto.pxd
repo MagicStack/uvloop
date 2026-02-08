@@ -60,7 +60,7 @@ cdef class SSLProtocol:
         object _outgoing_read
 
         # Buffer for the underlying UVStream buffered reads
-        bytearray _plain_read_buffer
+        bytearray _tcp_read_buffer
         # Buffer for SSLObject.read calls
         # Only allocated when user pass non-buffered Protocol instance
         bytearray _ssl_read_buffer
