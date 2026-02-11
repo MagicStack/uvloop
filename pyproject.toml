@@ -45,6 +45,7 @@ test = [
     'mypy>=0.800',
 ]
 dev = [
+    'packaging',
     'setuptools>=60',
     'Cython~=3.0',
 ]
