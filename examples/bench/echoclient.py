@@ -4,12 +4,15 @@
 
 import argparse
 import concurrent.futures
+import multiprocessing
 import socket
 import ssl
 import time
 
 
 if __name__ == '__main__':
+    multiprocessing.set_start_method("fork")
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--msize', default=1000, type=int,
                         help='message size in bytes')
