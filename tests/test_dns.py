@@ -217,6 +217,10 @@ class BaseTestDNS:
         self._test_getaddrinfo(payload, 80)
         self._test_getaddrinfo(payload, 80, type=socket.SOCK_STREAM)
 
+    def test_getaddrinfo_broadcast(self):
+        self._test_getaddrinfo('<broadcast>', 80)
+        self._test_getaddrinfo('<broadcast>', 80, type=socket.SOCK_STREAM)
+
     ######
 
     def test_getnameinfo_1(self):
