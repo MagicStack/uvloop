@@ -41,6 +41,8 @@ from cpython cimport (
 from cpython.pycapsule cimport PyCapsule_New, PyCapsule_GetPointer
 
 from . import _noop
+import threading
+__spawn_lock = threading.Lock()
 
 
 include "includes/stdlib.pxi"
