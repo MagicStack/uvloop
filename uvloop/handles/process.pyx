@@ -68,21 +68,28 @@ cdef class UVProcess(UVHandle):
             self._abort_init()
             raise
 
-        if __forking or loop.active_process_handler is not None:
-            # Our pthread_atfork handlers won't work correctly when
-            # another loop is forking in another thread (even though
-            # GIL should help us to avoid that.)
+        # Acquire the global spawn lock to serialize process spawning
+        # across threads. Without this, concurrent spawns from different
+        # loops would race on the global pthread_atfork handlers.
+        __spawn_lock.acquire()
+        _spawn_lock_held = True
+
+        if loop.active_process_handler is not None:
+            __spawn_lock.release()
+            _spawn_lock_held = False
             self._abort_init()
             raise RuntimeError(
-                'Racing with another loop to spawn a process.')
+                'Racing with the same loop to spawn a process.')
 
-        self._errpipe_read, self._errpipe_write = os_pipe()
-        fds_to_close = self._fds_to_close
-        self._fds_to_close = None
-        fds_to_close.append(self._errpipe_read)
-        # add the write pipe last so we can close it early
-        fds_to_close.append(self._errpipe_write)
+        fds_to_close = None
         try:
+            self._errpipe_read, self._errpipe_write = os_pipe()
+            fds_to_close = self._fds_to_close
+            self._fds_to_close = None
+            fds_to_close.append(self._errpipe_read)
+            # add the write pipe last so we can close it early
+            fds_to_close.append(self._errpipe_write)
+
             os_set_inheritable(self._errpipe_write, True)
 
             self._preexec_fn = preexec_fn
@@ -103,6 +110,8 @@ cdef class UVProcess(UVHandle):
             __forking_loop = None
             system.resetForkHandler()
             loop.active_process_handler = None
+            __spawn_lock.release()
+            _spawn_lock_held = False
 
             PyOS_AfterFork_Parent()
 
@@ -128,8 +137,16 @@ cdef class UVProcess(UVHandle):
                         break
 
         finally:
-            while fds_to_close:
-                os_close(fds_to_close.pop())
+            if _spawn_lock_held:
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
+                loop.active_process_handler = None
+                __spawn_lock.release()
+
+            if fds_to_close is not None:
+                while fds_to_close:
+                    os_close(fds_to_close.pop())
 
             for fd in restore_inheritable:
                 os_set_inheritable(fd, False)
