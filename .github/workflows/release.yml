@@ -116,6 +116,12 @@ jobs:
       run: |
         brew install gnu-sed libtool autoconf automake
 
+    - name: Set up QEMU
+      if: matrix.cibw_arch == 'riscv64'
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: riscv64
+
     - uses: pypa/cibuildwheel@7c619efba910c04005a835b110b057fc28fd6e93  # v3.2.0
       env:
         CIBW_BUILD_VERBOSITY: 1
