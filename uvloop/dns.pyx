@@ -61,7 +61,7 @@ cdef __convert_sockaddr_to_pyaddr(const system.sockaddr* addr):
             addr6.sin6_scope_id
         )
 
-    elif addr.sa_family == uv.AF_UNIX:
+    elif not system.PLATFORM_IS_WINDOWS and addr.sa_family == uv.AF_UNIX:
         addr_un = <system.sockaddr_un*>addr
         return system.MakeUnixSockPyAddr(addr_un)
 
@@ -154,7 +154,7 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         (<system.sockaddr_in6*>&ret.addr).sin6_flowinfo = flowinfo
         (<system.sockaddr_in6*>&ret.addr).sin6_scope_id = scope_id
 
-    elif family == uv.AF_UNIX:
+    elif not system.PLATFORM_IS_WINDOWS and family == uv.AF_UNIX:
         if isinstance(addr, str):
             addr = addr.encode(sys_getfilesystemencoding())
         elif not isinstance(addr, bytes):
@@ -170,9 +170,13 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         (<system.sockaddr_un*>&ret.addr).sun_family = uv.AF_UNIX
         memcpy((<system.sockaddr_un*>&ret.addr).sun_path, buf, buflen)
 
-    else:
+    elif not system.PLATFORM_IS_WINDOWS:
         raise ValueError(
             f'expected AF_INET, AF_INET6, or AF_UNIX family, got {family}')
+
+    else:
+        raise ValueError(
+            f'expected AF_INET or AF_INET6 family, got {family}')
 
     ret.family = family
     sockaddrs[addr] = ret

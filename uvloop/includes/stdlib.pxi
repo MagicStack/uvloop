@@ -146,6 +146,8 @@ cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
 cdef subprocess_SubprocessError = subprocess.SubprocessError
 
+cdef int signal_SIGABRT = signal.SIGABRT
+cdef int signal_SIGINT = signal.SIGINT
 cdef int signal_NSIG = signal.NSIG
 cdef signal_signal = signal.signal
 cdef signal_siginterrupt = signal.siginterrupt

@@ -28,8 +28,10 @@ cdef class UVProcess(UVHandle):
                pass_fds, debug_flags, preexec_fn, restore_signals):
 
         global __forking
-        global __forking_loop
-        global __forkHandler
+
+        if not system.PLATFORM_IS_WINDOWS:
+            global __forking_loop
+            global __forkHandler
 
         cdef int err
 
@@ -89,22 +91,25 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 1
+                __forking_loop = loop
+                system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
-            PyOS_BeforeFork()
-
+                PyOS_BeforeFork()
+            
             err = uv.uv_spawn(loop.uvloop,
-                              <uv.uv_process_t*>self._handle,
-                              &self.options)
+                          <uv.uv_process_t*>self._handle,
+                          &self.options)
+            
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
 
-            __forking = 0
-            __forking_loop = None
-            system.resetForkHandler()
-            loop.active_process_handler = None
-
-            PyOS_AfterFork_Parent()
+                PyOS_AfterFork_Parent()
+            
+            
 
             if err < 0:
                 self._close_process_handle()
@@ -178,11 +183,12 @@ cdef class UVProcess(UVHandle):
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        PyOS_AfterFork_Child()
+        if not system.PLATFORM_IS_WINDOWS:
+            PyOS_AfterFork_Child()
 
-        err = uv.uv_loop_fork(self._loop.uvloop)
-        if err < 0:
-            raise convert_error(err)
+            err = uv.uv_loop_fork(self._loop.uvloop)
+            if err < 0:
+                raise convert_error(err)
 
         if self._preexec_fn is not None:
             try:
@@ -775,7 +781,15 @@ cdef __socketpair():
         int fds[2]
         int err
 
-    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    # Winloop comment: no Unix sockets on Windows, using uv.uv_pipe()
+    # instead of system.socketpair(). Also, see changes to 
+    # libuv/src/win/pipe.c to deal with UV_EPERM = -4048 errors
+    # for stdin pipe.
+    if system.PLATFORM_IS_WINDOWS:
+        # NB: uv.uv_file is int type on Windows
+        err = uv.uv_pipe(fds, uv.UV_NONBLOCK_PIPE, uv.UV_NONBLOCK_PIPE)
+    else:
+        err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
     if err:
         exc = convert_error(-err)
         raise exc
