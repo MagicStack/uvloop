@@ -28,6 +28,10 @@ from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
 from libc cimport errno
 
+# Winloop Comment: We need some cleaver hacky techniques for 
+# preventing slow spawnning processes for MSVC
+from cpython.pystate cimport (PyGILState_Ensure, PyGILState_Release,
+                              PyGILState_STATE)
 from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident

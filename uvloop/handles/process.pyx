@@ -91,27 +91,33 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
+            
 
             if not system.PLATFORM_IS_WINDOWS:
+                __forking = 1
+                __forking_loop = loop
                 system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
                 PyOS_BeforeFork()
+            else:
+                py_gil_state = PyGILState_Ensure()
             
             err = uv.uv_spawn(loop.uvloop,
                           <uv.uv_process_t*>self._handle,
                           &self.options)
             
-            __forking = 0
-            __forking_loop = None
+            
             if not system.PLATFORM_IS_WINDOWS:
-                
+                __forking = 0
+                __forking_loop = None
                 system.resetForkHandler()
 
                 PyOS_AfterFork_Parent()
+            else:
+                PyGILState_Release(py_gil_state)
             
-            
+            loop.active_process_handler = None
+
 
             if err < 0:
                 self._close_process_handle()
