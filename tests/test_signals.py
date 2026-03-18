@@ -1,4 +1,5 @@
 import asyncio
+import os
 import signal
 import subprocess
 import sys
@@ -304,10 +305,17 @@ finally:
             self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
 
     def test_signals_coro_callback(self):
+        if sys.platform == "win32" and self.NEW_LOOP == "asyncio.new_event_loop()":
+            raise unittest.SkipTest("no add_signal_handler on asyncio loop on Windows")
+
         async def coro():
             pass
         with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
-            self.loop.add_signal_handler(signal.SIGHUP, coro)
+            if sys.platform == "win32":
+                # Winloop comment: use (arbitrary) signal defined on Windows
+                self.loop.add_signal_handler(signal.SIGILL, coro)
+            else:
+                self.loop.add_signal_handler(signal.SIGHUP, coro)
 
     def test_signals_wakeup_fd_unchanged(self):
         async def runner():
@@ -382,10 +390,28 @@ def run():
 
 run()
 """
+        # Winloop comment: in PROG above we use default setting
+        # for start_method: on Linux 'fork' and on Windows 'spawn'.
+        # Also, avoid call run() during import.
+        if sys.platform != "win32":
 
-        subprocess.check_call([
+            subprocess.check_call([
             sys.executable, b'-W', b'ignore', b'-c', PROG,
-        ])
+            ])
+        else:
+            # Winloop comment: spawn uses pickle on subprocess()
+            # but this gives an error like:
+            # "...   self = reduction.pickle.load(from_parent)
+            # AttributeError: Can't get attribute 'subprocess'
+            # on <module '__main__' (built-in)>"
+            # Therefore we run PROG as a script.
+            with open("tempfiletstsig.py", "wt") as f:
+                f.write(PROG)
+            subprocess.check_call(
+                [sys.executable, b"-W", b"ignore", b"tempfiletstsig.py"]
+            )
+            os.remove("tempfiletstsig.py")
+
 
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
