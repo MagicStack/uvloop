@@ -165,7 +165,8 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
                    max_clients=10):
 
         if addr is None:
-            if family == socket.AF_UNIX:
+            # Winloop comment: Windows has no Unix sockets
+            if hasattr(socket, "AF_UNIX") and family == socket.AF_UNIX:
                 with tempfile.NamedTemporaryFile() as tmp:
                     addr = tmp.name
             else:
@@ -316,13 +317,13 @@ class AIOTestCase(BaseTestCase):
     def setUp(self):
         super().setUp()
 
-        if sys.version_info < (3, 12):
+        if sys.version_info < (3, 12) and sys.platform != "win32":
             watcher = asyncio.SafeChildWatcher()
             watcher.attach_loop(self.loop)
             asyncio.set_child_watcher(watcher)
 
     def tearDown(self):
-        if sys.version_info < (3, 12):
+        if sys.version_info < (3, 12) and sys.platform != "win32":
             asyncio.set_child_watcher(None)
         super().tearDown()
 
