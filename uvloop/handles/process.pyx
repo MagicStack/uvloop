@@ -91,9 +91,10 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
+            __forking = 1
+            __forking_loop = loop
+
             if not system.PLATFORM_IS_WINDOWS:
-                __forking = 1
-                __forking_loop = loop
                 system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
                 PyOS_BeforeFork()
@@ -102,9 +103,10 @@ cdef class UVProcess(UVHandle):
                           <uv.uv_process_t*>self._handle,
                           &self.options)
             
+            __forking = 0
+            __forking_loop = None
             if not system.PLATFORM_IS_WINDOWS:
-                __forking = 0
-                __forking_loop = None
+                
                 system.resetForkHandler()
 
                 PyOS_AfterFork_Parent()
