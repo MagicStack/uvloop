@@ -1,6 +1,8 @@
 name: Tests
 
 on:
+  # TODO: (Vizonex) Remove later I'm just a little impaitient... 
+  workflow_dispatch:
   push:
     branches:
       - master
