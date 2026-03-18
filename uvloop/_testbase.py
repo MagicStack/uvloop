@@ -89,8 +89,10 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         self.loop.default_exception_handler(context)
 
     def setUp(self):
-        self.loop = self.new_loop()
+        # WINLOOP comment: next two lines are swapped because otherwise
+        # setting event loop policy has no effect.
         asyncio.set_event_loop_policy(self.new_policy())
+        self.loop = self.new_loop()
         asyncio.set_event_loop(self.loop)
         self._check_unclosed_resources_in_debug = True
 
