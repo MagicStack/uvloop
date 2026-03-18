@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import time
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -348,6 +349,9 @@ print(fd0 == fd1, flush=True)
         self.loop.run_until_complete(runner())
 
     def test_signals_fork_in_thread(self):
+        if sys.platform == "win32" and self.NEW_LOOP == "asyncio.new_event_loop()":
+            raise unittest.SkipTest("no add_signal_handler on asyncio loop on Windows")
+
         # Refs #452, when forked from a thread, the main-thread-only signal
         # operations failed thread ID checks because we didn't update
         # MAIN_THREAD_ID after fork. It's now a lazy value set when needed and

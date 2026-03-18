@@ -1,5 +1,4 @@
 import asyncio
-import fcntl
 import logging
 import os
 import random
@@ -10,6 +9,10 @@ import time
 import uvloop
 import unittest
 import weakref
+
+
+if sys.platform != "win32":
+    import fcntl
 
 from unittest import mock
 from uvloop._testbase import UVTestCase, AIOTestCase
@@ -833,10 +836,11 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertFalse(handle.cancelled())
 
     def test_loop_std_files_cloexec(self):
-        # See https://github.com/MagicStack/uvloop/issues/40 for details.
-        for fd in {0, 1, 2}:
-            flags = fcntl.fcntl(fd, fcntl.F_GETFD)
-            self.assertFalse(flags & fcntl.FD_CLOEXEC)
+        if sys.platform != "win32":
+            # See https://github.com/MagicStack/uvloop/issues/40 for details.
+            for fd in {0, 1, 2}:
+                flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+                self.assertFalse(flags & fcntl.FD_CLOEXEC)
 
     def test_default_exc_handler_broken(self):
         logger = logging.getLogger('asyncio')
