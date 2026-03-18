@@ -165,5 +165,4 @@ void PyOS_AfterFork_Parent() {
 void PyOS_AfterFork_Child() {
     return;
 }
-
 #endif

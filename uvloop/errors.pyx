@@ -11,12 +11,7 @@ cdef __convert_python_error(int uverr):
 
     cdef int oserr
     if system.PLATFORM_IS_WINDOWS:
-        # XXX Won't work for Windows:
-        # From libuv docs:
-        #      Implementation detail: on Unix error codes are the
-        #      negated errno (or -errno), while on Windows they
-        #      are defined by libuv to arbitrary negative numbers.
-
+        
         # Winloop comment: The following approach seems to work for Windows:
 	    # translation from uverr, which is a negative number like -4088 or -4071
         # defined by libuv (as mentioned above), to error numbers obtained via 
