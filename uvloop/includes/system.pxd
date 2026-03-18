@@ -81,8 +81,30 @@ cdef extern from "includes/fork_handler.h":
         void (*parent)(),
         void (*child)())
 
-# TODO: windows needs statomic.h and a few other Things. Might need a reviewer for help.
+
 cdef extern from * nogil:
+    """
+#ifdef _WIN32
+static inline uint64_t 
+__win_atomic_fetch_add(uint64_t *ptr, uint64_t val){
+    return *ptr = *(volatile uint64_t *)ptr + val;
+}
+
+static inline uint64_t 
+__win_atomic_fetch_sub(uint64_t *ptr, uint64_t val){
+    return *ptr = *(volatile uint64_t *)ptr - val;
+}
+
+#define __atomic_fetch_add(ptr, val, memorder) \
+    __win_atomic_fetch_add(ptr, val)
+
+#define __atomic_fetch_sub(ptr, val, memorder) \
+    __win_atomic_fetch_sub(ptr, val)
+
+/* We need ATOMIC RELAXED still */
+#define __ATOMIC_RELAXED 0
+#endif /* _WIN32 */
+    """
     uint64_t __atomic_fetch_add(uint64_t *ptr, uint64_t val, int memorder)
     uint64_t __atomic_fetch_sub(uint64_t *ptr, uint64_t val, int memorder)
 

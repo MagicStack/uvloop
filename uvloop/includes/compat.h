@@ -154,3 +154,16 @@ _Py_RestoreSignals(void)
     PyOS_setsig(SIGXFSZ, SIG_DFL);
 #endif
 }
+
+#ifdef _WIN32
+void PyOS_BeforeFork() {
+    return;
+}	
+void PyOS_AfterFork_Parent() {
+    return;
+}
+void PyOS_AfterFork_Child() {
+    return;
+}
+
+#endif
