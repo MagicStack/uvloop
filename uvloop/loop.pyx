@@ -2833,6 +2833,9 @@ cdef class Loop:
             if not shell:
                 args = [cmd]
             else:
+                # XXX: os is somehow nonexistant. 
+                # TODO: Fix OS Import on windows. 
+                import os
                 # CHANGED WINDOWS Shell see : https://github.com/libuv/libuv/pull/2627 for more details...
 
                 # Winloop comment: args[0].split(' ') instead of args to pass some tests in test_process
@@ -2848,8 +2851,7 @@ cdef class Loop:
                 args = [comspec]
                 args.append('/c')
                 # TODO: (Vizonex) We probably need a new solution besides using a shlex parser setup.
-                args.extend(cmd)
-        
+                args.append(cmd)
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
 

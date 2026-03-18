@@ -268,6 +268,16 @@ cdef class UVProcess(UVHandle):
         if start_new_session:
             self.options.flags |= uv.UV_PROCESS_DETACHED
 
+            # if system.PLATFORM_IS_WINDOWS:
+                # TODO Forget these flags for right now until we have figured out/diagnosed the real issue...
+                # "All of these flags have been set because they're all meaningful on windows systems...
+                # see uv_process_fags for more reasons why I had to set all of these up this way" - Vizonex
+                # https://docs.libuv.org/en/v1.x/process.html#c.uv_process_flags
+                # enabling VERBATIM_ARGUMENTS is helpful here because we're not enabling children...
+                # self.options.flags |= uv.UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS
+                # pass
+
+
         if force_fork:
             # This is a hack to work around the change in libuv 1.44:
             #    > macos: use posix_spawn instead of fork

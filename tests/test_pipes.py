@@ -2,9 +2,10 @@ import asyncio
 import io
 import os
 import socket
+import sys
+import unittest
 
 from uvloop import _testbase as tb
-
 
 # All tests are copied from asyncio (mostly as-is)
 
@@ -13,7 +14,7 @@ class MyReadPipeProto(asyncio.Protocol):
     done = None
 
     def __init__(self, loop=None):
-        self.state = ['INITIAL']
+        self.state = ["INITIAL"]
         self.nbytes = 0
         self.transport = None
         if loop is not None:
@@ -21,22 +22,22 @@ class MyReadPipeProto(asyncio.Protocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == ['INITIAL'], self.state
-        self.state.append('CONNECTED')
+        assert self.state == ["INITIAL"], self.state
+        self.state.append("CONNECTED")
 
     def data_received(self, data):
-        assert self.state == ['INITIAL', 'CONNECTED'], self.state
+        assert self.state == ["INITIAL", "CONNECTED"], self.state
         self.nbytes += len(data)
 
     def eof_received(self):
-        assert self.state == ['INITIAL', 'CONNECTED'], self.state
-        self.state.append('EOF')
+        assert self.state == ["INITIAL", "CONNECTED"], self.state
+        self.state.append("EOF")
 
     def connection_lost(self, exc):
-        if 'EOF' not in self.state:
-            self.state.append('EOF')  # It is okay if EOF is missed.
-        assert self.state == ['INITIAL', 'CONNECTED', 'EOF'], self.state
-        self.state.append('CLOSED')
+        if "EOF" not in self.state:
+            self.state.append("EOF")  # It is okay if EOF is missed.
+        assert self.state == ["INITIAL", "CONNECTED", "EOF"], self.state
+        self.state.append("CLOSED")
         if self.done:
             self.done.set_result(None)
 
@@ -46,19 +47,19 @@ class MyWritePipeProto(asyncio.BaseProtocol):
     paused = False
 
     def __init__(self, loop=None):
-        self.state = 'INITIAL'
+        self.state = "INITIAL"
         self.transport = None
         if loop is not None:
             self.done = asyncio.Future(loop=loop)
 
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
-        self.state = 'CONNECTED'
+        assert self.state == "INITIAL", self.state
+        self.state = "CONNECTED"
 
     def connection_lost(self, exc):
-        assert self.state == 'CONNECTED', self.state
-        self.state = 'CLOSED'
+        assert self.state == "CONNECTED", self.state
+        self.state = "CLOSED"
         if self.done:
             self.done.set_result(None)
 
@@ -69,62 +70,70 @@ class MyWritePipeProto(asyncio.BaseProtocol):
         self.paused = False
 
 
+# Winloop comment: on Windows the asyncio event loop does not support pipes.
+# For instance, running in ..\Lib\test\test_asyncio the unit test
+# test_events.ProactorEventLoopTests.test_unclosed_pipe_transport
+# gives:  ... skipped "Don't support pipes for Windows"
+# See also: https://github.com/python/cpython/issues/71019 from that:
+# "On Windows, sockets and named pipes are supported, on Linux fifo, sockets,
+# pipes and character devices are supported, no idea about macOS."
 class _BasePipeTest:
     def test_read_pipe(self):
+        if sys.platform == "win32" and self.is_asyncio_loop():
+            raise unittest.SkipTest("do not support pipes for Windows")
+
         proto = MyReadPipeProto(loop=self.loop)
 
         rpipe, wpipe = os.pipe()
-        pipeobj = io.open(rpipe, 'rb', 1024)
+        pipeobj = io.open(rpipe, "rb", 1024)
 
         async def connect():
-            t, p = await self.loop.connect_read_pipe(
-                lambda: proto, pipeobj)
+            t, p = await self.loop.connect_read_pipe(lambda: proto, pipeobj)
             self.assertIs(p, proto)
             self.assertIs(t, proto.transport)
-            self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
+            self.assertEqual(["INITIAL", "CONNECTED"], proto.state)
             self.assertEqual(0, proto.nbytes)
 
         self.loop.run_until_complete(connect())
 
-        os.write(wpipe, b'1')
+        os.write(wpipe, b"1")
         tb.run_until(self.loop, lambda: proto.nbytes >= 1)
         self.assertEqual(1, proto.nbytes)
 
-        os.write(wpipe, b'2345')
+        os.write(wpipe, b"2345")
         tb.run_until(self.loop, lambda: proto.nbytes >= 5)
-        self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
+        self.assertEqual(["INITIAL", "CONNECTED"], proto.state)
         self.assertEqual(5, proto.nbytes)
 
         os.close(wpipe)
         self.loop.run_until_complete(proto.done)
-        self.assertEqual(
-            ['INITIAL', 'CONNECTED', 'EOF', 'CLOSED'], proto.state)
+        self.assertEqual(["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state)
         # extra info is available
-        self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
+        self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
+    @unittest.skipIf(sys.platform == "win32", "no os.openpty on Windows")
     def test_read_pty_output(self):
         proto = MyReadPipeProto(loop=self.loop)
 
         master, slave = os.openpty()
-        master_read_obj = io.open(master, 'rb', 0)
+        master_read_obj = io.open(master, "rb", 0)
 
         async def connect():
-            t, p = await self.loop.connect_read_pipe(
-                lambda: proto, master_read_obj)
+            t, p = await self.loop.connect_read_pipe(lambda: proto, master_read_obj)
             self.assertIs(p, proto)
             self.assertIs(t, proto.transport)
-            self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
+            self.assertEqual(["INITIAL", "CONNECTED"], proto.state)
             self.assertEqual(0, proto.nbytes)
 
         self.loop.run_until_complete(connect())
 
-        os.write(slave, b'1')
+        os.write(slave, b"1")
         tb.run_until(self.loop, lambda: proto.nbytes)
         self.assertEqual(1, proto.nbytes)
 
-        os.write(slave, b'2345')
+        os.write(slave, b"2345")
         tb.run_until(self.loop, lambda: proto.nbytes >= 5)
-        self.assertEqual(['INITIAL', 'CONNECTED'], proto.state)
+        self.assertEqual(["INITIAL", "CONNECTED"], proto.state)
         self.assertEqual(5, proto.nbytes)
 
         # On Linux, transport raises EIO when slave is closed --
@@ -134,24 +143,29 @@ class _BasePipeTest:
         proto.transport.close()
         self.loop.run_until_complete(proto.done)
 
-        self.assertEqual(
-            ['INITIAL', 'CONNECTED', 'EOF', 'CLOSED'], proto.state)
+        self.assertEqual(["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state)
         # extra info is available
-        self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
+        self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
     def test_write_pipe(self):
+        if sys.platform == "win32" and self.is_asyncio_loop():
+            raise unittest.SkipTest("do not support pipes for Windows")
+
+        if sys.platform == "win32" and sys.version_info[:3] < (3, 12, 0):
+            raise unittest.SkipTest("no os.set_blocking() on Windows")
+
         rpipe, wpipe = os.pipe()
         os.set_blocking(rpipe, False)
-        pipeobj = io.open(wpipe, 'wb', 1024)
+        pipeobj = io.open(wpipe, "wb", 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
         transport, p = self.loop.run_until_complete(connect)
         self.assertIs(p, proto)
         self.assertIs(transport, proto.transport)
-        self.assertEqual('CONNECTED', proto.state)
+        self.assertEqual("CONNECTED", proto.state)
 
-        transport.write(b'1')
+        transport.write(b"1")
 
         data = bytearray()
 
@@ -164,59 +178,61 @@ class _BasePipeTest:
             return len(data)
 
         tb.run_until(self.loop, lambda: reader(data) >= 1)
-        self.assertEqual(b'1', data)
+        self.assertEqual(b"1", data)
 
-        transport.write(b'2345')
+        transport.write(b"2345")
         tb.run_until(self.loop, lambda: reader(data) >= 5)
-        self.assertEqual(b'12345', data)
-        self.assertEqual('CONNECTED', proto.state)
+        self.assertEqual(b"12345", data)
+        self.assertEqual("CONNECTED", proto.state)
 
         os.close(rpipe)
 
         # extra info is available
-        self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
+        self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
         # close connection
         proto.transport.close()
         self.loop.run_until_complete(proto.done)
-        self.assertEqual('CLOSED', proto.state)
+        self.assertEqual("CLOSED", proto.state)
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_write_pipe_disconnect_on_close(self):
         rsock, wsock = socket.socketpair()
         rsock.setblocking(False)
 
-        pipeobj = io.open(wsock.detach(), 'wb', 1024)
+        pipeobj = io.open(wsock.detach(), "wb", 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
         transport, p = self.loop.run_until_complete(connect)
         self.assertIs(p, proto)
         self.assertIs(transport, proto.transport)
-        self.assertEqual('CONNECTED', proto.state)
+        self.assertEqual("CONNECTED", proto.state)
 
-        transport.write(b'1')
+        transport.write(b"1")
         data = self.loop.run_until_complete(self.loop.sock_recv(rsock, 1024))
-        self.assertEqual(b'1', data)
+        self.assertEqual(b"1", data)
 
         rsock.close()
 
         self.loop.run_until_complete(proto.done)
-        self.assertEqual('CLOSED', proto.state)
+        self.assertEqual("CLOSED", proto.state)
 
+    @unittest.skipIf(sys.platform == "win32", "no os.openpty on Windows")
     def test_write_pty(self):
         master, slave = os.openpty()
         os.set_blocking(master, False)
 
-        slave_write_obj = io.open(slave, 'wb', 0)
+        slave_write_obj = io.open(slave, "wb", 0)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, slave_write_obj)
         transport, p = self.loop.run_until_complete(connect)
         self.assertIs(p, proto)
         self.assertIs(transport, proto.transport)
-        self.assertEqual('CONNECTED', proto.state)
+        self.assertEqual("CONNECTED", proto.state)
 
-        transport.write(b'1')
+        transport.write(b"1")
 
         data = bytearray()
 
@@ -228,48 +244,49 @@ class _BasePipeTest:
             data += chunk
             return len(data)
 
-        tb.run_until(self.loop, lambda: reader(data) >= 1,
-                     timeout=10)
-        self.assertEqual(b'1', data)
+        tb.run_until(self.loop, lambda: reader(data) >= 1, timeout=10)
+        self.assertEqual(b"1", data)
 
-        transport.write(b'2345')
-        tb.run_until(self.loop, lambda: reader(data) >= 5,
-                     timeout=10)
-        self.assertEqual(b'12345', data)
-        self.assertEqual('CONNECTED', proto.state)
+        transport.write(b"2345")
+        tb.run_until(self.loop, lambda: reader(data) >= 5, timeout=10)
+        self.assertEqual(b"12345", data)
+        self.assertEqual("CONNECTED", proto.state)
 
         os.close(master)
 
         # extra info is available
-        self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
+        self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
         # close connection
         proto.transport.close()
         self.loop.run_until_complete(proto.done)
-        self.assertEqual('CLOSED', proto.state)
+        self.assertEqual("CLOSED", proto.state)
 
     def test_write_buffer_full(self):
+        if sys.platform == "win32":
+            raise unittest.SkipTest("do not support pipes for Windows")
+
         rpipe, wpipe = os.pipe()
-        pipeobj = io.open(wpipe, 'wb', 1024)
+        pipeobj = io.open(wpipe, "wb", 1024)
 
         proto = MyWritePipeProto(loop=self.loop)
         connect = self.loop.connect_write_pipe(lambda: proto, pipeobj)
         transport, p = self.loop.run_until_complete(connect)
         self.assertIs(p, proto)
         self.assertIs(transport, proto.transport)
-        self.assertEqual('CONNECTED', proto.state)
+        self.assertEqual("CONNECTED", proto.state)
 
         for i in range(32):
-            transport.write(b'x' * 32768)
+            transport.write(b"x" * 32768)
             if proto.paused:
-                transport.write(b'x' * 32768)
+                transport.write(b"x" * 32768)
                 break
         else:
             self.fail("Didn't reach a full buffer")
 
         os.close(rpipe)
         self.loop.run_until_complete(asyncio.wait_for(proto.done, 1))
-        self.assertEqual('CLOSED', proto.state)
+        self.assertEqual("CLOSED", proto.state)
 
 
 class Test_UV_Pipes(_BasePipeTest, tb.UVTestCase):

@@ -2,7 +2,6 @@ from libc.stdint cimport uint16_t, uint32_t, uint64_t, int64_t
 
 cdef extern from "includes/compat.h" nogil:
    int getuid()
-   int SIGCHLD
    int SO_REUSEPORT
 
 from . cimport system
@@ -232,6 +231,10 @@ cdef extern from "uv.h" nogil:
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
+    
+    # Needed on windows
+    int uv_translate_sys_error(int sys_errno)
+
 
     ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg) with gil
 

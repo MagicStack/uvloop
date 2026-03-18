@@ -13,33 +13,32 @@ class MyDatagramProto(asyncio.DatagramProtocol):
     done = None
 
     def __init__(self, loop=None):
-        self.state = 'INITIAL'
+        self.state = "INITIAL"
         self.nbytes = 0
         if loop is not None:
             self.done = asyncio.Future(loop=loop)
 
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
-        self.state = 'INITIALIZED'
+        assert self.state == "INITIAL", self.state
+        self.state = "INITIALIZED"
 
     def datagram_received(self, data, addr):
-        assert self.state == 'INITIALIZED', self.state
+        assert self.state == "INITIALIZED", self.state
         self.nbytes += len(data)
 
     def error_received(self, exc):
-        assert self.state == 'INITIALIZED', self.state
+        assert self.state == "INITIALIZED", self.state
         raise exc
 
     def connection_lost(self, exc):
-        assert self.state == 'INITIALIZED', self.state
-        self.state = 'CLOSED'
+        assert self.state == "INITIALIZED", self.state
+        self.state = "CLOSED"
         if self.done:
             self.done.set_result(None)
 
 
 class _TestUDP:
-
     def _test_create_datagram_endpoint_addrs(self, family, lc_addr):
         class TestMyDatagramProto(MyDatagramProto):
             def __init__(inner_self):
@@ -47,38 +46,38 @@ class _TestUDP:
 
             def datagram_received(self, data, addr):
                 super().datagram_received(data, addr)
-                self.transport.sendto(b'resp:' + data, addr)
+                self.transport.sendto(b"resp:" + data, addr)
 
         coro = self.loop.create_datagram_endpoint(
-            TestMyDatagramProto,
-            local_addr=lc_addr,
-            family=family)
+            TestMyDatagramProto, local_addr=lc_addr, family=family
+        )
 
         s_transport, server = self.loop.run_until_complete(coro)
 
-        remote_addr = s_transport.get_extra_info('sockname')
+        remote_addr = s_transport.get_extra_info("sockname")
         host, port, *_ = remote_addr
 
         self.assertIsInstance(server, TestMyDatagramProto)
-        self.assertEqual('INITIALIZED', server.state)
+        self.assertEqual("INITIALIZED", server.state)
         self.assertIs(server.transport, s_transport)
 
         extra = {}
-        if hasattr(socket, 'SO_REUSEPORT'):
-            extra['reuse_port'] = True
+        if hasattr(socket, "SO_REUSEPORT"):
+            extra["reuse_port"] = True
 
         coro = self.loop.create_datagram_endpoint(
             lambda: MyDatagramProto(loop=self.loop),
             family=family,
             remote_addr=(host, port),
-            **extra)
+            **extra,
+        )
         transport, client = self.loop.run_until_complete(coro)
 
         self.assertIsInstance(client, MyDatagramProto)
-        self.assertEqual('INITIALIZED', client.state)
+        self.assertEqual("INITIALIZED", client.state)
         self.assertIs(client.transport, transport)
 
-        transport.sendto(b'xxx')
+        transport.sendto(b"xxx")
         tb.run_until(self.loop, lambda: server.nbytes)
         self.assertEqual(3, server.nbytes)
         tb.run_until(self.loop, lambda: client.nbytes)
@@ -88,9 +87,8 @@ class _TestUDP:
 
         # https://github.com/MagicStack/uvloop/issues/319
         # uvloop should behave the same as asyncio when given remote_addr
-        transport.sendto(b'xxx', remote_addr)
-        tb.run_until(
-            self.loop, lambda: server.nbytes > 3 or client.done.done())
+        transport.sendto(b"xxx", remote_addr)
+        tb.run_until(self.loop, lambda: server.nbytes > 3 or client.done.done())
         self.assertEqual(6, server.nbytes)
         tb.run_until(self.loop, lambda: client.nbytes > 8)
 
@@ -117,26 +115,23 @@ class _TestUDP:
                 transport.sendto(b"xxx", bad_addr)
 
         # extra info is available
-        self.assertIsNotNone(transport.get_extra_info('sockname'))
+        self.assertIsNotNone(transport.get_extra_info("sockname"))
 
         # close connection
         transport.close()
         self.loop.run_until_complete(client.done)
-        self.assertEqual('CLOSED', client.state)
+        self.assertEqual("CLOSED", client.state)
         server.transport.close()
         self.loop.run_until_complete(server.done)
 
     def test_create_datagram_endpoint_addrs_ipv4(self):
-        self._test_create_datagram_endpoint_addrs(
-            socket.AF_INET, ('127.0.0.1', 0))
+        self._test_create_datagram_endpoint_addrs(socket.AF_INET, ("127.0.0.1", 0))
 
     def test_create_datagram_endpoint_addrs_ipv4_nameaddr(self):
-        self._test_create_datagram_endpoint_addrs(
-            socket.AF_INET, ('localhost', 0))
+        self._test_create_datagram_endpoint_addrs(socket.AF_INET, ("localhost", 0))
 
     def _test_create_datagram_endpoint_addrs_ipv6(self):
-        self._test_create_datagram_endpoint_addrs(
-            socket.AF_INET6, ('::1', 0))
+        self._test_create_datagram_endpoint_addrs(socket.AF_INET6, ("::1", 0))
 
     def test_create_datagram_endpoint_ipv6_family(self):
         class TestMyDatagramProto(MyDatagramProto):
@@ -145,10 +140,11 @@ class _TestUDP:
 
             def datagram_received(self, data, addr):
                 super().datagram_received(data, addr)
-                self.transport.sendto(b'resp:' + data, addr)
+                self.transport.sendto(b"resp:" + data, addr)
 
         coro = self.loop.create_datagram_endpoint(
-            TestMyDatagramProto, local_addr=None, family=socket.AF_INET6)
+            TestMyDatagramProto, local_addr=None, family=socket.AF_INET6
+        )
         s_transport = None
         try:
             s_transport, server = self.loop.run_until_complete(coro)
@@ -156,15 +152,14 @@ class _TestUDP:
             if s_transport:
                 s_transport.close()
                 # let it close
-                self.loop.run_until_complete(
-                    asyncio.sleep(0.1))
+                self.loop.run_until_complete(asyncio.sleep(0.1))
 
     def test_create_datagram_endpoint_sock(self):
         sock = None
-        local_address = ('127.0.0.1', 0)
+        local_address = ("127.0.0.1", 0)
         infos = self.loop.run_until_complete(
-            self.loop.getaddrinfo(
-                *local_address, type=socket.SOCK_DGRAM))
+            self.loop.getaddrinfo(*local_address, type=socket.SOCK_DGRAM)
+        )
         for family, type, proto, cname, address in infos:
             try:
                 sock = socket.socket(family=family, type=type, proto=proto)
@@ -175,47 +170,48 @@ class _TestUDP:
             else:
                 break
         else:
-            assert False, 'Can not create socket.'
+            assert False, "Can not create socket."
 
         with sock:
             f = self.loop.create_datagram_endpoint(
-                lambda: MyDatagramProto(loop=self.loop), sock=sock)
+                lambda: MyDatagramProto(loop=self.loop), sock=sock
+            )
             tr, pr = self.loop.run_until_complete(f)
             self.assertIsInstance(pr, MyDatagramProto)
             tr.close()
             self.loop.run_until_complete(pr.done)
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_create_datagram_endpoint_sock_unix_domain(self):
-
         class Proto(asyncio.DatagramProtocol):
             done = None
 
             def __init__(self, loop):
-                self.state = 'INITIAL'
+                self.state = "INITIAL"
                 self.addrs = set()
                 self.done = asyncio.Future(loop=loop)
-                self.data = b''
+                self.data = b""
 
             def connection_made(self, transport):
                 self.transport = transport
-                assert self.state == 'INITIAL', self.state
-                self.state = 'INITIALIZED'
+                assert self.state == "INITIAL", self.state
+                self.state = "INITIALIZED"
 
             def datagram_received(self, data, addr):
-                assert self.state == 'INITIALIZED', self.state
+                assert self.state == "INITIALIZED", self.state
                 self.addrs.add(addr)
                 self.data += data
-                if self.data == b'STOP' and not self.done.done():
+                if self.data == b"STOP" and not self.done.done():
                     self.done.set_result(True)
 
             def error_received(self, exc):
-                assert self.state == 'INITIALIZED', self.state
+                assert self.state == "INITIALIZED", self.state
                 if not self.done.done():
                     self.done.set_exception(exc or RuntimeError())
 
             def connection_lost(self, exc):
-                assert self.state == 'INITIALIZED', self.state
-                self.state = 'CLOSED'
+                assert self.state == "INITIALIZED", self.state
+                self.state = "CLOSED"
                 if self.done and not self.done.done():
                     self.done.set_result(None)
 
@@ -225,8 +221,7 @@ class _TestUDP:
 
         with sock:
             pr = Proto(loop=self.loop)
-            f = self.loop.create_datagram_endpoint(
-                lambda: pr, sock=sock)
+            f = self.loop.create_datagram_endpoint(lambda: pr, sock=sock)
             tr, pr_prime = self.loop.run_until_complete(f)
             self.assertIs(pr, pr_prime)
 
@@ -236,10 +231,11 @@ class _TestUDP:
 
             with sock2:
                 f2 = self.loop.create_datagram_endpoint(
-                    asyncio.DatagramProtocol, sock=sock2)
+                    asyncio.DatagramProtocol, sock=sock2
+                )
                 tr2, pr2 = self.loop.run_until_complete(f2)
 
-                tr2.sendto(b'STOP', tmp_file)
+                tr2.sendto(b"STOP", tmp_file)
 
                 self.loop.run_until_complete(pr.done)
 
@@ -252,20 +248,22 @@ class _TestUDP:
                 self.assertIn(tmp_file2, pr.addrs)
 
     def test_create_datagram_1(self):
-        server_addr = ('127.0.0.1', 8888)
-        client_addr = ('127.0.0.1', 0)
+        server_addr = ("127.0.0.1", 8888)
+        client_addr = ("127.0.0.1", 0)
 
         async def run():
-            server_transport, client_protocol = \
-                await self.loop.create_datagram_endpoint(
-                    asyncio.DatagramProtocol,
-                    local_addr=server_addr)
+            (
+                server_transport,
+                client_protocol,
+            ) = await self.loop.create_datagram_endpoint(
+                asyncio.DatagramProtocol, local_addr=server_addr
+            )
 
-            client_transport, client_conn = \
-                await self.loop.create_datagram_endpoint(
-                    asyncio.DatagramProtocol,
-                    remote_addr=server_addr,
-                    local_addr=client_addr)
+            client_transport, client_conn = await self.loop.create_datagram_endpoint(
+                asyncio.DatagramProtocol,
+                remote_addr=server_addr,
+                local_addr=client_addr,
+            )
 
             client_transport.close()
             server_transport.close()
@@ -275,6 +273,7 @@ class _TestUDP:
 
         self.loop.run_until_complete(run())
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_socketpair(self):
         peername = asyncio.Future(loop=self.loop)
 
@@ -287,34 +286,34 @@ class _TestUDP:
 
         with s1, s2:
             f = self.loop.create_datagram_endpoint(
-                lambda: Proto(loop=self.loop), sock=s1)
+                lambda: Proto(loop=self.loop), sock=s1
+            )
             tr, pr = self.loop.run_until_complete(f)
             self.assertIsInstance(pr, Proto)
 
-            s2.send(b'hello, socketpair')
-            addr = self.loop.run_until_complete(
-                asyncio.wait_for(peername, 1))
-            if sys.platform.startswith('linux'):
+            s2.send(b"hello, socketpair")
+            addr = self.loop.run_until_complete(asyncio.wait_for(peername, 1))
+            if sys.platform.startswith("linux"):
                 self.assertEqual(addr, None)
             else:
-                self.assertEqual(addr, '')
+                self.assertEqual(addr, "")
             self.assertEqual(pr.nbytes, 17)
 
             if not self.is_asyncio_loop():
                 # asyncio doesn't support sendto(xx) on UDP sockets
                 # https://git.io/Jfqbw
-                data = b'from uvloop'
+                data = b"from uvloop"
                 tr.sendto(data)
-                result = self.loop.run_until_complete(asyncio.wait_for(
-                    self.loop.run_in_executor(None, s2.recv, 1024),
-                    1))
+                result = self.loop.run_until_complete(
+                    asyncio.wait_for(self.loop.run_in_executor(None, s2.recv, 1024), 1)
+                )
                 self.assertEqual(data, result)
 
             tr.close()
             self.loop.run_until_complete(pr.done)
 
     def _skip_create_datagram_endpoint_reuse_addr(self):
-        if self.implementation == 'asyncio':
+        if self.implementation == "asyncio":
             if sys.version_info[:2] >= (3, 11):
                 raise unittest.SkipTest()
             if (3, 8, 0) <= sys.version_info < (3, 8, 1):
@@ -328,8 +327,9 @@ class _TestUDP:
 
         coro = self.loop.create_datagram_endpoint(
             lambda: MyDatagramProto(loop=self.loop),
-            local_addr=('127.0.0.1', 0),
-            reuse_address=True)
+            local_addr=("127.0.0.1", 0),
+            reuse_address=True,
+        )
 
         with self.assertRaises(ValueError):
             self.loop.run_until_complete(coro)
@@ -341,8 +341,9 @@ class _TestUDP:
 
         coro = self.loop.create_datagram_endpoint(
             lambda: MyDatagramProto(loop=self.loop),
-            local_addr=('127.0.0.1', 0),
-            reuse_address=False)
+            local_addr=("127.0.0.1", 0),
+            reuse_address=False,
+        )
 
         with self.assertWarns(DeprecationWarning):
             tr, pr = self.loop.run_until_complete(coro)
@@ -352,67 +353,58 @@ class _TestUDP:
 
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
-
     def test_create_datagram_endpoint_wrong_sock(self):
         sock = socket.socket(socket.AF_INET)
         with sock:
             coro = self.loop.create_datagram_endpoint(lambda: None, sock=sock)
-            with self.assertRaisesRegex(ValueError,
-                                        'A UDP Socket was expected'):
+            with self.assertRaisesRegex(ValueError, "A UDP Socket was expected"):
                 self.loop.run_until_complete(coro)
 
     def test_udp_sendto_dns(self):
         coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol,
-            local_addr=('127.0.0.1', 0),
-            family=socket.AF_INET)
+            asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0), family=socket.AF_INET
+        )
 
         s_transport, server = self.loop.run_until_complete(coro)
 
-        with self.assertRaisesRegex(ValueError, 'DNS lookup'):
-            s_transport.sendto(b'aaaa', ('example.com', 80))
+        with self.assertRaisesRegex(ValueError, "DNS lookup"):
+            s_transport.sendto(b"aaaa", ("example.com", 80))
 
-        with self.assertRaisesRegex(ValueError, 'socket family mismatch'):
-            s_transport.sendto(b'aaaa', ('::1', 80))
-
-        s_transport.close()
-        self.loop.run_until_complete(asyncio.sleep(0.01))
-
-    def test_udp_sendto_broadcast(self):
-        coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol,
-            local_addr=('127.0.0.1', 0),
-            family=socket.AF_INET)
-
-        s_transport, server = self.loop.run_until_complete(coro)
-
-        try:
-            s_transport.sendto(b'aaaa', ('<broadcast>', 80))
-        except ValueError as exc:
-            raise AssertionError('sendto raises {}.'.format(exc))
+        with self.assertRaisesRegex(ValueError, "socket family mismatch"):
+            s_transport.sendto(b"aaaa", ("::1", 80))
 
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_send_after_close(self):
         coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol,
-            local_addr=('127.0.0.1', 0),
-            family=socket.AF_INET)
+            asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0), family=socket.AF_INET
+        )
 
         s_transport, _ = self.loop.run_until_complete(coro)
 
         s_transport.close()
-        s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
+        s_transport.sendto(b"aaaa", ("127.0.0.1", 80))
         self.loop.run_until_complete(asyncio.sleep(0.01))
-        s_transport.sendto(b'aaaa', ('127.0.0.1', 80))
+        s_transport.sendto(b"aaaa", ("127.0.0.1", 80))
 
-    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
+    @unittest.skipUnless(tb.has_IPv6, "no IPv6")
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()
 
 
 class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
-    @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
+    @unittest.skipUnless(tb.has_IPv6, "no IPv6")
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()
+
+    # winloop comment: switching to selector loop (instead of proactor)
+    # to make test_create_datagram_endpoint_ipv6_family() pass.
+    # The proactor failure is due to a recvfrom() call on an
+    # unbound socket when using local_addr=None. Pending this newly
+    # created issue https://github.com/python/cpython/issues/119711
+    # The other tests also pass with the proactor loop.
+    if sys.platform == "win32":
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()

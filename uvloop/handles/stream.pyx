@@ -363,7 +363,7 @@ cdef class UVStream(UVBaseTransport):
             # FILE_FLAG_OVERLAPPED set, but we don't want to go that way here.
             # We detect pipes on Windows as pseudosockets.
             if self._get_socket().family == uv.AF_UNIX:
-                return -1
+                return 0 # use zero instead of an error as this is not a problem.
 
         if (<uv.uv_stream_t*>self._handle).write_queue_size != 0:
             raise RuntimeError(
@@ -411,6 +411,13 @@ cdef class UVStream(UVBaseTransport):
         if written < 0:
             if saved_errno in (errno.EAGAIN, system.EWOULDBLOCK):
                 return 0
+            elif system.PLATFORM_IS_WINDOWS:
+                # Winloop comment: use uv_translate_sys_error for
+                # correct results on all platforms as -saved_errno
+                # only works for POSIX.
+                exc = convert_error(uv.uv_translate_sys_error(saved_errno))
+                self._fatal_error(exc, True)
+                return -1
             else:
                 exc = convert_error(-saved_errno)
                 self._fatal_error(exc, True)
@@ -438,7 +445,8 @@ cdef class UVStream(UVBaseTransport):
         cdef bint all_sent
 
         if (not self._protocol_paused and
-            (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and 
+            self._buffer_size > self._high_water):
             # Fast-path.  If:
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,

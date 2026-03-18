@@ -1,4 +1,4 @@
-import errno # import here for window's skae...
+import errno as win_errno
 
 cdef str __strerr(int errno):
     return strerror(errno).decode()
@@ -13,12 +13,12 @@ cdef __convert_python_error(int uverr):
     
     cdef int oserr
     cdef object err
-    
+
     if system.PLATFORM_IS_WINDOWS:
 
         # So Let's try converting them a different way if were using windows.
         # Winloop has a smarter technique for showing these errors.
-        err = getattr(errno, uv.uv_err_name(uverr).decode(), uverr)
+        err = getattr(win_errno, uv.uv_err_name(uverr).decode(), uverr)
         return OSError(err, uv.uv_strerror(uverr).decode())
     
     oserr = -uverr
