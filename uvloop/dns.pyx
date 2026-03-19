@@ -154,7 +154,7 @@ cdef __convert_pyaddr_to_sockaddr(int family, object addr,
         (<system.sockaddr_in6*>&ret.addr).sin6_flowinfo = flowinfo
         (<system.sockaddr_in6*>&ret.addr).sin6_scope_id = scope_id
 
-    elif not system.PLATFORM_IS_WINDOWS and family == uv.AF_UNIX:
+    elif family == uv.AF_UNIX and (not system.PLATFORM_IS_WINDOWS):
         if isinstance(addr, str):
             addr = addr.encode(sys_getfilesystemencoding())
         elif not isinstance(addr, bytes):
@@ -357,6 +357,12 @@ cdef class AddrInfoRequest(UVRequest):
             # `getaddrinfo("localhost", ...)`. This is inconsistent with
             # libuv 1.48 which treats empty nodename as EINVAL.
             chost = <char*>'localhost'
+        elif host == b'' and sys.platform == "win32":
+            # On Windows, `getaddrinfo("", ...)` is *almost* equivalent to
+            # `getaddrinfo("..localmachine", ...)`. This is inconsistent with
+            # libuv 1.48 which treats empty nodename as EINVAL.
+            chost = <char*>'..localmachine'
+
         else:
             chost = <char*>host
 
@@ -387,7 +393,15 @@ cdef class AddrInfoRequest(UVRequest):
             try:
                 if err == uv.UV_EINVAL:
                     # Convert UV_EINVAL to EAI_NONAME to match libc behavior
-                    msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
+                    # Winloop comment: on Windows, cPython has a simpler error
+                    # message than uvlib (via winsock probably) instead of
+                    # EAI_NONAME [ErrNo 10001] "No such host is known. ".
+                    # We replace the message with "getaddrinfo failed".
+                    # See also errors.pyx.
+                    if sys.platform == 'win32':
+                        msg = 'getaddrinfo failed'
+                    else:
+                        msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
                     ex = socket_gaierror(socket_EAI_NONAME, msg)
                 else:
                     ex = convert_error(err)

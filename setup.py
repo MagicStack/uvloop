@@ -266,7 +266,6 @@ if sys.platform == "win32":
                     "vendor/libuv/src/win",
                     "vendor/libuv/include",
                 ],
-                extra_compile_args=["/std:c11", "/experimental:c11atomics"],
                 # subset of libuv Windows libraries:
                 extra_link_args=[
                     (f"-l{lib}" if MINGW else f"{lib}.lib")

@@ -1,14 +1,13 @@
 name: Tests
 
 on:
-  # TODO: (Vizonex) Remove later I'm just a little impaitient... 
-  workflow_dispatch:
   push:
     branches:
       - master
       - ci
   pull_request:
     branches:
+      - windows
       - master
 
 jobs:
