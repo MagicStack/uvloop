@@ -12,61 +12,62 @@ class TestSourceCode(unittest.TestCase):
 
     def test_flake8(self):
         edgepath = find_uvloop_root()
-        config_path = os.path.join(edgepath, '.flake8')
+        config_path = os.path.join(edgepath, ".flake8")
         if not os.path.exists(config_path):
-            raise RuntimeError('could not locate .flake8 file')
+            raise RuntimeError("could not locate .flake8 file")
 
         try:
             import flake8  # NoQA
         except ImportError:
-            raise unittest.SkipTest('flake8 module is missing')
+            raise unittest.SkipTest("flake8 module is missing")
 
-        for subdir in ['examples', 'uvloop', 'tests']:
+        for subdir in ["examples", "uvloop", "tests"]:
             try:
                 subprocess.run(
-                    [sys.executable, '-m', 'flake8', '--config', config_path],
+                    [sys.executable, "-m", "flake8", "--config", config_path],
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    cwd=os.path.join(edgepath, subdir))
+                    cwd=os.path.join(edgepath, subdir),
+                )
             except subprocess.CalledProcessError as ex:
                 output = ex.stdout.decode()
-                output += '\n'
+                output += "\n"
                 output += ex.stderr.decode()
                 raise AssertionError(
-                    'flake8 validation failed: {}\n{}'.format(ex, output)
+                    "flake8 validation failed: {}\n{}".format(ex, output)
                 ) from None
 
     def test_mypy(self):
         edgepath = find_uvloop_root()
-        config_path = os.path.join(edgepath, 'mypy.ini')
+        config_path = os.path.join(edgepath, "mypy.ini")
         if not os.path.exists(config_path):
-            raise RuntimeError('could not locate mypy.ini file')
+            raise RuntimeError("could not locate mypy.ini file")
 
         try:
             import mypy  # NoQA
         except ImportError:
-            raise unittest.SkipTest('mypy module is missing')
+            raise unittest.SkipTest("mypy module is missing")
 
         try:
             subprocess.run(
                 [
                     sys.executable,
-                    '-m',
-                    'mypy',
-                    '--config-file',
+                    "-m",
+                    "mypy",
+                    "--config-file",
                     config_path,
-                    'uvloop'
+                    "uvloop",
                 ],
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                cwd=edgepath
+                cwd=edgepath,
             )
         except subprocess.CalledProcessError as ex:
             output = ex.stdout.decode()
-            output += '\n'
+            output += "\n"
             output += ex.stderr.decode()
             raise AssertionError(
-                'mypy validation failed: {}\n{}'.format(ex, output)
+                "mypy validation failed: {}\n{}".format(ex, output)
             ) from None

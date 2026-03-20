@@ -79,7 +79,9 @@ class _TestUnix:
                     self.loop.call_soon(srv.close)
                     await srv.wait_closed()
 
-                    if self.implementation == "asyncio" and sys.version_info[:3] >= (
+                    if self.implementation == "asyncio" and sys.version_info[
+                        :3
+                    ] >= (
                         3,
                         12,
                         0,
@@ -132,7 +134,9 @@ class _TestUnix:
                     self.loop.call_soon(srv.close)
                     await srv.wait_closed()
 
-                    if self.implementation == "asyncio" and sys.version_info[:3] >= (
+                    if self.implementation == "asyncio" and sys.version_info[
+                        :3
+                    ] >= (
                         3,
                         12,
                         0,
@@ -389,7 +393,9 @@ class _TestUnix:
         proto = Proto()
 
         async def client():
-            t, _ = await self.loop.create_unix_connection(lambda: proto, None, sock=s2)
+            t, _ = await self.loop.create_unix_connection(
+                lambda: proto, None, sock=s2
+            )
 
             t.write(b"AAAAA")
             s1.close()
@@ -399,7 +405,9 @@ class _TestUnix:
         self.loop.run_until_complete(client())
 
         self.assertEqual(len(excs), 1)
-        self.assertIn(excs[0].__class__, (BrokenPipeError, ConnectionResetError))
+        self.assertIn(
+            excs[0].__class__, (BrokenPipeError, ConnectionResetError)
+        )
 
     def test_create_unix_connection_6(self):
         with self.assertRaisesRegex(
@@ -418,7 +426,9 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
     @unittest.skipUnless(hasattr(os, "fspath"), "no os.fspath()")
     def test_create_unix_connection_pathlib(self):
         async def run(addr):
-            t, _ = await self.loop.create_unix_connection(asyncio.Protocol, addr)
+            t, _ = await self.loop.create_unix_connection(
+                asyncio.Protocol, addr
+            )
             t.close()
 
         with self.unix_server(lambda sock: time.sleep(0.01)) as srv:
@@ -440,7 +450,9 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
         # too in Python 3.6.
 
         async def test(sock):
-            t, _ = await self.loop.create_unix_connection(asyncio.Protocol, sock=sock)
+            t, _ = await self.loop.create_unix_connection(
+                asyncio.Protocol, sock=sock
+            )
 
             sock = t.get_extra_info("socket")
             self.assertIs(t.get_extra_info("socket"), sock)
@@ -466,10 +478,13 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
                 self.loop.run_until_complete(coro)
 
     @unittest.skipUnless(
-        hasattr(socket, "SOCK_NONBLOCK"), "no socket.SOCK_NONBLOCK (linux only)"
+        hasattr(socket, "SOCK_NONBLOCK"),
+        "no socket.SOCK_NONBLOCK (linux only)",
     )
     def test_create_unix_server_path_stream_bittype(self):
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
+        sock = socket.socket(
+            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
+        )
         with tempfile.NamedTemporaryFile() as file:
             fn = file.name
         with sock:
@@ -592,7 +607,9 @@ class _TestSSL(tb.SSLTestCase):
 
                 except Exception as ex:
                     self.loop.call_soon_threadsafe(
-                        lambda ex=ex: (fut.cancelled() or fut.set_exception(ex))
+                        lambda ex=ex: (
+                            fut.cancelled() or fut.set_exception(ex)
+                        )
                     )
                 else:
                     self.loop.call_soon_threadsafe(

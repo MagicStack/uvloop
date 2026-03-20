@@ -17,12 +17,19 @@ class ProcessSpawningTestCollection(TestCase):
         async def run(loop):
             event = asyncio.Event()
 
-            dummy_workers = [simulate_loop_activity(loop, event) for _ in range(5)]
+            dummy_workers = [
+                simulate_loop_activity(loop, event) for _ in range(5)
+            ]
             spawn_worker = spawn_external_process(loop, event)
             done, pending = await asyncio.wait(
-                [asyncio.ensure_future(fut) for fut in ([spawn_worker] + dummy_workers)]
+                [
+                    asyncio.ensure_future(fut)
+                    for fut in ([spawn_worker] + dummy_workers)
+                ]
             )
-            exceptions = [result.exception() for result in done if result.exception()]
+            exceptions = [
+                result.exception() for result in done if result.exception()
+            ]
             if exceptions:
                 raise exceptions[0]
 
@@ -76,7 +83,9 @@ class ProcessSpawningTestCollection(TestCase):
             # attrbs '_popen' and '_plocse' instead of 'popen' and 'pclose'.
             # NB: this test turns out to take close to 10x longer on Windows?!
             stdio = ctypes.CDLL(
-                ctypes.util.find_library("msvcrt" if sys.platform == "win32" else "c")
+                ctypes.util.find_library(
+                    "msvcrt" if sys.platform == "win32" else "c"
+                )
             )
 
             # popen system call
@@ -100,11 +109,15 @@ class ProcessSpawningTestCollection(TestCase):
             fread.restype = ctypes.c_size_t
 
             for iteration in range(1000):
-                t = Thread(target=run_echo, args=(popen, fread, pclose), daemon=True)
+                t = Thread(
+                    target=run_echo, args=(popen, fread, pclose), daemon=True
+                )
                 t.start()
                 t.join(timeout=10.0)
                 if t.is_alive():
-                    raise Exception("process freeze detected at {}".format(iteration))
+                    raise Exception(
+                        "process freeze detected at {}".format(iteration)
+                    )
 
             return True
 

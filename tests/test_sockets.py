@@ -27,7 +27,9 @@ class _TestSockets:
                 sock.bind(("127.0.0.1", 0))
                 sock.listen()
 
-                fut = self.loop.run_in_executor(None, client, sock.getsockname())
+                fut = self.loop.run_in_executor(
+                    None, client, sock.getsockname()
+                )
 
                 client_sock, _ = await self.loop.sock_accept(sock)
 
@@ -114,7 +116,9 @@ class _TestSockets:
                 self.loop.run_until_complete(self.loop.sock_accept(sock))
 
             with self.assertRaisesRegex(ValueError, "must be non-blocking"):
-                self.loop.run_until_complete(self.loop.sock_connect(sock, (b"", 0)))
+                self.loop.run_until_complete(
+                    self.loop.sock_connect(sock, (b"", 0))
+                )
 
     def test_socket_fileno(self):
         rsock, wsock = socket.socketpair()
@@ -169,7 +173,9 @@ class _TestSockets:
                 sock_server.listen()
                 fut = asyncio.ensure_future(client(sock_server.getsockname()))
                 srv_sock_conn, _ = await self.loop.sock_accept(sock_server)
-                srv_sock_conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                srv_sock_conn.setsockopt(
+                    socket.IPPROTO_TCP, socket.TCP_NODELAY, 1
+                )
                 with srv_sock_conn:
                     await fut
 
@@ -179,7 +185,11 @@ class _TestSockets:
             with sock_client:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
-                    [asyncio.ensure_future(self.loop.sock_recv(sock_client, 1))],
+                    [
+                        asyncio.ensure_future(
+                            self.loop.sock_recv(sock_client, 1)
+                        )
+                    ],
                     timeout=1,
                 )
 
@@ -230,7 +240,11 @@ class _TestSockets:
             with sock_client:
                 await self.loop.sock_connect(sock_client, addr)
                 _, pending_read_futs = await asyncio.wait(
-                    [asyncio.ensure_future(self.loop.sock_recv(sock_client, 1))],
+                    [
+                        asyncio.ensure_future(
+                            self.loop.sock_recv(sock_client, 1)
+                        )
+                    ],
                     timeout=1,
                 )
 
@@ -245,7 +259,10 @@ class _TestSockets:
                 # with this asyncio.sleep(0).
                 # Proactor loop does not work with or without
                 # this asyncio.sleep(0).
-                if sys.platform == "win32" and self.implementation == "asyncio":
+                if (
+                    sys.platform == "win32"
+                    and self.implementation == "asyncio"
+                ):
                     await asyncio.sleep(0)
 
                 data = await self.loop.sock_recv(sock_client, 1)
@@ -374,7 +391,12 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 ):
                     meth()
 
-            eq_meths = {"getsockname", "getpeername", "get_inheritable", "gettimeout"}
+            eq_meths = {
+                "getsockname",
+                "getpeername",
+                "get_inheritable",
+                "gettimeout",
+            }
             for methname in eq_meths:
                 pmeth = getattr(pseudo_sock, methname)
                 rmeth = getattr(real_sock, methname)
@@ -447,7 +469,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
 
-            f = asyncio.ensure_future(self.loop.sock_recv(sock, 10), loop=self.loop)
+            f = asyncio.ensure_future(
+                self.loop.sock_recv(sock, 10), loop=self.loop
+            )
             self.loop.create_task(kill(sock))
             res = await f
             self.assertEqual(sock.fileno(), -1)
@@ -536,7 +560,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
 
-            asyncio.ensure_future(self.loop.sock_recv(sock, 10), loop=self.loop)
+            asyncio.ensure_future(
+                self.loop.sock_recv(sock, 10), loop=self.loop
+            )
             await asyncio.sleep(0.2)
             raise Abort
 
@@ -610,7 +636,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
 
-            f = asyncio.ensure_future(self.loop.sock_recv(sock, 10), loop=self.loop)
+            f = asyncio.ensure_future(
+                self.loop.sock_recv(sock, 10), loop=self.loop
+            )
             self.loop.create_task(kill(f))
             with self.assertRaises(asyncio.CancelledError):
                 await f

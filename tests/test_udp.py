@@ -88,7 +88,9 @@ class _TestUDP:
         # https://github.com/MagicStack/uvloop/issues/319
         # uvloop should behave the same as asyncio when given remote_addr
         transport.sendto(b"xxx", remote_addr)
-        tb.run_until(self.loop, lambda: server.nbytes > 3 or client.done.done())
+        tb.run_until(
+            self.loop, lambda: server.nbytes > 3 or client.done.done()
+        )
         self.assertEqual(6, server.nbytes)
         tb.run_until(self.loop, lambda: client.nbytes > 8)
 
@@ -125,10 +127,14 @@ class _TestUDP:
         self.loop.run_until_complete(server.done)
 
     def test_create_datagram_endpoint_addrs_ipv4(self):
-        self._test_create_datagram_endpoint_addrs(socket.AF_INET, ("127.0.0.1", 0))
+        self._test_create_datagram_endpoint_addrs(
+            socket.AF_INET, ("127.0.0.1", 0)
+        )
 
     def test_create_datagram_endpoint_addrs_ipv4_nameaddr(self):
-        self._test_create_datagram_endpoint_addrs(socket.AF_INET, ("localhost", 0))
+        self._test_create_datagram_endpoint_addrs(
+            socket.AF_INET, ("localhost", 0)
+        )
 
     def _test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs(socket.AF_INET6, ("::1", 0))
@@ -259,10 +265,12 @@ class _TestUDP:
                 asyncio.DatagramProtocol, local_addr=server_addr
             )
 
-            client_transport, client_conn = await self.loop.create_datagram_endpoint(
-                asyncio.DatagramProtocol,
-                remote_addr=server_addr,
-                local_addr=client_addr,
+            client_transport, client_conn = (
+                await self.loop.create_datagram_endpoint(
+                    asyncio.DatagramProtocol,
+                    remote_addr=server_addr,
+                    local_addr=client_addr,
+                )
             )
 
             client_transport.close()
@@ -305,7 +313,9 @@ class _TestUDP:
                 data = b"from uvloop"
                 tr.sendto(data)
                 result = self.loop.run_until_complete(
-                    asyncio.wait_for(self.loop.run_in_executor(None, s2.recv, 1024), 1)
+                    asyncio.wait_for(
+                        self.loop.run_in_executor(None, s2.recv, 1024), 1
+                    )
                 )
                 self.assertEqual(data, result)
 
@@ -357,12 +367,16 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         sock = socket.socket(socket.AF_INET)
         with sock:
             coro = self.loop.create_datagram_endpoint(lambda: None, sock=sock)
-            with self.assertRaisesRegex(ValueError, "A UDP Socket was expected"):
+            with self.assertRaisesRegex(
+                ValueError, "A UDP Socket was expected"
+            ):
                 self.loop.run_until_complete(coro)
 
     def test_udp_sendto_dns(self):
         coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0), family=socket.AF_INET
+            asyncio.DatagramProtocol,
+            local_addr=("127.0.0.1", 0),
+            family=socket.AF_INET,
         )
 
         s_transport, server = self.loop.run_until_complete(coro)
@@ -378,7 +392,9 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
     def test_send_after_close(self):
         coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0), family=socket.AF_INET
+            asyncio.DatagramProtocol,
+            local_addr=("127.0.0.1", 0),
+            family=socket.AF_INET,
         )
 
         s_transport, _ = self.loop.run_until_complete(coro)
