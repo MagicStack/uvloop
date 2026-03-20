@@ -439,6 +439,10 @@ cdef class UVProcessTransport(UVProcess):
         else:
             self._pending_calls.append((_CALL_PIPE_DATA_RECEIVED, fd, data))
 
+    # TODO: https://github.com/Vizonex/Winloop/issues/126 bug fix for uvloop
+    # Might need a special implementation for subprocess.Popen._get_handles()
+    # but can't seem to wrap my head around how to go about doing it.
+
     cdef _file_redirect_stdio(self, int fd):
         fd = os_dup(fd)
         os_set_inheritable(fd, True)

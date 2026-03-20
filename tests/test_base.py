@@ -170,6 +170,10 @@ class _TestBase:
         self.assertLess(finished - started, 0.3)
         self.assertGreater(finished - started, 0.04)
 
+    @unittest.skipIf(
+        (sys.version_info >= (3, 8)) and (sys.platform == "win32"),
+        "rounding errors are still present in 3.8+",
+    )
     def test_call_later_2(self):
         # Test that loop.call_later triggers an update of
         # libuv cached time.

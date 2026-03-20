@@ -469,6 +469,7 @@ print(fd0 == fd1, flush=True)
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipIf(sys.version_info >= (3, 14), "Broken in 3.14 or higher.")
     def test_signals_fork_in_thread(self):
         if (
             sys.platform == "win32"

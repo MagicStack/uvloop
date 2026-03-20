@@ -814,6 +814,9 @@ class _AsyncioTests:
             self.loop.run_until_complete(cancel_make_transport())
 
     def test_cancel_post_init(self):
+        if self.implementation == "asyncio" and sys.version_info >= (3, 13):
+            raise unittest.SkipTest("problems on 3.13+ currently")
+
         async def cancel_make_transport():
             coro = self.loop.subprocess_exec(
                 asyncio.SubprocessProtocol, *self.PROGRAM_BLOCKED
