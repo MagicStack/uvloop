@@ -34,8 +34,10 @@ setup-build:
 compile: clean setup-build
 
 
+# NOTE: --debug will not work on windows since it asks for a non-existant _d.lib file.
+# TODO: Fix workflows for missing debug binaries in the future.
 debug: clean
-	$(PYTHON) setup.py build_ext --inplace --debug \
+	$(PYTHON) setup.py build_ext --inplace \
 		--cython-always \
 		--cython-annotate \
 		--cython-directives="linetrace=True" \
