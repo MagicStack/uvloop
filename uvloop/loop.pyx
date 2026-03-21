@@ -2824,34 +2824,25 @@ cdef class Loop:
         if not shell:
             raise ValueError("shell must be True")
 
-        
         if not system.PLATFORM_IS_WINDOWS:
             args = [cmd]
             if shell:
                 args = [b'/bin/sh', b'-c'] + args
         else:
-            if not shell:
-                args = [cmd]
-            else:
-                # XXX: os is somehow nonexistant. 
-                # TODO: Fix OS Import on windows. 
-                import os
-                # CHANGED WINDOWS Shell see : https://github.com/libuv/libuv/pull/2627 for more details...
+            # SEE: https://github.com/libuv/libuv/pull/2627
 
-                # Winloop comment: args[0].split(' ') instead of args to pass some tests in test_process
+            # See subprocess.py for the mirror of this code.
+            comspec = os_environ.get("ComSpec")
+            if not comspec:
+                system_root = os_environ.get("SystemRoot", '')
+                comspec = os_path_join(system_root, 'System32', 'cmd.exe')
+                if not os_path_isabs(comspec):
+                    raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+            
+            args = [comspec]
+            args.append('/c')
+            args.append(cmd)
 
-                # See subprocess.py for the mirror of this code.
-                comspec = os.environ.get("ComSpec")
-                if comspec:
-                    system_root = os.environ.get("SystemRoot", '')
-                    comspec = os.path.join(system_root, 'System32', 'cmd.exe')
-                    if not os.path.isabs(comspec):
-                        raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
-
-                args = [comspec]
-                args.append('/c')
-                # TODO: (Vizonex) We probably need a new solution besides using a shlex parser setup.
-                args.append(cmd)
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
 

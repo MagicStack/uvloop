@@ -131,7 +131,7 @@ cdef convert_error(int uverr):
         # EAI_FAMILY [ErrNo 10047] "An address incompatible with the requested protocol was used. "
         # EAI_NONAME [ErrNo 10001] "No such host is known. "
         # We replace these messages with "getaddrinfo failed"
-        if sys.platform == "win32":
+        if sys_platform == "win32":
             if sock_err in (socket_EAI_FAMILY, socket_EAI_NONAME):
                 msg = 'getaddrinfo failed'
         return socket_gaierror(sock_err, msg) 

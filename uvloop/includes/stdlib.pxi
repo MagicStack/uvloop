@@ -100,6 +100,8 @@ cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
 
 
 cdef str os_name = os.name
+cdef os_path_isabs = os.path.isabs
+cdef os_path_join = os.path.join
 cdef os_environ = os.environ
 cdef os_dup = os.dup
 cdef os_set_inheritable = os.set_inheritable
