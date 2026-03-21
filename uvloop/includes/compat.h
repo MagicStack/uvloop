@@ -166,3 +166,16 @@ void PyOS_AfterFork_Child() {
     return;
 }
 #endif
+
+
+#ifdef _WIN32
+/* For some strange reason this structure does not want to show up 
+ * when compiling in debug mode on 3.13+ on windows so lets redefine it as a macro */
+
+/* IDK How big to make this so will just leave it at 1 incase somehow accidently exposed */
+#ifndef __Pyx_MonitoringEventTypes_CyGen_count
+#define __Pyx_MonitoringEventTypes_CyGen_count 1
+#endif /* __Pyx_MonitoringEventTypes_CyGen_count */
+#endif
+
+

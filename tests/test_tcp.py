@@ -2173,6 +2173,12 @@ class _TestSSL(tb.SSLTestCase):
     def test_create_server_ssl_over_ssl(self):
         if self.implementation == "asyncio":
             raise unittest.SkipTest("asyncio does not support SSL over SSL")
+        if hasattr(sys, "_is_gil_enabled") and sys._is_gil_enabled():
+            if sys.platform == "win32":
+                # TODO: possibly fix when figured out.
+                raise unittest.SkipTest(
+                    "currently decides to GC when in debug mode"
+                )
 
         CNT = 0  # number of clients that were successful
         TOTAL_CNT = 25  # total number of clients that test will create

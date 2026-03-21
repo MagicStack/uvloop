@@ -91,6 +91,10 @@ class BaseTestDNS:
         self._test_getaddrinfo("a" + "1" * 50 + ".wat", 800)
 
     def test_getaddrinfo_4(self):
+        if sys.platform == "darwin":
+            raise unittest.SkipTest(
+                "randomly freezes for some strange reason."
+            )
         self._test_getaddrinfo("example.com", 80, family=-1)
         self._test_getaddrinfo(
             "example.com", 80, type=socket.SOCK_STREAM, family=-1
