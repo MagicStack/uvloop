@@ -1,4 +1,4 @@
-import errno as win_errno
+
 
 cdef str __strerr(int errno):
     return strerror(errno).decode()

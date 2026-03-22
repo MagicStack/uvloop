@@ -55,6 +55,9 @@ cdef col_OrderedDict = collections.OrderedDict
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
+# windows needs access to errno for exception handling.
+cdef win_errno = errno
+
 cdef errno_EBADF = errno.EBADF
 cdef errno_EINVAL = errno.EINVAL
 
