@@ -1181,6 +1181,32 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         # let it close
         self.loop.run_until_complete(asyncio.sleep(0.1))
 
+    def test_create_connection_sock_cancel_detaches(self):
+        async def client(addr):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setblocking(False)
+            try:
+                sock.connect(addr)
+            except BlockingIOError:
+                pass
+            await asyncio.sleep(0.01)
+
+            task = asyncio.ensure_future(
+                self.loop.create_connection(asyncio.Protocol, sock=sock))
+            await asyncio.sleep(0)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+            # After cancellation the socket must be detached (fd == -1)
+            # so that its __del__ won't close a recycled fd.
+            self.assertEqual(sock.fileno(), -1)
+
+        with self.tcp_server(lambda sock: sock.recv_all(1),
+                             max_clients=1,
+                             backlog=1) as srv:
+            self.loop.run_until_complete(client(srv.addr))
+
     @unittest.skipUnless(hasattr(socket, 'AF_UNIX'), 'no Unix sockets')
     def test_create_connection_wrong_sock(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

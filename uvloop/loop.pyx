@@ -2065,6 +2065,7 @@ cdef class Loop:
                 # up in `Transport._call_connection_made()`, and calling
                 # `_close()` before it is fine.
                 tr._close()
+                sock.detach()
                 raise
 
             tr._attach_fileobj(sock)
@@ -2307,6 +2308,7 @@ cdef class Loop:
                 raise
             except BaseException:
                 tr._close()
+                sock.detach()
                 raise
 
             tr._attach_fileobj(sock)
