@@ -7,7 +7,6 @@ on:
       - ci
   pull_request:
     branches:
-      - windows
       - master
 
 jobs:
