@@ -1404,7 +1404,7 @@ cdef class Loop:
         """Create a Future object attached to the loop."""
         return self._new_future()
 
-    def create_task(self, coro, *, name=None, context=None):
+    def create_task(self, coro, *, name=None, context=None, eager_start=None):
         """Schedule a coroutine object.
 
         Return a task object.
@@ -1417,7 +1417,12 @@ cdef class Loop:
         created when no context is provided.
         """
         self._check_closed()
-        if PY311:
+        if PY313:
+            if self._task_factory is None:
+                task = aio_Task(coro, loop=self, context=context, eager_start=eager_start)
+            else:
+                task = self._task_factory(self, coro, context=context, eager_start=eager_start)
+        elif PY311:
             if self._task_factory is None:
                 task = aio_Task(coro, loop=self, context=context)
             else:

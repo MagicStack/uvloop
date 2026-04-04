@@ -604,6 +604,36 @@ class _TestBase:
         self.loop.set_task_factory(None)
         self.assertIsNone(self.loop.get_task_factory())
 
+    @unittest.skipUnless(
+        sys.version_info >= (3, 13),
+        "loop.create_task with eager_start requires Python 3.13+",
+    )
+    def test_loop_create_task_eager_start(self):
+        async def coro():
+            return "eager"
+
+        async def main():
+            task = self.loop.create_task(coro(), eager_start=True)
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+        self.loop.run_until_complete(main())
+
+    @unittest.skipUnless(
+        sys.version_info >= (3, 14),
+        "asyncio.create_task with eager_start requires Python 3.14+",
+    )
+    def test_asyncio_create_task_eager_start(self):
+        async def coro():
+            return "eager"
+
+        async def main():
+            task = asyncio.create_task(coro(), eager_start=True)
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+        self.loop.run_until_complete(main())
+
     def test_shutdown_asyncgens_01(self):
         finalized = list()
 
