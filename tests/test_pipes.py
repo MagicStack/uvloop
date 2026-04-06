@@ -268,10 +268,8 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual("CLOSED", proto.state)
 
+    @unittest.skipIf(sys.platform == "win32", "do not support pipes for Windows")
     def test_write_buffer_full(self):
-        if sys.platform == "win32":
-            raise unittest.SkipTest("do not support pipes for Windows")
-
         rpipe, wpipe = os.pipe()
         pipeobj = io.open(wpipe, "wb", 1024)
 

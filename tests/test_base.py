@@ -730,7 +730,6 @@ class _TestBase:
         self.loop.run_until_complete(foo())
         self.loop.run_until_complete(self.loop.shutdown_default_executor())
 
-    @unittest.skip("takes too long")
     def test_call_soon_threadsafe_safety(self):
         ITERATIONS = 4096
         counter = [0]
