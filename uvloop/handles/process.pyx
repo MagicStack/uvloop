@@ -28,8 +28,10 @@ cdef class UVProcess(UVHandle):
                pass_fds, debug_flags, preexec_fn, restore_signals):
 
         global __forking
-        global __forking_loop
-        global __forkHandler
+
+        if not system.PLATFORM_IS_WINDOWS:
+            global __forking_loop
+            global __forkHandler
 
         cdef int err
 
@@ -89,22 +91,33 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
+            
 
-            PyOS_BeforeFork()
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 1
+                __forking_loop = loop
+                system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
+                PyOS_BeforeFork()
+            else:
+                py_gil_state = PyGILState_Ensure()
+            
             err = uv.uv_spawn(loop.uvloop,
-                              <uv.uv_process_t*>self._handle,
-                              &self.options)
+                          <uv.uv_process_t*>self._handle,
+                          &self.options)
+            
+            
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
 
-            __forking = 0
-            __forking_loop = None
-            system.resetForkHandler()
+                PyOS_AfterFork_Parent()
+            else:
+                PyGILState_Release(py_gil_state)
+            
             loop.active_process_handler = None
 
-            PyOS_AfterFork_Parent()
 
             if err < 0:
                 self._close_process_handle()
@@ -178,11 +191,12 @@ cdef class UVProcess(UVHandle):
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        PyOS_AfterFork_Child()
+        if not system.PLATFORM_IS_WINDOWS:
+            PyOS_AfterFork_Child()
 
-        err = uv.uv_loop_fork(self._loop.uvloop)
-        if err < 0:
-            raise convert_error(err)
+            err = uv.uv_loop_fork(self._loop.uvloop)
+            if err < 0:
+                raise convert_error(err)
 
         if self._preexec_fn is not None:
             try:
@@ -253,6 +267,16 @@ cdef class UVProcess(UVHandle):
 
         if start_new_session:
             self.options.flags |= uv.UV_PROCESS_DETACHED
+
+            # if system.PLATFORM_IS_WINDOWS:
+                # TODO Forget these flags for right now until we have figured out/diagnosed the real issue...
+                # "All of these flags have been set because they're all meaningful on windows systems...
+                # see uv_process_fags for more reasons why I had to set all of these up this way" - Vizonex
+                # https://docs.libuv.org/en/v1.x/process.html#c.uv_process_flags
+                # enabling VERBATIM_ARGUMENTS is helpful here because we're not enabling children...
+                # self.options.flags |= uv.UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS
+                # pass
+
 
         if force_fork:
             # This is a hack to work around the change in libuv 1.44:
@@ -414,6 +438,10 @@ cdef class UVProcessTransport(UVProcess):
                                  context=self.context)
         else:
             self._pending_calls.append((_CALL_PIPE_DATA_RECEIVED, fd, data))
+
+    # TODO: https://github.com/Vizonex/Winloop/issues/126 bug fix for uvloop
+    # Might need a special implementation for subprocess.Popen._get_handles()
+    # but can't seem to wrap my head around how to go about doing it.
 
     cdef _file_redirect_stdio(self, int fd):
         fd = os_dup(fd)
@@ -775,7 +803,15 @@ cdef __socketpair():
         int fds[2]
         int err
 
-    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    # Winloop comment: no Unix sockets on Windows, using uv.uv_pipe()
+    # instead of system.socketpair(). Also, see changes to 
+    # libuv/src/win/pipe.c to deal with UV_EPERM = -4048 errors
+    # for stdin pipe.
+    if system.PLATFORM_IS_WINDOWS:
+        # NB: uv.uv_file is int type on Windows
+        err = uv.uv_pipe(fds, uv.UV_NONBLOCK_PIPE, uv.UV_NONBLOCK_PIPE)
+    else:
+        err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
     if err:
         exc = convert_error(-err)
         raise exc

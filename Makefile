@@ -10,7 +10,7 @@ _default: compile
 
 clean:
 	rm -fr dist/ doc/_build/ *.egg-info uvloop/loop.*.pyd uvloop/loop_d.*.pyd
-	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so
+	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so uvloop/*.pyd
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
 
@@ -34,8 +34,10 @@ setup-build:
 compile: clean setup-build
 
 
+# NOTE: --debug will not work on windows since it asks for a non-existant _d.lib file.
+# TODO: Fix workflows for missing debug binaries in the future.
 debug: clean
-	$(PYTHON) setup.py build_ext --inplace --debug \
+	$(PYTHON) setup.py build_ext --inplace \
 		--cython-always \
 		--cython-annotate \
 		--cython-directives="linetrace=True" \

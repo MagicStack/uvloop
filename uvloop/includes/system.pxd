@@ -1,13 +1,10 @@
 from libc.stdint cimport int8_t, uint64_t
 
-cdef extern from "arpa/inet.h" nogil:
+cdef extern from "includes/compat.h" nogil:
 
     int ntohl(int)
     int htonl(int)
     int ntohs(int)
-
-
-cdef extern from "sys/socket.h" nogil:
 
     struct sockaddr:
         unsigned short sa_family
@@ -46,35 +43,19 @@ cdef extern from "sys/socket.h" nogil:
     int setsockopt(int socket, int level, int option_name,
                    const void *option_value, int option_len)
 
-
-cdef extern from "sys/un.h" nogil:
-
     struct sockaddr_un:
         unsigned short sun_family
         char*          sun_path
         # ...
 
-
-cdef extern from "unistd.h" nogil:
-
     ssize_t write(int fd, const void *buf, size_t count)
     void _exit(int status)
-
-
-cdef extern from "pthread.h":
-
-    int pthread_atfork(
-        void (*prepare)(),
-        void (*parent)(),
-        void (*child)())
-
-
-cdef extern from "includes/compat.h" nogil:
 
     cdef int EWOULDBLOCK
 
     cdef int PLATFORM_IS_APPLE
     cdef int PLATFORM_IS_LINUX
+    cdef int PLATFORM_IS_WINDOWS
 
     struct epoll_event:
         # We don't use the fields
@@ -95,8 +76,35 @@ cdef extern from "includes/fork_handler.h":
     void resetForkHandler()
     void setMainThreadID(uint64_t id)
 
+    int pthread_atfork(
+        void (*prepare)(),
+        void (*parent)(),
+        void (*child)())
+
 
 cdef extern from * nogil:
+    """
+#ifdef _WIN32
+static inline uint64_t 
+__win_atomic_fetch_add(uint64_t *ptr, uint64_t val){
+    return *ptr = *(volatile uint64_t *)ptr + val;
+}
+
+static inline uint64_t 
+__win_atomic_fetch_sub(uint64_t *ptr, uint64_t val){
+    return *ptr = *(volatile uint64_t *)ptr - val;
+}
+
+#define __atomic_fetch_add(ptr, val, memorder) \
+    __win_atomic_fetch_add(ptr, val)
+
+#define __atomic_fetch_sub(ptr, val, memorder) \
+    __win_atomic_fetch_sub(ptr, val)
+
+/* We need ATOMIC RELAXED still */
+#define __ATOMIC_RELAXED 0
+#endif /* _WIN32 */
+    """
     uint64_t __atomic_fetch_add(uint64_t *ptr, uint64_t val, int memorder)
     uint64_t __atomic_fetch_sub(uint64_t *ptr, uint64_t val, int memorder)
 

@@ -6,7 +6,7 @@ from uvloop import _testbase as tb
 class TestBaseTest(unittest.TestCase):
 
     def test_duplicate_methods(self):
-        with self.assertRaisesRegex(RuntimeError, 'duplicate test Foo.test_a'):
+        with self.assertRaisesRegex(RuntimeError, "duplicate test Foo.test_a"):
 
             class Foo(tb.BaseTestCase):
                 def test_a(self):
@@ -23,9 +23,9 @@ class TestBaseTest(unittest.TestCase):
             def test_a(self):
                 pass
 
-        with self.assertRaisesRegex(RuntimeError,
-                                    'duplicate test Foo.test_a.*'
-                                    'defined in FooBase'):
+        with self.assertRaisesRegex(
+            RuntimeError, "duplicate test Foo.test_a.*" "defined in FooBase"
+        ):
 
             class Foo(FooBase, tb.BaseTestCase):
                 def test_b(self):
@@ -39,9 +39,9 @@ class TestBaseTest(unittest.TestCase):
             def test_a(self):
                 pass
 
-        with self.assertRaisesRegex(RuntimeError,
-                                    'duplicate test Foo.test_a.*'
-                                    'defined in FooBase'):
+        with self.assertRaisesRegex(
+            RuntimeError, "duplicate test Foo.test_a.*" "defined in FooBase"
+        ):
 
             class Foo(FooBase):
                 def test_b(self):

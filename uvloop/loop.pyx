@@ -28,6 +28,10 @@ from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
 from libc cimport errno
 
+# Winloop Comment: We need some cleaver hacky techniques for 
+# preventing slow spawnning processes for MSVC
+from cpython.pystate cimport (PyGILState_Ensure, PyGILState_Release,
+                              PyGILState_STATE)
 from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
@@ -128,8 +132,9 @@ cdef class Loop:
         # Install PyMem* memory allocators if they aren't installed yet.
         __install_pymem()
 
-        # Install pthread_atfork handlers
-        __install_atfork()
+        if not system.PLATFORM_IS_WINDOWS:
+            # Install pthread_atfork handlers
+            __install_atfork()
 
         self.uvloop = <uv.uv_loop_t*>PyMem_RawMalloc(sizeof(uv.uv_loop_t))
         if self.uvloop is NULL:
@@ -1771,7 +1776,11 @@ cdef class Loop:
                         if reuse_address:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
                         if reuse_port:
-                            sock.setsockopt(uv.SOL_SOCKET, SO_REUSEPORT, 1)
+                            if system.PLATFORM_IS_WINDOWS:
+                                # replaced uv.SO_REUSEPORT with uv.SO_BROADCAST because it's the equivalent on windows systems...
+                                sock.setsockopt(uv.SOL_SOCKET, uv.SO_BROADCAST, 1)
+                            else:
+                                sock.setsockopt(uv.SOL_SOCKET, SO_REUSEPORT, 1)
                         # Disable IPv4/IPv6 dual stack support (enabled by
                         # default on Linux) which makes a single socket
                         # listen on both address families.
@@ -2811,12 +2820,28 @@ cdef class Loop:
                                shell=True,
                                **kwargs):
 
+        cdef list args
         if not shell:
             raise ValueError("shell must be True")
 
-        args = [cmd]
-        if shell:
-            args = [b'/bin/sh', b'-c'] + args
+        if not system.PLATFORM_IS_WINDOWS:
+            args = [cmd]
+            if shell:
+                args = [b'/bin/sh', b'-c'] + args
+        else:
+            # SEE: https://github.com/libuv/libuv/pull/2627
+
+            # See subprocess.py for the mirror of this code.
+            comspec = os_environ.get("ComSpec")
+            if not comspec:
+                system_root = os_environ.get("SystemRoot", '')
+                comspec = os_path_join(system_root, 'System32', 'cmd.exe')
+                if not os_path_isabs(comspec):
+                    raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+            
+            args = [comspec]
+            args.append('/c')
+            args.append(cmd)
 
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
@@ -2906,7 +2931,7 @@ cdef class Loop:
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
-        if sig == uv.SIGCHLD:
+        if not system.PLATFORM_IS_WINDOWS and sig == uv.SIGCHLD:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
@@ -2938,10 +2963,16 @@ cdef class Loop:
         try:
             # Register a dummy signal handler to ask Python to write the signal
             # number in the wakeup file descriptor.
-            signal_signal(sig, self.__sighandler)
+            if not system.PLATFORM_IS_WINDOWS:
+                signal_signal(sig, self.__sighandler)
 
-            # Set SA_RESTART to limit EINTR occurrences.
-            signal_siginterrupt(sig, False)
+                # Set SA_RESTART to limit EINTR occurrences.
+                signal_siginterrupt(sig, False)
+            else:
+                # Windows doesn't have sig_interrupt function.
+                # Something else must be attempted instead.
+                signal_signal(signal_SIGINT, self.__sighandler)
+
         except OSError as exc:
             del self._signal_handlers[sig]
             if not self._signal_handlers:
@@ -2956,7 +2987,7 @@ cdef class Loop:
                 raise
 
     def remove_signal_handler(self, sig):
-        """Remove a handler for a signal.  UNIX only.
+        """Remove a handler for a signal.
 
         Return True if a signal handler was removed, False if not.
         """

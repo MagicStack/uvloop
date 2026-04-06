@@ -1,6 +1,8 @@
 from libc.stdint cimport uint16_t, uint32_t, uint64_t, int64_t
-from posix.types cimport gid_t, uid_t
-from posix.unistd cimport getuid
+
+cdef extern from "includes/compat.h" nogil:
+   int getuid()
+   int SO_REUSEPORT
 
 from . cimport system
 
@@ -53,6 +55,9 @@ cdef extern from "uv.h" nogil:
     cdef int UV_EAI_PROTOCOL
     cdef int UV_EAI_SERVICE
     cdef int UV_EAI_SOCKTYPE
+
+    # Need for windows's sake
+    cdef int SO_BROADCAST
 
     cdef int SOL_SOCKET
     cdef int SO_ERROR
@@ -226,6 +231,10 @@ cdef extern from "uv.h" nogil:
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
+    
+    # Needed on windows
+    int uv_translate_sys_error(int sys_errno)
+
 
     ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg) with gil
 
@@ -476,7 +485,9 @@ cdef extern from "uv.h" nogil:
         UV_INHERIT_FD = 0x02,
         UV_INHERIT_STREAM = 0x04,
         UV_READABLE_PIPE = 0x10,
-        UV_WRITABLE_PIPE = 0x20
+        UV_WRITABLE_PIPE = 0x20,
+        UV_NONBLOCK_PIPE  = 0x40
+
 
     ctypedef union uv_stdio_container_data_u:
         uv_stream_t* stream
@@ -485,6 +496,9 @@ cdef extern from "uv.h" nogil:
     ctypedef struct uv_stdio_container_t:
         uv_stdio_flags flags
         uv_stdio_container_data_u data
+    
+    ctypedef unsigned char uv_uid_t
+    ctypedef unsigned char uv_gid_t
 
     ctypedef struct uv_process_options_t:
         uv_exit_cb exit_cb
@@ -495,8 +509,8 @@ cdef extern from "uv.h" nogil:
         unsigned int flags
         int stdio_count
         uv_stdio_container_t* stdio
-        uid_t uid
-        gid_t gid
+        uv_uid_t uid
+        uv_gid_t gid
 
     int uv_spawn(uv_loop_t* loop, uv_process_t* handle,
                  const uv_process_options_t* options)
@@ -504,3 +518,4 @@ cdef extern from "uv.h" nogil:
     int uv_process_kill(uv_process_t* handle, int signum)
 
     unsigned int uv_version()
+    int uv_pipe(uv_file fds[2], int read_flags, int write_flags)
