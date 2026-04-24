@@ -581,8 +581,8 @@ class _TestBase:
             task = MyTask(coro, loop=loop, **kwargs)
             # Python moved the responsibility to set the name to the Task
             # class constructor, so MyTask.set_name is never called by
-            # Python's create_task.  Compensate for that here.
-            if self.is_asyncio_loop() and "name" in kwargs:
+            # create_task when name is passed as a kwarg.  Compensate here.
+            if "name" in kwargs:
                 task.set_name(kwargs["name"])
             return task
 
@@ -603,6 +603,87 @@ class _TestBase:
 
         self.loop.set_task_factory(None)
         self.assertIsNone(self.loop.get_task_factory())
+
+    @unittest.skipUnless(sys.version_info >= (3, 14), "requires Python 3.14+")
+    def test_create_task_eager_start_false(self):
+        # create_task must forward **kwargs to the task factory/constructor
+        # so callers can pass eager_start=False (or True) per-task.
+        self.loop._process_events = mock.Mock()
+
+        eager_start_values = []
+
+        class TrackingTask(asyncio.Task):
+            def __init__(self, coro, *, loop, eager_start=False, **kwargs):
+                eager_start_values.append(eager_start)
+                super().__init__(coro, loop=loop, eager_start=eager_start, **kwargs)
+
+        async def coro():
+            pass
+
+        # Without a factory: kwargs go straight to Task.__init__
+        task = self.loop.create_task(coro(), eager_start=False)
+        self.loop.run_until_complete(task)
+
+        # With a factory that accepts **kwargs
+        self.loop.set_task_factory(
+            lambda loop, coro, **kwargs: TrackingTask(coro, loop=loop, **kwargs)
+        )
+        task = self.loop.create_task(coro(), eager_start=False)
+        self.loop.run_until_complete(task)
+        self.assertEqual(eager_start_values[-1], False)
+
+        task = self.loop.create_task(coro(), eager_start=True)
+        self.loop.run_until_complete(task)
+        self.assertEqual(eager_start_values[-1], True)
+
+        self.loop.set_task_factory(None)
+
+    @unittest.skipUnless(sys.version_info >= (3, 12), "requires Python 3.12+")
+    @unittest.skipIf(sys.version_info >= (3, 14), "3.14+ tested separately")
+    def test_eager_task_factory_313(self):
+        # On 3.12/3.13, eager_task_factory can be used with uvloop and
+        # tasks are started eagerly (eager_start=True) by default.
+        self.loop._process_events = mock.Mock()
+
+        eager_start_values = []
+
+        class TrackingTask(asyncio.Task):
+            def __init__(self, coro, *, loop, eager_start=False, **kwargs):
+                eager_start_values.append(eager_start)
+                super().__init__(coro, loop=loop, eager_start=eager_start, **kwargs)
+
+        async def coro():
+            pass
+
+        self.loop.set_task_factory(
+            asyncio.create_eager_task_factory(TrackingTask)
+        )
+        task = self.loop.create_task(coro())
+        self.loop.run_until_complete(task)
+        self.assertEqual(eager_start_values[-1], True)
+
+        # create_eager_task_factory-based factory also accepts eager_start=False
+        # via the factory signature — but that must be triggered through the
+        # factory directly, not via create_task (which doesn't forward it on
+        # pre-3.14).  Verify the factory itself works with eager_start=False.
+        factory = asyncio.create_eager_task_factory(TrackingTask)
+        task = factory(self.loop, coro(), eager_start=False)
+        self.loop.run_until_complete(task)
+        self.assertEqual(eager_start_values[-1], False)
+
+        self.loop.set_task_factory(None)
+
+    @unittest.skipIf(sys.version_info >= (3, 14), "3.14+ supports **kwargs")
+    def test_create_task_eager_start_raises_pre314(self):
+        # On pre-3.14, create_task does not forward eager_start, matching
+        # CPython's BaseEventLoop.create_task signature on those versions.
+        self.loop._process_events = mock.Mock()
+
+        async def coro():
+            pass
+
+        with self.assertRaises(TypeError):
+            self.loop.create_task(coro(), eager_start=False)
 
     def test_shutdown_asyncgens_01(self):
         finalized = list()

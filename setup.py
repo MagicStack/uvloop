@@ -94,8 +94,8 @@ class uvloop_build_ext(build_ext):
 
         for extension in self.distribution.ext_modules:
             for i, sfile in enumerate(extension.sources):
-                if sfile.endswith('.pyx'):
-                    prefix, ext = os.path.splitext(sfile)
+                if sfile.endswith('.pyx') or sfile.endswith('.pyx.in'):
+                    prefix = sfile[:-len('.pyx.in')] if sfile.endswith('.pyx.in') else sfile[:-len('.pyx')]
                     cfile = prefix + '.c'
 
                     if os.path.exists(cfile) and not self.cython_always:
@@ -128,7 +128,23 @@ class uvloop_build_ext(build_ext):
                         CYTHON_DEPENDENCY, Cython.__version__
                     ))
 
+            from Cython import Tempita
             from Cython.Build import cythonize
+
+            def process_tempita(source):
+                assert source.endswith('.pyx.in')
+                with open(source) as f:
+                    rendered = Tempita.sub(f.read())
+                out = source[:-len('.in')]  # .pyx.in -> .pyx
+                with open(out, 'w') as f:
+                    f.write(rendered)
+                return out
+
+            for extension in self.distribution.ext_modules:
+                extension.sources = [
+                    process_tempita(s) if s.endswith('.pyx.in') else s
+                    for s in extension.sources
+                ]
 
             directives = {}
             if self.cython_directives:
@@ -247,7 +263,7 @@ setup(
         Extension(
             "uvloop.loop",
             sources=[
-                "uvloop/loop.pyx",
+                "uvloop/loop.pyx.in",
             ],
             extra_compile_args=MODULES_CFLAGS
         ),

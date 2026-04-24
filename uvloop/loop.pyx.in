@@ -1404,6 +1404,8 @@ cdef class Loop:
         """Create a Future object attached to the loop."""
         return self._new_future()
 
+    {{py: import sys as _sys; _ver = _sys.version_info}}
+    {{if _ver >= (3, 14)}}
     def create_task(self, coro, **kwargs):
         """Schedule a coroutine object.
 
@@ -1418,6 +1420,78 @@ cdef class Loop:
         finally:
             del task
 
+    {{elif _ver >= (3, 13)}}
+    def create_task(self, coro, *, name=None, context=None, **kwargs):
+        """Schedule a coroutine object.
+
+        Return a task object.
+        """
+        self._check_closed()
+        if self._task_factory is not None:
+            if context is not None:
+                kwargs['context'] = context
+            task = self._task_factory(self, coro, **kwargs)
+            task.set_name(name)
+        else:
+            task = aio_Task(coro, loop=self, name=name, context=context, **kwargs)
+        try:
+            return task
+        finally:
+            del task
+
+    {{elif _ver >= (3, 11)}}
+    def create_task(self, coro, *, name=None, context=None):
+        """Schedule a coroutine object.
+
+        Return a task object.
+        """
+        self._check_closed()
+        if self._task_factory is None:
+            task = aio_Task(coro, loop=self, name=name, context=context)
+        else:
+            if context is None:
+                task = self._task_factory(self, coro)
+            else:
+                task = self._task_factory(self, coro, context=context)
+            if name is not None:
+                try:
+                    set_name = task.set_name
+                except AttributeError:
+                    pass
+                else:
+                    set_name(name)
+        try:
+            return task
+        finally:
+            del task
+
+    {{else}}
+    def create_task(self, coro, *, name=None, context=None):
+        """Schedule a coroutine object.
+
+        Return a task object.
+        """
+        self._check_closed()
+        if context is None:
+            if self._task_factory is None:
+                task = aio_Task(coro, loop=self)
+            else:
+                task = self._task_factory(self, coro)
+        else:
+            if self._task_factory is None:
+                task = context.run(aio_Task, coro, self)
+            else:
+                task = context.run(self._task_factory, self, coro)
+        if name is not None:
+            try:
+                set_name = task.set_name
+            except AttributeError:
+                pass
+            else:
+                set_name(name)
+        return task
+
+    {{endif}}
 
     def set_task_factory(self, factory):
         """Set a task factory that will be used by loop.create_task().
