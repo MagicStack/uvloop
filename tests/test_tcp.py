@@ -786,7 +786,7 @@ class _TestTCP:
 
         async def test():
             srv = await asyncio.start_server(
-                lambda r, w: None,
+                lambda r, w: w.close(),
                 '127.0.0.1', 0,
                 family=socket.AF_INET)
             addr = srv.sockets[0].getsockname()
