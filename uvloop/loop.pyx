@@ -2060,6 +2060,9 @@ cdef class Loop:
             tr = TCPTransport.new(self, protocol, None, waiter, context)
             try:
                 # libuv will make socket non-blocking
+                # We are not detaching the PSO from the now-libuv-managed
+                # FD here because of:
+                # https://github.com/python/asyncio/pull/449
                 tr._open(sock.fileno())
                 tr._init_protocol()
                 await waiter
@@ -2072,6 +2075,15 @@ cdef class Loop:
                 # up in `Transport._call_connection_made()`, and calling
                 # `_close()` before it is fine.
                 tr._close()
+                # Fix for:
+                #  * https://github.com/MagicStack/uvloop/issues/645
+                #  * https://github.com/MagicStack/uvloop/issues/738
+                # The underlying FD is closed in tr._close(), the owner of
+                # `sock` must not get a chance to double-close the same FD
+                # sometime later, because that FD may be reused by a new
+                # connection under load. So we detach the PSO from the
+                # already-closed FD here.
+                sock.detach()
                 raise
 
             tr._attach_fileobj(sock)
@@ -2313,7 +2325,9 @@ cdef class Loop:
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException:
+                # See comments in create_connection() for more information
                 tr._close()
+                sock.detach()
                 raise
 
             tr._attach_fileobj(sock)
