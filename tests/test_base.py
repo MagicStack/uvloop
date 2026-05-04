@@ -799,6 +799,26 @@ if __name__ == "__main__":
         elif result.returncode != 0:
             self.fail(result.stdout.strip())
 
+    def test_thread_name_prefix_in_default_executor(self):
+        if self.implementation == "asyncio" and sys.version_info < (3, 9):
+            raise unittest.SkipTest(
+                "thread_name_prefix was added in CPython 3.9"
+            )
+
+        called = []
+
+        def cb():
+            called.append(threading.current_thread().name)
+
+        async def runner():
+            await self.loop.run_in_executor(None, cb)
+
+        self.loop.run_until_complete(runner())
+
+        self.assertEqual(len(called), 1)
+        self.assertTrue(called[0] is not None)
+        self.assertTrue(called[0].startswith(self.implementation))
+
 
 class TestBaseUV(_TestBase, UVTestCase):
 
@@ -937,21 +957,6 @@ class TestBaseUV(_TestBase, UVTestCase):
         when = handle.when()
         self.loop.run_until_complete(fut)
         self.assertEqual(handle.when(), when)
-
-    def test_thread_name_prefix_in_default_executor(self):
-        called = []
-
-        def cb():
-            called.append(threading.current_thread().name)
-
-        async def runner():
-            await self.loop.run_in_executor(None, cb)
-
-        self.loop.run_until_complete(runner())
-
-        self.assertEqual(len(called), 1)
-        self.assertTrue(called[0] is not None)
-        self.assertTrue(called[0].startswith("uvloop"))
 
 
 class TestBaseAIO(_TestBase, AIOTestCase):
