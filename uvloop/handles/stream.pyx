@@ -213,13 +213,14 @@ cdef class UVStream(UVBaseTransport):
         self.__shutting_down = 0
         self.__reading = 0
         self.__read_error_close = 0
-        self.__buffered = 0
+
+        self.__protocol_type = ProtocolType.SIMPLE
+        self._protocol_get_buffer = None
+        self._protocol_buffer_updated = None
+
         self._eof = 0
         self._buffer = []
         self._buffer_size = 0
-
-        self._protocol_get_buffer = None
-        self._protocol_buffer_updated = None
 
         self._read_pybuf_acquired = False
 
@@ -229,22 +230,24 @@ cdef class UVStream(UVBaseTransport):
 
         UVBaseTransport._set_protocol(self, protocol)
 
-        if (hasattr(protocol, 'get_buffer') and
+        if isinstance(protocol, SSLProtocol):
+            self.__protocol_type = ProtocolType.SSL_PROTOCOL
+        elif (hasattr(protocol, 'get_buffer') and
                 not isinstance(protocol, aio_Protocol)):
             try:
                 self._protocol_get_buffer = protocol.get_buffer
                 self._protocol_buffer_updated = protocol.buffer_updated
-                self.__buffered = 1
+                self.__protocol_type = ProtocolType.BUFFERED
             except AttributeError:
                 pass
         else:
-            self.__buffered = 0
+            self.__protocol_type = ProtocolType.SIMPLE
 
     cdef _clear_protocol(self):
         UVBaseTransport._clear_protocol(self)
         self._protocol_get_buffer = None
         self._protocol_buffer_updated = None
-        self.__buffered = 0
+        self.__protocol_type = ProtocolType.SIMPLE
 
     cdef inline _shutdown(self):
         cdef int err
@@ -294,14 +297,14 @@ cdef class UVStream(UVBaseTransport):
         if self.__reading:
             return
 
-        if self.__buffered:
-            err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
-                                   __uv_stream_buffered_alloc,
-                                   __uv_stream_buffered_on_read)
-        else:
+        if self.__protocol_type == ProtocolType.SIMPLE:
             err = uv.uv_read_start(<uv.uv_stream_t*>self._handle,
                                    __loop_alloc_buffer,
                                    __uv_stream_on_read)
+        else:
+            err = uv.uv_read_start(<uv.uv_stream_t *> self._handle,
+                                   __uv_stream_buffered_alloc,
+                                   __uv_stream_buffered_on_read)
         if err < 0:
             exc = convert_error(err)
             self._fatal_error(exc, True)
@@ -341,13 +344,15 @@ cdef class UVStream(UVBaseTransport):
         else:
             self.__reading_stopped()
 
-    cdef inline _try_write(self, object data):
+    cdef inline Py_ssize_t _try_write(self, object data) except -2:
+        # Returns number of bytes written.
+        # -1 - in case of fatal errors
         cdef:
-            ssize_t written
+            Py_ssize_t written
             bint used_buf = 0
             Py_buffer py_buf
             void* buf
-            size_t blen
+            Py_ssize_t blen
             int saved_errno
             int fd
 
@@ -368,6 +373,8 @@ cdef class UVStream(UVBaseTransport):
             blen = py_buf.len
 
         if blen == 0:
+            if used_buf:
+                PyBuffer_Release(&py_buf)
             # Empty data, do nothing.
             return 0
 
@@ -392,24 +399,20 @@ cdef class UVStream(UVBaseTransport):
             PyBuffer_Release(&py_buf)
 
         if written < 0:
-            if saved_errno == errno.EAGAIN or \
-                    saved_errno == system.EWOULDBLOCK:
-                return -1
+            if saved_errno in (errno.EAGAIN, system.EWOULDBLOCK):
+                return 0
             else:
                 exc = convert_error(-saved_errno)
                 self._fatal_error(exc, True)
-                return
+                return -1
 
         if UVLOOP_DEBUG:
             self._loop._debug_stream_write_tries += 1
 
-        if <size_t>written == blen:
-            return 0
-
         return written
 
     cdef inline _buffer_write(self, object data):
-        cdef int dlen
+        cdef Py_ssize_t dlen
 
         if not PyBytes_CheckExact(data):
             data = memoryview(data).cast('b')
@@ -422,19 +425,19 @@ cdef class UVStream(UVBaseTransport):
         self._buffer.append(data)
 
     cdef inline _initiate_write(self):
+        cdef bint all_sent
+
         if (not self._protocol_paused and
-                (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
-                self._buffer_size > self._high_water):
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
             # Fast-path.  If:
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,
-            #   - the protocol will be paused if we continue to buffer data
             #
             # Then:
             #   - Try to write all buffered data right now.
             all_sent = self._exec_write()
             if UVLOOP_DEBUG:
-                if self._buffer_size != 0 or self._buffer != []:
+                if self._buffer_size != 0 or self._buffer:
                     raise RuntimeError(
                         '_buffer_size is not 0 after a successful _exec_write')
 
@@ -450,20 +453,23 @@ cdef class UVStream(UVBaseTransport):
             self._maybe_pause_protocol()
             self._loop._queue_write(self)
 
-    cdef inline _exec_write(self):
+    cdef inline bint _exec_write(self) except -1:
+        # Returns True if all data from self._buffers has been sent,
+        # False - otherwise
         cdef:
             int err
-            int buf_len
+            Py_ssize_t buf_len
+            Py_ssize_t sent
             _StreamWriteContext ctx = None
 
         if self._closed:
             # If the handle is closed, just return, it's too
             # late to do anything.
-            return
+            return False
 
         buf_len = len(self._buffer)
         if not buf_len:
-            return
+            return True
 
         if (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
             # libuv internal write buffers for this stream are empty.
@@ -473,7 +479,26 @@ cdef class UVStream(UVBaseTransport):
                 data = self._buffer[0]
                 sent = self._try_write(data)
 
-                if sent is None:
+                if sent == len(data):
+                    # The most likely and latency sensitive outcome goes first,
+                    # all data was successfully written.
+                    self._buffer_size = 0
+                    self._buffer.clear()
+                    # on_write will call "maybe_resume_protocol".
+                    self._on_write()
+                    return True
+
+                elif sent > 0:
+                    if PyBytes_CheckExact(data):
+                        # Cast bytes to memoryview to avoid copying
+                        # data that wasn't sent.
+                        data = memoryview(data)
+                    data = data[sent:]
+
+                    self._buffer_size -= sent
+                    self._buffer[0] = data
+
+                elif sent == -1:
                     # A `self._fatal_error` was called.
                     # It might not raise an exception under some
                     # conditions.
@@ -484,31 +509,7 @@ cdef class UVStream(UVBaseTransport):
                         raise RuntimeError(
                             'stream is open after UVStream._try_write '
                             'returned None')
-                    return
-
-                if sent == 0:
-                    # All data was successfully written.
-                    self._buffer_size = 0
-                    self._buffer.clear()
-                    # on_write will call "maybe_resume_protocol".
-                    self._on_write()
-                    return True
-
-                if sent > 0:
-                    if UVLOOP_DEBUG:
-                        if sent == len(data):
-                            raise RuntimeError(
-                                '_try_write sent all data and returned '
-                                'non-zero')
-
-                    if PyBytes_CheckExact(data):
-                        # Cast bytes to memoryview to avoid copying
-                        # data that wasn't sent.
-                        data = memoryview(data)
-                    data = data[sent:]
-
-                    self._buffer_size -= sent
-                    self._buffer[0] = data
+                    return False
 
                 # At this point it's either data was sent partially,
                 # or an EAGAIN has happened.
@@ -543,7 +544,7 @@ cdef class UVStream(UVBaseTransport):
                         self._fatal_error(ex, True)
                         self._buffer.clear()
                         self._buffer_size = 0
-                        return
+                        return False
 
                 elif err != uv.UV_EAGAIN:
                     ctx.close()
@@ -551,7 +552,7 @@ cdef class UVStream(UVBaseTransport):
                     self._fatal_error(exc, True)
                     self._buffer.clear()
                     self._buffer_size = 0
-                    return
+                    return False
 
                 # fall through
 
@@ -575,9 +576,10 @@ cdef class UVStream(UVBaseTransport):
 
             exc = convert_error(err)
             self._fatal_error(exc, True)
-            return
+            return False
 
         self._maybe_resume_protocol()
+        return False
 
     cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
@@ -671,7 +673,7 @@ cdef class UVStream(UVBaseTransport):
             self.__reading,
             id(self))
 
-    def write(self, object buf):
+    cpdef write(self, object buf):
         self._ensure_alive()
 
         if self._eof:
@@ -921,9 +923,24 @@ cdef void __uv_stream_buffered_alloc(
                             "UVStream alloc buffer callback") == 0:
         return
 
+    cdef UVStream sc = <UVStream>stream.data
+
+    # Fast pass for our own SSLProtocol
+    # avoid python calls, memoryviews, context enter/exit, etc
+    if sc.__protocol_type == ProtocolType.SSL_PROTOCOL:
+        try:
+            (<SSLProtocol>sc._protocol).get_buffer_impl(
+                suggested_size, &uvbuf.base, &uvbuf.len)
+            return
+        except BaseException as exc:
+            # Can't call 'sc._fatal_error' or 'sc._close', libuv will SF.
+            # We'll do it later in __uv_stream_buffered_on_read when we
+            # receive UV_ENOBUFS.
+            uvbuf.len = 0
+            uvbuf.base = NULL
+            return
+
     cdef:
-        UVStream sc = <UVStream>stream.data
-        Loop loop = sc._loop
         Py_buffer* pybuf = &sc._read_pybuf
         int got_buf = 0
 
@@ -984,7 +1001,12 @@ cdef void __uv_stream_buffered_on_read(
         return
 
     try:
-        if nread > 0 and not sc._read_pybuf_acquired:
+        # When our own SSLProtocol is used, we get buffer pointer directly,
+        # through SSLProtocol.get_buffer_impl, not through Py_Buffer interface.
+        # Therefore sc._read_pybuf_acquired is always False for SSLProtocol.
+        if (nread > 0 and
+            sc.__protocol_type == ProtocolType.BUFFERED and
+            not sc._read_pybuf_acquired):
             # From libuv docs:
             #     nread is > 0 if there is data available or < 0 on error. When
             #     we’ve reached EOF, nread will be set to UV_EOF. When
@@ -1005,12 +1027,20 @@ cdef void __uv_stream_buffered_on_read(
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_total += 1
 
-        run_in_context1(sc.context, sc._protocol_buffer_updated, nread)
+        if sc.__protocol_type == ProtocolType.SSL_PROTOCOL:
+            Context_Enter(sc.context)
+            try:
+                (<SSLProtocol>sc._protocol).buffer_updated_impl(nread)
+            finally:
+                Context_Exit(sc.context)
+        else:
+            run_in_context1(sc.context, sc._protocol_buffer_updated, nread)
     except BaseException as exc:
         if UVLOOP_DEBUG:
             loop._debug_stream_read_cb_errors_total += 1
 
         sc._fatal_error(exc, False)
     finally:
-        sc._read_pybuf_acquired = 0
-        PyBuffer_Release(pybuf)
+        if sc._read_pybuf_acquired:
+            sc._read_pybuf_acquired = 0
+            PyBuffer_Release(pybuf)
