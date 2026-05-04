@@ -25,7 +25,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
         path = os.path.join(self.tmp_dir, filename)
         q = asyncio.Queue()
 
-        with open(path, 'wt') as f:
+        with open(path, "w") as f:
             async def file_writer():
                 while True:
                     f.write('hello uvloop\n')
@@ -74,7 +74,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
             if len(changed_set) == 0:
                 event.set()
 
-        with open(os.path.join(self.tmp_dir, orig_name), 'wt') as f:
+        with open(os.path.join(self.tmp_dir, orig_name), "w") as f:
             f.write('hello!')
         h = self.loop._monitor_fs(self.tmp_dir, event_cb)
         self.loop.run_until_complete(asyncio.sleep(0.5))  # let monitor start

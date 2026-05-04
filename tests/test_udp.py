@@ -389,7 +389,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         try:
             s_transport.sendto(b'aaaa', ('<broadcast>', 80))
         except ValueError as exc:
-            raise AssertionError('sendto raises {}.'.format(exc))
+            raise AssertionError(f'sendto raises {exc}.')
 
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))

@@ -297,8 +297,7 @@ finally:
 
     def test_signals_invalid_signal(self):
         with self.assertRaisesRegex(RuntimeError,
-                                    'sig {} cannot be caught'.format(
-                                        signal.SIGKILL)):
+                                    f'sig {signal.SIGKILL} cannot be caught'):
 
             self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
 

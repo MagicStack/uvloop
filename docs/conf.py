@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath('..'))
 version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'uvloop', '_version.py')
 
-with open(version_file, 'r') as f:
+with open(version_file) as f:
     for line in f:
         if line.startswith('__version__ ='):
             _, _, version = line.partition('=')
