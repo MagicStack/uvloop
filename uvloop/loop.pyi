@@ -51,6 +51,7 @@ class Loop:
         coro: Union[Awaitable[_T], Generator[Any, None, _T]],
         *,
         name: Optional[str] = ...,
+        context: Optional[Any] = ...,
     ) -> asyncio.Task[_T]: ...
     def set_task_factory(
         self,
