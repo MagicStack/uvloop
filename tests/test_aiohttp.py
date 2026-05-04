@@ -117,8 +117,10 @@ class _TestAioHTTP(tb.SSLTestCase):
         self.loop.run_until_complete(stop())
 
     def test_aiohttp_connection_lost_when_busy(self):
-        if self.implementation == 'asyncio':
-            raise unittest.SkipTest('bug in asyncio #118950 tests in CPython.')
+        if self.implementation == 'asyncio' and sys.version_info < (3, 13):
+            raise unittest.SkipTest(
+                "asyncio bug #118950, fixed in CPython 3.13+"
+            )
 
         cert = tb._cert_fullname(__file__, 'ssl_cert.pem')
         key = tb._cert_fullname(__file__, 'ssl_key.pem')
@@ -131,8 +133,8 @@ class _TestAioHTTP(tb.SSLTestCase):
         async def handler(request):
             ws = aiohttp.web.WebSocketResponse()
             await ws.prepare(request)
-            async for msg in ws:
-                print("Received:", msg.data)
+            async for _msg in ws:
+                pass
             return ws
 
         app.router.add_get('/', handler)

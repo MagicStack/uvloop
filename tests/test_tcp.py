@@ -3315,8 +3315,10 @@ class _TestSSL(tb.SSLTestCase):
         self.loop.run_until_complete(run_main())
 
     def test_connection_lost_when_busy(self):
-        if self.implementation == 'asyncio':
-            raise unittest.SkipTest('bug in asyncio #118950 tests in CPython.')
+        if self.implementation == 'asyncio' and sys.version_info < (3, 13):
+            raise unittest.SkipTest(
+                "asyncio bug #118950, fixed in CPython 3.13+"
+            )
 
         ssl_context = self._create_server_ssl_context(
             self.ONLYCERT, self.ONLYKEY)
