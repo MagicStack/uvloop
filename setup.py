@@ -22,7 +22,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython~=3.0'
+CYTHON_DEPENDENCY = 'Cython~=3.1'
 MACHINE = platform.machine()
 MODULES_CFLAGS = shlex.split(os.getenv('UVLOOP_OPT_CFLAGS', '-O2'))
 _ROOT = pathlib.Path(__file__).parent
@@ -109,7 +109,7 @@ class uvloop_build_ext(build_ext):
                         need_cythonize = True
 
         if need_cythonize:
-            import pkg_resources
+            from packaging.requirements import Requirement
 
             # Double check Cython presence in case setup_requires
             # didn't go into effect (most likely because someone
@@ -122,8 +122,8 @@ class uvloop_build_ext(build_ext):
                     'please install {} to compile uvloop from source'.format(
                         CYTHON_DEPENDENCY))
 
-            cython_dep = pkg_resources.Requirement.parse(CYTHON_DEPENDENCY)
-            if Cython.__version__ not in cython_dep:
+            cython_dep = Requirement(CYTHON_DEPENDENCY)
+            if not cython_dep.specifier.contains(Cython.__version__):
                 raise RuntimeError(
                     'uvloop requires {}, got Cython=={}'.format(
                         CYTHON_DEPENDENCY, Cython.__version__

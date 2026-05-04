@@ -378,6 +378,22 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))
 
+    def test_udp_sendto_broadcast(self):
+        coro = self.loop.create_datagram_endpoint(
+            asyncio.DatagramProtocol,
+            local_addr=('127.0.0.1', 0),
+            family=socket.AF_INET)
+
+        s_transport, server = self.loop.run_until_complete(coro)
+
+        try:
+            s_transport.sendto(b'aaaa', ('<broadcast>', 80))
+        except ValueError as exc:
+            raise AssertionError('sendto raises {}.'.format(exc))
+
+        s_transport.close()
+        self.loop.run_until_complete(asyncio.sleep(0.01))
+
     def test_send_after_close(self):
         coro = self.loop.create_datagram_endpoint(
             asyncio.DatagramProtocol,
