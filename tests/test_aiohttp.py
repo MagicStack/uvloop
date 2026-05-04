@@ -117,9 +117,12 @@ class _TestAioHTTP(tb.SSLTestCase):
         self.loop.run_until_complete(stop())
 
     def test_aiohttp_connection_lost_when_busy(self):
-        if self.implementation == 'asyncio' and sys.version_info < (3, 13):
+        if self.implementation == 'asyncio' and (
+            sys.version_info < (3, 12, 8)
+            or sys.version_info[:3] == (3, 13, 0)
+        ):
             raise unittest.SkipTest(
-                "asyncio bug #118950, fixed in CPython 3.13+"
+                "asyncio bug #118950, fixed in CPython 3.12.8 and 3.13.1"
             )
 
         cert = tb._cert_fullname(__file__, 'ssl_cert.pem')
