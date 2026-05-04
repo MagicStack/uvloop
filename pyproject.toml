@@ -79,3 +79,58 @@ test-command = "python -m unittest discover -v {project}/tests"
 addopts = "--capture=no --assert=plain --strict-markers --tb=native --import-mode=importlib"
 testpaths = "tests"
 filterwarnings = "default"
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "C4",
+    "EXE",
+    "ISC",
+    "PIE",
+    "PYI",
+    "SLOT",
+    "PERF",
+    "SIM",
+    "FLY",
+    "PERF",
+    "W",
+    "PLC",
+    "PLE",
+    "PLR",
+    "UP",
+    "FURB",
+    "RUF",
+]
+ignore = [
+    "B007",    # Loop control variable not used within loop body
+    "B011",    # Do not `assert False` (`python -O` removes these calls), raise `AssertionError()`
+    "PYI026",  # Use `typing_extensions.TypeAlias` for type alias
+    "SIM105",  # Use `contextlib.suppress(OSError)` instead of `try`-`except`-`pass`
+    "SIM108",  # Use ternary operator instead of `if`-`else`-block
+    "PLC0415", # `import` should be at the top-level of a file
+    "PLE0605", # Invalid format for `__all__`, must be `tuple` or `list`
+    "PLR09",   # Too many [...]
+    "PLR2004", # Magic value used in comparison, consider replacing with a constant variable*
+    "RUF005",  # Consider using unpacking operator instead of concatenation
+    "RUF006",  # Store a reference to the return value
+    "RUF059",  # Unpacked variable is never used
+    "RUF100",  # Unused blanket `noqa` directive
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"setup.py" = [
+    "B904",    # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    "C408",    # Unnecessary `dict()` call (rewrite as a literal)
+    "E402",    # Module level import not at top of file
+]
+"tests/**" = [
+    "B018",    # Found useless expression. Either assign it to a variable or remove it.
+    "B904",    # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    "B023",    # Function definition does not bind loop variable
+    "C408",    # Unnecessary `dict()` call (rewrite as a literal)
+    "E731",    # Do not assign a `lambda` expression, use a `def`
+    "PERF203", # `try`-`except` within a loop incurs performance overhead
+    "SIM115",  # Use a context manager for opening files
+    "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "RUF012",  # Mutable default value for class attribute
+]
