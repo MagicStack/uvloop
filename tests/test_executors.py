@@ -19,7 +19,7 @@ class _TestExecutors:
             pool = pool_factory()
             with pool:
                 coros = []
-                for i in range(0, 10):
+                for i in range(10):
                     coros.append(self.loop.run_in_executor(pool, fib, i))
                 res = await asyncio.gather(*coros)
             self.assertEqual(res, fib10)
