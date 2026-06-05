@@ -423,9 +423,10 @@ class _TestUnix:
 
     def test_create_unix_connection_sock_cancel_detaches(self):
         async def test():
-            srv_path = os.path.join(tempfile.mkdtemp(), 'test.sock')
+            srv_path = os.path.join(tempfile.mkdtemp(), "test.sock")
             srv = await asyncio.start_unix_server(
-                lambda r, w: w.close(), path=srv_path)
+                lambda r, w: w.close(), path=srv_path
+            )
 
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.setblocking(False)
@@ -436,8 +437,8 @@ class _TestUnix:
             await asyncio.sleep(0.01)
 
             task = asyncio.ensure_future(
-                self.loop.create_unix_connection(
-                    asyncio.Protocol, sock=sock))
+                self.loop.create_unix_connection(asyncio.Protocol, sock=sock)
+            )
             await asyncio.sleep(0)
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -457,9 +458,10 @@ class _TestUnix:
         # the create_unix_connection(sock=) path.
 
         async def test():
-            srv_path = os.path.join(tempfile.mkdtemp(), 'test.sock')
+            srv_path = os.path.join(tempfile.mkdtemp(), "test.sock")
             srv = await asyncio.start_unix_server(
-                lambda r, w: w.close(), path=srv_path)
+                lambda r, w: w.close(), path=srv_path
+            )
 
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.setblocking(False)
@@ -467,8 +469,8 @@ class _TestUnix:
             stale_fd = sock.fileno()
 
             task = self.loop.create_task(
-                self.loop.create_unix_connection(
-                    asyncio.Protocol, sock=sock))
+                self.loop.create_unix_connection(asyncio.Protocol, sock=sock)
+            )
             await asyncio.sleep(0)
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -479,8 +481,9 @@ class _TestUnix:
             victim_sock.setblocking(False)
             await self.loop.sock_connect(victim_sock, srv_path)
             victim_tr, _ = await self.loop.create_unix_connection(
-                asyncio.Protocol, sock=victim_sock)
-            victim_fd = victim_tr.get_extra_info('socket').fileno()
+                asyncio.Protocol, sock=victim_sock
+            )
+            victim_fd = victim_tr.get_extra_info("socket").fileno()
             if victim_fd != stale_fd:
                 victim_tr.close()
                 sock.close()
@@ -489,7 +492,8 @@ class _TestUnix:
                 if os.path.exists(srv_path):
                     os.unlink(srv_path)
                 raise unittest.SkipTest(
-                    f'fd not reused (got {victim_fd}, need {stale_fd})')
+                    f"fd not reused (got {victim_fd}, need {stale_fd})"
+                )
 
             spy_a, spy_b = socket.socketpair()
             spy_b.setblocking(False)
@@ -506,12 +510,12 @@ class _TestUnix:
                 os.dup2(spy_a.fileno(), stale_fd)
             spy_a.close()
 
-            victim_tr.write(b'LEAKED')
+            victim_tr.write(b"LEAKED")
 
             try:
                 leaked = spy_b.recv(4096)
             except BlockingIOError:
-                leaked = b''
+                leaked = b""
 
             if victim_broken:
                 os.close(stale_fd)
@@ -526,9 +530,11 @@ class _TestUnix:
             if os.path.exists(srv_path):
                 os.unlink(srv_path)
 
-            self.assertEqual(leaked, b'',
-                             f"Data leaked to an unrelated socket: "
-                             f"got {leaked!r}")
+            self.assertEqual(
+                leaked,
+                b"",
+                f"Data leaked to an unrelated socket: " f"got {leaked!r}",
+            )
 
         self.loop.run_until_complete(test())
 

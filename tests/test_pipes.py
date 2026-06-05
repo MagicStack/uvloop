@@ -107,7 +107,9 @@ class _BasePipeTest:
 
         os.close(wpipe)
         self.loop.run_until_complete(proto.done)
-        self.assertEqual(["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state)
+        self.assertEqual(
+            ["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state
+        )
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
@@ -119,7 +121,9 @@ class _BasePipeTest:
         master_read_obj = io.open(master, "rb", 0)
 
         async def connect():
-            t, p = await self.loop.connect_read_pipe(lambda: proto, master_read_obj)
+            t, p = await self.loop.connect_read_pipe(
+                lambda: proto, master_read_obj
+            )
             self.assertIs(p, proto)
             self.assertIs(t, proto.transport)
             self.assertEqual(["INITIAL", "CONNECTED"], proto.state)
@@ -143,7 +147,9 @@ class _BasePipeTest:
         proto.transport.close()
         self.loop.run_until_complete(proto.done)
 
-        self.assertEqual(["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state)
+        self.assertEqual(
+            ["INITIAL", "CONNECTED", "EOF", "CLOSED"], proto.state
+        )
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info("pipe"))
 
@@ -262,7 +268,9 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual("CLOSED", proto.state)
 
-    @unittest.skipIf(sys.platform == "win32", "do not support pipes for Windows")
+    @unittest.skipIf(
+        sys.platform == "win32", "do not support pipes for Windows"
+    )
     def test_write_buffer_full(self):
         rpipe, wpipe = os.pipe()
         pipeobj = io.open(wpipe, "wb", 1024)

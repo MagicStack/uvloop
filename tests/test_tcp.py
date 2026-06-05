@@ -786,7 +786,8 @@ class _TestTCP:
             await asyncio.sleep(0.01)
 
             task = asyncio.ensure_future(
-                self.loop.create_connection(asyncio.Protocol, sock=sock))
+                self.loop.create_connection(asyncio.Protocol, sock=sock)
+            )
             await asyncio.sleep(0)
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -802,9 +803,7 @@ class _TestTCP:
             except ConnectionAbortedError:
                 pass
 
-        with self.tcp_server(_recv_or_abort,
-                             max_clients=1,
-                             backlog=1) as srv:
+        with self.tcp_server(_recv_or_abort, max_clients=1, backlog=1) as srv:
             self.loop.run_until_complete(client(srv.addr))
 
     def test_create_connection_sock_cancel_fd_leak(self):
@@ -824,9 +823,8 @@ class _TestTCP:
 
         async def test():
             srv = await asyncio.start_server(
-                lambda r, w: w.close(),
-                '127.0.0.1', 0,
-                family=socket.AF_INET)
+                lambda r, w: w.close(), "127.0.0.1", 0, family=socket.AF_INET
+            )
             addr = srv.sockets[0].getsockname()
 
             # --- Step 1: create_connection with sock= and cancel it ---
@@ -845,15 +843,17 @@ class _TestTCP:
 
             # --- Step 2: a victim connection reuses the fd ---
             victim_tr, _ = await self.loop.create_connection(
-                asyncio.Protocol, *addr)
-            victim_fd = victim_tr.get_extra_info('socket').fileno()
+                asyncio.Protocol, *addr
+            )
+            victim_fd = victim_tr.get_extra_info("socket").fileno()
             if victim_fd != stale_fd:
                 victim_tr.close()
                 sock.close()
                 srv.close()
                 await srv.wait_closed()
                 raise unittest.SkipTest(
-                    f'fd not reused (got {victim_fd}, need {stale_fd})')
+                    f"fd not reused (got {victim_fd}, need {stale_fd})"
+                )
 
             # --- Step 3: stale sock.close() must NOT kill the victim ---
             # Allocate the socketpair BEFORE sock.close() so the pair
@@ -879,12 +879,12 @@ class _TestTCP:
 
             # Victim writes.  If victim_broken, writev(stale_fd) goes
             # to the spy; otherwise it goes to the real connection.
-            victim_tr.write(b'LEAKED')
+            victim_tr.write(b"LEAKED")
 
             try:
                 leaked = spy_b.recv(4096)
             except BlockingIOError:
-                leaked = b''
+                leaked = b""
 
             if victim_broken:
                 os.close(stale_fd)
@@ -893,9 +893,11 @@ class _TestTCP:
             srv.close()
             await srv.wait_closed()
 
-            self.assertEqual(leaked, b'',
-                             f"Data leaked to an unrelated socket: "
-                             f"got {leaked!r}")
+            self.assertEqual(
+                leaked,
+                b"",
+                f"Data leaked to an unrelated socket: " f"got {leaked!r}",
+            )
 
         self.loop.run_until_complete(test())
 
