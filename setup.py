@@ -13,6 +13,7 @@ import os.path
 import pathlib
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -22,9 +23,9 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
 
 
-CYTHON_DEPENDENCY = 'Cython~=3.0'
+CYTHON_DEPENDENCY = 'Cython~=3.1'
 MACHINE = platform.machine()
-MODULES_CFLAGS = [os.getenv('UVLOOP_OPT_CFLAGS', '-O2')]
+MODULES_CFLAGS = shlex.split(os.getenv('UVLOOP_OPT_CFLAGS', '-O2'))
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
 LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
@@ -115,7 +116,6 @@ class uvloop_build_ext(build_ext):
 
         if need_cythonize:
             from packaging.requirements import Requirement
-            from packaging.version import Version
 
             # Double check Cython presence in case setup_requires
             # didn't go into effect (most likely because someone
@@ -131,7 +131,7 @@ class uvloop_build_ext(build_ext):
                 )
 
             cython_dep = Requirement(CYTHON_DEPENDENCY)
-            if not cython_dep.specifier.contains(Version(Cython.__version__)):
+            if not cython_dep.specifier.contains(Cython.__version__):
                 raise RuntimeError(
                     "uvloop requires {}, got Cython=={}".format(
                         CYTHON_DEPENDENCY, Cython.__version__

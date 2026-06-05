@@ -45,9 +45,9 @@ test = [
     'mypy>=0.800',
 ]
 dev = [
-    'packaging',
+    'packaging>=20',
     'setuptools>=60',
-    'Cython~=3.0',
+    'Cython~=3.1',
 ]
 docs = [
     'Sphinx~=4.1.2',
@@ -57,8 +57,8 @@ docs = [
 
 [build-system]
 requires = [
+    "packaging>=20",
     "setuptools>=60",
-    "wheel",
     "Cython~=3.1",
 ]
 build-backend = "setuptools.build_meta"

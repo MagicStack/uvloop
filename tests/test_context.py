@@ -493,7 +493,13 @@ class _ContextBaseTests(tb.SSLTestCase):
                 # put the incoming data on-hold
                 proto.transport.pause_reading()
                 # send data
-                await self.loop.run_in_executor(None, ssl_sock.send, b"hello")
+                await self.loop.run_in_executor(None,
+                                                ssl_sock.send, b'hello')
+                # After gh-105836 run_in_executor may resolve without
+                # yielding. This is very noticeable when PYTHONASYNCIODEBUG
+                # is set. Hence, we yield explicitly so that the sent data
+                # can reach the SSL buffer before close/resume_reading.
+                await asyncio.sleep(0)
                 # schedule a proactive transport close which will trigger
                 # the flushing process to retrieve the remaining data
                 self.loop.call_soon(close)
