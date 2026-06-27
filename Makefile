@@ -41,7 +41,7 @@ debug: clean
 		--cython-always \
 		--cython-annotate \
 		--cython-directives="linetrace=True" \
-		--define UVLOOP_DEBUG,CYTHON_TRACE,CYTHON_TRACE_NOGIL
+		--define UVLOOP_DEBUG --define CYTHON_TRACE --define CYTHON_TRACE_NOGIL
 
 
 docs:

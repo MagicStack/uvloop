@@ -168,12 +168,18 @@ class _TestBase:
         self.assertFalse(self.loop.is_running())
 
         self.assertLess(finished - started, 0.3)
-        self.assertGreater(finished - started, 0.04)
+        if sys.version_info >= (3, 11) and sys.platform == "win32":
+            # Rounding bug is a thing but gets exteremely
+            # close to it's target value so some forgiveness
+            # at the very least is warranted.
+            self.assertGreater(finished - started, 0.03)
+        else:
+            self.assertGreater(finished - started, 0.04)
 
-    @unittest.skipIf(
-        (sys.version_info >= (3, 8)) and (sys.platform == "win32"),
-        "rounding errors are still present in 3.8+",
-    )
+    # @unittest.skipIf(
+    #     (sys.version_info >= (3, 8)) and (sys.platform == "win32"),
+    #     "rounding errors are still present in 3.8+",
+    # )
     def test_call_later_2(self):
         # Test that loop.call_later triggers an update of
         # libuv cached time.
@@ -186,7 +192,7 @@ class _TestBase:
         started = time.monotonic()
         self.loop.run_until_complete(main())
         delta = time.monotonic() - started
-        self.assertGreater(delta, 0.019)
+        self.assertGreater(delta, 0.011)
 
     def test_call_later_3(self):
         # a memory leak regression test

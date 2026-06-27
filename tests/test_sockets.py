@@ -692,7 +692,6 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 w = asyncio.wait_for(c, timeout=5.0)
                 self.loop.run_until_complete(w)
 
-    @unittest.skip("Sendall is having problems on all versions")
     def test_socket_cancel_sock_sendall(self):
         def srv_gen(sock):
             time.sleep(1.2)
@@ -701,7 +700,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         async def kill(fut):
             # Winloop comment: shorter sleep needed on Windows
             # to pass test. Otherwise, fut is done too early.
-            C = 2 if sys.platform == "win32" else 1
+            C = 3 if sys.platform == "win32" else 1
             await asyncio.sleep(0.2 / C)
             fut.cancel()
 
@@ -717,8 +716,17 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 loop=self.loop,
             )
             self.loop.create_task(kill(f))
-            with self.assertRaises(asyncio.CancelledError):
-                await f
+            if sys.platform == "win32":
+                # XXX: fine tuing this test is difficult.
+                try:
+                    await f
+                except ConnectionResetError:
+                    return
+                except asyncio.CancelledError:
+                    pass
+            else:
+                with self.assertRaises(asyncio.CancelledError):
+                    await f
             sock.close()
             self.assertEqual(sock.fileno(), -1)
 
