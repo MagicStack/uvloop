@@ -496,6 +496,16 @@ cdef class UVProcessTransport(UVProcess):
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 io[0] = self._file_redirect_stdio(_stdin)
+        
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDIN_BAD:
+            
+            # When a stdio is in a gui-like state without a console.
+            # Using a standard redirect is not a good idea. This at least
+            # is a better workaround that is a bit cleaner than doing what the 
+            # python standard library subprocess does with the _get_handles function 
+            # on windows. SEE: https://github.com/Vizonex/Winloop/issues/126
+
+            io[0] = self._file_devnull()
         else:
             io[0] = self._file_redirect_stdio(0)
 
@@ -524,6 +534,8 @@ cdef class UVProcessTransport(UVProcess):
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 io[1] = self._file_redirect_stdio(_stdout)
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDOUT_BAD:
+            io[1] = self._file_devnull()
         else:
             io[1] = self._file_redirect_stdio(1)
 
@@ -549,6 +561,9 @@ cdef class UVProcessTransport(UVProcess):
                 io[2] = self._file_devnull()
             else:
                 io[2] = self._file_redirect_stdio(_stderr)
+        
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDOUT_BAD:
+            io[2] = self._file_devnull()
         else:
             io[2] = self._file_redirect_stdio(2)
 
@@ -560,6 +575,7 @@ cdef class UVProcessTransport(UVProcess):
                 iocnt.data.fd = io[idx]
             else:
                 iocnt.flags = uv.UV_IGNORE
+
 
     cdef _call_connection_made(self, waiter):
         try:

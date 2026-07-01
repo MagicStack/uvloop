@@ -179,3 +179,29 @@ void PyOS_AfterFork_Child() {
 #endif
 
 
+/* There is a bug with CX-Freeze on windows when compiled
+ * to an exe this tries to fix it by seeing if alternate 
+ * workarounds like DEVNULL need to be provided. 
+ * SEE: https://github.com/Vizonex/Winloop/issues/126 
+ * There are several alternate workarounds to the problem but 
+ * what were going to attempt to do here is see if stdin, stdout, or stderr 
+ * are all mapped properly to 0, 1, 2. If these are -2 then the implementation 
+ * seen in subprocess.py will need to be applied where a handle is open with one closed 
+ * off... */
+
+#ifdef _WIN32
+#include <stdio.h>
+
+/* if these show up as -2 console is deemed absent */
+#define __UVLOOP_STDIN_BAD (_fileno(stdin) == -2)
+#define __UVLOOP_STDOUT_BAD (_fileno(stdout) == -2)
+#define __UVLOOP_STDERR_BAD (_fileno(stderr) == -2)
+
+
+#else
+/* On Unix these are not needed, but we define it anyways so the 
+compiler doesn't wind up throwing a fit about it */
+#define __UVLOOP_STDIN_BAD 0
+#define __UVLOOP_STDOUT_BAD 0
+#define __UVLOOP_STDERR_BAD 0
+#endif
