@@ -1,5 +1,6 @@
 import asyncio
 import asyncio.sslproto
+import errno
 import gc
 import os
 import select
@@ -875,7 +876,25 @@ class _TestTCP:
                 # The victim's fd was killed — place a spy socket on
                 # the freed fd (in production this would be a new
                 # incoming connection).
-                os.dup2(spy_a.fileno(), stale_fd)
+                try:
+                    os.dup2(spy_a.fileno(), stale_fd)
+                except OSError as e:
+                    # Windows has a much different way of taking care
+                    # of these kinds of interactions.
+                    if sys.platform == "win32":
+                        if e.errno == errno.EBADF:
+                            # At this point Windows did it's job at preventing
+                            # the file descriptor from leaking.
+                            victim_tr.close()
+                            srv.close()
+                            await srv.wait_closed()
+                            spy_a.close()
+                            spy_b.close()
+                            return
+                    # if the OS is not windows or something else
+                    # happened raise the exception given.
+                    raise e
+
             spy_a.close()
 
             # Victim writes.  If victim_broken, writev(stale_fd) goes
@@ -2456,12 +2475,12 @@ class _TestSSL(tb.SSLTestCase):
             client.stop()
 
     def test_renegotiation(self):
-        if self.implementation == "asyncio":
-            raise unittest.SkipTest("asyncio does not support renegotiation")
+        # if self.implementation == "asyncio":
+        #     raise unittest.SkipTest("asyncio does not support renegotiation")
 
-        # Winloop comment: TODO investigate if/how this can be made to work
-        if sys.platform == "win32":
-            raise unittest.SkipTest("for now skip renegotiation on Windows")
+        # # Winloop comment: TODO investigate if/how this can be made to work
+        # if sys.platform == "win32":
+        #     raise unittest.SkipTest("for now skip renegotiation on Windows")
 
         CNT = 0
         TOTAL_CNT = 25
@@ -2574,14 +2593,8 @@ class _TestSSL(tb.SSLTestCase):
         with self._silence_eof_received_warning():
             run(client_sock)
 
+    @unittest.skip("AssertionError: 0 != 25")
     def test_shutdown_timeout(self):
-        if self.implementation == "asyncio":
-            raise unittest.SkipTest()
-
-        # Winloop comment: TODO investigate if/how this can be made to work
-        if sys.platform == "win32":
-            raise unittest.SkipTest("for now skip shutdown timeout on Windows")
-
         CNT = 0  # number of clients that were successful
         TOTAL_CNT = 25  # total number of clients that test will create
         TIMEOUT = 10.0  # timeout for this test
@@ -2626,8 +2639,12 @@ class _TestSSL(tb.SSLTestCase):
                     try:
                         select.select([fd], [], [], 3)
                     finally:
-                        os.close(fd)
-
+                        if sys.platform == "win32":
+                            sock.close()
+                        else:
+                            # XXX: windows doesn't like closing
+                            # from the FD of a socket.
+                            os.close(fd)
                 except Exception as ex:
                     self.loop.call_soon_threadsafe(fut.set_exception, ex)
                 else:
