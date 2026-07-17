@@ -887,6 +887,7 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         def __init__(self):
             self.lost = 0
             self.stages = []
+            self.connection_lost_fut = asyncio.Future()
 
         def connection_made(self, transport):
             self.stages.append(('CM', transport))
@@ -905,6 +906,8 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         def connection_lost(self, exc):
             self.stages.append(('CL', self.lost, exc))
             self.lost += 1
+            if not self.connection_lost_fut.done():
+                self.connection_lost_fut.set_result(None)
 
     async def run_sub(self, **kwargs):
         return await self.loop.subprocess_shell(
@@ -962,7 +965,16 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 stdin=None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE))
-        self.loop.run_until_complete(transport._wait())
+        # transport._wait() only waits for the child process to be reaped
+        # (SIGCHLD/waitpid); it says nothing about whether the stdout pipe
+        # has been drained and closed yet. Process exit and pipe EOF are
+        # delivered to libuv via independent kernel mechanisms (a signal
+        # and epoll readiness, respectively), so they can be observed in
+        # separate event loop iterations. Waiting on the transport's own
+        # connection_lost (which uvloop only fires once *both* the process
+        # has exited *and* all pipes have disconnected) avoids asserting on
+        # proto.stages before that sequence has actually finished.
+        self.loop.run_until_complete(proto.connection_lost_fut)
         self.assertEqual(transport.get_returncode(), 0)
         self.assertIsNot(transport, None)
         self.assertEqual(

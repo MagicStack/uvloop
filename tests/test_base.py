@@ -220,6 +220,24 @@ class _TestBase:
             finished = int(round(self.loop.time() * 1000))
             self.assertGreaterEqual(finished - started, 69)
 
+    def test_call_later_not_early(self):
+        # Refs #739: asyncio.sleep()/call_later() must never fire before
+        # the requested delay has actually elapsed, as measured by a
+        # wall-clock source independent of the loop's own (millisecond-
+        # truncated) internal clock. The underlying bug only manifests
+        # when the loop's internal clock happens to be sampled close to
+        # a millisecond boundary, so run enough iterations to make a
+        # regression here reliably observable.
+        async def main():
+            delay = 0.01
+            for _ in range(300):
+                started = time.monotonic()
+                await asyncio.sleep(delay)
+                elapsed = time.monotonic() - started
+                self.assertGreaterEqual(elapsed, delay)
+
+        self.loop.run_until_complete(main())
+
     def test_call_at(self):
         if (os.environ.get('TRAVIS_OS_NAME')
                 or os.environ.get('GITHUB_WORKFLOW')):
