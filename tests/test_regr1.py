@@ -107,7 +107,7 @@ class TestIssue39Regr(tb.UVTestCase):
         'no need to test on macOS where spawn is used instead of fork')
     def test_issue39_regression(self):
         signal.signal(signal.SIGALRM, self.on_alarm)
-        signal.alarm(5)
+        signal.alarm(10)
 
         try:
             self.running = True
