@@ -720,6 +720,60 @@ class _TestBase:
         self.loop.run_until_complete(foo())
         self.loop.run_until_complete(asyncio.sleep(0.01))
 
+    def test_asyncgen_finalizer_hook_no_stack_capture(self):
+        # The finalizer hook can be invoked from a dealloc while the
+        # interpreter is mid-way through clearing a frame, where debug-mode
+        # source-traceback capture would walk a half-cleared frame and
+        # crash. Handles created while the suppression flag is set must not
+        # capture a traceback; normal handles must keep capturing.
+        if self.implementation != 'uvloop':
+            raise unittest.SkipTest('uvloop only')
+
+        from uvloop.loop import _extract_stack_disabled
+
+        self.loop.set_debug(True)
+        try:
+            handle = self.loop.call_soon(lambda: None)
+            self.assertIsNotNone(handle._source_traceback)
+            handle.cancel()
+
+            _extract_stack_disabled.flag = True
+            try:
+                handle = self.loop.call_soon(lambda: None)
+                self.assertIsNone(handle._source_traceback)
+                handle.cancel()
+            finally:
+                _extract_stack_disabled.flag = False
+        finally:
+            self.loop.set_debug(False)
+
+    def test_asyncgen_finalizer_hook_flag_reentrant(self):
+        # The hook must save/restore the suppression flag, not set/clear it:
+        # allocations inside the hook can trigger a GC that re-enters it on
+        # the same thread, and a clobbering reset would reopen the unsafe
+        # window for the outer invocation.
+        if self.implementation != 'uvloop':
+            raise unittest.SkipTest('uvloop only')
+
+        from uvloop.loop import _extract_stack_disabled
+
+        async def waiter():
+            yield 1
+
+        async def make_agen():
+            agen = waiter()
+            await agen.asend(None)
+            return agen
+
+        agen = self.loop.run_until_complete(make_agen())
+        _extract_stack_disabled.flag = True  # simulate an outer invocation
+        try:
+            self.loop._asyncgen_finalizer_hook(agen)
+            self.assertTrue(_extract_stack_disabled.flag)
+        finally:
+            _extract_stack_disabled.flag = False
+        self.loop.run_until_complete(asyncio.sleep(0.01))
+
     def test_inf_wait_for(self):
         async def foo():
             await asyncio.sleep(0.1)
