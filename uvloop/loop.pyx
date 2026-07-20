@@ -3195,7 +3195,16 @@ cdef class Loop:
     def _asyncgen_finalizer_hook(self, agen):
         self._asyncgens.discard(agen)
         if not self.is_closed():
-            self.call_soon_threadsafe(self.create_task, agen.aclose())
+            # Frame walking is unsafe in this hook; see
+            # _ExtractStackDisabled in cbhandles.pyx. Save/restore (not
+            # set/clear): an allocation below can trigger a GC that
+            # re-enters this hook on the same thread.
+            prev = _extract_stack_disabled.flag
+            _extract_stack_disabled.flag = True
+            try:
+                self.call_soon_threadsafe(self.create_task, agen.aclose())
+            finally:
+                _extract_stack_disabled.flag = prev
 
     def _asyncgen_firstiter_hook(self, agen):
         if self._asyncgens_shutdown_called:
