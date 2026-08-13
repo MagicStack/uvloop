@@ -1,17 +1,19 @@
 import asyncio
 import asyncio.sslproto
+import errno
 import gc
 import os
 import select
 import socket
-import unittest.mock
 import ssl
 import sys
 import threading
 import time
+import unittest.mock
 import weakref
 
 from OpenSSL import SSL as openssl_ssl
+
 from uvloop import _testbase as tb
 
 
@@ -203,7 +205,7 @@ class _TestTCP:
             self.loop.run_until_complete(self.loop.create_server(object))
 
     def test_create_server_3(self):
-        ''' check ephemeral port can be used '''
+        """check ephemeral port can be used"""
 
         async def start_server_ephemeral_ports():
 
@@ -247,13 +249,22 @@ class _TestTCP:
         with sock:
             addr = sock.getsockname()
 
-            with self.assertRaisesRegex(OSError,
-                                        r"error while attempting.*\('127.*:"
-                                        r"( \[errno \d+\])? address"
-                                        r"( already)? in use"):
-
+            with self.assertRaises(OSError) as cm:
                 self.loop.run_until_complete(
-                    self.loop.create_server(object, *addr))
+                    self.loop.create_server(object, *addr)
+                )
+            if sys.platform == "win32":
+                self.assertEqual(
+                    getattr(cm.exception, "winerror", None)
+                    or cm.exception.errno,
+                    10048,
+                )
+            else:
+                self.assertRegex(
+                    str(cm.exception),
+                    r"error while attempting.*\('127.*:"
+                    r"( \[errno \d+\])? address( already)? in use",
+                )
 
     def test_create_server_5(self):
         # Test that create_server sets the TCP_IPV6ONLY flag,
@@ -404,9 +415,10 @@ class _TestTCP:
             writer.write(b'AAAA')
             self.assertEqual(await reader.readexactly(2), b'OK')
 
-            re = r'(a bytes-like object)|(must be byte-ish)'
-            if sys.version_info >= (3, 13, 9):
-                re += r'|(must be a bytes, bytearray, or memoryview object)'
+            re = (
+                r"(a bytes-like object)|(must be byte-ish)|(bytes\, "
+                r"bytearray\, or memoryview object\, not 'str')"
+            )
             with self.assertRaisesRegex(TypeError, re):
                 writer.write('AAAA')
 
@@ -549,8 +561,16 @@ class _TestTCP:
             await self.wait_closed(writer)
 
         async def runner():
-            with self.assertRaisesRegex(OSError, 'Bad file'):
+            with self.assertRaises(OSError) as cm:
                 await client()
+            if sys.platform == "win32":
+                self.assertEqual(
+                    getattr(cm.exception, "winerror", None)
+                    or cm.exception.errno,
+                    10038,
+                )
+            else:
+                self.assertRegex(str(cm.exception), "Bad file")
 
         self.loop.run_until_complete(runner())
 
@@ -786,9 +806,8 @@ class _TestTCP:
 
         async def test():
             srv = await asyncio.start_server(
-                lambda r, w: w.close(),
-                '127.0.0.1', 0,
-                family=socket.AF_INET)
+                lambda r, w: w.close(), '127.0.0.1', 0, family=socket.AF_INET
+            )
             addr = srv.sockets[0].getsockname()
 
             # --- Step 1: create_connection with sock= and cancel it ---
@@ -807,7 +826,8 @@ class _TestTCP:
 
             # --- Step 2: a victim connection reuses the fd ---
             victim_tr, _ = await self.loop.create_connection(
-                asyncio.Protocol, *addr)
+                asyncio.Protocol, *addr
+            )
             victim_fd = victim_tr.get_extra_info('socket').fileno()
             if victim_fd != stale_fd:
                 victim_tr.close()
@@ -815,7 +835,8 @@ class _TestTCP:
                 srv.close()
                 await srv.wait_closed()
                 raise unittest.SkipTest(
-                    f'fd not reused (got {victim_fd}, need {stale_fd})')
+                    f"fd not reused (got {victim_fd}, need {stale_fd})"
+                )
 
             # --- Step 3: stale sock.close() must NOT kill the victim ---
             # Allocate the socketpair BEFORE sock.close() so the pair
@@ -836,7 +857,24 @@ class _TestTCP:
                 # The victim's fd was killed — place a spy socket on
                 # the freed fd (in production this would be a new
                 # incoming connection).
-                os.dup2(spy_a.fileno(), stale_fd)
+                try:
+                    os.dup2(spy_a.fileno(), stale_fd)
+                except OSError as e:
+                    # Windows has a much different way of taking care
+                    # of these kinds of interactions.
+                    if sys.platform == "win32" and e.errno == errno.EBADF:
+                        # At this point Windows did it's job at preventing
+                        # the file descriptor from leaking.
+                        victim_tr.close()
+                        srv.close()
+                        await srv.wait_closed()
+                        spy_a.close()
+                        spy_b.close()
+                        return
+                    # if the OS is not windows or something else
+                    # happened raise the exception given.
+                    raise e
+
             spy_a.close()
 
             # Victim writes.  If victim_broken, writev(stale_fd) goes
@@ -855,15 +893,16 @@ class _TestTCP:
             srv.close()
             await srv.wait_closed()
 
-            self.assertEqual(leaked, b'',
-                             f"Data leaked to an unrelated socket: "
-                             f"got {leaked!r}")
+            self.assertEqual(
+                leaked,
+                b'',
+                f"Data leaked to an unrelated socket: " f"got {leaked!r}",
+            )
 
         self.loop.run_until_complete(test())
 
 
 class Test_UV_TCP(_TestTCP, tb.UVTestCase):
-
     def test_create_server_buffered_1(self):
         SIZE = 123123
         eof = False
@@ -1350,28 +1389,38 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             t, p = await self.loop.create_connection(Protocol, *addr)
 
             t.write(b'q' * 512)
+            self.assertEqual(t.get_write_buffer_size(), 512)
+
             t.set_write_buffer_limits(low=16385)
+            self.assertFalse(paused)
             self.assertEqual(t.get_write_buffer_limits(), (16385, 65540))
 
             with self.assertRaisesRegex(ValueError, 'high.*must be >= low'):
                 t.set_write_buffer_limits(high=0, low=1)
 
             t.set_write_buffer_limits(high=1024, low=128)
+            self.assertFalse(paused)
             self.assertEqual(t.get_write_buffer_limits(), (128, 1024))
 
             t.set_write_buffer_limits(high=256, low=128)
+            self.assertTrue(paused)
             self.assertEqual(t.get_write_buffer_limits(), (128, 256))
 
             t.close()
 
-        with self.tcp_server(lambda sock: sock.recv_all(1),
-                             max_clients=1,
-                             backlog=1) as srv:
+        with self.tcp_server(
+            lambda sock: sock.recv_all(1), max_clients=1, backlog=1
+        ) as srv:
             self.loop.run_until_complete(client(srv.addr))
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
-    pass
+    # Winloop comment: issue proactor loop with
+    # test_resume_writing_write_different_transport.
+    if sys.platform == "win32":
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()
 
 
 class _TestSSL(tb.SSLTestCase):
@@ -2201,6 +2250,12 @@ class _TestSSL(tb.SSLTestCase):
     def test_create_server_ssl_over_ssl(self):
         if self.implementation == 'asyncio':
             raise unittest.SkipTest('asyncio does not support SSL over SSL')
+        if hasattr(sys, "_is_gil_enabled") and sys._is_gil_enabled():
+            if sys.platform == "win32":
+                # TODO: possibly fix when figured out.
+                raise unittest.SkipTest(
+                    "currently decides to GC when in debug mode"
+                )
 
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
@@ -2345,9 +2400,6 @@ class _TestSSL(tb.SSLTestCase):
             client.stop()
 
     def test_renegotiation(self):
-        if self.implementation == 'asyncio':
-            raise unittest.SkipTest('asyncio does not support renegotiation')
-
         CNT = 0
         TOTAL_CNT = 25
 
@@ -2464,9 +2516,6 @@ class _TestSSL(tb.SSLTestCase):
             run(client_sock)
 
     def test_shutdown_timeout(self):
-        if self.implementation == 'asyncio':
-            raise unittest.SkipTest()
-
         CNT = 0           # number of clients that were successful
         TOTAL_CNT = 25    # total number of clients that test will create
         TIMEOUT = 10.0    # timeout for this test
@@ -2510,8 +2559,12 @@ class _TestSSL(tb.SSLTestCase):
                     try:
                         select.select([fd], [], [], 3)
                     finally:
-                        os.close(fd)
-
+                        if sys.platform == "win32":
+                            sock.close()
+                        else:
+                            # XXX: windows doesn't like closing
+                            # from the FD of a socket.
+                            os.close(fd)
                 except Exception as ex:
                     self.loop.call_soon_threadsafe(fut.set_exception, ex)
                 else:

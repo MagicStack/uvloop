@@ -3,6 +3,10 @@
 
 PYTHON ?= python
 ROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+DEBUG_BUILD = --debug
+ifeq ($(OS),Windows_NT)
+DEBUG_BUILD =
+endif
 
 
 _default: compile
@@ -10,7 +14,7 @@ _default: compile
 
 clean:
 	rm -fr dist/ doc/_build/ *.egg-info uvloop/loop.*.pyd uvloop/loop_d.*.pyd
-	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so
+	rm -fr uvloop/*.c uvloop/*.html uvloop/*.so uvloop/*.pyd
 	rm -fr uvloop/handles/*.html uvloop/includes/*.html
 	find . -name '__pycache__' | xargs rm -rf
 
@@ -35,7 +39,7 @@ compile: clean setup-build
 
 
 debug: clean
-	$(PYTHON) setup.py build_ext --inplace --debug \
+	$(PYTHON) setup.py build_ext --inplace $(DEBUG_BUILD) \
 		--cython-always \
 		--cython-annotate \
 		--cython-directives="linetrace=True" \

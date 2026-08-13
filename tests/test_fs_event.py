@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
 import os.path
+import sys
 import tempfile
+import unittest
 
 from uvloop import _testbase as tb
 from uvloop.loop import FileSystemEvent
@@ -19,6 +21,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
         self.exit_stack.close()
         super().tearDown()
 
+    @unittest.skipIf(sys.platform == "win32", "broken")
     def test_fs_event_change(self):
         change_event_count = 0
         filename = "fs_event_change.txt"
@@ -26,6 +29,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
         q = asyncio.Queue()
 
         with open(path, 'wt') as f:
+
             async def file_writer():
                 while True:
                     f.write('hello uvloop\n')
@@ -46,8 +50,8 @@ class Test_UV_FS_Event(tb.UVTestCase):
 
             h = self.loop._monitor_fs(path, event_cb)
             self.loop.run_until_complete(
-                asyncio.sleep(0.1)  # let monitor start
-            )
+                asyncio.sleep(0.1)
+            )  # let monitor start
             self.assertFalse(h.cancelled())
 
             self.loop.run_until_complete(asyncio.wait_for(file_writer(), 4))
@@ -56,6 +60,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
 
         self.assertEqual(change_event_count, 4)
 
+    @unittest.skipIf(sys.platform == "win32", "broken")
     def test_fs_event_rename(self):
         orig_name = "hello_fs_event.txt"
         new_name = "hello_fs_event_rename.txt"

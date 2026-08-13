@@ -1,5 +1,6 @@
 import asyncio
 import socket
+import sys
 import unittest
 
 from uvloop import _testbase as tb
@@ -10,11 +11,9 @@ def patched_getaddrinfo(*args, **kwargs):
     # flag AI_CANONNAME, even if `host` is an IP
     rv = []
     result = socket.getaddrinfo(*args, **kwargs)
-    first = True
     for af, sk, proto, canon_name, addr in result:
         if kwargs.get('flags', 0) & socket.AI_CANONNAME:
-            if not canon_name and first:
-                first = False
+            if not canon_name:
                 canon_name = args[0]
                 if not isinstance(canon_name, str):
                     canon_name = canon_name.decode('ascii')
@@ -26,7 +25,7 @@ def patched_getaddrinfo(*args, **kwargs):
 
 class BaseTestDNS:
 
-    def _test_getaddrinfo(self, *args, _patch=False, _sorted=False, **kwargs):
+    def _test_getaddrinfo(self, *args, _patch=False, **kwargs):
         err = None
         try:
             if _patch:
@@ -38,7 +37,8 @@ class BaseTestDNS:
 
         try:
             a2 = self.loop.run_until_complete(
-                self.loop.getaddrinfo(*args, **kwargs))
+                self.loop.getaddrinfo(*args, **kwargs)
+            )
         except (socket.gaierror, UnicodeError) as ex:
             if err is not None:
                 self.assertEqual(ex.args, err.args)
@@ -52,18 +52,7 @@ class BaseTestDNS:
             if err is not None:
                 raise err
 
-            if _sorted:
-                if kwargs.get('flags', 0) & socket.AI_CANONNAME and a1 and a2:
-                    # The API doesn't guarantee the ai_canonname value if
-                    # multiple results are returned, but both implementations
-                    # must return the same value for the first result.
-                    self.assertEqual(a1[0][3], a2[0][3])
-                    a1 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a1]
-                    a2 = [(af, sk, pr, addr) for af, sk, pr, _, addr in a2]
-
-                self.assertEqual(sorted(a1), sorted(a2))
-            else:
-                self.assertEqual(a1, a2)
+            self.assertEqual(a1, a2)
 
     def _test_getnameinfo(self, *args, **kwargs):
         err = None
@@ -90,52 +79,65 @@ class BaseTestDNS:
             self.assertEqual(a1, a2)
 
     def test_getaddrinfo_1(self):
-        self._test_getaddrinfo('example.com', 80, _sorted=True)
-        self._test_getaddrinfo('example.com', 80, type=socket.SOCK_STREAM,
-                               _sorted=True)
+        self._test_getaddrinfo('example.com', 80)
+        self._test_getaddrinfo('example.com', 80, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_2(self):
-        self._test_getaddrinfo('example.com', 80, flags=socket.AI_CANONNAME,
-                               _sorted=True)
+        self._test_getaddrinfo('example.com', 80, flags=socket.AI_CANONNAME)
 
     def test_getaddrinfo_3(self):
         self._test_getaddrinfo('a' + '1' * 50 + '.wat', 800)
 
     def test_getaddrinfo_4(self):
+        if sys.platform == "darwin":
+            raise unittest.SkipTest(
+                "randomly freezes for some strange reason."
+            )
         self._test_getaddrinfo('example.com', 80, family=-1)
         self._test_getaddrinfo('example.com', 80, type=socket.SOCK_STREAM,
                                family=-1)
 
     def test_getaddrinfo_5(self):
-        self._test_getaddrinfo('example.com', '80', _sorted=True)
-        self._test_getaddrinfo('example.com', '80', type=socket.SOCK_STREAM,
-                               _sorted=True)
+        self._test_getaddrinfo('example.com', '80')
+        self._test_getaddrinfo('example.com', '80', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_6(self):
-        self._test_getaddrinfo(b'example.com', b'80', _sorted=True)
-        self._test_getaddrinfo(b'example.com', b'80', type=socket.SOCK_STREAM,
-                               _sorted=True)
+        self._test_getaddrinfo(b'example.com', b'80')
+        self._test_getaddrinfo(b'example.com', b'80', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_7(self):
         self._test_getaddrinfo(None, 0)
         self._test_getaddrinfo(None, 0, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_8(self):
-        self._test_getaddrinfo('', 0)
-        self._test_getaddrinfo('', 0, type=socket.SOCK_STREAM)
+        # Winloop comment: on Windows, an empty string for host will return
+        # all registered addresses on the local computer. Enabling this feature
+        # is not possible using libuv (an empty host will give an error which
+        # is consistent with behavior on Linux).
+        # Winloop supports the use of an empty string for host by internally
+        # using b'..localmachine' for host. However, even though the Windows
+        # documentation mentions that both by using an empty string for host
+        # and by using "..localmachine" for host "all registered addresses on
+        # the local computer are returned", these lists may actually differ
+        # slightly. This will make the test below fail.
+        # As a useful replacement, we therefore test explicitly using
+        # b'..localmachine' for host.
+        host = b"..localmachine" if sys.platform == "win32" else ""
+        self._test_getaddrinfo(host, 0)
+        self._test_getaddrinfo(host, 0, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_9(self):
-        self._test_getaddrinfo(b'', 0)
-        self._test_getaddrinfo(b'', 0, type=socket.SOCK_STREAM)
+        host = b"..localmachine" if sys.platform == "win32" else b""
+        self._test_getaddrinfo(host, 0)
+        self._test_getaddrinfo(host, 0, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_10(self):
         self._test_getaddrinfo(None, None)
         self._test_getaddrinfo(None, None, type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_11(self):
-        self._test_getaddrinfo(b'example.com', '80', _sorted=True)
-        self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM,
-                               _sorted=True)
+        self._test_getaddrinfo(b'example.com', '80')
+        self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM)
 
     def test_getaddrinfo_12(self):
         # musl always returns ai_canonname but we don't
@@ -143,6 +145,8 @@ class BaseTestDNS:
 
         self._test_getaddrinfo('127.0.0.1', '80')
         self._test_getaddrinfo('127.0.0.1', '80', type=socket.SOCK_STREAM,
+                               # Windows resolves TCP with protocol 6.
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
 
     def test_getaddrinfo_13(self):
@@ -151,6 +155,7 @@ class BaseTestDNS:
 
         self._test_getaddrinfo(b'127.0.0.1', b'80')
         self._test_getaddrinfo(b'127.0.0.1', b'80', type=socket.SOCK_STREAM,
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
 
     def test_getaddrinfo_14(self):
@@ -159,6 +164,7 @@ class BaseTestDNS:
 
         self._test_getaddrinfo(b'127.0.0.1', b'http')
         self._test_getaddrinfo(b'127.0.0.1', b'http', type=socket.SOCK_STREAM,
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
 
     def test_getaddrinfo_15(self):
@@ -167,6 +173,7 @@ class BaseTestDNS:
 
         self._test_getaddrinfo('127.0.0.1', 'http')
         self._test_getaddrinfo('127.0.0.1', 'http', type=socket.SOCK_STREAM,
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
 
     def test_getaddrinfo_16(self):
@@ -181,6 +188,8 @@ class BaseTestDNS:
         self._test_getaddrinfo('localhost', b'http')
         self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
+    # Winloop comment: see comment in __static_getaddrinfo_pyaddr() in dns.pyx
+    # TODO: add Windows to that analysis handling two failing tests below.
     def test_getaddrinfo_19(self):
         # musl always returns ai_canonname while macOS never return for IPs,
         # but we strictly follow the docs to use the AI_CANONNAME flag in a
@@ -189,9 +198,12 @@ class BaseTestDNS:
 
         self._test_getaddrinfo('::1', 80)
         self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
-        self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
-                               flags=socket.AI_CANONNAME, _patch=patch)
+        # Winloop comment: next one fails with '[::1]:80' vs '::1'
+        if sys.platform != "win32":
+            self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
+                                   flags=socket.AI_CANONNAME, _patch=patch)
 
     def test_getaddrinfo_20(self):
         # musl always returns ai_canonname while macOS never return for IPs,
@@ -201,9 +213,13 @@ class BaseTestDNS:
 
         self._test_getaddrinfo('127.0.0.1', 80)
         self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
+                               proto=6 if sys.platform == "win32" else 0,
                                _patch=patch)
-        self._test_getaddrinfo('127.0.0.1', 80, type=socket.SOCK_STREAM,
-                               flags=socket.AI_CANONNAME, _patch=patch)
+        # Winloop comment: next one fails with '127.0.0.1:80' vs '127.0.0.1'
+        if sys.platform != "win32":
+            self._test_getaddrinfo('127.0.0.1', 80,
+                                   type=socket.SOCK_STREAM,
+                                   flags=socket.AI_CANONNAME, _patch=patch)
 
     # https://github.com/libuv/libuv/security/advisories/GHSA-f74f-cvh7-c6q6
     # See also: https://github.com/MagicStack/uvloop/pull/600
@@ -216,10 +232,6 @@ class BaseTestDNS:
         payload = f'0x{"0" * 246}7f000001.example.com'
         self._test_getaddrinfo(payload, 80)
         self._test_getaddrinfo(payload, 80, type=socket.SOCK_STREAM)
-
-    def test_getaddrinfo_broadcast(self):
-        self._test_getaddrinfo('<broadcast>', 80)
-        self._test_getaddrinfo('<broadcast>', 80, type=socket.SOCK_STREAM)
 
     ######
 

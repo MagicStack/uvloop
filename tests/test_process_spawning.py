@@ -1,6 +1,7 @@
 import asyncio
 import ctypes.util
 import logging
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 from unittest import TestCase
@@ -9,7 +10,6 @@ import uvloop
 
 
 class ProcessSpawningTestCollection(TestCase):
-
     def test_spawning_external_process(self):
         """Test spawning external process (using `popen` system call) that
         cause loop freeze."""
@@ -75,15 +75,19 @@ class ProcessSpawningTestCollection(TestCase):
         def spawn_process():
             """Spawn external process via `popen` system call."""
 
-            stdio = ctypes.CDLL(ctypes.util.find_library('c'))
+            # WINLOOP comment: use 'msvcrt' instead of 'c', and
+            # attrbs '_popen' and '_plocse' instead of 'popen' and 'pclose'.
+            # NB: this test turns out to take close to 10x longer on Windows?!
+            stdio = ctypes.CDLL(ctypes.util.find_library(
+                "msvcrt" if sys.platform == "win32" else 'c'))
 
             # popen system call
-            popen = stdio.popen
+            popen = stdio._popen if sys.platform == "win32" else stdio.popen
             popen.argtypes = (ctypes.c_char_p, ctypes.c_char_p)
             popen.restype = ctypes.c_void_p
 
             # pclose system call
-            pclose = stdio.pclose
+            pclose = stdio._pclose if sys.platform == "win32" else stdio.pclose
             pclose.argtypes = (ctypes.c_void_p,)
             pclose.restype = ctypes.c_int
 
@@ -100,8 +104,9 @@ class ProcessSpawningTestCollection(TestCase):
                 t.start()
                 t.join(timeout=10.0)
                 if t.is_alive():
-                    raise Exception('process freeze detected at {}'
-                                    .format(iteration))
+                    raise Exception(
+                        'process freeze detected at {}'.format(iteration)
+                    )
 
             return True
 

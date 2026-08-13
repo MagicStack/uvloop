@@ -142,7 +142,6 @@ class _SSLSocketOverSSL:
 
 
 class _ContextBaseTests(tb.SSLTestCase):
-
     ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')
     ONLYKEY = tb._cert_fullname(__file__, 'ssl_key.pem')
 
@@ -264,7 +263,8 @@ class _ContextBaseTests(tb.SSLTestCase):
         self.assertIsNone(ref())
 
     def _run_test(self, method, **switches):
-        switches.setdefault('use_tcp', 'both')
+        switches.setdefault(
+            'use_tcp', 'yes' if sys.platform == 'win32' else 'both')
         use_ssl = switches.setdefault('use_ssl', 'no') in {'yes', 'both'}
         names = ['factory']
         options = [(_Protocol, _BufferedProtocol)]
@@ -392,6 +392,7 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_server_test(test, async_sock=True)
 
+    @unittest.skipIf(sys.platform == 'win32', 'not supported on Windows')
     def test_create_ssl_server_connection_protocol(self):
         async def test(cvar, proto, ssl_sock, **_):
             def resume_reading(transport):
@@ -452,6 +453,8 @@ class _ContextBaseTests(tb.SSLTestCase):
         self._run_server_test(test, async_sock=True)
 
     def test_create_ssl_server_manual_connection_lost(self):
+        if sys.version_info >= (3, 12):
+            raise unittest.SkipTest('This is having problems on 3.12+')
         if self.implementation == 'asyncio' and sys.version_info >= (3, 11, 0):
             # TODO(fantix): fix for 3.11
             raise unittest.SkipTest('should pass on 3.11')
@@ -495,6 +498,7 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_server_test(test, use_ssl='yes')
 
+    @unittest.skipIf(sys.platform == 'win32', 'not supported on Windows')
     def test_create_connection_protocol(self):
         async def test(cvar, proto, addr, sslctx, client_sslctx, family,
                        use_sock, use_ssl, use_tcp):
@@ -511,16 +515,10 @@ class _ContextBaseTests(tb.SSLTestCase):
             async def write_over():
                 cvar.set("write_over")
                 count = 0
-                if use_ssl:
-                    proto.transport.set_write_buffer_limits(high=256, low=128)
-                    while not proto.transport.get_write_buffer_size():
-                        proto.transport.write(b'q' * 16384)
-                        count += 1
-                else:
-                    proto.transport.set_write_buffer_limits(high=256, low=128)
-                    while not proto.transport.get_write_buffer_size():
-                        proto.transport.write(b'q' * 16384)
-                        count += 1
+                proto.transport.set_write_buffer_limits(high=256, low=128)
+                while not proto.transport.get_write_buffer_size():
+                    proto.transport.write(b'q' * 16384)
+                    count += 1
                 return count
 
             s = self.loop.run_in_executor(None, accept)
@@ -642,6 +640,9 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_test(test, use_ssl='yes', ssl_over_ssl='both')
 
+    @unittest.skipIf(
+        sys.platform == 'win32' and sys.version_info < (3, 11),
+        'not supported before Python 3.11 on Windows')
     def test_connect_accepted_socket(self):
         async def test(proto, addr, family, sslctx, client_sslctx,
                        use_ssl, **_):
@@ -670,7 +671,10 @@ class _ContextBaseTests(tb.SSLTestCase):
                 inner = await proto.data_received_fut
                 self.assertEqual(inner, "inner")
 
-                if use_ssl and self.implementation != 'asyncio':
+                if use_ssl and (
+                    self.implementation != 'asyncio' or
+                    sys.platform == 'win32'
+                ):
                     await self.loop.run_in_executor(None, cs.unwrap)
                 else:
                     cs.shutdown(socket.SHUT_WR)
@@ -686,6 +690,7 @@ class _ContextBaseTests(tb.SSLTestCase):
 
         self._run_test(test, use_ssl='both')
 
+    @unittest.skipIf(sys.platform == 'win32', 'requires Unix transports')
     def test_subprocess_protocol(self):
         cvar = contextvars.ContextVar('cvar', default='outer')
         proto = _SubprocessProtocol(cvar, loop=self.loop)

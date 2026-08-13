@@ -1,6 +1,10 @@
 #ifndef UVLOOP_FORK_HANDLER_H_
 #define UVLOOP_FORK_HANDLER_H_
 
+#ifndef _WIN32
+#include <pthread.h>
+#endif
+
 volatile uint64_t MAIN_THREAD_ID = 0;
 volatile int8_t MAIN_THREAD_ID_SET = 0;
 
@@ -39,4 +43,14 @@ void setMainThreadID(uint64_t id) {
     MAIN_THREAD_ID = id;
     MAIN_THREAD_ID_SET = 1;
 }
+
+#ifdef _WIN32
+int pthread_atfork(
+	void (*prepare)(),
+	void (*parent)(),
+	void (*child)()) {
+	return 0;
+}
+#endif
+
 #endif

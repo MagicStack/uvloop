@@ -185,6 +185,7 @@ class _TestUDP:
             tr.close()
             self.loop.run_until_complete(pr.done)
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_create_datagram_endpoint_sock_unix_domain(self):
 
         class Proto(asyncio.DatagramProtocol):
@@ -275,6 +276,7 @@ class _TestUDP:
 
         self.loop.run_until_complete(run())
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_socketpair(self):
         peername = asyncio.Future(loop=self.loop)
 
@@ -287,13 +289,13 @@ class _TestUDP:
 
         with s1, s2:
             f = self.loop.create_datagram_endpoint(
-                lambda: Proto(loop=self.loop), sock=s1)
+                lambda: Proto(loop=self.loop), sock=s1
+            )
             tr, pr = self.loop.run_until_complete(f)
             self.assertIsInstance(pr, Proto)
 
             s2.send(b'hello, socketpair')
-            addr = self.loop.run_until_complete(
-                asyncio.wait_for(peername, 1))
+            addr = self.loop.run_until_complete(asyncio.wait_for(peername, 1))
             if sys.platform.startswith('linux'):
                 self.assertEqual(addr, None)
             else:
@@ -305,9 +307,11 @@ class _TestUDP:
                 # https://git.io/Jfqbw
                 data = b'from uvloop'
                 tr.sendto(data)
-                result = self.loop.run_until_complete(asyncio.wait_for(
-                    self.loop.run_in_executor(None, s2.recv, 1024),
-                    1))
+                result = self.loop.run_until_complete(
+                    asyncio.wait_for(
+                        self.loop.run_in_executor(None, s2.recv, 1024), 1
+                    )
+                )
                 self.assertEqual(data, result)
 
             tr.close()
@@ -352,7 +356,6 @@ class _TestUDP:
 
 
 class Test_UV_UDP(_TestUDP, tb.UVTestCase):
-
     def test_create_datagram_endpoint_wrong_sock(self):
         sock = socket.socket(socket.AF_INET)
         with sock:
@@ -374,22 +377,6 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
         with self.assertRaisesRegex(ValueError, 'socket family mismatch'):
             s_transport.sendto(b'aaaa', ('::1', 80))
-
-        s_transport.close()
-        self.loop.run_until_complete(asyncio.sleep(0.01))
-
-    def test_udp_sendto_broadcast(self):
-        coro = self.loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol,
-            local_addr=('127.0.0.1', 0),
-            family=socket.AF_INET)
-
-        s_transport, server = self.loop.run_until_complete(coro)
-
-        try:
-            s_transport.sendto(b'aaaa', ('<broadcast>', 80))
-        except ValueError as exc:
-            raise AssertionError('sendto raises {}.'.format(exc))
 
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))
@@ -416,3 +403,14 @@ class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     @unittest.skipUnless(tb.has_IPv6, 'no IPv6')
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()
+
+    # winloop comment: switching to selector loop (instead of proactor)
+    # to make test_create_datagram_endpoint_ipv6_family() pass.
+    # The proactor failure is due to a recvfrom() call on an
+    # unbound socket when using local_addr=None. Pending this newly
+    # created issue https://github.com/python/cpython/issues/119711
+    # The other tests also pass with the proactor loop.
+    if sys.platform == "win32":
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()

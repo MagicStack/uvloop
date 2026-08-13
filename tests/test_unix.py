@@ -2,10 +2,10 @@ import asyncio
 import os
 import pathlib
 import socket
+import sys
 import tempfile
 import time
 import unittest
-import sys
 
 from uvloop import _testbase as tb
 
@@ -13,6 +13,7 @@ from uvloop import _testbase as tb
 SSL_HANDSHAKE_TIMEOUT = 15.0
 
 
+@unittest.skipIf(sys.platform == "win32", "no Unix socket tests on Windows")
 class _TestUnix:
     def test_create_unix_server_1(self):
         CNT = 0           # number of clients that were successful
@@ -641,6 +642,7 @@ class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
     pass
 
 
+@unittest.skipIf(sys.platform == "win32", "no Unix socket tests on Windows")
 class _TestSSL(tb.SSLTestCase):
 
     ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')

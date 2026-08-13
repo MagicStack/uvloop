@@ -4,9 +4,6 @@ vi = sys.version_info
 if vi < (3, 8):
     raise RuntimeError('uvloop requires Python 3.8 or greater')
 
-if sys.platform in ('win32', 'cygwin', 'cli'):
-    raise RuntimeError('uvloop does not support Windows at the moment')
-
 import os
 import os.path
 import pathlib
@@ -28,7 +25,6 @@ MODULES_CFLAGS = shlex.split(os.getenv('UVLOOP_OPT_CFLAGS', '-O2'))
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
 LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
-
 
 def _libuv_build_env():
     env = os.environ.copy()
@@ -191,6 +187,15 @@ class uvloop_build_ext(build_ext):
             cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
     def build_extensions(self):
+        if sys.platform == "win32":
+            path = pathlib.Path("vendor", "libuv", "src")
+            c_files = [p.as_posix() for p in path.iterdir() if p.suffix == ".c"]
+            c_files += [
+                p.as_posix() for p in (path / "win").iterdir() if p.suffix == ".c"
+            ]
+            self.extensions[-1].sources += c_files
+            super().build_extensions()
+            return
         if self.use_system_libuv:
             self.compiler.add_library('uv')
 
@@ -230,6 +235,36 @@ with open(str(_ROOT / 'uvloop' / '_version.py')) as f:
         raise RuntimeError(
             'unable to read the version from uvloop/_version.py')
 
+if sys.platform == 'win32':
+    ext = [
+        Extension(
+            'uvloop.loop',
+            sources=['uvloop/loop.pyx'],
+            include_dirs=[
+                'vendor/libuv/src',
+                'vendor/libuv/src/win',
+                'vendor/libuv/include',
+            ],
+            libraries=[
+                'Shell32', 'Ws2_32', 'Advapi32', 'iphlpapi',
+                'Userenv', 'User32', 'Dbghelp', 'Ole32',
+            ],
+            define_macros=[
+                ('WIN32_LEAN_AND_MEAN', 1),
+                ('_WIN32_WINNT', '0x0602'),
+            ],
+        ),
+    ]
+else:
+    ext = [
+        Extension(
+            "uvloop.loop",
+            sources=[
+                "uvloop/loop.pyx",
+            ],
+            extra_compile_args=MODULES_CFLAGS,
+        ),
+    ]
 
 setup_requires = []
 
@@ -244,14 +279,6 @@ setup(
         'sdist': uvloop_sdist,
         'build_ext': uvloop_build_ext
     },
-    ext_modules=[
-        Extension(
-            "uvloop.loop",
-            sources=[
-                "uvloop/loop.pyx",
-            ],
-            extra_compile_args=MODULES_CFLAGS
-        ),
-    ],
+    ext_modules=ext,
     setup_requires=setup_requires,
 )
