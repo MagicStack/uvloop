@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pickle
 import select
 import socket
@@ -13,6 +14,28 @@ _SIZE = 1024 * 1024
 
 
 class _TestSockets:
+
+    def test_add_reader_writer_preserves_blocking_mode(self):
+        read_fd, write_fd = os.pipe()
+        try:
+            self.assertTrue(os.get_blocking(read_fd))
+            self.loop.add_reader(read_fd, lambda: None)
+            try:
+                self.assertTrue(os.get_blocking(read_fd))
+            finally:
+                self.loop.remove_reader(read_fd)
+            self.assertTrue(os.get_blocking(read_fd))
+
+            self.assertTrue(os.get_blocking(write_fd))
+            self.loop.add_writer(write_fd, lambda: None)
+            try:
+                self.assertTrue(os.get_blocking(write_fd))
+            finally:
+                self.loop.remove_writer(write_fd)
+            self.assertTrue(os.get_blocking(write_fd))
+        finally:
+            os.close(read_fd)
+            os.close(write_fd)
 
     async def recv_all(self, sock, nbytes):
         buf = b''
