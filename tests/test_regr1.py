@@ -2,6 +2,8 @@ import asyncio
 import queue
 import multiprocessing
 import signal
+import subprocess
+import sys
 import threading
 import unittest
 
@@ -117,3 +119,32 @@ class TestIssue39Regr(tb.UVTestCase):
         finally:
             self.running = False
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
+
+
+class TestIssue760Regr(unittest.TestCase):
+    """See https://github.com/MagicStack/uvloop/issues/760 for details.
+
+    Directly constructing uvloop.loop.Server with a loop of None isn't a
+    supported usage pattern, but it segfaulted instead of raising a
+    Python exception, since the None was only checked much later, deep
+    inside close(). Run the reproducer in a subprocess since a regression
+    here crashes the whole interpreter rather than raising.
+    """
+
+    def test_server_with_none_loop_raises_instead_of_crashing(self):
+        code = (
+            "from uvloop.loop import Server\n"
+            "server = Server(None)\n"
+            "server.close()\n"
+        )
+        proc = subprocess.run(
+            [sys.executable, '-c', code],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+        self.assertNotEqual(
+            proc.returncode, -11,
+            f'process was killed by SIGSEGV; stderr:\n'
+            f'{proc.stderr.decode()}')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn(b'TypeError', proc.stderr)
