@@ -1,5 +1,3 @@
-import asyncio
-
 
 cdef class Server:
     def __cinit__(self, Loop loop):
@@ -113,7 +111,7 @@ cdef class Server:
 
         try:
             await self._serving_forever_fut
-        except asyncio.CancelledError:
+        except aio_CancelledError:
             try:
                 self.close()
                 await self.wait_closed()

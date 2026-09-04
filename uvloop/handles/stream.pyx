@@ -356,6 +356,10 @@ cdef class UVStream(UVBaseTransport):
             int saved_errno
             int fd
 
+        if system.PLATFORM_IS_WINDOWS:
+            if self._get_socket().family == uv.AF_UNIX:
+                return 0
+
         if (<uv.uv_stream_t*>self._handle).write_queue_size != 0:
             raise RuntimeError(
                 'UVStream._try_write called with data in uv buffers')
@@ -383,16 +387,17 @@ cdef class UVStream(UVBaseTransport):
         # uv_try_write -- less layers of code.  The error
         # checking logic is copied from libuv.
         written = system.write(fd, buf, blen)
-        while written == -1 and (
-                errno.errno == errno.EINTR or
-                (system.PLATFORM_IS_APPLE and
-                    errno.errno == errno.EPROTOTYPE)):
-            # From libuv code (unix/stream.c):
-            #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
-            #   EPROTOTYPE can be returned while trying to write to a socket
-            #   that is shutting down. If we retry the write, we should get
-            #   the expected EPIPE instead.
-            written = system.write(fd, buf, blen)
+        if not system.PLATFORM_IS_WINDOWS:
+            while written == -1 and (
+                    errno.errno == errno.EINTR or
+                    (system.PLATFORM_IS_APPLE and
+                        errno.errno == errno.EPROTOTYPE)):
+                # From libuv code (unix/stream.c):
+                #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
+                #   EPROTOTYPE can be returned while trying to write to a socket
+                #   that is shutting down. If we retry the write, we should get
+                #   the expected EPIPE instead.
+                written = system.write(fd, buf, blen)
         saved_errno = errno.errno
 
         if used_buf:
@@ -401,6 +406,10 @@ cdef class UVStream(UVBaseTransport):
         if written < 0:
             if saved_errno in (errno.EAGAIN, system.EWOULDBLOCK):
                 return 0
+            elif system.PLATFORM_IS_WINDOWS:
+                exc = convert_error(uv.uv_translate_sys_error(saved_errno))
+                self._fatal_error(exc, True)
+                return -1
             else:
                 exc = convert_error(-saved_errno)
                 self._fatal_error(exc, True)
@@ -428,7 +437,9 @@ cdef class UVStream(UVBaseTransport):
         cdef bint all_sent
 
         if (not self._protocol_paused and
-            (<uv.uv_stream_t*>self._handle).write_queue_size == 0):
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
+            (not system.PLATFORM_IS_WINDOWS or
+             self._buffer_size > self._high_water)):
             # Fast-path.  If:
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,
@@ -676,6 +687,9 @@ cdef class UVStream(UVBaseTransport):
     cpdef write(self, object buf):
         self._ensure_alive()
 
+        if system.PLATFORM_IS_WINDOWS and self._closing:
+            raise RuntimeError('Cannot call write() when UVStream is closing')
+
         if self._eof:
             raise RuntimeError('Cannot call write() after write_eof()')
         if not buf:
@@ -806,7 +820,13 @@ cdef inline bint __uv_stream_on_read_common(
         if sc.__read_error_close:
             # Used for getting notified when a pipe is closed.
             # See WriteUnixTransport for the explanation.
-            sc._on_eof()
+            # Keep write-only Windows pipes open after ERROR_ACCESS_DENIED.
+            if (system.PLATFORM_IS_WINDOWS and
+                    nread == uv.UV_EPERM and
+                    uv.uv_is_writable(<uv.uv_stream_t*>sc._handle)):
+                sc._stop_reading()
+            else:
+                sc._on_eof()
             return True
 
         exc = convert_error(nread)

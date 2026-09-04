@@ -89,22 +89,25 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 1
+                __forking_loop = loop
+                system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
-            PyOS_BeforeFork()
+                PyOS_BeforeFork()
 
             err = uv.uv_spawn(loop.uvloop,
                               <uv.uv_process_t*>self._handle,
                               &self.options)
 
-            __forking = 0
-            __forking_loop = None
-            system.resetForkHandler()
-            loop.active_process_handler = None
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
 
-            PyOS_AfterFork_Parent()
+                PyOS_AfterFork_Parent()
+
+            loop.active_process_handler = None
 
             if err < 0:
                 self._close_process_handle()
@@ -178,11 +181,12 @@ cdef class UVProcess(UVHandle):
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        PyOS_AfterFork_Child()
+        if not system.PLATFORM_IS_WINDOWS:
+            PyOS_AfterFork_Child()
 
-        err = uv.uv_loop_fork(self._loop.uvloop)
-        if err < 0:
-            raise convert_error(err)
+            err = uv.uv_loop_fork(self._loop.uvloop)
+            if err < 0:
+                raise convert_error(err)
 
         if self._preexec_fn is not None:
             try:
@@ -533,6 +537,7 @@ cdef class UVProcessTransport(UVProcess):
             else:
                 iocnt.flags = uv.UV_IGNORE
 
+
     cdef _call_connection_made(self, waiter):
         try:
             # we're always called in the right context, so just call the user's
@@ -775,7 +780,10 @@ cdef __socketpair():
         int fds[2]
         int err
 
-    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    if system.PLATFORM_IS_WINDOWS:
+        err = uv.uv_pipe(fds, uv.UV_NONBLOCK_PIPE, uv.UV_NONBLOCK_PIPE)
+    else:
+        err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
     if err:
         exc = convert_error(-err)
         raise exc

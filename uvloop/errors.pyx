@@ -3,13 +3,17 @@ cdef str __strerr(int errno):
 
 
 cdef __convert_python_error(int uverr):
-    # XXX Won't work for Windows:
     # From libuv docs:
     #      Implementation detail: on Unix error codes are the
     #      negated errno (or -errno), while on Windows they
     #      are defined by libuv to arbitrary negative numbers.
-    cdef int oserr = -uverr
+    cdef int oserr
 
+    if system.PLATFORM_IS_WINDOWS:
+        err = getattr(win_errno, uv.uv_err_name(uverr).decode(), -uverr)
+        return OSError(err, uv.uv_strerror(uverr).decode())
+
+    oserr = -uverr
     exc = OSError
 
     if uverr in (uv.UV_EACCES, uv.UV_EPERM):
@@ -107,7 +111,11 @@ cdef convert_error(int uverr):
 
     sock_err = __convert_socket_error(uverr)
     if sock_err:
-        msg = system.gai_strerror(sock_err).decode('utf-8')
+        if (system.PLATFORM_IS_WINDOWS and
+                sock_err in (socket_EAI_FAMILY, socket_EAI_NONAME)):
+            msg = 'getaddrinfo failed'
+        else:
+            msg = system.gai_strerror(sock_err).decode('utf-8')
         return socket_gaierror(sock_err, msg)
 
     return __convert_python_error(uverr)

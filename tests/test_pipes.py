@@ -2,6 +2,8 @@ import asyncio
 import io
 import os
 import socket
+import sys
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -71,6 +73,9 @@ class MyWritePipeProto(asyncio.BaseProtocol):
 
 class _BasePipeTest:
     def test_read_pipe(self):
+        if sys.platform == "win32" and self.is_asyncio_loop():
+            raise unittest.SkipTest("do not support pipes for Windows")
+
         proto = MyReadPipeProto(loop=self.loop)
 
         rpipe, wpipe = os.pipe()
@@ -102,6 +107,7 @@ class _BasePipeTest:
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
 
+    @unittest.skipIf(sys.platform == "win32", "no os.openpty on Windows")
     def test_read_pty_output(self):
         proto = MyReadPipeProto(loop=self.loop)
 
@@ -135,11 +141,18 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
 
         self.assertEqual(
-            ['INITIAL', 'CONNECTED', 'EOF', 'CLOSED'], proto.state)
+            ['INITIAL', 'CONNECTED', 'EOF', 'CLOSED'], proto.state
+        )
         # extra info is available
         self.assertIsNotNone(proto.transport.get_extra_info('pipe'))
 
     def test_write_pipe(self):
+        if sys.platform == "win32" and self.is_asyncio_loop():
+            raise unittest.SkipTest("do not support pipes for Windows")
+
+        if sys.platform == "win32" and sys.version_info[:3] < (3, 12, 0):
+            raise unittest.SkipTest("no os.set_blocking() on Windows")
+
         rpipe, wpipe = os.pipe()
         os.set_blocking(rpipe, False)
         pipeobj = io.open(wpipe, 'wb', 1024)
@@ -181,6 +194,7 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual('CLOSED', proto.state)
 
+    @unittest.skipIf(sys.platform == "win32", "no Unix sockets on Windows")
     def test_write_pipe_disconnect_on_close(self):
         rsock, wsock = socket.socketpair()
         rsock.setblocking(False)
@@ -203,6 +217,7 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual('CLOSED', proto.state)
 
+    @unittest.skipIf(sys.platform == "win32", "no os.openpty on Windows")
     def test_write_pty(self):
         master, slave = os.openpty()
         os.set_blocking(master, False)
@@ -228,13 +243,11 @@ class _BasePipeTest:
             data += chunk
             return len(data)
 
-        tb.run_until(self.loop, lambda: reader(data) >= 1,
-                     timeout=10)
+        tb.run_until(self.loop, lambda: reader(data) >= 1, timeout=10)
         self.assertEqual(b'1', data)
 
         transport.write(b'2345')
-        tb.run_until(self.loop, lambda: reader(data) >= 5,
-                     timeout=10)
+        tb.run_until(self.loop, lambda: reader(data) >= 5, timeout=10)
         self.assertEqual(b'12345', data)
         self.assertEqual('CONNECTED', proto.state)
 
@@ -248,6 +261,9 @@ class _BasePipeTest:
         self.loop.run_until_complete(proto.done)
         self.assertEqual('CLOSED', proto.state)
 
+    @unittest.skipIf(
+        sys.platform == "win32", "do not support pipes for Windows"
+    )
     def test_write_buffer_full(self):
         rpipe, wpipe = os.pipe()
         pipeobj = io.open(wpipe, 'wb', 1024)

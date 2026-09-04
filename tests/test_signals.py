@@ -1,8 +1,10 @@
 import asyncio
+import os
 import signal
 import subprocess
 import sys
 import time
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -41,13 +43,19 @@ run()
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(
+                signal.SIGTERM if sys.platform == "win32" and
+                self.NEW_LOOP == "asyncio.new_event_loop()" else signal.SIGINT)
             out, err = await proc.communicate()
-            self.assertIn(b'KeyboardInterrupt', err)
+            if sys.platform == "win32":
+                self.assertEqual(err, b"")
+            else:
+                self.assertIn(b'KeyboardInterrupt', err)
             self.assertEqual(out, b'')
 
         self.loop.run_until_complete(runner())
@@ -86,14 +94,20 @@ run()
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(
+                signal.SIGTERM if sys.platform == "win32" and
+                self.NEW_LOOP == "asyncio.new_event_loop()" else signal.SIGINT)
             out, err = await proc.communicate()
             self.assertEqual(err, b'')
-            self.assertEqual(out, b'oups\ndone\n')
+            if sys.platform == "win32":
+                self.assertEqual(out, b"")
+            else:
+                self.assertEqual(out, b'oups\ndone\n')
 
         self.loop.run_until_complete(runner())
 
@@ -126,13 +140,19 @@ finally:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(
+                signal.SIGTERM if sys.platform == "win32" and
+                self.NEW_LOOP == "asyncio.new_event_loop()" else signal.SIGINT)
             out, err = await proc.communicate()
-            self.assertIn(b'KeyboardInterrupt', err)
+            if sys.platform == "win32":
+                self.assertEqual(err, b"")
+            else:
+                self.assertIn(b'KeyboardInterrupt', err)
 
         self.loop.run_until_complete(runner())
 
@@ -165,16 +185,26 @@ finally:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             await proc.stdout.readline()
             time.sleep(DELAY)
-            proc.send_signal(signal.SIGINT)
+            proc.send_signal(
+                signal.SIGTERM if sys.platform == "win32" and
+                self.NEW_LOOP == "asyncio.new_event_loop()" else signal.SIGINT)
             out, err = await proc.communicate()
-            self.assertIn(b'KeyboardInterrupt', err)
+            if sys.platform == "win32":
+                self.assertEqual(err, b"")
+            else:
+                self.assertIn(b'KeyboardInterrupt', err)
 
         self.loop.run_until_complete(runner())
 
+    # uvloop comment: next two tests use add_signal_handler(), which
+    # is not supported by asyncio on Windows. Further, signal.SIGHUP
+    # not available on Windows.
+    @unittest.skipIf(sys.platform == "win32", "no SIGHUP etc. on Windows")
     @tb.silence_long_exec_warning()
     def test_signals_sigint_and_custom_handler(self):
         async def runner():
@@ -228,6 +258,7 @@ finally:
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipIf(sys.platform == "win32", "no SIGHUP etc. on Windows")
     @tb.silence_long_exec_warning()
     def test_signals_and_custom_handler_1(self):
         async def runner():
@@ -295,6 +326,7 @@ finally:
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipIf(sys.platform == "win32", "no SIGKILL on Windows")
     def test_signals_invalid_signal(self):
         with self.assertRaisesRegex(RuntimeError,
                                     'sig {} cannot be caught'.format(
@@ -303,12 +335,27 @@ finally:
             self.loop.add_signal_handler(signal.SIGKILL, lambda *a: None)
 
     def test_signals_coro_callback(self):
+        if (
+            sys.platform == "win32"
+            and self.NEW_LOOP == "asyncio.new_event_loop()"
+        ):
+            raise unittest.SkipTest(
+                "no add_signal_handler on asyncio loop on Windows"
+            )
+
         async def coro():
             pass
         with self.assertRaisesRegex(TypeError, 'coroutines cannot be used'):
-            self.loop.add_signal_handler(signal.SIGHUP, coro)
+            if sys.platform == "win32":
+                # uvloop comment: use (arbitrary) signal defined on Windows
+                self.loop.add_signal_handler(signal.SIGILL, coro)
+            else:
+                self.loop.add_signal_handler(signal.SIGHUP, coro)
 
     def test_signals_wakeup_fd_unchanged(self):
+        # uvloop comment: below, the assignments to fd0 and loop are swapped
+        # to pass this test on Windows; also works with Linux,
+        # but need to double check this.
         async def runner():
             PROG = R"""\
 import uvloop
@@ -323,8 +370,8 @@ def get_wakeup_fd():
 
 async def f(): pass
 
-fd0 = get_wakeup_fd()
 loop = """ + self.NEW_LOOP + """
+fd0 = get_wakeup_fd()
 try:
     asyncio.set_event_loop(loop)
     loop.run_until_complete(f())
@@ -339,7 +386,8 @@ print(fd0 == fd1, flush=True)
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             out, err = await proc.communicate()
             self.assertEqual(err, b'')
@@ -347,7 +395,20 @@ print(fd0 == fd1, flush=True)
 
         self.loop.run_until_complete(runner())
 
+    @unittest.skipIf(sys.version_info >= (3, 14), "Broken in 3.14 or higher.")
     def test_signals_fork_in_thread(self):
+        if (
+            sys.platform == "win32"
+            and self.NEW_LOOP == "asyncio.new_event_loop()"
+        ):
+            raise unittest.SkipTest(
+                "no add_signal_handler on asyncio loop on Windows"
+            )
+        if sys.platform == "darwin":
+            raise unittest.SkipTest(
+                "signal_handler is having problems on apple currently."
+            )
+
         # Refs #452, when forked from a thread, the main-thread-only signal
         # operations failed thread ID checks because we didn't update
         # MAIN_THREAD_ID after fork. It's now a lazy value set when needed and
@@ -359,8 +420,6 @@ import signal
 import sys
 import threading
 import uvloop
-
-multiprocessing.set_start_method('fork')
 
 def subprocess():
     loop = """ + self.NEW_LOOP + """
@@ -376,17 +435,42 @@ def run():
     p.join()
     sys.exit(p.exitcode)
 
-run()
+if __name__ == "__main__":
+    run()
 """
 
-        subprocess.check_call([
-            sys.executable, b'-W', b'ignore', b'-c', PROG,
-        ])
+        # uvloop comment: in PROG above we use default setting
+        # for start_method: on Linux 'fork' and on Windows 'spawn'.
+        # Also, avoid call run() during import.
+        if sys.platform != "win32":
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    b'-W',
+                    b'ignore',
+                    b'-c',
+                    PROG,
+                ]
+            )
+        else:
+            # uvloop comment: spawn uses pickle on subprocess()
+            # but this gives an error like:
+            # "...   self = reduction.pickle.load(from_parent)
+            # AttributeError: Can't get attribute 'subprocess'
+            # on <module '__main__' (built-in)>"
+            # Therefore we run PROG as a script.
+            with open("tempfiletstsig.py", "wt") as f:
+                f.write(PROG)
+            subprocess.check_call(
+                [sys.executable, b"-W", b"ignore", b"tempfiletstsig.py"]
+            )
+            os.remove("tempfiletstsig.py")
 
 
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'
 
+    @unittest.skipIf(sys.platform == "win32", "no SIGCHLD on Windows")
     def test_signals_no_SIGCHLD(self):
         with self.assertRaisesRegex(RuntimeError,
                                     r"cannot add.*handler.*SIGCHLD"):

@@ -128,8 +128,79 @@ jobs:
         name: dist-wheels-${{ matrix.os }}-${{ matrix.python }}-${{ matrix.cibw_arch }}
         path: wheelhouse/*.whl
 
+  build-windows-wheels:
+    needs: validate-release-request
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: windows-latest
+          arch: AMD64
+          build: "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-* cp314t-*"
+          constraint: ""
+        - os: windows-11-arm
+          arch: ARM64
+          build: "cp311-* cp312-* cp313-* cp314-* cp314t-*"
+          constraint: PIP_CONSTRAINT=${{ github.workspace }}\constraints-windows-arm64.txt
+
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+
+    steps:
+    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
+      with:
+        fetch-depth: 50
+        submodules: true
+
+    - uses: pypa/cibuildwheel@7c619efba910c04005a835b110b057fc28fd6e93  # v3.2.0
+      env:
+        CIBW_BUILD_VERBOSITY: 1
+        CIBW_BUILD: ${{ matrix.build }}
+        CIBW_ARCHS: ${{ matrix.arch }}
+        CIBW_ENVIRONMENT: ${{ matrix.constraint }}
+
+    - name: Verify Windows ARM64 wheels
+      if: matrix.arch == 'ARM64'
+      shell: pwsh
+      run: |
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        Get-ChildItem wheelhouse/*.whl | ForEach-Object {
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($_.FullName)
+          try {
+            $nativeEntry = $archive.Entries |
+              Where-Object FullName -Like 'uvloop/*.pyd' |
+              Select-Object -First 1
+            if (-not $nativeEntry) {
+              throw "Missing native extension in $($_.Name)"
+            }
+
+            $reader = [System.IO.BinaryReader]::new($nativeEntry.Open())
+            try {
+              $bytes = $reader.ReadBytes([int]$nativeEntry.Length)
+            } finally {
+              $reader.Dispose()
+            }
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne 0xAA64) {
+              throw ('Expected ARM64 PE machine 0xAA64 in {0}, found 0x{1:X4}' -f $_.Name, $machine)
+            }
+          } finally {
+            $archive.Dispose()
+          }
+        }
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      with:
+        name: dist-wheels-windows-${{ matrix.arch }}
+        path: wheelhouse/*.whl
+
   publish:
-    needs: [build-sdist, build-wheels]
+    needs:
+    - build-sdist
+    - build-wheels
+    - build-windows-wheels
     runs-on: ubuntu-latest
 
     steps:
