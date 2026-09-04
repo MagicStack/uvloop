@@ -355,15 +355,10 @@ cdef class UVStream(UVBaseTransport):
             Py_ssize_t blen
             int saved_errno
             int fd
-        
+
         if system.PLATFORM_IS_WINDOWS:
-            # Winloop comment: WSASend below does not work with pipes.
-            # For pipes, using Writefile() from Windows fileapi.h would
-            # be an option, but the corresponding files have been created
-            # FILE_FLAG_OVERLAPPED set, but we don't want to go that way here.
-            # We detect pipes on Windows as pseudosockets.
             if self._get_socket().family == uv.AF_UNIX:
-                return 0 # use zero instead of an error as this is not a problem.
+                return 0
 
         if (<uv.uv_stream_t*>self._handle).write_queue_size != 0:
             raise RuntimeError(
@@ -412,9 +407,6 @@ cdef class UVStream(UVBaseTransport):
             if saved_errno in (errno.EAGAIN, system.EWOULDBLOCK):
                 return 0
             elif system.PLATFORM_IS_WINDOWS:
-                # Winloop comment: use uv_translate_sys_error for
-                # correct results on all platforms as -saved_errno
-                # only works for POSIX.
                 exc = convert_error(uv.uv_translate_sys_error(saved_errno))
                 self._fatal_error(exc, True)
                 return -1
@@ -445,8 +437,9 @@ cdef class UVStream(UVBaseTransport):
         cdef bint all_sent
 
         if (not self._protocol_paused and
-            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and 
-            self._buffer_size > self._high_water):
+            (<uv.uv_stream_t*>self._handle).write_queue_size == 0 and
+            (not system.PLATFORM_IS_WINDOWS or
+             self._buffer_size > self._high_water)):
             # Fast-path.  If:
             #   - the protocol isn't yet paused,
             #   - there is no data in libuv buffers for this stream,
@@ -693,14 +686,9 @@ cdef class UVStream(UVBaseTransport):
 
     cpdef write(self, object buf):
         self._ensure_alive()
- 
-        if system.PLATFORM_IS_WINDOWS:
-            # Winloop Comment: Winloop gets itself into trouble if this is
-            # is not checked immediately, it's too costly to call the python function 
-            # bring in the flag instead to indicate closure.
-            # SEE: https://github.com/Vizonex/Winloop/issues/84 
-            if self._closing:
-                raise RuntimeError("Cannot call write() when UVStream is closing")
+
+        if system.PLATFORM_IS_WINDOWS and self._closing:
+            raise RuntimeError('Cannot call write() when UVStream is closing')
 
         if self._eof:
             raise RuntimeError('Cannot call write() after write_eof()')
@@ -832,11 +820,10 @@ cdef inline bint __uv_stream_on_read_common(
         if sc.__read_error_close:
             # Used for getting notified when a pipe is closed.
             # See WriteUnixTransport for the explanation.
-            # Winloop comment: 0-reads on pipes used, e.g., for stdin
-            # ("write only") give ERROR_ACCESS_DENIED, and in this case
-            # we should keep the transport open for further writes.
-            if (system.PLATFORM_IS_WINDOWS and nread == uv.UV_EPERM
-                and uv.uv_is_writable(<uv.uv_stream_t*> sc._handle)):
+            # Keep write-only Windows pipes open after ERROR_ACCESS_DENIED.
+            if (system.PLATFORM_IS_WINDOWS and
+                    nread == uv.UV_EPERM and
+                    uv.uv_is_writable(<uv.uv_stream_t*>sc._handle)):
                 sc._stop_reading()
             else:
                 sc._on_eof()

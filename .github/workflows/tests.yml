@@ -24,8 +24,18 @@ jobs:
         - "3.13"
         - "3.14"
         - "3.14t"
-        # TODO: (Vizonex) windows-11-arm
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+        - os: windows-11-arm
+          python-version: "3.11.9"
+        - os: windows-11-arm
+          python-version: "3.12.10"
+        - os: windows-11-arm
+          python-version: "3.13.15"
+        - os: windows-11-arm
+          python-version: "3.14.7"
+        - os: windows-11-arm
+          python-version: "3.14t"
 
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
@@ -57,6 +67,11 @@ jobs:
       if: matrix.os == 'macos-latest' && steps.release.outputs.version == 0
       run: |
         brew install gnu-sed libtool autoconf automake
+
+    - name: Install Windows ARM64 test prerequisite
+      if: matrix.os == 'windows-11-arm' && steps.release.outputs.version == 0
+      run: |
+        pip install --only-binary cryptography --constraint constraints-windows-arm64.txt cryptography
 
     - name: Install Python Deps
       if: steps.release.outputs.version == 0

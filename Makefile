@@ -3,6 +3,10 @@
 
 PYTHON ?= python
 ROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+DEBUG_BUILD = --debug
+ifeq ($(OS),Windows_NT)
+DEBUG_BUILD =
+endif
 
 
 _default: compile
@@ -34,14 +38,12 @@ setup-build:
 compile: clean setup-build
 
 
-# NOTE: --debug will not work on windows since it asks for a non-existant _d.lib file.
-# TODO: Fix workflows for missing debug binaries in the future.
 debug: clean
-	$(PYTHON) setup.py build_ext --inplace \
+	$(PYTHON) setup.py build_ext --inplace $(DEBUG_BUILD) \
 		--cython-always \
 		--cython-annotate \
 		--cython-directives="linetrace=True" \
-		--define UVLOOP_DEBUG --define CYTHON_TRACE --define CYTHON_TRACE_NOGIL
+		--define UVLOOP_DEBUG,CYTHON_TRACE,CYTHON_TRACE_NOGIL
 
 
 docs:

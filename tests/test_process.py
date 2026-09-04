@@ -11,12 +11,7 @@ import textwrap
 import time
 import unittest
 
-try:
-    import psutil
-
-    SKIP_PSUTIL = False
-except ModuleNotFoundError:
-    SKIP_PSUTIL = True
+import psutil
 
 from uvloop import _testbase as tb
 
@@ -39,25 +34,23 @@ class _RedirectFD(contextlib.AbstractContextManager):
 
 class _TestProcess:
     def get_num_fds(self):
-        # Winloop comment: use num_handles() as a meaningful
-        # substitute for num_fds() on Windows.
+        process = psutil.Process(os.getpid())
         if sys.platform == "win32":
-            # psutil.Process().num_handles only available on Windows
-            return psutil.Process(os.getpid()).num_handles()
-        else:
-            # psutil.Process().num_fds only available on Unix
-            return psutil.Process(os.getpid()).num_fds()
+            return process.num_handles()
+        return process.num_fds()
 
     def test_process_env_1(self):
         async def test():
             if sys.platform != "win32":
-                cmd = "echo $FOO$BAR"
+                cmd = 'echo $FOO$BAR'
             else:
                 cmd = "echo %FOO%%BAR%"
-            env = {"FOO": "sp", "BAR": "am"}
+            env = {'FOO': 'sp', 'BAR': 'am'}
             proc = await asyncio.create_subprocess_shell(
-                cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+                cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
 
             out, _ = await proc.communicate()
             self.assertEqual(out, b"spam" + NL)
@@ -68,21 +61,23 @@ class _TestProcess:
     @unittest.skipIf(sys.platform == "win32", "no empty env on Windows really")
     def test_process_env_2(self):
         async def test():
-            cmd = "env"
+            cmd = 'env'
             env = {}  # empty environment
             proc = await asyncio.create_subprocess_exec(
-                cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+                cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
 
             out, _ = await proc.communicate()
-            self.assertEqual(out, b"")
+            self.assertEqual(out, b'')
             self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
 
     def test_process_cwd_1(self):
         async def test():
-            cmd = "pwd" if sys.platform != "win32" else "cd"
+            cmd = 'pwd' if sys.platform != "win32" else "cd"
             if sys.platform == "win32" and sys.version_info < (3, 11, 0):
                 # Winloop comment: empty env={} gives
                 # "hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
@@ -91,7 +86,7 @@ class _TestProcess:
                 env = None
             else:
                 env = {}
-            cwd = "/"
+            cwd = '/'
             proc = await asyncio.create_subprocess_shell(
                 cmd,
                 cwd=cwd,
@@ -102,17 +97,17 @@ class _TestProcess:
 
             out, _ = await proc.communicate()
             if sys.platform != "win32":
-                self.assertEqual(out, b"/\n")
+                self.assertEqual(out, b'/\n')
             else:
                 self.assertIn(b"\\\r\n", out)  # also contains drive label
             self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipUnless(hasattr(os, "fspath"), "no os.fspath()")
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
     def test_process_cwd_2(self):
         async def test():
-            cmd = "pwd" if sys.platform != "win32" else "cd"
+            cmd = 'pwd' if sys.platform != "win32" else "cd"
             if sys.platform == "win32" and sys.version_info < (3, 11, 0):
                 # Winloop comment: empty env={} gives
                 # "hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
@@ -121,7 +116,7 @@ class _TestProcess:
                 env = None
             else:
                 env = {}
-            cwd = pathlib.Path("/")
+            cwd = pathlib.Path('/')
             proc = await asyncio.create_subprocess_shell(
                 cmd,
                 cwd=cwd,
@@ -132,7 +127,7 @@ class _TestProcess:
 
             out, _ = await proc.communicate()
             if sys.platform != "win32":
-                self.assertEqual(out, b"/\n")
+                self.assertEqual(out, b'/\n')
             else:
                 self.assertIn(b"\\\r\n", out)  # also contains drive label
             self.assertEqual(proc.returncode, 0)
@@ -149,17 +144,13 @@ class _TestProcess:
         async def test():
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd,
-                b"-W",
-                b"ignore",
-                "-c",
+                cmd, b'-W', b'ignore', '-c',
                 'import os,sys;sys.stdout.write(os.getenv("FRUIT"))',
                 stdout=subprocess.PIPE,
-                preexec_fn=lambda: os.putenv("FRUIT", "apple"),
-            )
+                preexec_fn=lambda: os.putenv("FRUIT", "apple"))
 
             out, _ = await proc.communicate()
-            self.assertEqual(out, b"apple")
+            self.assertEqual(out, b'apple')
             self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
@@ -174,13 +165,8 @@ class _TestProcess:
         async def test():
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd,
-                b"-W",
-                b"ignore",
-                "-c",
-                "import time; time.sleep(10)",
-                preexec_fn=raise_it,
-            )
+                cmd, b'-W', b'ignore', '-c', 'import time; time.sleep(10)',
+                preexec_fn=raise_it)
 
             await proc.communicate()
 
@@ -188,26 +174,26 @@ class _TestProcess:
         try:
             self.loop.run_until_complete(test())
         except subprocess.SubprocessError as ex:
-            self.assertIn("preexec_fn", ex.args[0])
+            self.assertIn('preexec_fn', ex.args[0])
             if ex.__cause__ is not None:
                 # uvloop will set __cause__
                 self.assertIs(type(ex.__cause__), ValueError)
-                self.assertEqual(ex.__cause__.args[0], "spam")
+                self.assertEqual(ex.__cause__.args[0], 'spam')
         else:
             self.fail(
-                "exception in preexec_fn did not propagate to the parent"
+                'exception in preexec_fn did not propagate to the parent'
             )
 
         if time.time() - started > 5:
-            self.fail("exception in preexec_fn did not kill the child process")
+            self.fail('exception in preexec_fn did not kill the child process')
 
     def test_process_executable_1(self):
         async def test():
             proc = await asyncio.create_subprocess_exec(
-                b"doesnotexist",
-                b"-W",
-                b"ignore",
-                b"-c",
+                b'doesnotexist',
+                b'-W',
+                b'ignore',
+                b'-c',
                 b'print("spam")',
                 executable=sys.executable,
                 stdout=subprocess.PIPE,
@@ -222,9 +208,9 @@ class _TestProcess:
         async def test():
             proc = await asyncio.create_subprocess_exec(
                 pathlib.Path(sys.executable),
-                b"-W",
-                b"ignore",
-                b"-c",
+                b'-W',
+                b'ignore',
+                b'-c',
                 b'print("spam")',
                 stdout=subprocess.PIPE,
             )
@@ -234,20 +220,20 @@ class _TestProcess:
 
         self.loop.run_until_complete(test())
 
-    @unittest.skip("Currently having strange problems...")
+    @unittest.skipIf(sys.platform == 'win32', 'child PID differs on Windows')
     def test_process_pid_1(self):
         async def test():
-            prog = """\
+            prog = '''\
 import os
 print(os.getpid())
-            """
+            '''
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
                 cmd,
-                b"-W",
-                b"ignore",
-                b"-c",
+                b'-W',
+                b'ignore',
+                b'-c',
                 prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -282,17 +268,13 @@ exit(11)
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd,
-                b"-W",
-                b"ignore",
-                b"-c",
-                prog,
+                cmd, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
 
-            proc.stdin.write(b"HELLO\n")
+            proc.stdin.write(b'HELLO\n')
             await proc.stdin.drain()
 
             self.assertEqual(await proc.stdout.readline(), b"HELLO" + NL)
@@ -300,11 +282,11 @@ exit(11)
             if sys.platform != "win32":
                 proc.send_signal(signal.SIGUSR1)
 
-            proc.stdin.write(b"!\n")
+            proc.stdin.write(b'!\n')
             await proc.stdin.drain()
 
             if sys.platform != "win32":
-                self.assertEqual(await proc.stdout.readline(), b"WORLD\n")
+                self.assertEqual(await proc.stdout.readline(), b'WORLD\n')
             self.assertEqual(await proc.stdout.readline(), b"!" + NL)
             self.assertEqual(await proc.wait(), 11)
 
@@ -312,7 +294,7 @@ exit(11)
 
     def test_process_streams_basic_1(self):
         async def test():
-            prog = """\
+            prog = '''\
 import sys
 while True:
     a = input()
@@ -322,14 +304,14 @@ while True:
         print('OUCH', file=sys.stderr)
     else:
         print('>' + a + '<')
-            """
+            '''
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
                 cmd,
-                b"-W",
-                b"ignore",
-                b"-c",
+                b'-W',
+                b'ignore',
+                b'-c',
                 prog,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -345,19 +327,19 @@ while True:
                 transp.get_pipe_transport(0).pause_reading()
             with self.assertRaises((NotImplementedError, AttributeError)):
                 # stdout is ReadTransport
-                transp.get_pipe_transport(1).write(b"wat")
+                transp.get_pipe_transport(1).write(b'wat')
 
-            proc.stdin.write(b"foobar\n")
+            proc.stdin.write(b'foobar\n')
             await proc.stdin.drain()
             out = await proc.stdout.readline()
             self.assertEqual(out, b">foobar<" + NL)
 
-            proc.stdin.write(b"stderr\n")
+            proc.stdin.write(b'stderr\n')
             await proc.stdin.drain()
             out = await proc.stderr.readline()
             self.assertEqual(out, b"OUCH" + NL)
 
-            proc.stdin.write(b"stop\n")
+            proc.stdin.write(b'stop\n')
             await proc.stdin.drain()
 
             exitcode = await proc.wait()
@@ -367,17 +349,17 @@ while True:
 
     def test_process_streams_stderr_to_stdout(self):
         async def test():
-            prog = """\
+            prog = '''\
 import sys
 print('out', flush=True)
 print('err', file=sys.stderr, flush=True)
-            """
+            '''
 
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
-                b"-W",
-                b"ignore",
-                b"-c",
+                b'-W',
+                b'ignore',
+                b'-c',
                 prog,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -391,22 +373,17 @@ print('err', file=sys.stderr, flush=True)
 
     def test_process_streams_devnull(self):
         async def test():
-            prog = """\
+            prog = '''\
 import sys
 print('out', flush=True)
 print('err', file=sys.stderr, flush=True)
-            """
+            '''
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                b"-W",
-                b"ignore",
-                b"-c",
-                prog,
+                sys.executable, b'-W', b'ignore', b'-c', prog,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+                stderr=subprocess.DEVNULL)
 
             out, err = await proc.communicate()
             self.assertIsNone(err)
@@ -422,7 +399,7 @@ print('err', file=sys.stderr, flush=True)
             raise unittest.SkipTest("pass_fds not supported on Windows")
 
         async def test():
-            prog = """\
+            prog = '''\
 import sys, os
 assert sys.argv[1] == '--'
 inherited = int(sys.argv[2])
@@ -438,16 +415,16 @@ else:
     raise RuntimeError()
 
 print("OK")
-            """
+            '''
             tf = tempfile.TemporaryFile
             with tf() as inherited, tf() as non_inherited:
                 proc = await asyncio.create_subprocess_exec(
                     sys.executable,
-                    b"-W",
-                    b"ignore",
-                    b"-c",
+                    b'-W',
+                    b'ignore',
+                    b'-c',
                     prog,
-                    "--",
+                    '--',
                     str(inherited.fileno()),
                     str(non_inherited.fileno()),
                     stdout=subprocess.PIPE,
@@ -456,21 +433,19 @@ print("OK")
                 )
 
                 out, err = await proc.communicate()
-                self.assertEqual(err, b"")
+                self.assertEqual(err, b'')
                 self.assertEqual(out, b"OK" + NL)
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(SKIP_PSUTIL, "We don't have PSUTIL")
     def test_subprocess_fd_leak_1(self):
         async def main(n):
             for i in range(n):
                 try:
                     await asyncio.create_subprocess_exec(
-                        "nonexistant",
+                        'nonexistant',
                         stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
+                        stderr=subprocess.DEVNULL)
                 except FileNotFoundError:
                     pass
                 await asyncio.sleep(0)
@@ -482,13 +457,15 @@ print("OK")
 
         self.assertEqual(num_fd_1, num_fd_2)
 
-    @unittest.skipIf(SKIP_PSUTIL, "We don't have PSUTIL")
     def test_subprocess_fd_leak_2(self):
+        if sys.platform == "win32" and self.is_asyncio_loop():
+            self.skipTest("process-wide handle count is unstable on Windows")
+
         async def main(n):
             for i in range(n):
                 try:
                     p = await asyncio.create_subprocess_exec(
-                        "ls" if sys.platform != "win32" else "help",
+                        'ls' if sys.platform != "win32" else "help",
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
@@ -501,7 +478,10 @@ print("OK")
         self.loop.run_until_complete(main(10))
         num_fd_2 = self.get_num_fds()
 
-        self.assertEqual(num_fd_1, num_fd_2)
+        if sys.platform == 'win32':
+            self.assertLessEqual(num_fd_2, num_fd_1)
+        else:
+            self.assertEqual(num_fd_1, num_fd_2)
 
     def test_subprocess_invalid_stdin(self):
         fd = None
@@ -514,17 +494,23 @@ print("OK")
             else:
                 os.close(tryfd)
         else:
-            self.fail("could not find a free FD")
+            self.fail('could not find a free FD')
 
         async def main():
             with self.assertRaises(OSError):
-                await asyncio.create_subprocess_exec("ls", stdin=fd)
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    stdin=fd)
 
             with self.assertRaises(OSError):
-                await asyncio.create_subprocess_exec("ls", stdout=fd)
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    stdout=fd)
 
             with self.assertRaises(OSError):
-                await asyncio.create_subprocess_exec("ls", stderr=fd)
+                await asyncio.create_subprocess_exec(
+                    'ls',
+                    stderr=fd)
 
         self.loop.run_until_complete(main())
 
@@ -534,15 +520,14 @@ print("OK")
     )
     def test_process_streams_redirect(self):
         async def test():
-            prog = Rb"""
+            prog = bR'''
 import sys
 print('out', flush=True)
 print('err', file=sys.stderr, flush=True)
-            """
+            '''
 
             proc = await asyncio.create_subprocess_exec(
-                sys.executable, b"-W", b"ignore", b"-c", prog
-            )
+                sys.executable, b'-W', b'ignore', b'-c', prog)
 
             out, err = await proc.communicate()
             self.assertIsNone(out)
@@ -561,8 +546,8 @@ print('err', file=sys.stderr, flush=True)
         else:
             opener = None
 
-        with tempfile.NamedTemporaryFile("w") as stdout:
-            with tempfile.NamedTemporaryFile("w") as stderr:
+        with tempfile.NamedTemporaryFile('w') as stdout:
+            with tempfile.NamedTemporaryFile('w') as stderr:
                 with _RedirectFD(sys.stdout, stdout):
                     with _RedirectFD(sys.stderr, stderr):
                         self.loop.run_until_complete(test())
@@ -570,60 +555,46 @@ print('err', file=sys.stderr, flush=True)
                 stdout.flush()
                 stderr.flush()
 
-                with open(stdout.name, "rb", opener=opener) as so:
+                with open(stdout.name, 'rb', opener=opener) as so:
                     self.assertEqual(so.read(), b"out" + NL)
 
-                with open(stderr.name, "rb", opener=opener) as se:
+                with open(stderr.name, 'rb', opener=opener) as se:
                     self.assertEqual(se.read(), b"err" + NL)
 
 
 class _AsyncioTests:
     # Program blocking
-    PROGRAM_BLOCKED = [
-        sys.executable,
-        b"-W",
-        b"ignore",
-        b"-c",
-        b"import time; time.sleep(3600)",
-    ]
+    PROGRAM_BLOCKED = [sys.executable, b'-W', b'ignore',
+                       b'-c', b'import time; time.sleep(3600)']
 
     # Program copying input to output
     PROGRAM_CAT = [
-        sys.executable,
-        b"-c",
-        b";".join(
-            (
-                b"import sys",
-                b"data = sys.stdin.buffer.read()",
-                b"sys.stdout.buffer.write(data)",
-            )
-        ),
-    ]
+        sys.executable, b'-c',
+        b';'.join((b'import sys',
+                   b'data = sys.stdin.buffer.read()',
+                   b'sys.stdout.buffer.write(data)'))]
 
-    PROGRAM_ERROR = [sys.executable, b"-W", b"ignore", b"-c", b"1/0"]
+    PROGRAM_ERROR = [
+        sys.executable, b'-W', b'ignore', b'-c', b'1/0'
+    ]
 
     def test_stdin_not_inheritable(self):
         # asyncio issue #209: stdin must not be inheritable, otherwise
         # the Process.communicate() hangs
         async def len_message(message):
-            code = "import sys; data = sys.stdin.read(); print(len(data))"
+            code = 'import sys; data = sys.stdin.read(); print(len(data))'
             proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                b"-W",
-                b"ignore",
-                b"-c",
-                code,
+                sys.executable, b'-W', b'ignore', b'-c', code,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                close_fds=False,
-            )
+                close_fds=False)
             stdout, stderr = await proc.communicate(message)
             exitcode = await proc.wait()
             return (stdout, exitcode)
 
-        output, exitcode = self.loop.run_until_complete(len_message(b"abc"))
-        self.assertEqual(output.rstrip(), b"3")
+        output, exitcode = self.loop.run_until_complete(len_message(b'abc'))
+        self.assertEqual(output.rstrip(), b'3')
         self.assertEqual(exitcode, 0)
 
     def test_stdin_stdout_pipe(self):
@@ -631,8 +602,9 @@ class _AsyncioTests:
 
         async def run(data):
             proc = await asyncio.create_subprocess_exec(
-                *args, stdin=subprocess.PIPE, stdout=subprocess.PIPE
-            )
+                *args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE)
 
             # feed data
             proc.stdin.write(data)
@@ -644,19 +616,20 @@ class _AsyncioTests:
             exitcode = await proc.wait()
             return (exitcode, data)
 
-        task = run(b"some data")
+        task = run(b'some data')
         task = asyncio.wait_for(task, 60.0)
         exitcode, stdout = self.loop.run_until_complete(task)
         self.assertEqual(exitcode, 0)
-        self.assertEqual(stdout, b"some data")
+        self.assertEqual(stdout, b'some data')
 
     def test_stdin_stdout_file(self):
         args = self.PROGRAM_CAT
 
         async def run(data, stdout):
             proc = await asyncio.create_subprocess_exec(
-                *args, stdin=subprocess.PIPE, stdout=stdout
-            )
+                *args,
+                stdin=subprocess.PIPE,
+                stdout=stdout)
 
             # feed data
             proc.stdin.write(data)
@@ -666,62 +639,63 @@ class _AsyncioTests:
             exitcode = await proc.wait()
             return exitcode
 
-        with tempfile.TemporaryFile("w+b") as new_stdout:
-            task = run(b"some data", new_stdout)
+        with tempfile.TemporaryFile('w+b') as new_stdout:
+            task = run(b'some data', new_stdout)
             task = asyncio.wait_for(task, 60.0)
             exitcode = self.loop.run_until_complete(task)
             self.assertEqual(exitcode, 0)
 
             new_stdout.seek(0)
-            self.assertEqual(new_stdout.read(), b"some data")
+            self.assertEqual(new_stdout.read(), b'some data')
 
     def test_stdin_stderr_file(self):
         args = self.PROGRAM_ERROR
 
         async def run(stderr):
             proc = await asyncio.create_subprocess_exec(
-                *args, stdin=subprocess.PIPE, stderr=stderr
-            )
+                *args,
+                stdin=subprocess.PIPE,
+                stderr=stderr)
 
             exitcode = await proc.wait()
             return exitcode
 
-        with tempfile.TemporaryFile("w+b") as new_stderr:
+        with tempfile.TemporaryFile('w+b') as new_stderr:
             task = run(new_stderr)
             task = asyncio.wait_for(task, 60.0)
             exitcode = self.loop.run_until_complete(task)
             self.assertEqual(exitcode, 1)
 
             new_stderr.seek(0)
-            self.assertIn(b"ZeroDivisionError", new_stderr.read())
+            self.assertIn(b'ZeroDivisionError', new_stderr.read())
 
     def test_communicate(self):
         args = self.PROGRAM_CAT
 
         async def run(data):
             proc = await asyncio.create_subprocess_exec(
-                *args, stdin=subprocess.PIPE, stdout=subprocess.PIPE
-            )
+                *args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE)
             stdout, stderr = await proc.communicate(data)
             return proc.returncode, stdout
 
-        task = run(b"some data")
+        task = run(b'some data')
         task = asyncio.wait_for(task, 60.0)
         exitcode, stdout = self.loop.run_until_complete(task)
         self.assertEqual(exitcode, 0)
-        self.assertEqual(stdout, b"some data")
+        self.assertEqual(stdout, b'some data')
 
     def test_start_new_session(self):
         # start the new process in a new session
-        create = asyncio.create_subprocess_shell(
-            "exit 8", start_new_session=True
-        )
+        create = asyncio.create_subprocess_shell('exit 8',
+                                                 start_new_session=True)
         proc = self.loop.run_until_complete(create)
         exitcode = self.loop.run_until_complete(proc.wait())
         self.assertEqual(exitcode, 8)
 
     def test_shell(self):
-        create = asyncio.create_subprocess_shell("exit 7")
+        create = asyncio.create_subprocess_shell('exit 7')
         proc = self.loop.run_until_complete(create)
         exitcode = self.loop.run_until_complete(proc.wait())
         self.assertEqual(exitcode, 7)
@@ -754,7 +728,7 @@ class _AsyncioTests:
     @unittest.skipIf(sys.platform == "win32", "no SIGHUP on Windows")
     def test_send_signal(self):
         code = 'import time; print("sleeping", flush=True); time.sleep(3600)'
-        args = [sys.executable, b"-W", b"ignore", b"-c", code]
+        args = [sys.executable, b'-W', b'ignore', b'-c', code]
         create = asyncio.create_subprocess_exec(*args, stdout=subprocess.PIPE)
         proc = self.loop.run_until_complete(create)
 
@@ -774,7 +748,8 @@ class _AsyncioTests:
         # Issue #23140: cancel Process.wait()
 
         async def cancel_wait():
-            proc = await asyncio.create_subprocess_exec(*self.PROGRAM_BLOCKED)
+            proc = await asyncio.create_subprocess_exec(
+                *self.PROGRAM_BLOCKED)
 
             # Create an internal future waiting on the process exit
             task = self.loop.create_task(proc.wait())
@@ -818,9 +793,8 @@ class _AsyncioTests:
             raise unittest.SkipTest("problems on 3.13+ currently")
 
         async def cancel_make_transport():
-            coro = self.loop.subprocess_exec(
-                asyncio.SubprocessProtocol, *self.PROGRAM_BLOCKED
-            )
+            coro = self.loop.subprocess_exec(asyncio.SubprocessProtocol,
+                                             *self.PROGRAM_BLOCKED)
             task = self.loop.create_task(coro)
 
             self.loop.call_soon(task.cancel)
@@ -843,6 +817,7 @@ class _AsyncioTests:
         loop = self.loop
 
         class Protocol(asyncio.SubprocessProtocol):
+
             def __init__(self):
                 self.closed = loop.create_future()
 
@@ -884,13 +859,9 @@ class _AsyncioTests:
             # See https://github.com/MagicStack/uvloop/issues/363
             # A program that copies stdin to stdout character by character
             code = "import sys, shutil\n"
-            code += "shutil.copyfileobj(sys.stdin, sys.stdout, 1)"
+            code += 'shutil.copyfileobj(sys.stdin, sys.stdout, 1)'
             proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                b"-W",
-                b"ignore",
-                b"-c",
-                code,
+                sys.executable, b'-W', b'ignore', b'-c', code,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -900,28 +871,24 @@ class _AsyncioTests:
             )
             return stdout
 
-        stdin = b"x" * size
+        stdin = b'x' * size
         stdout = self.loop.run_until_complete(copy_stdin_to_stdout(stdin))
         self.assertEqual(stdout, stdin)
 
-    @unittest.skip("Works on uvloop broken on python-asyncio")
     def test_write_huge_stdin_8192(self):
         self._test_write_huge_stdin(8192)
 
-    @unittest.skip("Works on uvloop broken on python-asyncio")
     def test_write_huge_stdin_8193(self):
         self._test_write_huge_stdin(8193)
 
-    @unittest.skip("Works on uvloop broken on python-asyncio")
     def test_write_huge_stdin_219263(self):
         self._test_write_huge_stdin(219263)
 
-    @unittest.skip("Works on uvloop broken on python-asyncio")
     def test_write_huge_stdin_219264(self):
         self._test_write_huge_stdin(219264)
 
     def _test_write_huge_stdin(self, buf_size):
-        code = """
+        code = '''
 import sys
 n = 0
 while True:
@@ -932,9 +899,9 @@ while True:
     if line == "END\\n":
         break
     n+=1
-print(n)"""
+print(n)'''
         num_lines = buf_size - len(b"END\n")
-        args = [sys.executable, b"-W", b"ignore", b"-c", code]
+        args = [sys.executable, b'-W', b'ignore', b'-c', code]
 
         async def test():
             proc = await asyncio.create_subprocess_exec(
@@ -1011,7 +978,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
                 mock.call(stdin),
             ]
         """)
-        subprocess.run([sys.executable, "-c", script], check=True)
+        subprocess.run([sys.executable, '-c', script], check=True)
 
 
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
@@ -1027,33 +994,35 @@ class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
 
 
 class Test_UV_Process_Delayed(tb.UVTestCase):
+
     class TestProto:
         def __init__(self):
             self.lost = 0
             self.stages = []
 
         def connection_made(self, transport):
-            self.stages.append(("CM", transport))
+            self.stages.append(('CM', transport))
 
         def pipe_data_received(self, fd, data):
             if fd == 1:
-                self.stages.append(("STDOUT", data))
+                self.stages.append(('STDOUT', data))
 
         def pipe_connection_lost(self, fd, exc):
             if fd == 1:
-                self.stages.append(("STDOUT", "LOST"))
+                self.stages.append(('STDOUT', 'LOST'))
 
         def process_exited(self):
-            self.stages.append("PROC_EXIT")
+            self.stages.append('PROC_EXIT')
 
         def connection_lost(self, exc):
-            self.stages.append(("CL", self.lost, exc))
+            self.stages.append(('CL', self.lost, exc))
             self.lost += 1
 
     async def run_sub(self, **kwargs):
         return await self.loop.subprocess_shell(
-            lambda: self.TestProto(), "echo 1", **kwargs
-        )
+            lambda: self.TestProto(),
+            'echo 1',
+            **kwargs)
 
     def test_process_delayed_stdio__paused__stdin_pipe(self):
         transport, proto = self.loop.run_until_complete(
@@ -1069,14 +1038,14 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         self.assertEqual(
             set(proto.stages),
             {
-                ("CM", transport),
-                "PROC_EXIT",
-                ("STDOUT", b"1" + NL),
-                ("STDOUT", "LOST"),
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b"1" + NL),
+                ('STDOUT', 'LOST'),
             }.union(
                 # Winloop comment: connection lost is not called because of
                 # issues with stdin pipe. See process.__socketpair().
-                {("CL", 0, None)}
+                {('CL', 0, None)}
                 if sys.platform != "win32"
                 else {}
             ),
@@ -1096,19 +1065,19 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         self.assertEqual(
             set(proto.stages),
             {
-                ("CM", transport),
-                "PROC_EXIT",
-                ("STDOUT", b"1" + NL),
-                ("STDOUT", "LOST"),
-                ("CL", 0, None),
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b"1" + NL),
+                ('STDOUT', 'LOST'),
+                ('CL', 0, None),
             },
         )
 
     def test_process_delayed_stdio__not_paused__no_stdin(self):
         if (
-            os.environ.get("TRAVIS_OS_NAME")
-            or os.environ.get("GITHUB_WORKFLOW")
-        ) and sys.platform == "darwin":
+            os.environ.get('TRAVIS_OS_NAME')
+            or os.environ.get('GITHUB_WORKFLOW')
+        ) and sys.platform == 'darwin':
             # Randomly crashes on Travis, can't reproduce locally.
             raise unittest.SkipTest()
 
@@ -1123,10 +1092,10 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         self.assertEqual(
             set(proto.stages),
             {
-                ("CM", transport),
-                "PROC_EXIT",
-                ("STDOUT", b"1" + NL),
-                ("STDOUT", "LOST"),
-                ("CL", 0, None),
+                ('CM', transport),
+                'PROC_EXIT',
+                ('STDOUT', b"1" + NL),
+                ('STDOUT', 'LOST'),
+                ('CL', 0, None),
             },
         )

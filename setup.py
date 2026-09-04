@@ -4,10 +4,6 @@ vi = sys.version_info
 if vi < (3, 8):
     raise RuntimeError('uvloop requires Python 3.8 or greater')
 
-# TODO: Remove Completely because Winloop Author is mergeing his project to uvloop.
-# if sys.platform in ('win32', 'cygwin', 'cli'):
-#     raise RuntimeError('uvloop does not support Windows at the moment')
-
 import os
 import os.path
 import pathlib
@@ -29,10 +25,6 @@ MODULES_CFLAGS = shlex.split(os.getenv('UVLOOP_OPT_CFLAGS', '-O2'))
 _ROOT = pathlib.Path(__file__).parent
 LIBUV_DIR = str(_ROOT / 'vendor' / 'libuv')
 LIBUV_BUILD_DIR = str(_ROOT / 'build' / 'libuv-{}'.format(MACHINE))
-
-# NOTE: Mingw was added by another contributor in the winloop project.
-MINGW = bool(os.environ.get("MINGW_PREFIX", ""))
-
 
 def _libuv_build_env():
     env = os.environ.copy()
@@ -88,9 +80,7 @@ class uvloop_build_ext(build_ext):
 
     def initialize_options(self):
         super().initialize_options()
-        # Use mingw if prefix was given for it otherwise it 
-        # will always be false.
-        self.use_system_libuv = MINGW
+        self.use_system_libuv = False
         self.cython_always = False
         self.cython_annotate = None
         self.cython_directives = None
@@ -125,21 +115,17 @@ class uvloop_build_ext(build_ext):
                 import Cython
             except ImportError:
                 raise RuntimeError(
-                    "please install {} to compile uvloop from source".format(
-                        CYTHON_DEPENDENCY
-                    )
-                )
+                    'please install {} to compile uvloop from source'.format(
+                        CYTHON_DEPENDENCY))
 
             cython_dep = Requirement(CYTHON_DEPENDENCY)
             if not cython_dep.specifier.contains(Cython.__version__):
                 raise RuntimeError(
-                    "uvloop requires {}, got Cython=={}".format(
+                    'uvloop requires {}, got Cython=={}'.format(
                         CYTHON_DEPENDENCY, Cython.__version__
-                    )
-                )
+                    ))
 
             from Cython.Build import cythonize
-            
 
             directives = {}
             if self.cython_directives:
@@ -201,7 +187,7 @@ class uvloop_build_ext(build_ext):
             cwd=LIBUV_BUILD_DIR, env=env, check=True)
 
     def build_extensions(self):
-        if sys.platform == "win32" and not MINGW:
+        if sys.platform == "win32":
             path = pathlib.Path("vendor", "libuv", "src")
             c_files = [p.as_posix() for p in path.iterdir() if p.suffix == ".c"]
             c_files += [
@@ -249,41 +235,26 @@ with open(str(_ROOT / 'uvloop' / '_version.py')) as f:
         raise RuntimeError(
             'unable to read the version from uvloop/_version.py')
 
-if sys.platform == "win32":
-    from Cython.Build import cythonize
-    from Cython.Compiler.Main import default_options
-
-    default_options["compile_time_env"] = dict(DEFAULT_FREELIST_SIZE=250)
-    ext = cythonize(
-        [
-            Extension(
-                "uvloop.loop",
-                sources=["uvloop/loop.pyx"],
-                include_dirs=[]
-                if MINGW
-                else [
-                    "vendor/libuv/src",
-                    "vendor/libuv/src/win",
-                    "vendor/libuv/include",
-                ],
-                # subset of libuv Windows libraries:
-                extra_link_args=[
-                    (f"-l{lib}" if MINGW else f"{lib}.lib")
-                    for lib in (
-                        "Shell32",
-                        "Ws2_32",
-                        "Advapi32",
-                        "iphlpapi",
-                        "Userenv",
-                        "User32",
-                        "Dbghelp",
-                        "Ole32",
-                    )
-                ],
-                define_macros=[("WIN32_LEAN_AND_MEAN", 1), ("_WIN32_WINNT", "0x0602")],
-            ),
-        ]
-    )
+if sys.platform == 'win32':
+    ext = [
+        Extension(
+            'uvloop.loop',
+            sources=['uvloop/loop.pyx'],
+            include_dirs=[
+                'vendor/libuv/src',
+                'vendor/libuv/src/win',
+                'vendor/libuv/include',
+            ],
+            libraries=[
+                'Shell32', 'Ws2_32', 'Advapi32', 'iphlpapi',
+                'Userenv', 'User32', 'Dbghelp', 'Ole32',
+            ],
+            define_macros=[
+                ('WIN32_LEAN_AND_MEAN', 1),
+                ('_WIN32_WINNT', '0x0602'),
+            ],
+        ),
+    ]
 else:
     ext = [
         Extension(
@@ -297,14 +268,17 @@ else:
 
 setup_requires = []
 
-if not (_ROOT / "uvloop" / "loop.c").exists() or "--cython-always" in sys.argv:
+if not (_ROOT / 'uvloop' / 'loop.c').exists() or '--cython-always' in sys.argv:
     # No Cython output, require Cython to build.
     setup_requires.append(CYTHON_DEPENDENCY)
-
+ 
 
 setup(
     version=VERSION,
-    cmdclass={"sdist": uvloop_sdist, "build_ext": uvloop_build_ext},
+    cmdclass={
+        'sdist': uvloop_sdist,
+        'build_ext': uvloop_build_ext
+    },
     ext_modules=ext,
     setup_requires=setup_requires,
 )

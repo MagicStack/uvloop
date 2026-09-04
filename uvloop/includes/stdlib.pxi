@@ -55,7 +55,6 @@ cdef col_OrderedDict = collections.OrderedDict
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
-# windows needs access to errno for exception handling.
 cdef win_errno = errno
 
 cdef errno_EBADF = errno.EBADF
@@ -151,11 +150,9 @@ cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
 cdef subprocess_SubprocessError = subprocess.SubprocessError
 
-cdef int signal_SIGABRT = signal.SIGABRT
-cdef int signal_SIGINT = signal.SIGINT
 cdef int signal_NSIG = signal.NSIG
 cdef signal_signal = signal.signal
-cdef signal_siginterrupt = getattr(signal, "siginterrupt", None)
+cdef signal_siginterrupt = getattr(signal, 'siginterrupt', None)
 cdef signal_set_wakeup_fd = signal.set_wakeup_fd
 cdef signal_default_int_handler = signal.default_int_handler
 cdef signal_SIG_DFL = signal.SIG_DFL

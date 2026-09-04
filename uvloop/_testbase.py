@@ -1,5 +1,6 @@
 """Test utilities. Don't use outside of the uvloop project."""
 
+
 import asyncio
 import asyncio.events
 import collections
@@ -33,7 +34,8 @@ class TestCaseDict(collections.UserDict):
 
     def __setitem__(self, key, value):
         if key in self.data:
-            raise RuntimeError("duplicate test {}.{}".format(self.name, key))
+            raise RuntimeError('duplicate test {}.{}'.format(
+                self.name, key))
         super().__setitem__(key, value)
 
 
@@ -45,14 +47,14 @@ class BaseTestCaseMeta(type):
 
     def __new__(mcls, name, bases, dct):
         for test_name in dct:
-            if not test_name.startswith("test_"):
+            if not test_name.startswith('test_'):
                 continue
             for base in bases:
                 if hasattr(base, test_name):
                     raise RuntimeError(
-                        "duplicate test {}.{} (also defined in {} "
-                        "parent class)".format(name, test_name, base.__name__)
-                    )
+                        'duplicate test {}.{} (also defined in {} '
+                        'parent class)'.format(
+                            name, test_name, base.__name__))
 
         return super().__new__(mcls, name, bases, dict(dct))
 
@@ -77,7 +79,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             pass
 
     def is_asyncio_loop(self):
-        return type(self.loop).__module__.startswith("asyncio.")
+        return type(self.loop).__module__.startswith('asyncio.')
 
     def run_loop_briefly(self, *, delay=0.01):
         self.loop.run_until_complete(asyncio.sleep(delay))
@@ -87,8 +89,6 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         self.loop.default_exception_handler(context)
 
     def setUp(self):
-        # WINLOOP comment: next two lines are swapped because otherwise
-        # setting event loop policy has no effect.
         asyncio.set_event_loop_policy(self.new_policy())
         self.loop = self.new_loop()
         asyncio.set_event_loop(self.loop)
@@ -101,9 +101,9 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         self.loop.close()
 
         if self.__unhandled_exceptions:
-            print("Unexpected calls to loop.call_exception_handler():")
+            print('Unexpected calls to loop.call_exception_handler():')
             pprint.pprint(self.__unhandled_exceptions)
-            self.fail("unexpected calls to loop.call_exception_handler()")
+            self.fail('unexpected calls to loop.call_exception_handler()')
             return
 
         if not self._check_unclosed_resources_in_debug:
@@ -114,7 +114,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
         gc.collect()
         gc.collect()
 
-        if getattr(self.loop, "_debug_cc", False):
+        if getattr(self.loop, '_debug_cc', False):
             gc.collect()
             gc.collect()
             gc.collect()
@@ -122,42 +122,33 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             self.assertEqual(
                 self.loop._debug_uv_handles_total,
                 self.loop._debug_uv_handles_freed,
-                "not all uv_handle_t handles were freed",
-            )
+                'not all uv_handle_t handles were freed')
 
             self.assertEqual(
-                self.loop._debug_cb_handles_count,
-                0,
-                "not all callbacks (call_soon) are GCed",
-            )
+                self.loop._debug_cb_handles_count, 0,
+                'not all callbacks (call_soon) are GCed')
 
             self.assertEqual(
-                self.loop._debug_cb_timer_handles_count,
-                0,
-                "not all timer callbacks (call_later) are GCed",
-            )
+                self.loop._debug_cb_timer_handles_count, 0,
+                'not all timer callbacks (call_later) are GCed')
 
             self.assertEqual(
-                self.loop._debug_stream_write_ctx_cnt,
-                0,
-                "not all stream write contexts are GCed",
-            )
+                self.loop._debug_stream_write_ctx_cnt, 0,
+                'not all stream write contexts are GCed')
 
             for h_name, h_cnt in self.loop._debug_handles_current.items():
-                with self.subTest(
-                    "Alive handle after test", handle_name=h_name
-                ):
+                with self.subTest('Alive handle after test',
+                                  handle_name=h_name):
                     self.assertEqual(
-                        h_cnt, 0, "alive {} after test".format(h_name)
-                    )
+                        h_cnt, 0,
+                        'alive {} after test'.format(h_name))
 
             for h_name, h_cnt in self.loop._debug_handles_total.items():
-                with self.subTest("Total/closed handles", handle_name=h_name):
+                with self.subTest('Total/closed handles',
+                                  handle_name=h_name):
                     self.assertEqual(
-                        h_cnt,
-                        self.loop._debug_handles_closed[h_name],
-                        "total != closed for {}".format(h_name),
-                    )
+                        h_cnt, self.loop._debug_handles_closed[h_name],
+                        'total != closed for {}'.format(h_name))
 
         asyncio.set_event_loop(None)
         asyncio.set_event_loop_policy(None)
@@ -166,31 +157,26 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     def skip_unclosed_handles_check(self):
         self._check_unclosed_resources_in_debug = False
 
-    def tcp_server(
-        self,
-        server_prog,
-        *,
-        family=socket.AF_INET,
-        addr=None,
-        timeout=5,
-        backlog=1,
-        max_clients=10,
-    ):
+    def tcp_server(self, server_prog, *,
+                   family=socket.AF_INET,
+                   addr=None,
+                   timeout=5,
+                   backlog=1,
+                   max_clients=10):
 
         if addr is None:
-            # Winloop comment: Windows has no Unix sockets
-            if hasattr(socket, "AF_UNIX") and family == socket.AF_UNIX:
+            if hasattr(socket, 'AF_UNIX') and family == socket.AF_UNIX:
                 with tempfile.NamedTemporaryFile() as tmp:
                     addr = tmp.name
             else:
-                addr = ("127.0.0.1", 0)
+                addr = ('127.0.0.1', 0)
 
         sock = socket.socket(family, socket.SOCK_STREAM)
 
         if timeout is None:
-            raise RuntimeError("timeout is required")
+            raise RuntimeError('timeout is required')
         if timeout <= 0:
-            raise RuntimeError("only blocking sockets are supported")
+            raise RuntimeError('only blocking sockets are supported')
         sock.settimeout(timeout)
 
         try:
@@ -201,20 +187,22 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
             raise ex
 
         return TestThreadedServer(
-            self, sock, server_prog, timeout, max_clients
-        )
+            self, sock, server_prog, timeout, max_clients)
 
-    def tcp_client(self, client_prog, family=socket.AF_INET, timeout=10):
+    def tcp_client(self, client_prog,
+                   family=socket.AF_INET,
+                   timeout=10):
 
         sock = socket.socket(family, socket.SOCK_STREAM)
 
         if timeout is None:
-            raise RuntimeError("timeout is required")
+            raise RuntimeError('timeout is required')
         if timeout <= 0:
-            raise RuntimeError("only blocking sockets are supported")
+            raise RuntimeError('only blocking sockets are supported')
         sock.settimeout(timeout)
 
-        return TestThreadedClient(self, sock, client_prog, timeout)
+        return TestThreadedClient(
+            self, sock, client_prog, timeout)
 
     def unix_server(self, *args, **kwargs):
         return self.tcp_server(*args, family=socket.AF_UNIX, **kwargs)
@@ -225,7 +213,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
     @contextlib.contextmanager
     def unix_sock_name(self):
         with tempfile.TemporaryDirectory() as td:
-            fn = os.path.join(td, "sock")
+            fn = os.path.join(td, 'sock')
             try:
                 yield fn
             finally:
@@ -242,9 +230,8 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
 
 
 def _cert_fullname(test_file_name, cert_file_name):
-    fullname = os.path.abspath(
-        os.path.join(os.path.dirname(test_file_name), "certs", cert_file_name)
-    )
+    fullname = os.path.abspath(os.path.join(
+        os.path.dirname(test_file_name), 'certs', cert_file_name))
     assert os.path.isfile(fullname)
     return fullname
 
@@ -254,12 +241,10 @@ def silence_long_exec_warning():
 
     class Filter(logging.Filter):
         def filter(self, record):
-            return not (
-                record.msg.startswith("Executing")
-                and record.msg.endswith("seconds")
-            )
+            return not (record.msg.startswith('Executing') and
+                        record.msg.endswith('seconds'))
 
-    logger = logging.getLogger("asyncio")
+    logger = logging.getLogger('asyncio')
     filter = Filter()
     logger.addFilter(filter)
     try:
@@ -273,20 +258,20 @@ def find_free_port(start_from=50000):
         sock = socket.socket()
         with sock:
             try:
-                sock.bind(("", port))
+                sock.bind(('', port))
             except socket.error:
                 continue
             else:
                 return port
-    raise RuntimeError("could not find a free port")
+    raise RuntimeError('could not find a free port')
 
 
 class SSLTestCase:
 
     def _create_server_ssl_context(self, certfile, keyfile=None):
-        if hasattr(ssl, "PROTOCOL_TLS_SERVER"):
+        if hasattr(ssl, 'PROTOCOL_TLS_SERVER'):
             sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        elif hasattr(ssl, "PROTOCOL_TLS"):
+        elif hasattr(ssl, 'PROTOCOL_TLS'):
             sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
         else:
             sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
@@ -304,8 +289,8 @@ class SSLTestCase:
     @contextlib.contextmanager
     def _silence_eof_received_warning(self):
         # TODO This warning has to be fixed in asyncio.
-        logger = logging.getLogger("asyncio")
-        filter = logging.Filter("has no effect when using ssl")
+        logger = logging.getLogger('asyncio')
+        filter = logging.Filter('has no effect when using ssl')
         logger.addFilter(filter)
         try:
             yield
@@ -315,7 +300,7 @@ class SSLTestCase:
 
 class UVTestCase(BaseTestCase):
 
-    implementation = "uvloop"
+    implementation = 'uvloop'
 
     def new_loop(self):
         return uvloop.new_event_loop()
@@ -326,7 +311,7 @@ class UVTestCase(BaseTestCase):
 
 class AIOTestCase(BaseTestCase):
 
-    implementation = "asyncio"
+    implementation = 'asyncio'
 
     def setUp(self):
         super().setUp()
@@ -352,7 +337,7 @@ def has_IPv6():
     server_sock = socket.socket(socket.AF_INET6)
     with server_sock:
         try:
-            server_sock.bind(("::1", 0))
+            server_sock.bind(('::1', 0))
         except OSError:
             return False
         else:
@@ -373,31 +358,25 @@ class TestSocketWrapper:
         self.__sock = sock
 
     def recv_all(self, n):
-        buf = b""
+        buf = b''
         while len(buf) < n:
             data = self.recv(n - len(buf))
-            if data == b"":
+            if data == b'':
                 raise ConnectionAbortedError
             buf += data
         return buf
 
-    def starttls(
-        self,
-        ssl_context,
-        *,
-        server_side=False,
-        server_hostname=None,
-        do_handshake_on_connect=True,
-    ):
+    def starttls(self, ssl_context, *,
+                 server_side=False,
+                 server_hostname=None,
+                 do_handshake_on_connect=True):
 
         assert isinstance(ssl_context, ssl.SSLContext)
 
         ssl_sock = ssl_context.wrap_socket(
-            self.__sock,
-            server_side=server_side,
+            self.__sock, server_side=server_side,
             server_hostname=server_hostname,
-            do_handshake_on_connect=do_handshake_on_connect,
-        )
+            do_handshake_on_connect=do_handshake_on_connect)
 
         if server_side:
             ssl_sock.do_handshake()
@@ -409,7 +388,7 @@ class TestSocketWrapper:
         return getattr(self.__sock, name)
 
     def __repr__(self):
-        return "<{} {!r}>".format(type(self).__name__, self.__sock)
+        return '<{} {!r}>'.format(type(self).__name__, self.__sock)
 
 
 class SocketThread(threading.Thread):
@@ -429,7 +408,7 @@ class SocketThread(threading.Thread):
 class TestThreadedClient(SocketThread):
 
     def __init__(self, test, sock, prog, timeout):
-        threading.Thread.__init__(self, None, None, "test-client")
+        threading.Thread.__init__(self, None, None, 'test-client')
         self.daemon = True
 
         self._timeout = timeout
@@ -450,7 +429,7 @@ class TestThreadedClient(SocketThread):
 class TestThreadedServer(SocketThread):
 
     def __init__(self, test, sock, prog, timeout, max_clients):
-        threading.Thread.__init__(self, None, None, "test-server")
+        threading.Thread.__init__(self, None, None, 'test-server')
         self.daemon = True
 
         self._clients = 0
@@ -471,7 +450,7 @@ class TestThreadedServer(SocketThread):
         try:
             if self._s2 and self._s2.fileno() != -1:
                 try:
-                    self._s2.send(b"stop")
+                    self._s2.send(b'stop')
                 except OSError:
                     pass
         finally:
@@ -492,8 +471,7 @@ class TestThreadedServer(SocketThread):
                 return
 
             r, w, x = select.select(
-                [self._sock, self._s1], [], [], self._timeout
-            )
+                [self._sock, self._s1], [], [], self._timeout)
 
             if self._s1 in r:
                 return

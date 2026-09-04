@@ -9,26 +9,27 @@ import unittest
 
 from uvloop import _testbase as tb
 
+
 SSL_HANDSHAKE_TIMEOUT = 15.0
 
 
 @unittest.skipIf(sys.platform == "win32", "no Unix socket tests on Windows")
 class _TestUnix:
     def test_create_unix_server_1(self):
-        CNT = 0  # number of clients that were successful
-        TOTAL_CNT = 100  # total number of clients that test will create
-        TIMEOUT = 5.0  # timeout for this test
+        CNT = 0           # number of clients that were successful
+        TOTAL_CNT = 100   # total number of clients that test will create
+        TIMEOUT = 5.0     # timeout for this test
 
         async def handle_client(reader, writer):
             nonlocal CNT
 
             data = await reader.readexactly(4)
-            self.assertEqual(data, b"AAAA")
-            writer.write(b"OK")
+            self.assertEqual(data, b'AAAA')
+            writer.write(b'OK')
 
             data = await reader.readexactly(4)
-            self.assertEqual(data, b"BBBB")
-            writer.write(b"SPAM")
+            self.assertEqual(data, b'BBBB')
+            writer.write(b'SPAM')
 
             await writer.drain()
             writer.close()
@@ -42,27 +43,29 @@ class _TestUnix:
                 sock.setblocking(False)
                 await self.loop.sock_connect(sock, addr)
 
-                await self.loop.sock_sendall(sock, b"AAAA")
+                await self.loop.sock_sendall(sock, b'AAAA')
 
-                buf = b""
+                buf = b''
                 while len(buf) != 2:
                     buf += await self.loop.sock_recv(sock, 1)
-                self.assertEqual(buf, b"OK")
+                self.assertEqual(buf, b'OK')
 
-                await self.loop.sock_sendall(sock, b"BBBB")
+                await self.loop.sock_sendall(sock, b'BBBB')
 
-                buf = b""
+                buf = b''
                 while len(buf) != 4:
                     buf += await self.loop.sock_recv(sock, 1)
-                self.assertEqual(buf, b"SPAM")
+                self.assertEqual(buf, b'SPAM')
 
         async def start_server():
             nonlocal CNT
             CNT = 0
 
             with tempfile.TemporaryDirectory() as td:
-                sock_name = os.path.join(td, "sock")
-                srv = await asyncio.start_unix_server(handle_client, sock_name)
+                sock_name = os.path.join(td, 'sock')
+                srv = await asyncio.start_unix_server(
+                    handle_client,
+                    sock_name)
 
                 try:
                     srv_socks = srv.sockets
@@ -79,12 +82,9 @@ class _TestUnix:
                     self.loop.call_soon(srv.close)
                     await srv.wait_closed()
 
-                    if self.implementation == "asyncio" and sys.version_info[
-                        :3
-                    ] >= (
-                        3,
-                        12,
-                        0,
+                    if (
+                        self.implementation == 'asyncio'
+                        and sys.version_info[:3] >= (3, 12, 0)
                     ):
                         # asyncio regression in 3.12 -- wait_closed()
                         # doesn't wait for `close()` to actually complete.
@@ -113,7 +113,7 @@ class _TestUnix:
             CNT = 0
 
             with tempfile.TemporaryDirectory() as td:
-                sock_name = os.path.join(td, "sock")
+                sock_name = os.path.join(td, 'sock')
                 sock = socket.socket(socket.AF_UNIX)
                 sock.bind(sock_name)
 
@@ -134,12 +134,9 @@ class _TestUnix:
                     self.loop.call_soon(srv.close)
                     await srv.wait_closed()
 
-                    if self.implementation == "asyncio" and sys.version_info[
-                        :3
-                    ] >= (
-                        3,
-                        12,
-                        0,
+                    if (
+                        self.implementation == 'asyncio'
+                        and sys.version_info[:3] >= (3, 12, 0)
                     ):
                         # asyncio regression in 3.12 -- wait_closed()
                         # doesn't wait for `close()` to actually complete.
@@ -158,55 +155,46 @@ class _TestUnix:
                 else:
                     self.assertFalse(os.path.exists(sock_name))
 
-        with self.subTest(func="start_unix_server(host, port)"):
+        with self.subTest(func='start_unix_server(host, port)'):
             self.loop.run_until_complete(start_server())
             self.assertEqual(CNT, TOTAL_CNT)
 
-        with self.subTest(func="start_unix_server(sock)"):
-            self.loop.run_until_complete(
-                start_server_sock(
-                    lambda sock: asyncio.start_unix_server(
-                        handle_client, None, sock=sock
-                    )
-                )
-            )
+        with self.subTest(func='start_unix_server(sock)'):
+            self.loop.run_until_complete(start_server_sock(
+                lambda sock: asyncio.start_unix_server(
+                    handle_client,
+                    None,
+                    sock=sock)))
             self.assertEqual(CNT, TOTAL_CNT)
 
-        with self.subTest(func="start_server(sock)"):
-            self.loop.run_until_complete(
-                start_server_sock(
-                    lambda sock: asyncio.start_server(
-                        handle_client, None, None, sock=sock
-                    ),
-                    is_unix_api=False,
-                )
-            )
+        with self.subTest(func='start_server(sock)'):
+            self.loop.run_until_complete(start_server_sock(
+                lambda sock: asyncio.start_server(
+                    handle_client,
+                    None, None,
+                    sock=sock), is_unix_api=False))
             self.assertEqual(CNT, TOTAL_CNT)
 
     def test_create_unix_server_2(self):
         with tempfile.TemporaryDirectory() as td:
-            sock_name = os.path.join(td, "sock")
-            with open(sock_name, "wt") as f:
-                f.write("x")
+            sock_name = os.path.join(td, 'sock')
+            with open(sock_name, 'wt') as f:
+                f.write('x')
 
             with self.assertRaisesRegex(
-                OSError, "Address '{}' is already in use".format(sock_name)
-            ):
+                    OSError, "Address '{}' is already in use".format(
+                        sock_name)):
+
                 self.loop.run_until_complete(
-                    self.loop.create_unix_server(object, sock_name)
-                )
+                    self.loop.create_unix_server(object, sock_name))
 
     def test_create_unix_server_3(self):
         with self.assertRaisesRegex(
-            ValueError, "ssl_handshake_timeout is only meaningful"
-        ):
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_unix_server(
-                    lambda: None,
-                    path="/tmp/a",
-                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT,
-                )
-            )
+                    lambda: None, path='/tmp/a',
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
     def test_create_unix_server_existing_path_sock(self):
         with self.unix_sock_name() as path:
@@ -225,11 +213,11 @@ class _TestUnix:
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(addr)
 
-            writer.write(b"AAAA")
-            self.assertEqual(await reader.readexactly(2), b"OK")
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
 
-            writer.write(b"BBBB")
-            self.assertEqual(await reader.readexactly(4), b"SPAM")
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
             await self.wait_closed(writer)
@@ -242,11 +230,11 @@ class _TestUnix:
             sock.connect(addr)
             reader, writer = await asyncio.open_unix_connection(sock=sock)
 
-            writer.write(b"AAAA")
-            self.assertEqual(await reader.readexactly(2), b"OK")
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
 
-            writer.write(b"BBBB")
-            self.assertEqual(await reader.readexactly(4), b"SPAM")
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
             await self.wait_closed(writer)
@@ -259,11 +247,11 @@ class _TestUnix:
             sock.connect(addr)
             reader, writer = await asyncio.open_connection(sock=sock)
 
-            writer.write(b"AAAA")
-            self.assertEqual(await reader.readexactly(2), b"OK")
+            writer.write(b'AAAA')
+            self.assertEqual(await reader.readexactly(2), b'OK')
 
-            writer.write(b"BBBB")
-            self.assertEqual(await reader.readexactly(4), b"SPAM")
+            writer.write(b'BBBB')
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             writer.close()
             await self.wait_closed(writer)
@@ -276,12 +264,12 @@ class _TestUnix:
 
         def server(sock):
             data = sock.recv_all(4)
-            self.assertEqual(data, b"AAAA")
-            sock.send(b"OK")
+            self.assertEqual(data, b'AAAA')
+            sock.send(b'OK')
 
             data = sock.recv_all(4)
-            self.assertEqual(data, b"BBBB")
-            sock.send(b"SPAM")
+            self.assertEqual(data, b'BBBB')
+            sock.send(b'SPAM')
 
         async def client_wrapper(addr):
             await client(addr)
@@ -292,9 +280,9 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            with self.unix_server(
-                server, max_clients=TOTAL_CNT, backlog=TOTAL_CNT
-            ) as srv:
+            with self.unix_server(server,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT) as srv:
                 tasks = []
                 for _ in range(TOTAL_CNT):
                     tasks.append(coro(srv.addr))
@@ -329,16 +317,16 @@ class _TestUnix:
 
         def server(sock):
             data = sock.recv_all(4)
-            self.assertEqual(data, b"AAAA")
+            self.assertEqual(data, b'AAAA')
             sock.close()
 
         async def client(addr):
             reader, writer = await asyncio.open_unix_connection(addr)
 
-            sock = writer._transport.get_extra_info("socket")
+            sock = writer._transport.get_extra_info('socket')
             self.assertEqual(sock.family, socket.AF_UNIX)
 
-            writer.write(b"AAAA")
+            writer.write(b'AAAA')
 
             with self.assertRaises(asyncio.IncompleteReadError):
                 await reader.readexactly(10)
@@ -353,9 +341,9 @@ class _TestUnix:
             nonlocal CNT
             CNT = 0
 
-            with self.unix_server(
-                server, max_clients=TOTAL_CNT, backlog=TOTAL_CNT
-            ) as srv:
+            with self.unix_server(server,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT) as srv:
                 tasks = []
                 for _ in range(TOTAL_CNT):
                     tasks.append(coro(srv.addr))
@@ -376,7 +364,7 @@ class _TestUnix:
             await self.wait_closed(writer)
 
         async def runner():
-            with self.assertRaisesRegex(OSError, "Bad file"):
+            with self.assertRaisesRegex(OSError, 'Bad file'):
                 await client()
 
         self.loop.run_until_complete(runner())
@@ -394,39 +382,34 @@ class _TestUnix:
 
         async def client():
             t, _ = await self.loop.create_unix_connection(
-                lambda: proto, None, sock=s2
-            )
+                lambda: proto,
+                None,
+                sock=s2)
 
-            t.write(b"AAAAA")
+            t.write(b'AAAAA')
             s1.close()
-            t.write(b"AAAAA")
+            t.write(b'AAAAA')
             await asyncio.sleep(0.1)
 
         self.loop.run_until_complete(client())
 
         self.assertEqual(len(excs), 1)
-        self.assertIn(
-            excs[0].__class__, (BrokenPipeError, ConnectionResetError)
-        )
+        self.assertIn(excs[0].__class__,
+                      (BrokenPipeError, ConnectionResetError))
 
     def test_create_unix_connection_6(self):
         with self.assertRaisesRegex(
-            ValueError, "ssl_handshake_timeout is only meaningful"
-        ):
+                ValueError, 'ssl_handshake_timeout is only meaningful'):
             self.loop.run_until_complete(
                 self.loop.create_unix_connection(
-                    lambda: None,
-                    path="/tmp/a",
-                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT,
-                )
-            )
+                    lambda: None, path='/tmp/a',
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT))
 
     def test_create_unix_connection_sock_cancel_detaches(self):
         async def test():
-            srv_path = os.path.join(tempfile.mkdtemp(), "test.sock")
+            srv_path = os.path.join(tempfile.mkdtemp(), 'test.sock')
             srv = await asyncio.start_unix_server(
-                lambda r, w: w.close(), path=srv_path
-            )
+                lambda r, w: w.close(), path=srv_path)
 
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.setblocking(False)
@@ -437,8 +420,8 @@ class _TestUnix:
             await asyncio.sleep(0.01)
 
             task = asyncio.ensure_future(
-                self.loop.create_unix_connection(asyncio.Protocol, sock=sock)
-            )
+                self.loop.create_unix_connection(
+                    asyncio.Protocol, sock=sock))
             await asyncio.sleep(0)
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -458,10 +441,9 @@ class _TestUnix:
         # the create_unix_connection(sock=) path.
 
         async def test():
-            srv_path = os.path.join(tempfile.mkdtemp(), "test.sock")
+            srv_path = os.path.join(tempfile.mkdtemp(), 'test.sock')
             srv = await asyncio.start_unix_server(
-                lambda r, w: w.close(), path=srv_path
-            )
+                lambda r, w: w.close(), path=srv_path)
 
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.setblocking(False)
@@ -469,8 +451,8 @@ class _TestUnix:
             stale_fd = sock.fileno()
 
             task = self.loop.create_task(
-                self.loop.create_unix_connection(asyncio.Protocol, sock=sock)
-            )
+                self.loop.create_unix_connection(
+                    asyncio.Protocol, sock=sock))
             await asyncio.sleep(0)
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -481,9 +463,8 @@ class _TestUnix:
             victim_sock.setblocking(False)
             await self.loop.sock_connect(victim_sock, srv_path)
             victim_tr, _ = await self.loop.create_unix_connection(
-                asyncio.Protocol, sock=victim_sock
-            )
-            victim_fd = victim_tr.get_extra_info("socket").fileno()
+                asyncio.Protocol, sock=victim_sock)
+            victim_fd = victim_tr.get_extra_info('socket').fileno()
             if victim_fd != stale_fd:
                 victim_tr.close()
                 sock.close()
@@ -492,8 +473,7 @@ class _TestUnix:
                 if os.path.exists(srv_path):
                     os.unlink(srv_path)
                 raise unittest.SkipTest(
-                    f"fd not reused (got {victim_fd}, need {stale_fd})"
-                )
+                    f'fd not reused (got {victim_fd}, need {stale_fd})')
 
             spy_a, spy_b = socket.socketpair()
             spy_b.setblocking(False)
@@ -510,12 +490,12 @@ class _TestUnix:
                 os.dup2(spy_a.fileno(), stale_fd)
             spy_a.close()
 
-            victim_tr.write(b"LEAKED")
+            victim_tr.write(b'LEAKED')
 
             try:
                 leaked = spy_b.recv(4096)
             except BlockingIOError:
-                leaked = b""
+                leaked = b''
 
             if victim_broken:
                 os.close(stale_fd)
@@ -530,35 +510,32 @@ class _TestUnix:
             if os.path.exists(srv_path):
                 os.unlink(srv_path)
 
-            self.assertEqual(
-                leaked,
-                b"",
-                f"Data leaked to an unrelated socket: " f"got {leaked!r}",
-            )
+            self.assertEqual(leaked, b'',
+                             f"Data leaked to an unrelated socket: "
+                             f"got {leaked!r}")
 
         self.loop.run_until_complete(test())
 
 
 class Test_UV_Unix(_TestUnix, tb.UVTestCase):
-    @unittest.skipUnless(hasattr(os, "fspath"), "no os.fspath()")
+
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
     def test_create_unix_connection_pathlib(self):
         async def run(addr):
             t, _ = await self.loop.create_unix_connection(
-                asyncio.Protocol, addr
-            )
+                asyncio.Protocol, addr)
             t.close()
 
         with self.unix_server(lambda sock: time.sleep(0.01)) as srv:
             addr = pathlib.Path(srv.addr)
             self.loop.run_until_complete(run(addr))
 
-    @unittest.skipUnless(hasattr(os, "fspath"), "no os.fspath()")
+    @unittest.skipUnless(hasattr(os, 'fspath'), 'no os.fspath()')
     def test_create_unix_server_pathlib(self):
         with self.unix_sock_name() as srv_path:
             srv_path = pathlib.Path(srv_path)
             srv = self.loop.run_until_complete(
-                self.loop.create_unix_server(asyncio.Protocol, srv_path)
-            )
+                self.loop.create_unix_server(asyncio.Protocol, srv_path))
             srv.close()
             self.loop.run_until_complete(srv.wait_closed())
 
@@ -568,15 +545,15 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
 
         async def test(sock):
             t, _ = await self.loop.create_unix_connection(
-                asyncio.Protocol, sock=sock
-            )
+                asyncio.Protocol,
+                sock=sock)
 
-            sock = t.get_extra_info("socket")
-            self.assertIs(t.get_extra_info("socket"), sock)
+            sock = t.get_extra_info('socket')
+            self.assertIs(t.get_extra_info('socket'), sock)
 
-            with self.assertRaisesRegex(RuntimeError, "is used by transport"):
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
                 self.loop.add_writer(sock.fileno(), lambda: None)
-            with self.assertRaisesRegex(RuntimeError, "is used by transport"):
+            with self.assertRaisesRegex(RuntimeError, 'is used by transport'):
                 self.loop.remove_writer(sock.fileno())
 
             t.close()
@@ -588,41 +565,37 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
     def test_create_unix_server_path_dgram(self):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         with sock:
-            coro = self.loop.create_unix_server(lambda: None, sock=sock)
-            with self.assertRaisesRegex(
-                ValueError, "A UNIX Domain Stream.*was expected"
-            ):
+            coro = self.loop.create_unix_server(lambda: None,
+                                                sock=sock)
+            with self.assertRaisesRegex(ValueError,
+                                        'A UNIX Domain Stream.*was expected'):
                 self.loop.run_until_complete(coro)
 
-    @unittest.skipUnless(
-        hasattr(socket, "SOCK_NONBLOCK"),
-        "no socket.SOCK_NONBLOCK (linux only)",
-    )
+    @unittest.skipUnless(hasattr(socket, 'SOCK_NONBLOCK'),
+                         'no socket.SOCK_NONBLOCK (linux only)')
     def test_create_unix_server_path_stream_bittype(self):
         sock = socket.socket(
-            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK
-        )
+            socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_NONBLOCK)
         with tempfile.NamedTemporaryFile() as file:
             fn = file.name
         with sock:
             sock.bind(fn)
-            coro = self.loop.create_unix_server(
-                lambda: None, path=None, sock=sock, cleanup_socket=True
-            )
+            coro = self.loop.create_unix_server(lambda: None, path=None,
+                                                sock=sock, cleanup_socket=True)
             srv = self.loop.run_until_complete(coro)
             srv.close()
             self.loop.run_until_complete(srv.wait_closed())
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "requires epoll")
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'requires epoll')
     def test_epollhup(self):
         SIZE = 50
         eof = False
         done = False
-        recvd = b""
+        recvd = b''
 
         class Proto(asyncio.BaseProtocol):
             def connection_made(self, tr):
-                tr.write(b"hello")
+                tr.write(b'hello')
                 self.data = bytearray(SIZE)
                 self.buf = memoryview(self.data)
 
@@ -643,7 +616,7 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
 
         async def test():
             with tempfile.TemporaryDirectory() as td:
-                sock_name = os.path.join(td, "sock")
+                sock_name = os.path.join(td, 'sock')
                 srv = await self.loop.create_unix_server(Proto, sock_name)
 
                 s = socket.socket(socket.AF_UNIX)
@@ -651,10 +624,10 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
                     s.setblocking(False)
                     await self.loop.sock_connect(s, sock_name)
                     d = await self.loop.sock_recv(s, 100)
-                    self.assertEqual(d, b"hello")
+                    self.assertEqual(d, b'hello')
 
                     # IMPORTANT: overflow recv buffer and close immediately
-                    await self.loop.sock_sendall(s, b"a" * (SIZE + 1))
+                    await self.loop.sock_sendall(s, b'a' * (SIZE + 1))
 
                 srv.close()
                 await srv.wait_closed()
@@ -662,7 +635,7 @@ class Test_UV_Unix(_TestUnix, tb.UVTestCase):
         self.loop.run_until_complete(test())
         self.assertTrue(eof)
         self.assertIsNone(done)
-        self.assertEqual(recvd, b"a" * (SIZE + 1))
+        self.assertEqual(recvd, b'a' * (SIZE + 1))
 
 
 class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
@@ -671,16 +644,17 @@ class Test_AIO_Unix(_TestUnix, tb.AIOTestCase):
 
 @unittest.skipIf(sys.platform == "win32", "no Unix socket tests on Windows")
 class _TestSSL(tb.SSLTestCase):
-    ONLYCERT = tb._cert_fullname(__file__, "ssl_cert.pem")
-    ONLYKEY = tb._cert_fullname(__file__, "ssl_key.pem")
+
+    ONLYCERT = tb._cert_fullname(__file__, 'ssl_cert.pem')
+    ONLYKEY = tb._cert_fullname(__file__, 'ssl_key.pem')
 
     def test_create_unix_server_ssl_1(self):
-        CNT = 0  # number of clients that were successful
-        TOTAL_CNT = 25  # total number of clients that test will create
-        TIMEOUT = 10.0  # timeout for this test
+        CNT = 0           # number of clients that were successful
+        TOTAL_CNT = 25    # total number of clients that test will create
+        TIMEOUT = 10.0    # timeout for this test
 
-        A_DATA = b"A" * 1024 * 1024
-        B_DATA = b"B" * 1024 * 1024
+        A_DATA = b'A' * 1024 * 1024
+        B_DATA = b'B' * 1024 * 1024
 
         sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
         client_sslctx = self._create_client_ssl_context()
@@ -692,11 +666,11 @@ class _TestSSL(tb.SSLTestCase):
 
             data = await reader.readexactly(len(A_DATA))
             self.assertEqual(data, A_DATA)
-            writer.write(b"OK")
+            writer.write(b'OK')
 
             data = await reader.readexactly(len(B_DATA))
             self.assertEqual(data, B_DATA)
-            writer.writelines([b"SP", bytearray(b"A"), memoryview(b"M")])
+            writer.writelines([b'SP', bytearray(b'A'), memoryview(b'M')])
 
             await writer.drain()
             writer.close()
@@ -714,24 +688,21 @@ class _TestSSL(tb.SSLTestCase):
                     sock.send(A_DATA)
 
                     data = sock.recv_all(2)
-                    self.assertEqual(data, b"OK")
+                    self.assertEqual(data, b'OK')
 
                     sock.send(B_DATA)
                     data = sock.recv_all(4)
-                    self.assertEqual(data, b"SPAM")
+                    self.assertEqual(data, b'SPAM')
 
                     sock.close()
 
                 except Exception as ex:
                     self.loop.call_soon_threadsafe(
-                        lambda ex=ex: (
-                            fut.cancelled() or fut.set_exception(ex)
-                        )
-                    )
+                        lambda ex=ex:
+                            (fut.cancelled() or fut.set_exception(ex)))
                 else:
                     self.loop.call_soon_threadsafe(
-                        lambda: (fut.cancelled() or fut.set_result(None))
-                    )
+                        lambda: (fut.cancelled() or fut.set_result(None)))
 
             client = self.unix_client(prog)
             client.start()
@@ -743,11 +714,13 @@ class _TestSSL(tb.SSLTestCase):
             extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             with tempfile.TemporaryDirectory() as td:
-                sock_name = os.path.join(td, "sock")
+                sock_name = os.path.join(td, 'sock')
 
                 srv = await asyncio.start_unix_server(
-                    handle_client, sock_name, ssl=sslctx, **extras
-                )
+                    handle_client,
+                    sock_name,
+                    ssl=sslctx,
+                    **extras)
 
                 try:
                     tasks = []
@@ -764,9 +737,9 @@ class _TestSSL(tb.SSLTestCase):
             with self._silence_eof_received_warning():
                 self.loop.run_until_complete(start_server())
         except asyncio.TimeoutError:
-            if os.environ.get("TRAVIS_OS_NAME") == "osx":
+            if os.environ.get('TRAVIS_OS_NAME') == 'osx':
                 # XXX: figure out why this fails on macOS on Travis
-                raise unittest.SkipTest("unexplained error on Travis macOS")
+                raise unittest.SkipTest('unexplained error on Travis macOS')
             else:
                 raise
 
@@ -779,8 +752,8 @@ class _TestSSL(tb.SSLTestCase):
         CNT = 0
         TOTAL_CNT = 25
 
-        A_DATA = b"A" * 1024 * 1024
-        B_DATA = b"B" * 1024 * 1024
+        A_DATA = b'A' * 1024 * 1024
+        B_DATA = b'B' * 1024 * 1024
 
         sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
         client_sslctx = self._create_client_ssl_context()
@@ -790,11 +763,11 @@ class _TestSSL(tb.SSLTestCase):
 
             data = sock.recv_all(len(A_DATA))
             self.assertEqual(data, A_DATA)
-            sock.send(b"OK")
+            sock.send(b'OK')
 
             data = sock.recv_all(len(B_DATA))
             self.assertEqual(data, B_DATA)
-            sock.send(b"SPAM")
+            sock.send(b'SPAM')
 
             sock.close()
 
@@ -802,14 +775,16 @@ class _TestSSL(tb.SSLTestCase):
             extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
 
             reader, writer = await asyncio.open_unix_connection(
-                addr, ssl=client_sslctx, server_hostname="", **extras
-            )
+                addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                **extras)
 
             writer.write(A_DATA)
-            self.assertEqual(await reader.readexactly(2), b"OK")
+            self.assertEqual(await reader.readexactly(2), b'OK')
 
             writer.write(B_DATA)
-            self.assertEqual(await reader.readexactly(4), b"SPAM")
+            self.assertEqual(await reader.readexactly(4), b'SPAM')
 
             nonlocal CNT
             CNT += 1
@@ -821,9 +796,9 @@ class _TestSSL(tb.SSLTestCase):
             nonlocal CNT
             CNT = 0
 
-            with self.unix_server(
-                server, max_clients=TOTAL_CNT, backlog=TOTAL_CNT
-            ) as srv:
+            with self.unix_server(server,
+                                  max_clients=TOTAL_CNT,
+                                  backlog=TOTAL_CNT) as srv:
                 tasks = []
                 for _ in range(TOTAL_CNT):
                     tasks.append(coro(srv.addr))

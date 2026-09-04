@@ -65,12 +65,6 @@ cdef extern from "includes/compat.h" nogil:
     int epoll_ctl(int epfd, int op, int fd, epoll_event *event)
     object MakeUnixSockPyAddr(sockaddr_un *addr)
 
-    # Checks if values are -2. This check only applies to windows.
-    int __UVLOOP_STDIN_BAD
-    int __UVLOOP_STDOUT_BAD
-    int __UVLOOP_STDERR_BAD 
-
-
 cdef extern from "includes/fork_handler.h":
 
     uint64_t MAIN_THREAD_ID
@@ -90,23 +84,12 @@ cdef extern from "includes/fork_handler.h":
 cdef extern from * nogil:
     """
 #ifdef _WIN32
-static inline uint64_t 
-__win_atomic_fetch_add(uint64_t *ptr, uint64_t val){
-    return *ptr = *(volatile uint64_t *)ptr + val;
-}
-
-static inline uint64_t 
-__win_atomic_fetch_sub(uint64_t *ptr, uint64_t val){
-    return *ptr = *(volatile uint64_t *)ptr - val;
-}
-
 #define __atomic_fetch_add(ptr, val, memorder) \
-    __win_atomic_fetch_add(ptr, val)
+    InterlockedExchangeAdd64((volatile LONG64*)(ptr), (LONG64)(val))
 
 #define __atomic_fetch_sub(ptr, val, memorder) \
-    __win_atomic_fetch_sub(ptr, val)
+    InterlockedExchangeAdd64((volatile LONG64*)(ptr), -(LONG64)(val))
 
-/* We need ATOMIC RELAXED still */
 #define __ATOMIC_RELAXED 0
 #endif /* _WIN32 */
     """

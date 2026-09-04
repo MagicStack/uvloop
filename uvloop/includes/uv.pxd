@@ -56,9 +56,6 @@ cdef extern from "uv.h" nogil:
     cdef int UV_EAI_SERVICE
     cdef int UV_EAI_SOCKTYPE
 
-    # Need for windows's sake
-    cdef int SO_BROADCAST
-
     cdef int SOL_SOCKET
     cdef int SO_ERROR
     cdef int SO_REUSEADDR
@@ -231,8 +228,7 @@ cdef extern from "uv.h" nogil:
 
     const char* uv_strerror(int err)
     const char* uv_err_name(int err)
-    
-    # Needed on windows
+
     int uv_translate_sys_error(int sys_errno)
 
 
@@ -496,7 +492,7 @@ cdef extern from "uv.h" nogil:
     ctypedef struct uv_stdio_container_t:
         uv_stdio_flags flags
         uv_stdio_container_data_u data
-    
+
     ctypedef unsigned char uv_uid_t
     ctypedef unsigned char uv_gid_t
 
