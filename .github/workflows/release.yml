@@ -75,7 +75,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, ubuntu-22.04-arm]
+        # Test x86_64 wheels with native OpenSSL for cryptography builds.
+        os: [ubuntu-latest, macos-15-intel, ubuntu-22.04-arm]
         python:
         - "cp38"
         - "cp39"
@@ -85,13 +86,15 @@ jobs:
         - "cp313"
         - "cp314"
         - "cp314t"
+        - "cp315"
+        - "cp315t"
         cibw_arch: ["x86_64", "aarch64", "universal2"]
         exclude:
           - os: ubuntu-latest
             cibw_arch: universal2
           - os: ubuntu-latest
             cibw_arch: aarch64
-          - os: macos-latest
+          - os: macos-15-intel
             cibw_arch: aarch64
           - os: ubuntu-22.04-arm
             cibw_arch: x86_64
@@ -104,6 +107,10 @@ jobs:
 
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: 1
+      CIBW_BUILD_VERBOSITY: 1
+      CIBW_BUILD: ${{ matrix.python }}-*
+      CIBW_ARCHS: ${{ matrix.cibw_arch }}
+      CIBW_TEST_SKIP: "*universal2:arm64"
 
     steps:
     - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -114,14 +121,20 @@ jobs:
     - name: Install macOS deps
       if: startsWith(matrix.os, 'macos')
       run: |
-        brew install gnu-sed libtool autoconf automake
+        brew install gnu-sed libtool autoconf automake openssl@3
+        echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
 
+    # cibuildwheel 4 added Python 3.15 but removed Python 3.8.
     - uses: pypa/cibuildwheel@7c619efba910c04005a835b110b057fc28fd6e93  # v3.2.0
+      if: matrix.python == 'cp38'
+
+    - uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074  # v4.2.0
+      if: matrix.python != 'cp38'
       env:
-        CIBW_BUILD_VERBOSITY: 1
-        CIBW_BUILD: ${{ matrix.python }}-*
-        CIBW_ARCHS: ${{ matrix.cibw_arch }}
-        CIBW_TEST_SKIP: "*universal2:arm64"
+        # Test dependencies need only the native slice, even for universal2.
+        CIBW_TEST_ENVIRONMENT_MACOS: >-
+          ARCHFLAGS="-arch x86_64"
+          _PYTHON_HOST_PLATFORM="macosx-15.0-x86_64"
 
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
