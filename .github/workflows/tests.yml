@@ -24,6 +24,8 @@ jobs:
         - "3.13"
         - "3.14"
         - "3.14t"
+        - "3.15"
+        - "3.15t"
         os: [ubuntu-latest, macos-latest]
 
     env:
@@ -55,7 +57,8 @@ jobs:
     - name: Install macOS deps
       if: matrix.os == 'macos-latest' && steps.release.outputs.version == 0
       run: |
-        brew install gnu-sed libtool autoconf automake
+        brew install gnu-sed libtool autoconf automake openssl@3
+        echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
 
     - name: Install Python Deps
       if: steps.release.outputs.version == 0
