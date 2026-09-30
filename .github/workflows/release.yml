@@ -75,8 +75,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Test x86_64 wheels with native OpenSSL for cryptography builds.
-        os: [ubuntu-latest, macos-15-intel, ubuntu-22.04-arm]
+        os:
+        - ubuntu-latest
+        - ubuntu-22.04-arm
+        - macos-15-intel
+        - macos-latest
         python:
         - "cp38"
         - "cp39"
@@ -88,17 +91,15 @@ jobs:
         - "cp314t"
         - "cp315"
         - "cp315t"
-        cibw_arch: ["x86_64", "aarch64", "universal2"]
-        exclude:
+        include:
           - os: ubuntu-latest
-            cibw_arch: universal2
-          - os: ubuntu-latest
-            cibw_arch: aarch64
-          - os: macos-15-intel
-            cibw_arch: aarch64
-          - os: ubuntu-22.04-arm
             cibw_arch: x86_64
           - os: ubuntu-22.04-arm
+            cibw_arch: aarch64
+          # Use native OpenSSL when compiling x86_64 test dependencies.
+          - os: macos-15-intel
+            cibw_arch: x86_64
+          - os: macos-latest
             cibw_arch: universal2
 
     defaults:
@@ -110,7 +111,10 @@ jobs:
       CIBW_BUILD_VERBOSITY: 1
       CIBW_BUILD: ${{ matrix.python }}-*
       CIBW_ARCHS: ${{ matrix.cibw_arch }}
-      CIBW_TEST_SKIP: "*universal2:arm64"
+      # Let tests inside Linux containers recognize GitHub CI.
+      CIBW_ENVIRONMENT_PASS_LINUX: GITHUB_WORKFLOW
+      # Exercise arm64 here; x86_64 wheels have their own test jobs.
+      CIBW_TEST_SKIP: "*universal2:x86_64"
 
     steps:
     - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -131,10 +135,13 @@ jobs:
     - uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074  # v4.2.0
       if: matrix.python != 'cp38'
       env:
-        # Test dependencies need only the native slice, even for universal2.
+        CIBW_BEFORE_ALL_LINUX: >-
+          ${{ matrix.python == 'cp315t' && 'bash {project}/.github/workflows/install-linux-test-deps.sh' || '' }}
+        # Build universal2 wheels, but compile their test dependencies for arm64.
         CIBW_TEST_ENVIRONMENT_MACOS: >-
-          ARCHFLAGS="-arch x86_64"
-          _PYTHON_HOST_PLATFORM="macosx-15.0-x86_64"
+          ${{ matrix.cibw_arch == 'universal2'
+              && 'ARCHFLAGS="-arch arm64" _PYTHON_HOST_PLATFORM="macosx-11.0-arm64"'
+              || '' }}
 
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
