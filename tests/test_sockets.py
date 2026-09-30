@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pickle
 import select
 import socket
@@ -272,7 +273,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         # See https://github.com/MagicStack/uvloop/issues/61 for details
 
         sock = socket.socket()
-        epoll = select.epoll.fromfd(self.loop._get_backend_id())
+        # Keep a separate descriptor for the backend epoll instance.  The loop
+        # owns its descriptor and closes it when the loop is closed.
+        epoll = select.epoll.fromfd(os.dup(self.loop._get_backend_id()))
 
         try:
             cb = lambda: None
@@ -288,8 +291,8 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
         finally:
             sock.close()
-            self.loop.close()
             epoll.close()
+            self.loop.close()
 
     def test_add_reader_or_writer_transport_fd(self):
         def assert_raises():

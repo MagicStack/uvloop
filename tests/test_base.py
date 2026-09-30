@@ -290,9 +290,16 @@ class _TestBase:
         def test_thread(loop, debug, create_loop=False):
             event = threading.Event()
             fut = asyncio.Future(loop=loop)
-            loop.call_soon(event.set)
             args = (loop, event, debug, create_loop, fut)
             thread = threading.Thread(target=check_in_thread, args=args)
+
+            def run_thread():
+                # Keep the loop running for the thread checks, but prevent
+                # concurrent access to its non-thread-safe scheduling APIs.
+                event.set()
+                thread.join()
+
+            loop.call_soon(run_thread)
             thread.start()
             loop.run_until_complete(fut)
             thread.join()
