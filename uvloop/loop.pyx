@@ -2862,18 +2862,31 @@ cdef class Loop:
         ReadTransport interface."""
         cdef:
             ReadUnixTransport transp
+            int fd
+            bint opened
 
         waiter = self._new_future()
         proto = proto_factory()
         transp = ReadUnixTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
+        # Duplicate the fd so libuv and the Python file object each own a
+        # distinct descriptor.  uv_close() closes the fd given to libuv;
+        # without a dup, fileobj.close() (or GC) would close the same number
+        # again and could steal a recycled fd.  See issue #763.
+        fd = os_dup(pipe.fileno())
+        opened = 0
         try:
-            transp._open(pipe.fileno())
+            transp._open(fd)
+            opened = 1
             transp._init_protocol()
             await waiter
         except (KeyboardInterrupt, SystemExit):
+            if not opened:
+                os_close(fd)
             raise
         except BaseException:
+            if not opened:
+                os_close(fd)
             transp._close()
             raise
         transp._attach_fileobj(pipe)
@@ -2889,18 +2902,29 @@ cdef class Loop:
         WriteTransport interface."""
         cdef:
             WriteUnixTransport transp
+            int fd
+            bint opened
 
         waiter = self._new_future()
         proto = proto_factory()
         transp = WriteUnixTransport.new(self, proto, None, waiter)
         transp._add_extra_info('pipe', pipe)
+        # See connect_read_pipe() — dup so libuv and the file object do not
+        # share an fd (issue #763).
+        fd = os_dup(pipe.fileno())
+        opened = 0
         try:
-            transp._open(pipe.fileno())
+            transp._open(fd)
+            opened = 1
             transp._init_protocol()
             await waiter
         except (KeyboardInterrupt, SystemExit):
+            if not opened:
+                os_close(fd)
             raise
         except BaseException:
+            if not opened:
+                os_close(fd)
             transp._close()
             raise
         transp._attach_fileobj(pipe)
