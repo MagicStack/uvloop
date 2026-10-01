@@ -8,7 +8,7 @@ uvloop.
 Installation
 ------------
 
-`uvloop` is available from PyPI. It requires Python 3.8.
+`uvloop` is available from PyPI. It requires Python 3.9 or greater.
 
 Use pip to install it.
 

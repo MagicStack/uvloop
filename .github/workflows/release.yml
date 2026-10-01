@@ -81,7 +81,6 @@ jobs:
         - macos-15-intel
         - macos-latest
         python:
-        - "cp38"
         - "cp39"
         - "cp310"
         - "cp311"
@@ -128,12 +127,7 @@ jobs:
         brew install gnu-sed libtool autoconf automake openssl@3
         echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
 
-    # cibuildwheel 4 added Python 3.15 but removed Python 3.8.
-    - uses: pypa/cibuildwheel@7c619efba910c04005a835b110b057fc28fd6e93  # v3.2.0
-      if: matrix.python == 'cp38'
-
     - uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074  # v4.2.0
-      if: matrix.python != 'cp38'
       env:
         CIBW_BEFORE_ALL_LINUX: >-
           ${{ matrix.python == 'cp315t' && 'bash {project}/.github/workflows/install-linux-test-deps.sh' || '' }}
