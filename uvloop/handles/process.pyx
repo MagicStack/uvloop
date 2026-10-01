@@ -706,11 +706,18 @@ cdef class UVProcessTransport(UVProcess):
 class WriteSubprocessPipeProto(aio_BaseProtocol):
 
     def __init__(self, proc, fd):
-        if UVLOOP_DEBUG:
-            if type(proc) is not UVProcessTransport:
-                raise TypeError
-            if not isinstance(fd, int):
-                raise TypeError
+        # Release builds used to cast `proc` and segfault. Reject a bad owner
+        # here so a mistaken constructor argument is a TypeError.
+        if type(proc) is not UVProcessTransport:
+            raise TypeError(
+                'proc must be a UVProcessTransport, not {!r}'.format(
+                    type(proc).__name__,
+                ),
+            )
+        if not isinstance(fd, int):
+            raise TypeError(
+                'fd must be an int, not {!r}'.format(type(fd).__name__),
+            )
         self.proc = proc
         self.fd = fd
         self.pipe = None
