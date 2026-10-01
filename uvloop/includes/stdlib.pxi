@@ -139,6 +139,7 @@ cdef int ssl_SSL_ERROR_WANT_WRITE = ssl.SSL_ERROR_WANT_WRITE
 cdef int ssl_SSL_ERROR_SYSCALL = ssl.SSL_ERROR_SYSCALL
 
 cdef threading_Thread = threading.Thread
+cdef threading_local = threading.local
 cdef threading_main_thread = threading.main_thread
 
 cdef int subprocess_PIPE = subprocess.PIPE
