@@ -151,6 +151,9 @@ jobs:
   publish:
     needs: [build-sdist, build-wheels]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
 
     steps:
     - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -197,7 +200,4 @@ jobs:
     - name: Upload to PyPI
       uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
-        # password: ${{ secrets.TEST_PYPI_TOKEN }}
-        # repository_url: https://test.pypi.org/legacy/
+        verbose: true
