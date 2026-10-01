@@ -1972,7 +1972,12 @@ cdef class Loop:
                     lai = &lai_static
 
             if len(fs):
-                await aio_wait(fs)
+                try:
+                    await aio_wait(fs)
+                except asyncio.CancelledError as exc:
+                    for fut in fs:
+                        fut.cancel()
+                    raise exc from None
 
             if rai is NULL:
                 ai_remote = f1.result()
