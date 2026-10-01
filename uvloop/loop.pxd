@@ -138,6 +138,7 @@ cdef class Loop:
 
     cdef _close(self)
     cdef _stop(self, exc)
+    cdef uint64_t _event_loop_idle_time(self)
     cdef uint64_t _time(self)
 
     cdef inline _queue_write(self, UVStream stream)
