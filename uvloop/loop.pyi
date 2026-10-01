@@ -8,6 +8,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    Deque,
     Dict,
     Generator,
     List,
@@ -314,3 +315,4 @@ class Loop:
         *,
         fallback: bool = ...
     ) -> int: ...
+    def get_ready_queue(self) -> Deque[asyncio.Handle]: ...
