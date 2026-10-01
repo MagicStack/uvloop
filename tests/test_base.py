@@ -837,11 +837,6 @@ if __name__ == "__main__":
             self.fail(result.stdout.strip())
 
     def test_thread_name_prefix_in_default_executor(self):
-        if self.implementation == "asyncio" and sys.version_info < (3, 9):
-            raise unittest.SkipTest(
-                "thread_name_prefix was added in CPython 3.9"
-            )
-
         called = []
 
         def cb():

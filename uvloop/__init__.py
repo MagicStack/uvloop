@@ -71,10 +71,7 @@ else:
                 try:
                     _cancel_all_tasks(loop)
                     loop.run_until_complete(loop.shutdown_asyncgens())
-                    if hasattr(loop, 'shutdown_default_executor'):
-                        loop.run_until_complete(
-                            loop.shutdown_default_executor()
-                        )
+                    loop.run_until_complete(loop.shutdown_default_executor())
                 finally:
                     __asyncio.set_event_loop(None)
                     loop.close()

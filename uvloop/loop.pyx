@@ -48,7 +48,6 @@ include "includes/stdlib.pxi"
 include "errors.pyx"
 
 cdef:
-    int PY39 = PY_VERSION_HEX >= 0x03090000
     int PY311 = PY_VERSION_HEX >= 0x030b0000
     int PY313 = PY_VERSION_HEX >= 0x030d0000
     uint64_t MAX_SLEEP = 3600 * 24 * 365 * 100
@@ -3315,15 +3314,9 @@ class _SyncSocketReaderFuture(aio_Future):
             self.__loop.remove_reader(self.__sock)
             self.__sock = None
 
-    if PY39:
-        def cancel(self, msg=None):
-            self.__remove_reader()
-            aio_Future.cancel(self, msg=msg)
-
-    else:
-        def cancel(self):
-            self.__remove_reader()
-            aio_Future.cancel(self)
+    def cancel(self, msg=None):
+        self.__remove_reader()
+        aio_Future.cancel(self, msg=msg)
 
 
 class _SyncSocketWriterFuture(aio_Future):
@@ -3338,15 +3331,9 @@ class _SyncSocketWriterFuture(aio_Future):
             self.__loop.remove_writer(self.__sock)
             self.__sock = None
 
-    if PY39:
-        def cancel(self, msg=None):
-            self.__remove_writer()
-            aio_Future.cancel(self, msg=msg)
-
-    else:
-        def cancel(self):
-            self.__remove_writer()
-            aio_Future.cancel(self)
+    def cancel(self, msg=None):
+        self.__remove_writer()
+        aio_Future.cancel(self, msg=msg)
 
 
 include "cbhandles.pyx"
