@@ -2,7 +2,7 @@ import asyncio
 
 
 cdef class Server:
-    def __cinit__(self, Loop loop):
+    def __cinit__(self, Loop loop not None):
         self._loop = loop
         self._servers = []
         self._waiters = []
