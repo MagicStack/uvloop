@@ -1318,10 +1318,7 @@ cdef class Loop:
         when = <uint64_t>round(delay * 1000)
         if not args:
             args = None
-        if when == 0:
-            return self._call_soon(callback, args, context)
-        else:
-            return self._call_later(when, callback, args, context)
+        return self._call_later(when, callback, args, context)
 
     def call_at(self, when, callback, *args, context=None):
         """Like call_later(), but uses an absolute time.
