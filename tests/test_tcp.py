@@ -1349,6 +1349,8 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
             t, p = await self.loop.create_connection(Protocol, *addr)
 
+            self.assertEqual(t.get_write_buffer_limits(), (16384, 65536))
+
             t.write(b'q' * 512)
             t.set_write_buffer_limits(low=16385)
             self.assertEqual(t.get_write_buffer_limits(), (16385, 65540))
