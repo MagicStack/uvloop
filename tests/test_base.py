@@ -641,6 +641,58 @@ class _TestBase:
 
         self.loop.run_until_complete(main())
 
+    @unittest.skipUnless(
+        sys.version_info >= (3, 12),
+        "asyncio.eager_task_factory requires Python 3.12+",
+    )
+    def test_eager_task_factory(self):
+        async def coro():
+            return "eager"
+
+        async def main():
+            task = self.loop.create_task(coro())
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+            task = asyncio.create_task(coro())
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+            if sys.version_info >= (3, 14):
+                task = asyncio.create_task(coro(), eager_start=False)
+                self.assertFalse(task.done())
+                self.assertEqual(await task, "eager")
+
+        self.loop.set_task_factory(asyncio.eager_task_factory)
+        try:
+            self.loop.run_until_complete(main())
+        finally:
+            self.loop.set_task_factory(None)
+
+    @unittest.skipUnless(
+        sys.version_info >= (3, 11),
+        "asyncio.Task accepts a context argument on Python 3.11+",
+    )
+    def test_task_factory_without_eager_start_kwarg(self):
+        async def coro():
+            return "result"
+
+        def factory(loop, coro, *, name=None, context=None):
+            return asyncio.Task(coro, loop=loop, name=name, context=context)
+
+        async def main():
+            task = self.loop.create_task(coro())
+            self.assertEqual(await task, "result")
+
+            task = asyncio.create_task(coro())
+            self.assertEqual(await task, "result")
+
+        self.loop.set_task_factory(factory)
+        try:
+            self.loop.run_until_complete(main())
+        finally:
+            self.loop.set_task_factory(None)
+
     def test_shutdown_asyncgens_01(self):
         finalized = list()
 
