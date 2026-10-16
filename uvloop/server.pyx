@@ -44,6 +44,9 @@ cdef class Server:
         self._loop._servers.add(self)
 
     cdef _unref(self):
+        # Server(None) is constructible from Python; guard before touching _loop.
+        if self._loop is None:
+            return
         self._loop._servers.discard(self)
 
     # Public API
@@ -76,6 +79,9 @@ cdef class Server:
 
     def close(self):
         cdef list servers
+
+        if self._loop is None:
+            return
 
         if self._servers is None:
             return
