@@ -3,6 +3,7 @@ cdef class Server:
         list _servers
         list _waiters
         int _active_count
+        object _clients
         Loop _loop
         bint _serving
         object _serving_forever_fut
@@ -12,8 +13,8 @@ cdef class Server:
     cdef _start_serving(self)
     cdef _wakeup(self)
 
-    cdef _attach(self)
-    cdef _detach(self)
+    cdef _attach(self, UVBaseTransport transport)
+    cdef _detach(self, UVBaseTransport transport)
 
     cdef _ref(self)
     cdef _unref(self)
