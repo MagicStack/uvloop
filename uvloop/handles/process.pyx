@@ -83,7 +83,8 @@ cdef class UVProcess(UVHandle):
         # add the write pipe last so we can close it early
         fds_to_close.append(self._errpipe_write)
         try:
-            os_set_inheritable(self._errpipe_write, True)
+            if preexec_fn is not None:
+                os_set_inheritable(self._errpipe_write, True)
 
             self._preexec_fn = preexec_fn
             self._restore_signals = restore_signals
@@ -91,9 +92,14 @@ cdef class UVProcess(UVHandle):
             loop.active_process_handler = self
             __forking = 1
             __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
-            PyOS_BeforeFork()
+            if preexec_fn is not None:
+                # Like CPython's _posixsubprocess, only prepare the
+                # interpreter for a fork (and run the os.register_at_fork()
+                # hooks) when the child is going to run Python code.
+                system.setForkHandler(
+                    <system.OnForkHandler>&__get_fork_handler)
+                PyOS_BeforeFork()
 
             err = uv.uv_spawn(loop.uvloop,
                               <uv.uv_process_t*>self._handle,
@@ -104,7 +110,8 @@ cdef class UVProcess(UVHandle):
             system.resetForkHandler()
             loop.active_process_handler = None
 
-            PyOS_AfterFork_Parent()
+            if preexec_fn is not None:
+                PyOS_AfterFork_Parent()
 
             if err < 0:
                 self._close_process_handle()

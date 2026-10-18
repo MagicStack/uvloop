@@ -154,6 +154,63 @@ class _TestProcess:
             self.fail(
                 'exception in preexec_fn did not kill the child process')
 
+    def test_process_at_fork_hooks(self):
+        # Like CPython's subprocess, only run the os.register_at_fork()
+        # hooks when the child is going to run Python code (preexec_fn).
+        prog = textwrap.dedent("""\
+            import asyncio
+            import os
+            import sys
+            import uvloop
+
+            def hook(name):
+                return lambda: os.write(1, name.encode() + b'\\n')
+
+            async def main():
+                rfd, _ = os.pipe()
+                for name, kwargs in [
+                    ('default', {}),
+                    ('pass_fds', {'pass_fds': (rfd,)}),
+                    ('preexec_fn', {'preexec_fn': lambda: None}),
+                ]:
+                    print('=' + name, flush=True)
+                    proc = await asyncio.create_subprocess_exec(
+                        sys.executable, '-c', 'pass', **kwargs)
+                    await proc.wait()
+
+            os.register_at_fork(
+                before=hook('before'),
+                after_in_parent=hook('after_in_parent'),
+                after_in_child=hook('after_in_child'))
+
+            loop = NEW_LOOP
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(main())
+            finally:
+                loop.close()
+        """)
+        if self.implementation == 'uvloop':
+            prog = prog.replace('NEW_LOOP', 'uvloop.new_event_loop()')
+        else:
+            prog = prog.replace('NEW_LOOP', 'asyncio.new_event_loop()')
+
+        out = subprocess.check_output(
+            [sys.executable, '-W', 'ignore', '-c', prog], timeout=60)
+
+        hooks = {}
+        for line in out.decode().splitlines():
+            if line.startswith('='):
+                section = hooks[line[1:]] = []
+            else:
+                section.append(line)
+
+        self.assertEqual(hooks['default'], [])
+        self.assertEqual(hooks['pass_fds'], [])
+        self.assertEqual(
+            sorted(hooks['preexec_fn']),
+            ['after_in_child', 'after_in_parent', 'before'])
+
     def test_process_executable_1(self):
         async def test():
             proc = await asyncio.create_subprocess_exec(
