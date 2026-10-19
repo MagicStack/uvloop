@@ -900,43 +900,22 @@ cdef class Loop:
             if not isinstance(host, bytes):
                 raise TypeError('host must be a str or bytes')
 
-        fut = self._new_future()
-
-        def callback(result):
-            if AddrInfo.isinstance(result):
-                try:
-                    if unpack == 0:
-                        data = result
-                    else:
-                        data = (<AddrInfo>result).unpack()
-                except (KeyboardInterrupt, SystemExit):
-                    raise
-                except BaseException as ex:
-                    if not fut.cancelled():
-                        fut.set_exception(ex)
-                else:
-                    if not fut.cancelled():
-                        fut.set_result(data)
-            else:
-                if not fut.cancelled():
-                    fut.set_exception(result)
-
-        AddrInfoRequest(self, host, port, family, type, proto, flags, callback)
-        return fut
+        return self.run_in_executor(
+            None, _getaddrinfo_worker, host, port,
+            family, type, proto, flags, unpack)
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags):
-        cdef NameInfoRequest nr
-        fut = self._new_future()
-
-        def callback(result):
-            if isinstance(result, tuple):
-                fut.set_result(result)
-            else:
-                fut.set_exception(result)
-
-        nr = NameInfoRequest(self, callback)
-        nr.query(addr, flags)
-        return fut
+        # The caller's AddrInfo can die while the worker is still running.
+        # Give the worker its own copy of the address.
+        cdef SockAddrHolder holder = SockAddrHolder()
+        if addr.sa_family == uv.AF_INET:
+            holder.addr_size = sizeof(system.sockaddr_in)
+        elif addr.sa_family == uv.AF_INET6:
+            holder.addr_size = sizeof(system.sockaddr_in6)
+        else:
+            raise convert_error(uv.UV_EINVAL)
+        memcpy(&holder.addr, addr, holder.addr_size)
+        return self.run_in_executor(None, _getnameinfo_worker, holder, flags)
 
     cdef _sock_recv(self, fut, sock, n):
         if UVLOOP_DEBUG:

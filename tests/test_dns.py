@@ -1,6 +1,7 @@
 import asyncio
 import os
 import pathlib
+import select
 import shutil
 import socket
 import subprocess
@@ -289,21 +290,39 @@ class TestDNSClose(unittest.TestCase):
         #include <string.h>
         #include <unistd.h>
 
+        static void wait_for_release(void) {
+            int started = atoi(getenv("DNS_STARTED_FD"));
+            int release = atoi(getenv("DNS_RELEASE_FD"));
+            char byte;
+            ssize_t n;
+            do {
+                n = write(started, "S", 1);
+            } while (n < 0 && errno == EINTR);
+            if (n != 1)
+                _exit(90);
+            do {
+                n = read(release, &byte, 1);
+            } while (n < 0 && errno == EINTR);
+        }
+
+        int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
+                        char *host, socklen_t hostlen,
+                        char *service, socklen_t servicelen, int flags) {
+            if (getenv("DNS_BLOCK_REVERSE")) {
+                wait_for_release();
+                return EAI_NONAME;
+            }
+            int (*real_getnameinfo)(const struct sockaddr *, socklen_t,
+                                   char *, socklen_t, char *, socklen_t, int) =
+                dlsym(RTLD_NEXT, "getnameinfo");
+            return real_getnameinfo(addr, addrlen, host, hostlen,
+                                    service, servicelen, flags);
+        }
+
         int getaddrinfo(const char *node, const char *service,
                         const struct addrinfo *hints, struct addrinfo **res) {
             if (node && strcmp(node, "uvloop-close-test.invalid") == 0) {
-                int started = atoi(getenv("DNS_STARTED_FD"));
-                int release = atoi(getenv("DNS_RELEASE_FD"));
-                char byte;
-                ssize_t n;
-                do {
-                    n = write(started, "S", 1);
-                } while (n < 0 && errno == EINTR);
-                if (n != 1)
-                    _exit(90);
-                do {
-                    n = read(release, &byte, 1);
-                } while (n < 0 && errno == EINTR);
+                wait_for_release();
                 return EAI_NONAME;
             }
             int (*real_getaddrinfo)(const char *, const char *,
@@ -316,6 +335,7 @@ class TestDNSClose(unittest.TestCase):
 
     CHILD = """
         import asyncio
+        import concurrent.futures
         import os
         import sys
 
@@ -325,6 +345,8 @@ class TestDNSClose(unittest.TestCase):
         else:
             loop = asyncio.new_event_loop()
 
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        loop.set_default_executor(executor)
         started = int(sys.argv[2])
         os.set_blocking(started, False)
 
@@ -338,15 +360,21 @@ class TestDNSClose(unittest.TestCase):
                 except BlockingIOError:
                     await asyncio.sleep(0.01)
 
-        task = loop.create_task(
-            loop.getaddrinfo('uvloop-close-test.invalid', 443))
+        if sys.argv[4] == 'reverse':
+            query = loop.getnameinfo(('127.0.0.1', 443))
+        else:
+            query = loop.getaddrinfo('uvloop-close-test.invalid', 443)
+        task = loop.create_task(query)
         loop.run_until_complete(asyncio.wait_for(wait_for_dns(), 5))
         assert not task.done()
         print('CLOSE_ENTER', flush=True)
         loop.close()
         print('CLOSE_RETURN', flush=True)
-        # Isolate loop.close() from interpreter shutdown, which can wait for
-        # asyncio's executor even though loop.close() has already returned.
+        os.write(int(sys.argv[3]), b'C')
+        # The parent releases DNS only after close() returns. Wait for the
+        # worker and its completion callback to catch late-delivery errors.
+        executor.shutdown(wait=True)
+        # Avoid pending-task diagnostics during interpreter shutdown.
         os._exit(0)
     """
 
@@ -365,39 +393,51 @@ class TestDNSClose(unittest.TestCase):
              '-o', str(cls.shim), '-ldl'],
             check=True, capture_output=True, text=True, timeout=30)
 
-    def check_close(self, implementation):
+    def check_close(self, implementation, reverse=False):
         started_read, started_write = os.pipe()
         release_read, release_write = os.pipe()
+        closed_read, closed_write = os.pipe()
         try:
             env = dict(os.environ,
                        DNS_STARTED_FD=str(started_write),
                        DNS_RELEASE_FD=str(release_read))
             env['LD_PRELOAD'] = str(self.shim)
+            env.pop('DNS_BLOCK_REVERSE', None)
+            if reverse:
+                env['DNS_BLOCK_REVERSE'] = '1'
             with subprocess.Popen(
                 [sys.executable, '-c', textwrap.dedent(self.CHILD),
-                 implementation, str(started_read)],
+                 implementation, str(started_read), str(closed_write),
+                 'reverse' if reverse else 'forward'],
                 env=env,
-                pass_fds=(started_read, started_write, release_read),
+                pass_fds=(started_read, started_write, release_read,
+                          closed_write),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             ) as proc:
                 try:
+                    ready, _, _ = select.select([closed_read], [], [], 10)
+                    if not ready:
+                        raise subprocess.TimeoutExpired(proc.args, 10)
+                    self.assertEqual(os.read(closed_read, 1), b'C')
+                    os.write(release_write, b'R')
                     stdout, stderr = proc.communicate(timeout=10)
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     stdout, stderr = proc.communicate()
                     self.assertIn('CLOSE_ENTER', stdout, (stdout, stderr))
                     self.fail(
-                        'loop.close() blocked on an executing getaddrinfo '
+                        'DNS shutdown or late completion timed out '
                         f'request ({implementation})\n{stdout}{stderr}')
                 self.assertEqual(proc.returncode, 0, (stdout, stderr))
                 self.assertIn('CLOSE_RETURN', stdout)
                 self.assertEqual(stderr, '')
         finally:
-            # Keep the resolver blocked until the child exits (or is killed).
+            # Close every pipe, including when the watchdog kills the child.
             for fd in (started_read, started_write,
-                       release_read, release_write):
+                       release_read, release_write,
+                       closed_read, closed_write):
                 os.close(fd)
 
     def test_uvloop_close_during_getaddrinfo(self):
@@ -405,3 +445,9 @@ class TestDNSClose(unittest.TestCase):
 
     def test_asyncio_close_during_getaddrinfo(self):
         self.check_close('asyncio')
+
+    def test_uvloop_close_during_getnameinfo(self):
+        self.check_close('uvloop', reverse=True)
+
+    def test_asyncio_close_during_getnameinfo(self):
+        self.check_close('asyncio', reverse=True)

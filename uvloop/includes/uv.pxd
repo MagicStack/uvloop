@@ -165,10 +165,13 @@ cdef extern from "uv.h" nogil:
 
     ctypedef struct uv_getaddrinfo_t:
         void* data
+        system.addrinfo* addrinfo
         # ...
 
     ctypedef struct uv_getnameinfo_t:
         void* data
+        char host[]
+        char service[]
         # ...
 
     ctypedef struct uv_write_t:
