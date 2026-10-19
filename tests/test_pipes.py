@@ -271,6 +271,87 @@ class _BasePipeTest:
         self.loop.run_until_complete(asyncio.wait_for(proto.done, 1))
         self.assertEqual('CLOSED', proto.state)
 
+    def _assert_pipe_close_does_not_steal_fd(self, connect, make_pipeobj,
+                                             close_other_end):
+        # Regression test for https://github.com/MagicStack/uvloop/issues/763
+        # libuv closes the fd given to it; the Python file object must not
+        # close that same fd again (it may have been reused).
+        stolen = []
+        probed = []
+
+        class FileIOWithProbe(io.FileIO):
+            def close(self):
+                try:
+                    fd = super().fileno()
+                except (ValueError, OSError):
+                    super().close()
+                    return
+                try:
+                    os.fstat(fd)
+                    already_closed = False
+                except OSError:
+                    already_closed = True
+                probed.append('closed' if already_closed else 'open')
+                new_r, new_w = os.pipe()
+                try:
+                    super().close()
+                finally:
+                    for nfd in (new_r, new_w):
+                        try:
+                            os.fstat(nfd)
+                        except OSError:
+                            stolen.append(nfd)
+                        else:
+                            os.close(nfd)
+                    if already_closed:
+                        stolen.append(fd)
+
+        async def main():
+            pipe_read_fd, pipe_write_fd = os.pipe()
+            lost = self.loop.create_future()
+
+            class Proto(asyncio.Protocol):
+                def connection_lost(self, exc):
+                    if not lost.done():
+                        lost.set_result(None)
+
+            pipeobj = make_pipeobj(FileIOWithProbe, pipe_read_fd,
+                                   pipe_write_fd)
+            transport, _ = await connect(Proto, pipeobj)
+            transport.close()
+            await lost
+            close_other_end(pipe_read_fd, pipe_write_fd)
+
+        self.loop.run_until_complete(main())
+        self.assertIn('open', probed)
+        self.assertEqual(stolen, [])
+
+    def test_read_pipe_close_does_not_steal_fd(self):
+        def make_pipeobj(fileio_cls, read_fd, write_fd):
+            return io.BufferedReader(fileio_cls(read_fd, 'rb'))
+
+        async def connect(proto_factory, pipeobj):
+            return await self.loop.connect_read_pipe(proto_factory, pipeobj)
+
+        def close_other_end(read_fd, write_fd):
+            os.close(write_fd)
+
+        self._assert_pipe_close_does_not_steal_fd(
+            connect, make_pipeobj, close_other_end)
+
+    def test_write_pipe_close_does_not_steal_fd(self):
+        def make_pipeobj(fileio_cls, read_fd, write_fd):
+            return io.BufferedWriter(fileio_cls(write_fd, 'wb'))
+
+        async def connect(proto_factory, pipeobj):
+            return await self.loop.connect_write_pipe(proto_factory, pipeobj)
+
+        def close_other_end(read_fd, write_fd):
+            os.close(read_fd)
+
+        self._assert_pipe_close_does_not_steal_fd(
+            connect, make_pipeobj, close_other_end)
+
 
 class Test_UV_Pipes(_BasePipeTest, tb.UVTestCase):
     pass
