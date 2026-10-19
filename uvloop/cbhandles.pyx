@@ -416,10 +416,23 @@ cdef new_MethodHandle3(Loop loop, str name, method3_t callback, object context,
     return handle
 
 
+class _ExtractStackDisabled(threading_local):
+    # Per-thread: True while handles are created from the asyncgen finalizer
+    # hook, which a dealloc can invoke while CPython is mid-way through
+    # clearing the current frame; sys._getframe() would then dereference the
+    # half-cleared frame and crash the interpreter.
+    flag = False
+
+
+_extract_stack_disabled = _ExtractStackDisabled()
+
+
 cdef extract_stack():
     """Replacement for traceback.extract_stack() that only does the
     necessary work for asyncio debug mode.
     """
+    if _extract_stack_disabled.flag:
+        return None
     try:
         f = sys_getframe()
     # sys._getframe() might raise ValueError if being called without a frame, e.g.
@@ -433,6 +446,10 @@ cdef extract_stack():
         stack = tb_StackSummary.extract(tb_walk_stack(f),
                                         limit=DEBUG_STACK_DEPTH,
                                         lookup_lines=False)
+    except (AttributeError, ValueError, TypeError):
+        # walk_stack can encounter non-frame objects, e.g. py3.14 surfaces
+        # _asyncio.TaskStepMethWrapper, which has no f_back (#715).
+        return None
     finally:
         f = None
 
