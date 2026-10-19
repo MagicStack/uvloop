@@ -371,6 +371,10 @@ class TestDNSClose(unittest.TestCase):
         loop.close()
         print('CLOSE_RETURN', flush=True)
         os.write(int(sys.argv[3]), b'C')
+        if sys.argv[1] == 'asyncio' and sys.version_info < (3, 10):
+            # Python 3.9's executor bridge delivers to closed loops. This
+            # control checks close() only; uvloop always checks completion.
+            os._exit(0)
         # The parent releases DNS only after close() returns. Wait for the
         # worker and its completion callback to catch late-delivery errors.
         executor.shutdown(wait=True)
@@ -449,5 +453,8 @@ class TestDNSClose(unittest.TestCase):
     def test_uvloop_close_during_getnameinfo(self):
         self.check_close('uvloop', reverse=True)
 
+    @unittest.skipIf(
+        sys.version_info < (3, 11),
+        'stdlib getnameinfo holds the GIL before Python 3.11')
     def test_asyncio_close_during_getnameinfo(self):
         self.check_close('asyncio', reverse=True)

@@ -330,6 +330,47 @@ cdef class AddrInfo:
         return type(other) is AddrInfo
 
 
+cdef _submit_dns_work(Loop loop, worker, tuple args):
+    loop._check_closed()
+    loop._check_default_executor()
+    executor = loop._default_executor
+    if executor is None:
+        executor = cc_ThreadPoolExecutor(thread_name_prefix='uvloop')
+        loop._default_executor = executor
+
+    future = loop._new_future()
+    source = executor.submit(worker, *args)
+
+    def deliver_result(source):
+        if future.done():
+            return
+        if source.cancelled():
+            future.cancel()
+        else:
+            error = source.exception()
+            if error is not None:
+                future.set_exception(error)
+            else:
+                future.set_result(source.result())
+
+    def on_done(source):
+        # Python 3.9's asyncio.wrap_future does not check for a closed loop
+        # before delivering an uncancelled executor future. DNS must tolerate
+        # completion after close() on every supported Python version.
+        with loop._dns_delivery_lock:
+            if loop.is_closed() or future.cancelled():
+                return
+            loop.call_soon_threadsafe(deliver_result, source)
+
+    def on_cancel(future):
+        if future.cancelled():
+            source.cancel()
+
+    future.add_done_callback(on_cancel)
+    source.add_done_callback(on_done)
+    return future
+
+
 def _getaddrinfo_worker(bytes host, bytes port, int family, int type,
                          int proto, int flags, int unpack):
     cdef:

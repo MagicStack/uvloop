@@ -172,6 +172,7 @@ cdef class Loop:
         self._task_factory = None
         self._exception_handler = None
         self._default_executor = None
+        self._dns_delivery_lock = threading_RLock()
 
         self._queued_streams = set()
         self._executing_streams = set()
@@ -558,7 +559,10 @@ cdef class Loop:
         if self._closed == 1:
             return
 
-        self._closed = 1
+        # A DNS worker must finish scheduling its result before handle
+        # cleanup starts. The lock never covers the blocking resolver call.
+        with self._dns_delivery_lock:
+            self._closed = 1
 
         for cb_handle in self._ready:
             cb_handle.cancel()
@@ -900,9 +904,9 @@ cdef class Loop:
             if not isinstance(host, bytes):
                 raise TypeError('host must be a str or bytes')
 
-        return self.run_in_executor(
-            None, _getaddrinfo_worker, host, port,
-            family, type, proto, flags, unpack)
+        return _submit_dns_work(
+            self, _getaddrinfo_worker,
+            (host, port, family, type, proto, flags, unpack))
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags):
         # The caller's AddrInfo can die while the worker is still running.
@@ -915,7 +919,7 @@ cdef class Loop:
         else:
             raise convert_error(uv.UV_EINVAL)
         memcpy(&holder.addr, addr, holder.addr_size)
-        return self.run_in_executor(None, _getnameinfo_worker, holder, flags)
+        return _submit_dns_work(self, _getnameinfo_worker, (holder, flags))
 
     cdef _sock_recv(self, fut, sock, n):
         if UVLOOP_DEBUG:
