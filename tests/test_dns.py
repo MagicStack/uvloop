@@ -1,5 +1,12 @@
 import asyncio
+import os
+import pathlib
+import shutil
 import socket
+import subprocess
+import sys
+import tempfile
+import textwrap
 import unittest
 
 from uvloop import _testbase as tb
@@ -266,3 +273,135 @@ class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
 class Test_AIO_DNS(BaseTestDNS, tb.AIOTestCase):
     pass
+
+
+@unittest.skipUnless(sys.platform == 'linux', 'requires LD_PRELOAD')
+class TestDNSClose(unittest.TestCase):
+    # Regression for MagicStack/uvloop#777.
+    # Block only our test hostname, without consulting the network. The worker
+    # signals that it has started, then waits until the parent releases it.
+    SHIM = r"""
+        #define _GNU_SOURCE
+        #include <dlfcn.h>
+        #include <errno.h>
+        #include <netdb.h>
+        #include <stdlib.h>
+        #include <string.h>
+        #include <unistd.h>
+
+        int getaddrinfo(const char *node, const char *service,
+                        const struct addrinfo *hints, struct addrinfo **res) {
+            if (node && strcmp(node, "uvloop-close-test.invalid") == 0) {
+                int started = atoi(getenv("DNS_STARTED_FD"));
+                int release = atoi(getenv("DNS_RELEASE_FD"));
+                char byte;
+                ssize_t n;
+                do {
+                    n = write(started, "S", 1);
+                } while (n < 0 && errno == EINTR);
+                if (n != 1)
+                    _exit(90);
+                do {
+                    n = read(release, &byte, 1);
+                } while (n < 0 && errno == EINTR);
+                return EAI_NONAME;
+            }
+            int (*real_getaddrinfo)(const char *, const char *,
+                                    const struct addrinfo *,
+                                    struct addrinfo **) =
+                dlsym(RTLD_NEXT, "getaddrinfo");
+            return real_getaddrinfo(node, service, hints, res);
+        }
+    """
+
+    CHILD = """
+        import asyncio
+        import os
+        import sys
+
+        if sys.argv[1] == 'uvloop':
+            import uvloop
+            loop = uvloop.new_event_loop()
+        else:
+            loop = asyncio.new_event_loop()
+
+        started = int(sys.argv[2])
+        os.set_blocking(started, False)
+
+        async def wait_for_dns():
+            while True:
+                try:
+                    byte = os.read(started, 1)
+                    if byte != b'S':
+                        raise RuntimeError('DNS worker handshake failed')
+                    return
+                except BlockingIOError:
+                    await asyncio.sleep(0.01)
+
+        task = loop.create_task(
+            loop.getaddrinfo('uvloop-close-test.invalid', 443))
+        loop.run_until_complete(asyncio.wait_for(wait_for_dns(), 5))
+        assert not task.done()
+        print('CLOSE_ENTER', flush=True)
+        loop.close()
+        print('CLOSE_RETURN', flush=True)
+        # Isolate loop.close() from interpreter shutdown, which can wait for
+        # asyncio's executor even though loop.close() has already returned.
+        os._exit(0)
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cc = shutil.which('cc')
+        if cc is None:
+            raise unittest.SkipTest('C compiler required for DNS shim')
+        tmp = tempfile.TemporaryDirectory(prefix='uvloop-dns-close-')
+        cls.addClassCleanup(tmp.cleanup)
+        source = pathlib.Path(tmp.name) / 'dns.c'
+        cls.shim = pathlib.Path(tmp.name) / 'dns.so'
+        source.write_text(textwrap.dedent(cls.SHIM))
+        subprocess.run(
+            [cc, '-shared', '-fPIC', '-Wall', '-Werror', str(source),
+             '-o', str(cls.shim), '-ldl'],
+            check=True, capture_output=True, text=True, timeout=30)
+
+    def check_close(self, implementation):
+        started_read, started_write = os.pipe()
+        release_read, release_write = os.pipe()
+        try:
+            env = dict(os.environ,
+                       DNS_STARTED_FD=str(started_write),
+                       DNS_RELEASE_FD=str(release_read))
+            env['LD_PRELOAD'] = str(self.shim)
+            with subprocess.Popen(
+                [sys.executable, '-c', textwrap.dedent(self.CHILD),
+                 implementation, str(started_read)],
+                env=env,
+                pass_fds=(started_read, started_write, release_read),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ) as proc:
+                try:
+                    stdout, stderr = proc.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    stdout, stderr = proc.communicate()
+                    self.assertIn('CLOSE_ENTER', stdout, (stdout, stderr))
+                    self.fail(
+                        'loop.close() blocked on an executing getaddrinfo '
+                        f'request ({implementation})\n{stdout}{stderr}')
+                self.assertEqual(proc.returncode, 0, (stdout, stderr))
+                self.assertIn('CLOSE_RETURN', stdout)
+                self.assertEqual(stderr, '')
+        finally:
+            # Keep the resolver blocked until the child exits (or is killed).
+            for fd in (started_read, started_write,
+                       release_read, release_write):
+                os.close(fd)
+
+    def test_uvloop_close_during_getaddrinfo(self):
+        self.check_close('uvloop')
+
+    def test_asyncio_close_during_getaddrinfo(self):
+        self.check_close('asyncio')
