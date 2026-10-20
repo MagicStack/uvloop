@@ -435,6 +435,7 @@ print("OK")
 
         self.loop.run_until_complete(main())
 
+    @tb.silence_long_exec_warning()
     def test_process_streams_redirect(self):
         async def test():
             prog = bR'''
