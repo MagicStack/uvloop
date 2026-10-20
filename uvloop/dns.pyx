@@ -330,110 +330,117 @@ cdef class AddrInfo:
         return type(other) is AddrInfo
 
 
-cdef _submit_dns_work(Loop loop, worker, tuple args):
-    loop._check_closed()
-    loop._check_default_executor()
-    executor = loop._default_executor
-    if executor is None:
-        executor = cc_ThreadPoolExecutor(thread_name_prefix='uvloop')
-        loop._default_executor = executor
-
-    future = loop._new_future()
-    source = executor.submit(worker, *args)
-
-    def deliver_result(source):
-        if future.done():
-            return
-        if source.cancelled():
-            future.cancel()
-        else:
-            error = source.exception()
-            if error is not None:
-                future.set_exception(error)
-            else:
-                future.set_result(source.result())
-
-    def on_done(source):
-        # Python 3.9's asyncio.wrap_future does not check for a closed loop
-        # before delivering an uncancelled executor future. DNS must tolerate
-        # completion after close() on every supported Python version.
-        with loop._dns_delivery_lock:
-            if loop.is_closed() or future.cancelled():
-                return
-            loop.call_soon_threadsafe(deliver_result, source)
-
-    def on_cancel(future):
-        if future.cancelled():
-            source.cancel()
-
-    future.add_done_callback(on_cancel)
-    source.add_done_callback(on_done)
-    return future
+cdef void _dns_request_start(Loop loop, DNSRequestLink *link,
+                             uv.uv_req_t *request) noexcept:
+    # Intrusive links avoid Python allocations and ownership cycles on the
+    # normal resolver path. Each UVRequest already retains itself until done.
+    link.request = request
+    link.prev = NULL
+    link.next = loop._dns_requests
+    if link.next is not NULL:
+        link.next.prev = link
+    loop._dns_requests = link
 
 
-def _getaddrinfo_worker(bytes host, bytes port, int family, int type,
-                         int proto, int flags, int unpack):
+cdef void _dns_request_done(Loop loop, DNSRequestLink *link) noexcept:
+    if link.prev is NULL:
+        loop._dns_requests = link.next
+    else:
+        link.prev.next = link.next
+    if link.next is not NULL:
+        link.next.prev = link.prev
+    link.prev = link.next = NULL
+
+
+cdef class AddrInfoRequest(UVRequest):
     cdef:
-        uv.uv_getaddrinfo_t request
         system.addrinfo hints
-        const char *chost = NULL
-        const char *cport = NULL
-        int err
-        AddrInfo result = AddrInfo()
+        object callback
+        uv.uv_getaddrinfo_t _req_data
+        DNSRequestLink _link
 
-    if host is not None:
-        if host == b'' and sys.platform == 'darwin':
-            host = b'localhost'
-        chost = host
-    if port is not None:
-        cport = port
+    def __cinit__(self, Loop loop,
+                  bytes host, bytes port,
+                  int family, int type, int proto, int flags,
+                  object callback):
 
-    memset(&hints, 0, sizeof(hints))
-    hints.ai_flags = flags
-    hints.ai_family = family
-    hints.ai_socktype = type
-    hints.ai_protocol = proto
+        cdef:
+            int err
+            char *chost
+            char *cport
 
-    # Synchronous libuv resolution owns no request on the event loop. The
-    # executor keeps this stack and the input bytes alive until it completes.
-    with nogil:
-        err = uv.uv_getaddrinfo(NULL, &request, NULL, chost, cport, &hints)
-    if err < 0:
-        if err == uv.UV_EINVAL:
-            msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
-            raise socket_gaierror(socket_EAI_NONAME, msg)
-        raise convert_error(err)
+        if host is None:
+            chost = NULL
+        elif host == b'' and sys.platform == 'darwin':
+            # It seems `getaddrinfo("", ...)` on macOS is equivalent to
+            # `getaddrinfo("localhost", ...)`. This is inconsistent with
+            # libuv 1.48 which treats empty nodename as EINVAL.
+            chost = <char*>'localhost'
+        else:
+            chost = <char*>host
 
-    result.set_data(request.addrinfo)
-    if unpack:
-        return result.unpack()
-    return result
+        if port is None:
+            cport = NULL
+        else:
+            cport = <char*>port
+
+        memset(&self.hints, 0, sizeof(system.addrinfo))
+        self.hints.ai_flags = flags
+        self.hints.ai_family = family
+        self.hints.ai_socktype = type
+        self.hints.ai_protocol = proto
+
+        self.request = <uv.uv_req_t*> &self._req_data
+        self.callback = callback
+        self.request.data = <void*>self
+
+        _dns_request_start(loop, &self._link, self.request)
+        err = uv.uv_getaddrinfo(loop.uvloop,
+                                <uv.uv_getaddrinfo_t*>self.request,
+                                __on_addrinfo_resolved,
+                                chost,
+                                cport,
+                                &self.hints)
+
+        if err < 0:
+            _dns_request_done(self.loop, &self._link)
+            self.on_done()
+            try:
+                if err == uv.UV_EINVAL:
+                    # Convert UV_EINVAL to EAI_NONAME to match libc behavior
+                    msg = system.gai_strerror(socket_EAI_NONAME).decode('utf-8')
+                    ex = socket_gaierror(socket_EAI_NONAME, msg)
+                else:
+                    ex = convert_error(err)
+            except Exception as ex:
+                callback(ex)
+            else:
+                callback(ex)
 
 
-def _getnameinfo_worker(SockAddrHolder holder, int flags):
+cdef class NameInfoRequest(UVRequest):
     cdef:
-        uv.uv_loop_t resolver_loop
-        uv.uv_getnameinfo_t request
-        int err
-        int close_err
+        object callback
+        uv.uv_getnameinfo_t _req_data
+        DNSRequestLink _link
 
-    # Unlike uv_getaddrinfo, libuv's synchronous uv_getnameinfo still
-    # registers its request on a loop. Use a worker-owned loop so it never
-    # touches the application loop, even when that loop has been closed.
-    with nogil:
-        err = uv.uv_loop_init(&resolver_loop)
-    if err < 0:
-        raise convert_error(err)
-    with nogil:
-        err = uv.uv_getnameinfo(
-            &resolver_loop, &request, NULL,
-            <system.sockaddr*>&holder.addr, flags)
-        close_err = uv.uv_loop_close(&resolver_loop)
-    if err < 0:
-        raise convert_error(err)
-    if close_err < 0:
-        raise convert_error(close_err)
-    return ((<bytes>request.host).decode(), (<bytes>request.service).decode())
+    def __cinit__(self, Loop loop, callback):
+        self.request = <uv.uv_req_t*> &self._req_data
+        self.callback = callback
+        self.request.data = <void*>self
+
+    cdef query(self, system.sockaddr *addr, int flags):
+        cdef int err
+        _dns_request_start(self.loop, &self._link, self.request)
+        err = uv.uv_getnameinfo(self.loop.uvloop,
+                                <uv.uv_getnameinfo_t*>self.request,
+                                __on_nameinfo_resolved,
+                                addr,
+                                flags)
+        if err < 0:
+            _dns_request_done(self.loop, &self._link)
+            self.on_done()
+            self.callback(convert_error(err))
 
 
 cdef _intenum_converter(value, enum_klass):
@@ -441,3 +448,67 @@ cdef _intenum_converter(value, enum_klass):
         return enum_klass(value)
     except ValueError:
         return value
+
+
+cdef void __on_addrinfo_resolved(
+    uv.uv_getaddrinfo_t *resolver,
+    int status,
+    system.addrinfo *res,
+) noexcept with gil:
+
+    if resolver.data is NULL:
+        aio_logger.error(
+            'AddrInfoRequest callback called with NULL resolver.data')
+        return
+
+    cdef:
+        AddrInfoRequest request = <AddrInfoRequest> resolver.data
+        Loop loop = request.loop
+        object callback = request.callback
+        AddrInfo ai
+
+    try:
+        if loop._closed:
+            uv.uv_freeaddrinfo(res)
+            return
+        if status < 0:
+            callback(convert_error(status))
+        else:
+            ai = AddrInfo()
+            ai.set_data(res)
+            callback(ai)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as ex:
+        loop._handle_exception(ex)
+    finally:
+        _dns_request_done(loop, &request._link)
+        request.on_done()
+
+
+cdef void __on_nameinfo_resolved(
+    uv.uv_getnameinfo_t* req,
+    int status,
+    const char* hostname,
+    const char* service,
+) noexcept with gil:
+    cdef:
+        NameInfoRequest request = <NameInfoRequest> req.data
+        Loop loop = request.loop
+        object callback = request.callback
+
+    try:
+        if loop._closed:
+            return
+        if status < 0:
+            callback(convert_error(status))
+        else:
+            callback(((<bytes>hostname).decode(),
+                      (<bytes>service).decode()))
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as ex:
+        loop._handle_exception(ex)
+    finally:
+        _dns_request_done(loop, &request._link)
+        request.on_done()

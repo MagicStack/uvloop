@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import os
 import pathlib
 import select
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import unittest
 
 from uvloop import _testbase as tb
@@ -249,6 +251,29 @@ class BaseTestDNS:
 
 class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
 
+    def test_getaddrinfo_with_busy_default_executor(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def application_work():
+            started.set()
+            release.wait(10)
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self.loop.set_default_executor(executor)
+        work = executor.submit(application_work)
+        try:
+            self.assertTrue(started.wait(5))
+            result = self.loop.run_until_complete(asyncio.wait_for(
+                self.loop.getaddrinfo('localhost', 443,
+                                      family=socket.AF_INET,
+                                      type=socket.SOCK_STREAM), 5))
+            self.assertTrue(result)
+            self.assertFalse(work.done())
+        finally:
+            release.set()
+            executor.shutdown(wait=True)
+
     def test_getaddrinfo_close_loop(self):
         # Test that we can close the loop with a running
         # DNS query.
@@ -290,16 +315,23 @@ class TestDNSClose(unittest.TestCase):
         #include <string.h>
         #include <unistd.h>
 
-        static void wait_for_release(void) {
+        static struct addrinfo *completed_result;
+
+        static void notify(char byte) {
             int started = atoi(getenv("DNS_STARTED_FD"));
-            int release = atoi(getenv("DNS_RELEASE_FD"));
-            char byte;
             ssize_t n;
             do {
-                n = write(started, "S", 1);
+                n = write(started, &byte, 1);
             } while (n < 0 && errno == EINTR);
             if (n != 1)
                 _exit(90);
+        }
+
+        static void wait_for_release(void) {
+            int release = atoi(getenv("DNS_RELEASE_FD"));
+            char byte;
+            ssize_t n;
+            notify('S');
             do {
                 n = read(release, &byte, 1);
             } while (n < 0 && errno == EINTR);
@@ -308,36 +340,56 @@ class TestDNSClose(unittest.TestCase):
         int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
                         char *host, socklen_t hostlen,
                         char *service, socklen_t servicelen, int flags) {
-            if (getenv("DNS_BLOCK_REVERSE")) {
-                wait_for_release();
-                return EAI_NONAME;
-            }
             int (*real_getnameinfo)(const struct sockaddr *, socklen_t,
                                    char *, socklen_t, char *, socklen_t, int) =
                 dlsym(RTLD_NEXT, "getnameinfo");
+            if (getenv("DNS_BLOCK_REVERSE")) {
+                wait_for_release();
+                if (!getenv("DNS_SUCCESS"))
+                    return EAI_NONAME;
+            }
             return real_getnameinfo(addr, addrlen, host, hostlen,
                                     service, servicelen, flags);
         }
 
         int getaddrinfo(const char *node, const char *service,
                         const struct addrinfo *hints, struct addrinfo **res) {
-            if (node && strcmp(node, "uvloop-close-test.invalid") == 0) {
-                wait_for_release();
-                return EAI_NONAME;
-            }
             int (*real_getaddrinfo)(const char *, const char *,
                                     const struct addrinfo *,
                                     struct addrinfo **) =
                 dlsym(RTLD_NEXT, "getaddrinfo");
+            if (node && strcmp(node, "uvloop-close-test.invalid") == 0) {
+                wait_for_release();
+                if (getenv("DNS_SUCCESS")) {
+                    int err = real_getaddrinfo("127.0.0.1", service,
+                                               hints, res);
+                    if (err == 0)
+                        completed_result = *res;
+                    return err;
+                }
+                return EAI_NONAME;
+            }
             return real_getaddrinfo(node, service, hints, res);
+        }
+
+        void freeaddrinfo(struct addrinfo *res) {
+            void (*real_freeaddrinfo)(struct addrinfo *) =
+                dlsym(RTLD_NEXT, "freeaddrinfo");
+            if (res && res == completed_result) {
+                completed_result = NULL;
+                notify('F');
+            }
+            real_freeaddrinfo(res);
         }
     """
 
     CHILD = """
         import asyncio
         import concurrent.futures
+        import gc
         import os
         import sys
+        import weakref
 
         if sys.argv[1] == 'uvloop':
             import uvloop
@@ -350,26 +402,63 @@ class TestDNSClose(unittest.TestCase):
         started = int(sys.argv[2])
         os.set_blocking(started, False)
 
+        expected_started = int(os.environ.get('DNS_STARTED_COUNT', '1'))
+        drop_loop = bool(os.environ.get('DNS_DROP_LOOP'))
+
         async def wait_for_dns():
+            count = 0
             while True:
                 try:
                     byte = os.read(started, 1)
                     if byte != b'S':
                         raise RuntimeError('DNS worker handshake failed')
-                    return
+                    count += 1
+                    if count == expected_started:
+                        return
                 except BlockingIOError:
                     await asyncio.sleep(0.01)
 
-        if sys.argv[4] == 'reverse':
-            query = loop.getnameinfo(('127.0.0.1', 443))
-        else:
-            query = loop.getaddrinfo('uvloop-close-test.invalid', 443)
-        task = loop.create_task(query)
+        def query():
+            if sys.argv[4] == 'reverse':
+                return loop.getnameinfo(('127.0.0.1', 443))
+            return loop.getaddrinfo('uvloop-close-test.invalid', 443)
+
+        tasks = [loop.create_task(query())
+                 for _ in range(int(os.environ.get('DNS_REQUESTS', '1')))]
         loop.run_until_complete(asyncio.wait_for(wait_for_dns(), 5))
-        assert not task.done()
+        assert all(not task.done() for task in tasks)
+        if drop_loop:
+            for task in tasks:
+                task.cancel()
+            loop.run_until_complete(asyncio.gather(
+                *tasks, return_exceptions=True))
+            del task
+        if int(os.environ.get('DNS_REQUESTS', '1')) > expected_started:
+            # Both libuv DNS workers are blocked. A second loop's DNS is
+            # therefore entirely queued, and should close without a thread.
+            other = uvloop.new_event_loop()
+            queued = other.create_task(other.getaddrinfo(
+                'uvloop-close-test.invalid', 443))
+            other.run_until_complete(asyncio.sleep(0))
+            queued.cancel()
+            other.run_until_complete(asyncio.gather(
+                queued, return_exceptions=True))
+            other.close()
+            assert other._closed_loop_thread is None
         print('CLOSE_ENTER', flush=True)
         loop.close()
+        loop.close()  # Idempotent even while native cleanup is pending.
+        timestamp = loop.time()
+        assert loop.time() >= timestamp
         print('CLOSE_RETURN', flush=True)
+        cleanup = (loop._closed_loop_thread
+                   if sys.argv[1] == 'uvloop' else None)
+        if drop_loop:
+            ref = weakref.ref(loop)
+            tasks.clear()
+            del loop
+            gc.collect()
+            assert ref() is not None, 'native work lost its loop owner'
         os.write(int(sys.argv[3]), b'C')
         if sys.argv[1] == 'asyncio' and sys.version_info < (3, 10):
             # Python 3.9's executor bridge delivers to closed loops. This
@@ -378,6 +467,23 @@ class TestDNSClose(unittest.TestCase):
         # The parent releases DNS only after close() returns. Wait for the
         # worker and its completion callback to catch late-delivery errors.
         executor.shutdown(wait=True)
+        if sys.argv[1] == 'uvloop':
+            if cleanup is not None:
+                cleanup.join(5)
+                assert not cleanup.is_alive(), 'native cleanup did not finish'
+            if drop_loop:
+                gc.collect()
+                assert ref() is None, 'closed loop leaked after native cleanup'
+            if os.environ.get('DNS_SUCCESS') and sys.argv[4] != 'reverse':
+                assert os.read(started, 1) == b'F', 'DNS result was not freed'
+            if int(os.environ.get('DNS_REQUESTS', '1')) > expected_started:
+                try:
+                    os.read(started, 1)
+                except BlockingIOError:
+                    pass
+                else:
+                    raise AssertionError('queued DNS work was not cancelled')
+            print('CLEANUP_RETURN', flush=True)
         # Avoid pending-task diagnostics during interpreter shutdown.
         os._exit(0)
     """
@@ -397,7 +503,8 @@ class TestDNSClose(unittest.TestCase):
              '-o', str(cls.shim), '-ldl'],
             check=True, capture_output=True, text=True, timeout=30)
 
-    def check_close(self, implementation, reverse=False):
+    def check_close(self, implementation, reverse=False, *,
+                    success=False, queued=False, drop_loop=False):
         started_read, started_write = os.pipe()
         release_read, release_write = os.pipe()
         closed_read, closed_write = os.pipe()
@@ -407,6 +514,15 @@ class TestDNSClose(unittest.TestCase):
                        DNS_RELEASE_FD=str(release_read))
             env['LD_PRELOAD'] = str(self.shim)
             env.pop('DNS_BLOCK_REVERSE', None)
+            env.pop('DNS_SUCCESS', None)
+            env.pop('DNS_DROP_LOOP', None)
+            env['UV_THREADPOOL_SIZE'] = '4'
+            env['DNS_REQUESTS'] = '3' if queued else '1'
+            env['DNS_STARTED_COUNT'] = '2' if queued else '1'
+            if success:
+                env['DNS_SUCCESS'] = '1'
+            if drop_loop:
+                env['DNS_DROP_LOOP'] = '1'
             if reverse:
                 env['DNS_BLOCK_REVERSE'] = '1'
             with subprocess.Popen(
@@ -425,7 +541,7 @@ class TestDNSClose(unittest.TestCase):
                     if not ready:
                         raise subprocess.TimeoutExpired(proc.args, 10)
                     self.assertEqual(os.read(closed_read, 1), b'C')
-                    os.write(release_write, b'R')
+                    os.write(release_write, b'RR' if queued else b'R')
                     stdout, stderr = proc.communicate(timeout=10)
                 except subprocess.TimeoutExpired:
                     proc.kill()
@@ -436,6 +552,8 @@ class TestDNSClose(unittest.TestCase):
                         f'request ({implementation})\n{stdout}{stderr}')
                 self.assertEqual(proc.returncode, 0, (stdout, stderr))
                 self.assertIn('CLOSE_RETURN', stdout)
+                if implementation == 'uvloop':
+                    self.assertIn('CLEANUP_RETURN', stdout)
                 self.assertEqual(stderr, '')
         finally:
             # Close every pipe, including when the watchdog kills the child.
@@ -458,3 +576,18 @@ class TestDNSClose(unittest.TestCase):
         'stdlib getnameinfo holds the GIL before Python 3.11')
     def test_asyncio_close_during_getnameinfo(self):
         self.check_close('asyncio', reverse=True)
+
+    def test_uvloop_close_before_successful_getaddrinfo(self):
+        self.check_close('uvloop', success=True)
+
+    def test_uvloop_close_before_successful_getnameinfo(self):
+        self.check_close('uvloop', reverse=True, success=True)
+
+    def test_uvloop_close_cancels_queued_dns(self):
+        self.check_close('uvloop', queued=True)
+
+    def test_uvloop_close_retains_loop_until_dns_finishes(self):
+        self.check_close('uvloop', drop_loop=True)
+
+    def test_uvloop_close_retains_loop_until_reverse_dns_finishes(self):
+        self.check_close('uvloop', reverse=True, drop_loop=True)

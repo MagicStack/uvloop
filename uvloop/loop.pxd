@@ -29,9 +29,18 @@ ctypedef object (*method2_t)(object, object, object)
 ctypedef object (*method3_t)(object, object, object, object)
 
 
+cdef struct DNSRequestLink:
+    uv.uv_req_t *request
+    DNSRequestLink *prev
+    DNSRequestLink *next
+
+
 cdef class Loop:
     cdef:
         uv.uv_loop_t *uvloop
+        bint _uvloop_closed
+        DNSRequestLink *_dns_requests
+        readonly object _closed_loop_thread
 
         bint _coroutine_debug_set
         int _coroutine_origin_tracking_saved_depth
@@ -48,7 +57,6 @@ cdef class Loop:
         object _task_factory
         object _exception_handler
         object _default_executor
-        object _dns_delivery_lock
         object _ready
         set _queued_streams, _executing_streams
 

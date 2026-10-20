@@ -165,13 +165,10 @@ cdef extern from "uv.h" nogil:
 
     ctypedef struct uv_getaddrinfo_t:
         void* data
-        system.addrinfo* addrinfo
         # ...
 
     ctypedef struct uv_getnameinfo_t:
         void* data
-        char host[]
-        char service[]
         # ...
 
     ctypedef struct uv_write_t:
@@ -291,6 +288,7 @@ cdef extern from "uv.h" nogil:
     uint64_t uv_now(const uv_loop_t*)
 
     int uv_run(uv_loop_t*, uv_run_mode mode) nogil
+    uint64_t uv_hrtime()
     void uv_stop(uv_loop_t*)
 
     # Idle handler
