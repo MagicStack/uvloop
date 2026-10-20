@@ -1,7 +1,9 @@
 @cython.no_gc_clear
 cdef class UVPoll(UVHandle):
     cdef _init(self, Loop loop, int fd):
-        cdef int err
+        cdef:
+            int err
+            bint was_blocking = os_get_blocking(fd)
 
         self._start_init(loop)
 
@@ -17,6 +19,13 @@ cdef class UVPoll(UVHandle):
             raise convert_error(err)
 
         self._finish_init()
+
+        if was_blocking:
+            try:
+                os_set_blocking(fd, True)
+            except BaseException:
+                self._close()
+                raise
 
         self.fd = fd
         self.reading_handle = None
