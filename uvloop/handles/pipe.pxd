@@ -25,6 +25,8 @@ cdef class ReadUnixTransport(UVStream):
     cdef ReadUnixTransport new(Loop loop, object protocol, Server server,
                                object waiter)
 
+    cpdef write(self, data)
+
 
 cdef class WriteUnixTransport(UVStream):
 
