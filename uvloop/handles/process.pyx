@@ -47,10 +47,7 @@ cdef class UVProcess(UVHandle):
         self._handle.data = NULL
 
         force_fork = False
-        if system.PLATFORM_IS_APPLE and not (
-            preexec_fn is None
-            and not pass_fds
-        ):
+        if preexec_fn is not None or pass_fds:
             # see _execute_child() in CPython/subprocess.py
             force_fork = True
 
@@ -255,15 +252,16 @@ cdef class UVProcess(UVHandle):
             self.options.flags |= uv.UV_PROCESS_DETACHED
 
         if force_fork:
-            # This is a hack to work around the change in libuv 1.44:
-            #    > macos: use posix_spawn instead of fork
+            # This is a hack to work around the change in libuv:
+            #    1.44 > macos: use posix_spawn instead of fork
+            #    1.53 > unix: use posix_spawn instead of fork
             # where Python subprocess options like preexec_fn are
             # crippled. CPython only uses posix_spawn under a pretty
             # strict list of conditions (see subprocess.py), and falls
             # back to using fork() otherwise. We'd like to simulate such
             # behavior with libuv, but unfortunately libuv doesn't
             # provide explicit API to choose such implementation detail.
-            # Based on current (libuv 1.46) behavior, setting
+            # Based on current (libuv 1.53) behavior, setting
             # UV_PROCESS_SETUID or UV_PROCESS_SETGID would reliably make
             # libuv fallback to use fork, so let's just use it for now.
             self.options.flags |= uv.UV_PROCESS_SETUID
