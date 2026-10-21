@@ -174,12 +174,12 @@ cdef class UVBaseTransport(UVSocketHandle):
 
             server = self._server
             if server is not None:
-                (<Server>server)._detach()
+                (<Server>server)._detach(self)
                 self._server = None
 
     cdef inline _set_server(self, Server server):
         self._server = server
-        (<Server>server)._attach()
+        (<Server>server)._attach(self)
 
     cdef inline _set_waiter(self, object waiter):
         if waiter is not None and not isfuture(waiter):

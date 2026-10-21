@@ -7,6 +7,7 @@ cdef class Server:
         self._servers = []
         self._waiters = []
         self._active_count = 0
+        self._clients = weakref_WeakSet()
         self._serving_forever_fut = None
 
     cdef _add_server(self, UVStreamServer srv):
@@ -29,13 +30,15 @@ cdef class Server:
             if not waiter.done():
                 waiter.set_result(waiter)
 
-    cdef _attach(self):
+    cdef _attach(self, UVBaseTransport transport):
         assert self._servers is not None
         self._active_count += 1
+        self._clients.add(transport)
 
-    cdef _detach(self):
+    cdef _detach(self, UVBaseTransport transport):
         assert self._active_count > 0
         self._active_count -= 1
+        self._clients.discard(transport)
         if self._active_count == 0 and self._servers is None:
             self._wakeup()
 
@@ -92,6 +95,14 @@ cdef class Server:
                 self._wakeup()
         finally:
             self._unref()
+
+    def close_clients(self):
+        for transport in list(self._clients):
+            transport.close()
+
+    def abort_clients(self):
+        for transport in list(self._clients):
+            transport.abort()
 
     def is_serving(self):
         return self._serving

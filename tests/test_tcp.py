@@ -640,6 +640,68 @@ class _TestTCP:
         self.loop.run_until_complete(start_server())
         self.assertEqual(CNT, TOTAL_CNT)
 
+    def _test_server_close_clients(self, method_name):
+        if self.implementation == 'asyncio' and sys.version_info < (3, 13):
+            raise unittest.SkipTest(
+                'asyncio.Server.{}() requires Python 3.13'.format(method_name))
+
+        CNT = 3
+        handlers_started = 0
+        handlers_done = 0
+        all_started = all_done = None
+
+        async def handle_client(reader, writer):
+            nonlocal handlers_started, handlers_done
+            handlers_started += 1
+            if handlers_started == CNT:
+                all_started.set()
+            # Returns once the connection is closed by the server.
+            await reader.read()
+            handlers_done += 1
+            if handlers_done == CNT:
+                all_done.set()
+
+        async def test():
+            nonlocal all_started, all_done
+            all_started = asyncio.Event()
+            all_done = asyncio.Event()
+
+            srv = await asyncio.start_server(
+                handle_client, '127.0.0.1', 0, family=socket.AF_INET)
+            addr = srv.sockets[0].getsockname()
+
+            clients = []
+            for _ in range(CNT):
+                clients.append(await asyncio.open_connection(*addr))
+            await asyncio.wait_for(all_started.wait(), 5)
+
+            srv.close()
+            await asyncio.sleep(0.1)
+            # Closing the server leaves the client connections open.
+            self.assertEqual(handlers_done, 0)
+
+            getattr(srv, method_name)()
+
+            for reader, writer in clients:
+                try:
+                    data = await asyncio.wait_for(reader.read(), 5)
+                except ConnectionResetError:
+                    pass
+                else:
+                    self.assertEqual(data, b'')
+                writer.close()
+
+            await asyncio.wait_for(srv.wait_closed(), 5)
+            await asyncio.wait_for(all_done.wait(), 5)
+
+        self.loop.run_until_complete(test())
+
+    def test_server_close_clients(self):
+        self._test_server_close_clients('close_clients')
+
+    def test_server_abort_clients(self):
+        self._test_server_close_clients('abort_clients')
+
     def test_tcp_handle_exception_in_connection_made(self):
         # Test that if connection_made raises an exception,
         # 'create_connection' still returns.
