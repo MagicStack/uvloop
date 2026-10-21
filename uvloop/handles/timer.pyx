@@ -50,9 +50,19 @@ cdef class UVTimer(UVHandle):
             uv.uv_update_time(self._loop.uvloop)  # void
             self.start_t = uv.uv_now(self._loop.uvloop)
 
+            # libuv's internal clock (loop->time, just refreshed above) is
+            # the current monotonic time truncated ("floored") to whole
+            # milliseconds, discarding up to just under 1ms. uv_timer_start()
+            # schedules the callback for loop->time + timeout, so without
+            # compensation the timer can fire up to ~1ms sooner than
+            # `self.timeout` milliseconds of actual wall-clock time have
+            # elapsed. Pad the timeout given to libuv by 1ms so the timer
+            # never fires earlier than requested; self.timeout (and thus
+            # get_when()/TimerHandle.when()) is left untouched so it keeps
+            # reporting the originally requested deadline.
             err = uv.uv_timer_start(<uv.uv_timer_t*>self._handle,
                                     __uvtimer_callback,
-                                    self.timeout, 0)
+                                    self.timeout + 1, 0)
             if err < 0:
                 exc = convert_error(err)
                 self._fatal_error(exc, True)
