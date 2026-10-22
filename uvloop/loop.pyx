@@ -1972,7 +1972,19 @@ cdef class Loop:
                     lai = &lai_static
 
             if len(fs):
-                await aio_wait(fs)
+                try:
+                    await aio_wait(fs)
+                except asyncio.CancelledError:
+                    # The caller gave up (e.g. a wait_for() timeout) while
+                    # the DNS lookups were still in progress.  Cancel them
+                    # so that a lookup failing later doesn't get reported
+                    # as "Future exception was never retrieved".  A lookup
+                    # that has already finished can't be cancelled, so mark
+                    # its exception (if any) as retrieved instead.
+                    for fut in fs:
+                        if not fut.cancel() and not fut.cancelled():
+                            fut.exception()
+                    raise
 
             if rai is NULL:
                 ai_remote = f1.result()
