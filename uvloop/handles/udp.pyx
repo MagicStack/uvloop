@@ -171,6 +171,14 @@ cdef class UDPTransport(UVBaseTransport):
         else:
             self.__receiving_stopped()
 
+    cdef _close(self):
+        try:
+            # Drop the reference held while receiving, even when the
+            # handle is closed directly (e.g. by loop.close()).
+            self._stop_reading()
+        finally:
+            UVSocketHandle._close(<UVHandle>self)
+
     cdef inline __receiving_started(self):
         if self.__receiving:
             return
@@ -267,6 +275,11 @@ cdef class UDPTransport(UVBaseTransport):
             run_in_context1(self.context, self._protocol.error_received, exc)
 
     cdef _on_sent(self, object exc, object context=None):
+        if self._conn_lost:
+            # abort() or a fatal error discarded the write buffer; like
+            # asyncio, don't report anything more to the protocol.
+            return
+
         if exc is not None:
             if isinstance(exc, OSError):
                 if context is None:
@@ -399,6 +412,11 @@ cdef void __uv_udp_on_send(
         UDPTransport udp = <UDPTransport>ctx.udp
 
     ctx.close()
+
+    if status == uv.UV_ECANCELED and udp._closed:
+        # The handle is being closed (e.g. by abort()) and libuv
+        # cancelled the queued send; the datagram is simply discarded.
+        return
 
     if status < 0:
         exc = convert_error(status)
