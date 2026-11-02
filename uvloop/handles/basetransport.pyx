@@ -3,7 +3,7 @@ cdef class UVBaseTransport(UVSocketHandle):
     def __cinit__(self):
         # Flow control
         self._high_water = FLOW_CONTROL_HIGH_WATER * 1024
-        self._low_water = FLOW_CONTROL_HIGH_WATER // 4
+        self._low_water = FLOW_CONTROL_HIGH_WATER * 1024 // 4
 
         self._protocol = None
         self._protocol_connected = 0
