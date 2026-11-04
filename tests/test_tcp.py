@@ -2525,7 +2525,7 @@ class _TestSSL(tb.SSLTestCase):
 
         async def start_server():
             extras = {'ssl_handshake_timeout': SSL_HANDSHAKE_TIMEOUT}
-            if self.implementation != 'asyncio':  # or self.PY38
+            if self.implementation != 'asyncio':
                 extras['ssl_shutdown_timeout'] = 0.5
 
             srv = await asyncio.start_server(
@@ -2647,10 +2647,6 @@ class _TestSSL(tb.SSLTestCase):
                 except ssl.SSLError as ex:
                     # Since OpenSSL 1.1.1, it raises "application data after
                     # close notify"
-                    # Python < 3.8:
-                    if ex.reason == 'KRB5_S_INIT':
-                        break
-                    # Python >= 3.8:
                     if ex.reason == 'APPLICATION_DATA_AFTER_CLOSE_NOTIFY':
                         break
                     raise ex

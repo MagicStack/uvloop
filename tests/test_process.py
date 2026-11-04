@@ -884,9 +884,10 @@ class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
 class Test_UV_Process_Delayed(tb.UVTestCase):
 
     class TestProto:
-        def __init__(self):
+        def __init__(self, closed):
             self.lost = 0
             self.stages = []
+            self.closed = closed
 
         def connection_made(self, transport):
             self.stages.append(('CM', transport))
@@ -905,10 +906,11 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         def connection_lost(self, exc):
             self.stages.append(('CL', self.lost, exc))
             self.lost += 1
+            self.closed.set_result(None)
 
     async def run_sub(self, **kwargs):
         return await self.loop.subprocess_shell(
-            lambda: self.TestProto(),
+            lambda: self.TestProto(self.loop.create_future()),
             'echo 1',
             **kwargs)
 
@@ -962,7 +964,8 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 stdin=None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE))
-        self.loop.run_until_complete(transport._wait())
+        # Process exit alone does not guarantee that pipe callbacks have run.
+        self.loop.run_until_complete(asyncio.wait_for(proto.closed, 10))
         self.assertEqual(transport.get_returncode(), 0)
         self.assertIsNot(transport, None)
         self.assertEqual(

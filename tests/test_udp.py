@@ -317,8 +317,6 @@ class _TestUDP:
         if self.implementation == 'asyncio':
             if sys.version_info[:2] >= (3, 11):
                 raise unittest.SkipTest()
-            if (3, 8, 0) <= sys.version_info < (3, 8, 1):
-                raise unittest.SkipTest()
 
     def test_create_datagram_endpoint_reuse_address_error(self):
         # bpo-37228: Ensure that explicit passing of `reuse_address=True`
