@@ -1,6 +1,8 @@
 # cython: language_level=3
 
 
+cimport cython
+
 from .includes cimport uv
 from .includes cimport system
 
@@ -39,6 +41,9 @@ cdef class Loop:
         public slow_callback_duration
 
         readonly bint _closed
+        # Held by call_soon_threadsafe() and by _close() while it sets
+        # _closed, so another thread never posts into a closing loop.
+        cython.pymutex _close_lock
         bint _debug
         bint _running
         bint _stopping
