@@ -773,6 +773,59 @@ class _TestBase:
         thread.join()
         self.assertEqual(counter[0], ITERATIONS)
 
+    def test_call_soon_threadsafe_while_closing(self):
+        # Other threads post to loops that close at the same time.  On
+        # free-threaded Python this used to crash in call_soon_threadsafe()
+        # (handler_async was already None) or make close() fail.
+        OWNERS = 2
+        POSTERS = 4
+        stop = threading.Event()
+        loops = [None] * OWNERS
+        errors = []
+
+        def owner(i):
+            try:
+                while not stop.is_set():
+                    loop = self.new_loop()
+                    loops[i] = loop
+                    try:
+                        loop.call_later(0.0005, loop.stop)
+                        loop.run_forever()
+                    finally:
+                        loop.close()
+            except BaseException as ex:
+                errors.append(ex)
+
+        def poster(i):
+            n = 0
+            try:
+                while not stop.is_set():
+                    loop = loops[n % OWNERS]
+                    n += 1
+                    if loop is None:
+                        continue
+                    try:
+                        loop.call_soon_threadsafe(lambda: None)
+                    except RuntimeError as ex:
+                        if str(ex) != 'Event loop is closed':
+                            raise
+            except BaseException as ex:
+                errors.append(ex)
+
+        threads = [threading.Thread(target=owner, args=(i,), daemon=True)
+                   for i in range(OWNERS)]
+        threads += [threading.Thread(target=poster, args=(i,), daemon=True)
+                    for i in range(POSTERS)]
+        for t in threads:
+            t.start()
+        time.sleep(1)
+        stop.set()
+        for t in threads:
+            t.join(10)
+        self.assertFalse([t for t in threads if t.is_alive()],
+                         'threads hang, likely a deadlock')
+        self.assertEqual(errors, [])
+
     def test_freethreading(self):
         if not hasattr(sys, "_is_gil_enabled"):
             raise unittest.SkipTest("No sys._is_gil_enabled()")
