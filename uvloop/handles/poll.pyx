@@ -189,6 +189,67 @@ cdef class UVPoll(UVHandle):
         finally:
             self._close()
 
+    cdef _on_poll_error(self, exc):
+        # On Linux, libuv reports POLLERR as UV_EBADF after it has
+        # stopped the watcher.  To match asyncio (level-triggered
+        # epoll), run the callbacks as for a ready fd and keep
+        # watching the fd until the callbacks are removed.
+        cdef:
+            int mask = 0
+            int err
+
+        if not self.is_active():
+            self._close_on_error(None)
+            return
+
+        if self.reading_handle is not None:
+            try:
+                self.reading_handle._run()
+            except BaseException as ex:
+                self._error(ex, False)
+
+        if self.writing_handle is not None:
+            try:
+                self.writing_handle._run()
+            except BaseException as ex:
+                self._error(ex, False)
+
+        if not self._is_alive():
+            # The callbacks removed the reader and the writer,
+            # and the loop closed the handle.
+            return
+
+        if self.reading_handle is not None:
+            mask |= uv.UV_READABLE
+        if self.writing_handle is not None:
+            mask |= uv.UV_WRITABLE
+        if mask == 0:
+            return
+
+        try:
+            # Restarting the watcher on a closed fd would make libuv
+            # abort() in epoll_ctl(), so check the fd first.
+            os_fstat(self.fd)
+        except OSError as ex:
+            self._close_on_error(ex)
+            return
+
+        err = uv.uv_poll_start(
+            <uv.uv_poll_t*>self._handle,
+            mask,
+            __on_uvpoll_event)
+        if err < 0:
+            self._close_on_error(convert_error(err))
+
+    cdef _close_on_error(self, exc):
+        # Remove the closed handle from the loop, so that a later
+        # add_reader() or add_writer() creates a new one.
+        if self._loop._polls.get(self.fd) is self:
+            del self._loop._polls[self.fd]
+        self._close()
+        if exc is not None:
+            self._loop._handle_exception(exc)
+
 
 cdef void __on_uvpoll_event(
     uv.uv_poll_t* handle,
@@ -204,7 +265,7 @@ cdef void __on_uvpoll_event(
 
     if status < 0:
         exc = convert_error(status)
-        poll._fatal_error(exc, False)
+        poll._on_poll_error(exc)
         return
 
     if ((events & (uv.UV_READABLE | uv.UV_DISCONNECT)) and

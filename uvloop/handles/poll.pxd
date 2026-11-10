@@ -21,5 +21,8 @@ cdef class UVPoll(UVHandle):
     cdef stop_writing(self)
     cdef stop(self)
 
+    cdef _on_poll_error(self, exc)
+    cdef _close_on_error(self, exc)
+
     @staticmethod
     cdef UVPoll new(Loop loop, int fd)
