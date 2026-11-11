@@ -1190,6 +1190,67 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         self.loop.run_until_complete(run())
 
+    def test_many_queued_writes(self):
+        # libuv rejects write requests with more than 1024*1024 buffers,
+        # so the transport has to hand them over in chunks.
+        N = 1024 * 1024 + 1
+        TOTAL = 0
+        SENT = 0
+
+        fut = self.loop.create_future()
+
+        async def server(reader, writer):
+            nonlocal TOTAL
+            while True:
+                d = await reader.read(1024 * 1024)
+                if not d:
+                    break
+                TOTAL += len(d)
+            fut.set_result(True)
+            writer.close()
+
+        async def run():
+            nonlocal SENT
+
+            srv = await asyncio.start_server(
+                server,
+                '127.0.0.1', 0,
+                family=socket.AF_INET)
+
+            addr = srv.sockets[0].getsockname()
+            r, w = await asyncio.open_connection(*addr)
+
+            # Too many buffers for one request while libuv has nothing
+            # queued yet.
+            w.writelines([b'x'] * N)
+            SENT += N
+
+            # Fill the kernel socket buffer so that libuv has data queued
+            # and every following write() is buffered by the transport.
+            BIG = b'y' * (1024 * 1024)
+            while (w.transport.get_write_buffer_size() == 0 and
+                    not w.transport.is_closing()):
+                w.write(BIG)
+                SENT += len(BIG)
+
+            # Too many buffers for one request, flushed at the end of
+            # this loop iteration.
+            for _ in range(N):
+                w.write(b'z')
+            SENT += N
+
+            await w.drain()
+            w.close()
+            await fut
+            await self.wait_closed(w)
+
+            srv.close()
+            await srv.wait_closed()
+
+            self.assertEqual(TOTAL, SENT)
+
+        self.loop.run_until_complete(run())
+
     def test_tcp_handle_abort_in_connection_made(self):
         async def server(reader, writer):
             try:
