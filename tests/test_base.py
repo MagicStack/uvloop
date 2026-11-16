@@ -290,9 +290,16 @@ class _TestBase:
         def test_thread(loop, debug, create_loop=False):
             event = threading.Event()
             fut = asyncio.Future(loop=loop)
-            loop.call_soon(event.set)
             args = (loop, event, debug, create_loop, fut)
             thread = threading.Thread(target=check_in_thread, args=args)
+
+            def run_thread():
+                # Keep the loop running for the thread checks, but prevent
+                # concurrent access to its non-thread-safe scheduling APIs.
+                event.set()
+                thread.join()
+
+            loop.call_soon(run_thread)
             thread.start()
             loop.run_until_complete(fut)
             thread.join()
@@ -604,6 +611,36 @@ class _TestBase:
         self.loop.set_task_factory(None)
         self.assertIsNone(self.loop.get_task_factory())
 
+    @unittest.skipUnless(
+        sys.version_info >= (3, 13),
+        "loop.create_task with eager_start requires Python 3.13+",
+    )
+    def test_loop_create_task_eager_start(self):
+        async def coro():
+            return "eager"
+
+        async def main():
+            task = self.loop.create_task(coro(), eager_start=True)
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+        self.loop.run_until_complete(main())
+
+    @unittest.skipUnless(
+        sys.version_info >= (3, 14),
+        "asyncio.create_task with eager_start requires Python 3.14+",
+    )
+    def test_asyncio_create_task_eager_start(self):
+        async def coro():
+            return "eager"
+
+        async def main():
+            task = asyncio.create_task(coro(), eager_start=True)
+            self.assertTrue(task.done())
+            self.assertEqual(task.result(), "eager")
+
+        self.loop.run_until_complete(main())
+
     def test_shutdown_asyncgens_01(self):
         finalized = list()
 
@@ -798,6 +835,21 @@ if __name__ == "__main__":
             raise unittest.SkipTest(result.stdout.strip())
         elif result.returncode != 0:
             self.fail(result.stdout.strip())
+
+    def test_thread_name_prefix_in_default_executor(self):
+        called = []
+
+        def cb():
+            called.append(threading.current_thread().name)
+
+        async def runner():
+            await self.loop.run_in_executor(None, cb)
+
+        self.loop.run_until_complete(runner())
+
+        self.assertEqual(len(called), 1)
+        self.assertTrue(called[0] is not None)
+        self.assertTrue(called[0].startswith(self.implementation))
 
 
 class TestBaseUV(_TestBase, UVTestCase):

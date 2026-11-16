@@ -94,3 +94,11 @@ cdef extern from "includes/fork_handler.h":
     void setForkHandler(OnForkHandler handler)
     void resetForkHandler()
     void setMainThreadID(uint64_t id)
+
+
+cdef extern from * nogil:
+    uint64_t __atomic_fetch_add(uint64_t *ptr, uint64_t val, int memorder)
+    uint64_t __atomic_fetch_sub(uint64_t *ptr, uint64_t val, int memorder)
+
+    cdef enum:
+        __ATOMIC_RELAXED

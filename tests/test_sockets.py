@@ -1,8 +1,8 @@
 import asyncio
+import os
 import pickle
 import select
 import socket
-import sys
 import time
 import unittest
 
@@ -160,11 +160,6 @@ class _TestSockets:
             self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_sock_cancel_add_reader_race(self):
-        if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
-            # asyncio 3.8.x has a regression; fixed in 3.9.0
-            # tracked in https://bugs.python.org/issue30064
-            raise unittest.SkipTest()
-
         srv_sock_conn = None
 
         async def server():
@@ -216,11 +211,6 @@ class _TestSockets:
         self.loop.run_until_complete(server())
 
     def test_sock_send_before_cancel(self):
-        if self.is_asyncio_loop() and sys.version_info[:2] == (3, 8):
-            # asyncio 3.8.x has a regression; fixed in 3.9.0
-            # tracked in https://bugs.python.org/issue30064
-            raise unittest.SkipTest()
-
         srv_sock_conn = None
 
         async def server():
@@ -272,7 +262,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
         # See https://github.com/MagicStack/uvloop/issues/61 for details
 
         sock = socket.socket()
-        epoll = select.epoll.fromfd(self.loop._get_backend_id())
+        # Keep a separate descriptor for the backend epoll instance.  The loop
+        # owns its descriptor and closes it when the loop is closed.
+        epoll = select.epoll.fromfd(os.dup(self.loop._get_backend_id()))
 
         try:
             cb = lambda: None
@@ -288,8 +280,8 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
         finally:
             sock.close()
-            self.loop.close()
             epoll.close()
+            self.loop.close()
 
     def test_add_reader_or_writer_transport_fd(self):
         def assert_raises():

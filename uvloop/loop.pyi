@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import ssl
 import sys
 from socket import AddressFamily, SocketKind, _Address, _RetAddress, socket
@@ -46,12 +47,30 @@ class Loop:
     def is_running(self) -> bool: ...
     def is_closed(self) -> bool: ...
     def create_future(self) -> asyncio.Future[Any]: ...
-    def create_task(
-        self,
-        coro: Union[Awaitable[_T], Generator[Any, None, _T]],
-        *,
-        name: Optional[str] = ...,
-    ) -> asyncio.Task[_T]: ...
+    if sys.version_info >= (3, 13):
+        def create_task(
+            self,
+            coro: Union[Awaitable[_T], Generator[Any, None, _T]],
+            *,
+            name: Optional[str] = ...,
+            context: Optional[contextvars.Context] = ...,
+            eager_start: Optional[bool] = ...,
+        ) -> asyncio.Task[_T]: ...
+    elif sys.version_info >= (3, 11):
+        def create_task(
+            self,
+            coro: Union[Awaitable[_T], Generator[Any, None, _T]],
+            *,
+            name: Optional[str] = ...,
+            context: Optional[contextvars.Context] = ...,
+        ) -> asyncio.Task[_T]: ...
+    else:
+        def create_task(
+            self,
+            coro: Union[Awaitable[_T], Generator[Any, None, _T]],
+            *,
+            name: Optional[str] = ...,
+        ) -> asyncio.Task[_T]: ...
     def set_task_factory(
         self,
         factory: Optional[

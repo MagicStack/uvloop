@@ -317,8 +317,6 @@ class _TestUDP:
         if self.implementation == 'asyncio':
             if sys.version_info[:2] >= (3, 11):
                 raise unittest.SkipTest()
-            if (3, 8, 0) <= sys.version_info < (3, 8, 1):
-                raise unittest.SkipTest()
 
     def test_create_datagram_endpoint_reuse_address_error(self):
         # bpo-37228: Ensure that explicit passing of `reuse_address=True`
@@ -374,6 +372,22 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
 
         with self.assertRaisesRegex(ValueError, 'socket family mismatch'):
             s_transport.sendto(b'aaaa', ('::1', 80))
+
+        s_transport.close()
+        self.loop.run_until_complete(asyncio.sleep(0.01))
+
+    def test_udp_sendto_broadcast(self):
+        coro = self.loop.create_datagram_endpoint(
+            asyncio.DatagramProtocol,
+            local_addr=('127.0.0.1', 0),
+            family=socket.AF_INET)
+
+        s_transport, server = self.loop.run_until_complete(coro)
+
+        try:
+            s_transport.sendto(b'aaaa', ('<broadcast>', 80))
+        except ValueError as exc:
+            raise AssertionError('sendto raises {}.'.format(exc))
 
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))

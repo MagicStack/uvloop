@@ -685,6 +685,12 @@ class _AsyncioTests:
             self.loop.run_until_complete(cancel_make_transport())
 
     def test_cancel_post_init(self):
+        if sys.version_info >= (3, 13) and self.implementation == 'asyncio':
+            # https://github.com/python/cpython/issues/103847#issuecomment-3736561321
+            # This test started to flake on CPython 3.13 and later,
+            # so we skip it for asyncio tests until the issue is resolved.
+            self.skipTest('flaky test on CPython 3.13+')
+
         async def cancel_make_transport():
             coro = self.loop.subprocess_exec(asyncio.SubprocessProtocol,
                                              *self.PROGRAM_BLOCKED)
@@ -878,9 +884,10 @@ class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
 class Test_UV_Process_Delayed(tb.UVTestCase):
 
     class TestProto:
-        def __init__(self):
+        def __init__(self, closed):
             self.lost = 0
             self.stages = []
+            self.closed = closed
 
         def connection_made(self, transport):
             self.stages.append(('CM', transport))
@@ -899,10 +906,11 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         def connection_lost(self, exc):
             self.stages.append(('CL', self.lost, exc))
             self.lost += 1
+            self.closed.set_result(None)
 
     async def run_sub(self, **kwargs):
         return await self.loop.subprocess_shell(
-            lambda: self.TestProto(),
+            lambda: self.TestProto(self.loop.create_future()),
             'echo 1',
             **kwargs)
 
@@ -956,7 +964,8 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 stdin=None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE))
-        self.loop.run_until_complete(transport._wait())
+        # Process exit alone does not guarantee that pipe callbacks have run.
+        self.loop.run_until_complete(asyncio.wait_for(proto.closed, 10))
         self.assertEqual(transport.get_returncode(), 0)
         self.assertIsNot(transport, None)
         self.assertEqual(
