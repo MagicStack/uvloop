@@ -421,7 +421,7 @@ cdef extract_stack():
     necessary work for asyncio debug mode.
     """
     try:
-        f = sys_getframe()
+        f = Sys_GetFrame(0)
     # sys._getframe() might raise ValueError if being called without a frame, e.g.
     # from Cython or similar C extensions.
     except ValueError:

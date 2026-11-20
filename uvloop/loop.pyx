@@ -20,7 +20,8 @@ from .includes.python cimport (
     PyMemoryView_FromObject, PyMemoryView_Check,
     PyOS_AfterFork_Parent, PyOS_AfterFork_Child,
     PyOS_BeforeFork,
-    PyUnicode_FromString
+    PyUnicode_FromString,
+    Sys_GetFrame
 )
 from .includes.flowcontrol cimport add_flowcontrol_defaults
 
