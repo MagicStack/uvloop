@@ -2062,6 +2062,7 @@ cdef class Loop:
                 # FD here because of:
                 # https://github.com/python/asyncio/pull/449
                 tr._open(sock.fileno())
+                tr._attach_fileobj(sock)
                 tr._init_protocol()
                 await waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2083,8 +2084,6 @@ cdef class Loop:
                 # already-closed FD here.
                 sock.detach()
                 raise
-
-            tr._attach_fileobj(sock)
 
         if ssl:
             app_transport = protocol._get_app_transport(context)
@@ -2318,6 +2317,7 @@ cdef class Loop:
             tr = UnixTransport.new(self, protocol, None, waiter, context)
             try:
                 tr._open(sock.fileno())
+                tr._attach_fileobj(sock)
                 tr._init_protocol()
                 await waiter
             except (KeyboardInterrupt, SystemExit):
@@ -2327,8 +2327,6 @@ cdef class Loop:
                 tr._close()
                 sock.detach()
                 raise
-
-            tr._attach_fileobj(sock)
 
         if ssl:
             app_transport = protocol._get_app_transport(Context_CopyCurrent())
