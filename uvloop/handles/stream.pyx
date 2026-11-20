@@ -1,6 +1,14 @@
 cdef enum:
     __PREALLOCED_BUFS = 4
 
+    # libuv rejects uv_write()/uv_try_write() requests with more than
+    # 1024*1024 buffers (UV_EINVAL, see uv__check_before_write() in
+    # libuv >= 1.52).  A transport that keeps receiving write() calls
+    # while libuv still has pending data for it can easily accumulate
+    # more than that in a single loop iteration, so UVStream._exec_write()
+    # hands the buffered data to libuv in chunks of at most this many.
+    __MAX_WRITE_BUFS = 1024 * 1024
+
 
 @cython.no_gc_clear
 @cython.freelist(DEFAULT_FREELIST_SIZE)
@@ -471,6 +479,14 @@ cdef class UVStream(UVBaseTransport):
         if not buf_len:
             return True
 
+        if buf_len > __MAX_WRITE_BUFS:
+            # Too many buffers for one libuv request: queue all but the
+            # last chunk with separate uv_write() calls first.  What's
+            # left in self._buffer is written below as usual.
+            if not self._exec_write_chunks():
+                return False
+            buf_len = len(self._buffer)
+
         if (<uv.uv_stream_t*>self._handle).write_queue_size == 0:
             # libuv internal write buffers for this stream are empty.
             if buf_len == 1:
@@ -580,6 +596,42 @@ cdef class UVStream(UVBaseTransport):
 
         self._maybe_resume_protocol()
         return False
+
+    cdef bint _exec_write_chunks(self) except -1:
+        # Queue all but the last (up to) __MAX_WRITE_BUFS buffers of
+        # self._buffer with libuv, one uv_write() request per chunk of
+        # __MAX_WRITE_BUFS buffers.  Returns False if a fatal error
+        # occurred (self._fatal_error was called), True otherwise.
+        cdef:
+            int err
+            Py_ssize_t pos = 0
+            Py_ssize_t buf_len = len(self._buffer)
+            list chunk
+            _StreamWriteContext ctx
+
+        while buf_len - pos > __MAX_WRITE_BUFS:
+            chunk = self._buffer[pos:pos + __MAX_WRITE_BUFS]
+            pos += __MAX_WRITE_BUFS
+
+            ctx = _StreamWriteContext.new(self, chunk)
+            err = uv.uv_write(&ctx.req,
+                              <uv.uv_stream_t*>self._handle,
+                              ctx.uv_bufs_start,
+                              ctx.uv_bufs_len,
+                              __uv_stream_on_write)
+            if err < 0:
+                ctx.close()
+                self._buffer = []
+                self._buffer_size = 0
+                exc = convert_error(err)
+                self._fatal_error(exc, True)
+                return False
+
+        self._buffer = self._buffer[pos:]
+        self._buffer_size = 0
+        for buf in self._buffer:
+            self._buffer_size += len(buf)
+        return True
 
     cdef size_t _get_write_buffer_size(self):
         if self._handle is NULL:
