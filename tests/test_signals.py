@@ -235,6 +235,7 @@ finally:
 import asyncio
 import signal
 import uvloop
+from uvloop import _testbase as tb
 
 srv = None
 
@@ -260,12 +261,14 @@ loop.add_signal_handler(signal.SIGUSR1, handler1)
 loop.add_signal_handler(signal.SIGUSR2, handler2)
 loop.add_signal_handler(signal.SIGHUP, handler_hup)
 loop.create_task(worker())
-try:
-    loop.run_forever()
-finally:
-    srv.close()
-    loop.run_until_complete(srv.wait_closed())
-    loop.close()
+# Debug timing warnings must not become part of the signal-test output.
+with tb.silence_long_exec_warning():
+    try:
+        loop.run_forever()
+    finally:
+        srv.close()
+        loop.run_until_complete(srv.wait_closed())
+        loop.close()
 
 """
 

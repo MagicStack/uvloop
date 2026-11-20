@@ -330,11 +330,34 @@ cdef class AddrInfo:
         return type(other) is AddrInfo
 
 
+cdef void _dns_request_start(Loop loop, DNSRequestLink *link,
+                             uv.uv_req_t *request) noexcept:
+    # Intrusive links avoid Python allocations and ownership cycles on the
+    # normal resolver path. Each UVRequest already retains itself until done.
+    link.request = request
+    link.prev = NULL
+    link.next = loop._dns_requests
+    if link.next is not NULL:
+        link.next.prev = link
+    loop._dns_requests = link
+
+
+cdef void _dns_request_done(Loop loop, DNSRequestLink *link) noexcept:
+    if link.prev is NULL:
+        loop._dns_requests = link.next
+    else:
+        link.prev.next = link.next
+    if link.next is not NULL:
+        link.next.prev = link.prev
+    link.prev = link.next = NULL
+
+
 cdef class AddrInfoRequest(UVRequest):
     cdef:
         system.addrinfo hints
         object callback
         uv.uv_getaddrinfo_t _req_data
+        DNSRequestLink _link
 
     def __cinit__(self, Loop loop,
                   bytes host, bytes port,
@@ -371,6 +394,7 @@ cdef class AddrInfoRequest(UVRequest):
         self.callback = callback
         self.request.data = <void*>self
 
+        _dns_request_start(loop, &self._link, self.request)
         err = uv.uv_getaddrinfo(loop.uvloop,
                                 <uv.uv_getaddrinfo_t*>self.request,
                                 __on_addrinfo_resolved,
@@ -379,6 +403,7 @@ cdef class AddrInfoRequest(UVRequest):
                                 &self.hints)
 
         if err < 0:
+            _dns_request_done(self.loop, &self._link)
             self.on_done()
             try:
                 if err == uv.UV_EINVAL:
@@ -397,6 +422,7 @@ cdef class NameInfoRequest(UVRequest):
     cdef:
         object callback
         uv.uv_getnameinfo_t _req_data
+        DNSRequestLink _link
 
     def __cinit__(self, Loop loop, callback):
         self.request = <uv.uv_req_t*> &self._req_data
@@ -405,12 +431,14 @@ cdef class NameInfoRequest(UVRequest):
 
     cdef query(self, system.sockaddr *addr, int flags):
         cdef int err
+        _dns_request_start(self.loop, &self._link, self.request)
         err = uv.uv_getnameinfo(self.loop.uvloop,
                                 <uv.uv_getnameinfo_t*>self.request,
                                 __on_nameinfo_resolved,
                                 addr,
                                 flags)
         if err < 0:
+            _dns_request_done(self.loop, &self._link)
             self.on_done()
             self.callback(convert_error(err))
 
@@ -440,6 +468,9 @@ cdef void __on_addrinfo_resolved(
         AddrInfo ai
 
     try:
+        if loop._closed:
+            uv.uv_freeaddrinfo(res)
+            return
         if status < 0:
             callback(convert_error(status))
         else:
@@ -451,6 +482,7 @@ cdef void __on_addrinfo_resolved(
     except BaseException as ex:
         loop._handle_exception(ex)
     finally:
+        _dns_request_done(loop, &request._link)
         request.on_done()
 
 
@@ -466,6 +498,8 @@ cdef void __on_nameinfo_resolved(
         object callback = request.callback
 
     try:
+        if loop._closed:
+            return
         if status < 0:
             callback(convert_error(status))
         else:
@@ -476,4 +510,5 @@ cdef void __on_nameinfo_resolved(
     except BaseException as ex:
         loop._handle_exception(ex)
     finally:
+        _dns_request_done(loop, &request._link)
         request.on_done()

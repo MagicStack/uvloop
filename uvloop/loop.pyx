@@ -137,6 +137,9 @@ cdef class Loop:
         self.slow_callback_duration = 0.1
 
         self._closed = 0
+        self._uvloop_closed = 0
+        self._dns_requests = NULL
+        self._closed_loop_thread = None
         self._debug = 0
         self._thread_id = 0
         self._running = 0
@@ -229,6 +232,11 @@ cdef class Loop:
             raise RuntimeError('deallocating a running event loop!')
         if self._closed == 0:
             aio_logger.error("deallocating an open event loop")
+            return
+        if not self._uvloop_closed:
+            # A failed native close must never free memory still referenced
+            # by libuv requests. Normally the cleanup thread retains us.
+            aio_logger.error("deallocating an event loop with pending cleanup")
             return
         PyMem_RawFree(self.uvloop)
         self.uvloop = NULL
@@ -551,6 +559,7 @@ cdef class Loop:
 
     cdef _close(self):
         cdef int err
+        cdef DNSRequestLink *dns
 
         if self._running == 1:
             raise RuntimeError("Cannot close a running event loop")
@@ -559,6 +568,13 @@ cdef class Loop:
             return
 
         self._closed = 1
+
+        # Cancel DNS work still queued in libuv's pool. Executing requests
+        # return UV_EBUSY and are retained until their callbacks run.
+        dns = self._dns_requests
+        while dns is not NULL:
+            uv.uv_cancel(dns.request)
+            dns = dns.next
 
         for cb_handle in self._ready:
             cb_handle.cancel()
@@ -580,9 +596,10 @@ cdef class Loop:
         self.handler_check__exec_writes._close()
         __close_all_handles(self)
         self._shutdown_signals()
-        # During this run there should be no open handles,
-        # so it should finish right away
-        self.__run(uv.UV_RUN_DEFAULT)
+        # Flush handle close callbacks without waiting for native DNS. A
+        # second iteration also handles an outstanding uv_stop flag.
+        self.__run(uv.UV_RUN_NOWAIT)
+        self.__run(uv.UV_RUN_NOWAIT)
 
         if self._fd_to_writer_fileobj:
             for fileobj in self._fd_to_writer_fileobj.values():
@@ -609,8 +626,19 @@ cdef class Loop:
                 f"{self._ready}")
 
         err = uv.uv_loop_close(self.uvloop)
-        if err < 0:
+        if err == uv.UV_EBUSY and self._dns_requests is not NULL:
+            # Executing DNS requests cannot be cancelled. Keep their loop
+            # alive and drain it independently of synchronous close(). DNS
+            # callbacks discard results when the Python loop is closed.
+            thread = threading_Thread(
+                target=self._drain_closed_loop, name='uvloop-close',
+                daemon=True)
+            self._closed_loop_thread = thread
+            thread.start()
+        elif err < 0:
             raise convert_error(err)
+        else:
+            self._uvloop_closed = 1
 
         self.handler_async = None
         self.handler_idle = None
@@ -621,6 +649,15 @@ cdef class Loop:
         if executor is not None:
             self._default_executor = None
             executor.shutdown(wait=False)
+
+    def _drain_closed_loop(self):
+        # The thread's bound method retains self (and thus uvloop) until all
+        # native callbacks have run. No normal loop callbacks are delivered.
+        self.__run(uv.UV_RUN_DEFAULT)
+        cdef int err = uv.uv_loop_close(self.uvloop)
+        if err < 0:
+            raise convert_error(err)
+        self._uvloop_closed = 1
 
     cdef uint64_t _time(self):
         # asyncio doesn't have a time cache, neither should uvloop.
@@ -887,6 +924,8 @@ cdef class Loop:
                       int proto, int flags,
                       int unpack):
 
+        self._check_closed()
+
         if isinstance(port, str):
             port = port.encode()
         elif isinstance(port, int):
@@ -926,6 +965,7 @@ cdef class Loop:
 
     cdef _getnameinfo(self, system.sockaddr *addr, int flags):
         cdef NameInfoRequest nr
+        self._check_closed()
         fut = self._new_future()
 
         def callback(result):
@@ -1337,6 +1377,9 @@ cdef class Loop:
         epoch, precision, accuracy and drift are unspecified and may
         differ per event loop.
         """
+        if self._closed:
+            # A cleanup thread may own the native loop after close().
+            return uv.uv_hrtime() / 1e9
         return self._time() / 1000
 
     def stop(self):
