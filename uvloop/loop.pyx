@@ -555,10 +555,15 @@ cdef class Loop:
         if self._running == 1:
             raise RuntimeError("Cannot close a running event loop")
 
-        if self._closed == 1:
-            return
-
-        self._closed = 1
+        # call_soon_threadsafe() can run in another thread.  It holds
+        # _close_lock while it checks _closed, appends to _ready and wakes
+        # the loop.  Once we set _closed under the lock, no other thread
+        # touches _ready or handler_async again.  A critical section is not
+        # enough: the deque append can block, which suspends the section.
+        with self._close_lock:
+            if self._closed == 1:
+                return
+            self._closed = 1
 
         for cb_handle in self._ready:
             cb_handle.cancel()
@@ -1278,11 +1283,23 @@ cdef class Loop:
         if not args:
             args = None
         cdef Handle handle = new_Handle(self, callback, args, context)
-        self._append_ready_handle(handle)  # deque append is atomic
-        # libuv async handler is thread-safe while the idle handler is not -
-        # we only set the async handler here, which will start the idle handler
-        # in _on_wake() from the loop and eventually call the callback.
-        self.handler_async.send()
+        cdef bint closed
+        # Another thread can close the loop at the same time.  _close() takes
+        # the same lock, so it cannot close handler_async or touch _ready
+        # between the _closed check and send().  The lock is not reentrant:
+        # run no code under it that can allocate Python objects and so start
+        # a GC, whose finalizers may call us again.
+        with self._close_lock:
+            closed = self._closed
+            if not closed:
+                self._ready.append(handle)  # deque append is atomic
+                # libuv async handler is thread-safe while the idle handler
+                # is not - we only set the async handler here, which will
+                # start the idle handler in _on_wake() from the loop and
+                # eventually call the callback.
+                self.handler_async.send()
+        if closed:
+            self._check_closed()  # raises: _closed never goes back to 0
         return handle
 
     def call_later(self, delay, callback, *args, context=None):
