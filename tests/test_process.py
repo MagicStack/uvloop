@@ -261,29 +261,25 @@ print(os.getpid())
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(
-        tb.is_windows,
-        "WriteUnixTransport closes a little too soon, "
-        "seems to have changed vs. winloop.",
-    )
+    @unittest.skipIf(tb.is_windows, "subprocess shows EOFError and fails to parse the code.")
     def test_process_send_signal_1(self):
         async def test():
             prog = """\
-    import signal
-    import sys
+import signal
+import sys
 
-    def handler(signum, frame):
-        if signum == signal.SIGUSR1:
-            print('WORLD')
+def handler(signum, frame):
+    if signum == signal.SIGUSR1:
+        print('WORLD')
 
-    if sys.platform != 'win32':
-        signal.signal(signal.SIGUSR1, handler)
-    a = input()
-    print(a)
-    a = input()
-    print(a)
-    exit(11)
-                """
+if sys.platform != 'win32':
+    signal.signal(signal.SIGUSR1, handler)
+a = input()
+print(a)
+a = input()
+print(a)
+exit(11)
+            """
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
@@ -314,6 +310,7 @@ print(os.getpid())
             self.assertEqual(await proc.wait(), 11)
 
         self.loop.run_until_complete(test())
+
 
     @unittest.skipIf(
         tb.is_windows,
@@ -1127,7 +1124,7 @@ class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
     pass
 
 
-@unittest.skipIf(tb.is_windows, "TODO")
+# @unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Process_Delayed(tb.UVTestCase):
     class TestProto:
         def __init__(self, closed):
@@ -1172,18 +1169,18 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         )
         self.assertIsNot(transport, None)
         self.assertEqual(transport.get_returncode(), 0)
+
+        stages_needed = {
+            ("CM", transport),
+            "PROC_EXIT",
+            ("STDOUT", b"1" + NL),
+            ("STDOUT", "LOST"),
+            ("CL", 0, None)
+        }
+
         self.assertEqual(
             set(proto.stages),
-            {
-                ("CM", transport),
-                "PROC_EXIT",
-                ("STDOUT", b"1" + NL),
-                ("STDOUT", "LOST"),
-            }.union(
-                # Winloop comment: connection lost is not called because of
-                # issues with stdin pipe. See process.__socketpair().
-                {("CL", 0, None)} if not tb.is_windows else {}
-            ),
+            stages_needed
         )
 
     def test_process_delayed_stdio__paused__no_stdin(self):
