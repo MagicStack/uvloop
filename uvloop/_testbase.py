@@ -18,8 +18,10 @@ import tempfile
 import threading
 import time
 import unittest
+
 import uvloop
 
+is_windows = sys.platform.startswith("win")
 
 class MockPattern(str):
     def __eq__(self, other):
@@ -316,13 +318,13 @@ class AIOTestCase(BaseTestCase):
     def setUp(self):
         super().setUp()
 
-        if sys.version_info < (3, 12):
+        if sys.version_info < (3, 12) and sys.platform != "win32":
             watcher = asyncio.SafeChildWatcher()
             watcher.attach_loop(self.loop)
             asyncio.set_child_watcher(watcher)
 
     def tearDown(self):
-        if sys.version_info < (3, 12):
+        if sys.version_info < (3, 12) and sys.platform != "win32":
             asyncio.set_child_watcher(None)
         super().tearDown()
 
