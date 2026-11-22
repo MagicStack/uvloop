@@ -28,7 +28,7 @@ cdef class UVProcess(UVHandle):
                pass_fds, debug_flags, preexec_fn, restore_signals, startupinfo):
 
         global __forking
-        if not sys.PLATFORM_IS_WINDOWS:
+        if not system.PLATFORM_IS_WINDOWS:
             global __forking_loop
             global __forkHandler
 
