@@ -67,9 +67,7 @@ class _BufferedProtocol(_BaseProtocol, asyncio.BufferedProtocol):
             self.buffered_ctx = self.cvar.get()
         elif self.cvar.get() != self.buffered_ctx:
             self.data_received_fut.set_exception(
-                ValueError(
-                    f"{self.buffered_ctx} != {self.cvar.get()}"
-                )
+                ValueError(f"{self.buffered_ctx} != {self.cvar.get()}")
             )
         return bytearray(65536)
 
@@ -79,9 +77,7 @@ class _BufferedProtocol(_BaseProtocol, asyncio.BufferedProtocol):
                 self.data_received_fut.set_result(self.cvar.get())
             else:
                 self.data_received_fut.set_exception(
-                    ValueError(
-                        f"{self.buffered_ctx} != {self.cvar.get()}"
-                    )
+                    ValueError(f"{self.buffered_ctx} != {self.cvar.get()}")
                 )
 
 
@@ -273,7 +269,9 @@ class _ContextBaseTests(tb.SSLTestCase):
 
     def _run_test(self, method, **switches):
         # Winloop comment: no Unix sockets for Windows tests
-        switches.setdefault("use_tcp", "yes" if sys.platform == "win32" else "both")
+        switches.setdefault(
+            "use_tcp", "yes" if sys.platform == "win32" else "both"
+        )
         use_ssl = switches.setdefault("use_ssl", "no") in {"yes", "both"}
         names = ["factory"]
         options = [(_Protocol, _BufferedProtocol)]
@@ -302,7 +300,9 @@ class _ContextBaseTests(tb.SSLTestCase):
                         values["sslctx"] = self._create_server_ssl_context(
                             self.ONLYCERT, self.ONLYKEY
                         )
-                        values["client_sslctx"] = self._create_client_ssl_context()
+                        values["client_sslctx"] = (
+                            self._create_client_ssl_context()
+                        )
                     else:
                         values["sslctx"] = values["client_sslctx"] = None
 
@@ -405,7 +405,11 @@ class _ContextBaseTests(tb.SSLTestCase):
         self._run_server_test(test, async_sock=True)
 
     def test_create_ssl_server_connection_protocol(self):
-        if self.implementation == "asyncio" and tb.is_windows and is_freethreaded_build:
+        if (
+            self.implementation == "asyncio"
+            and tb.is_windows
+            and is_freethreaded_build
+        ):
             raise unittest.SkipTest(
                 "free-threading builds are victim to a "
                 "freezing bug in standard asyncio windows."
@@ -428,7 +432,9 @@ class _ContextBaseTests(tb.SSLTestCase):
                     # this seems to be a bug in asyncio
                     proto.data_received_fut = self.loop.create_future()
                     proto.transport.pause_reading()
-                    await self.loop.run_in_executor(None, ssl_sock.send, b"data")
+                    await self.loop.run_in_executor(
+                        None, ssl_sock.send, b"data"
+                    )
                     self.loop.call_soon(resume_reading, proto.transport)
                     inner = await proto.data_received_fut
                     self.assertEqual(inner, "inner")
@@ -513,7 +519,15 @@ class _ContextBaseTests(tb.SSLTestCase):
 
     def test_create_connection_protocol(self):
         async def test(
-            cvar, proto, addr, sslctx, client_sslctx, family, use_sock, use_ssl, use_tcp
+            cvar,
+            proto,
+            addr,
+            sslctx,
+            client_sslctx,
+            family,
+            use_sock,
+            use_ssl,
+            use_tcp,
         ):
             ss = socket.socket(family)
             ss.bind(addr)
@@ -543,7 +557,11 @@ class _ContextBaseTests(tb.SSLTestCase):
             s = self.loop.run_in_executor(None, accept)
 
             try:
-                method = "create_connection" if use_tcp else "create_unix_connection"
+                method = (
+                    "create_connection"
+                    if use_tcp
+                    else "create_unix_connection"
+                )
                 params = {}
                 if use_sock:
                     cs = socket.socket(family)
@@ -602,7 +620,15 @@ class _ContextBaseTests(tb.SSLTestCase):
             raise unittest.SkipTest("this seems to be a bug in asyncio")
 
         async def test(
-            cvar, proto, addr, sslctx, client_sslctx, family, ssl_over_ssl, use_tcp, **_
+            cvar,
+            proto,
+            addr,
+            sslctx,
+            client_sslctx,
+            family,
+            ssl_over_ssl,
+            use_tcp,
+            **_,
         ):
             ss = socket.socket(family)
             ss.bind(addr)
@@ -664,7 +690,9 @@ class _ContextBaseTests(tb.SSLTestCase):
         self._run_test(test, use_ssl="yes", ssl_over_ssl="both")
 
     def test_connect_accepted_socket(self):
-        async def test(proto, addr, family, sslctx, client_sslctx, use_ssl, **_):
+        async def test(
+            proto, addr, family, sslctx, client_sslctx, use_ssl, **_
+        ):
             ss = socket.socket(family)
             ss.bind(addr)
             ss.listen(1)
@@ -675,7 +703,9 @@ class _ContextBaseTests(tb.SSLTestCase):
 
             try:
                 if use_ssl:
-                    cs = self.loop.run_in_executor(None, client_sslctx.wrap_socket, cs)
+                    cs = self.loop.run_in_executor(
+                        None, client_sslctx.wrap_socket, cs
+                    )
                     await self.loop.connect_accepted_socket(
                         lambda: proto, s, ssl=sslctx
                     )

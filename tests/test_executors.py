@@ -13,7 +13,6 @@ def fib(n):
 
 
 class _TestExecutors:
-
     def run_pool_test(self, pool_factory):
         async def run():
             pool = pool_factory()
@@ -29,8 +28,9 @@ class _TestExecutors:
         self.loop.run_until_complete(run())
 
     @unittest.skipIf(
-        multiprocessing.get_start_method(False) == 'spawn',
-        'no need to test on macOS where spawn is used instead of fork')
+        multiprocessing.get_start_method(False) == "spawn",
+        "no need to test on macOS where spawn is used instead of fork",
+    )
     def test_executors_process_pool_01(self):
         self.run_pool_test(concurrent.futures.ProcessPoolExecutor)
 

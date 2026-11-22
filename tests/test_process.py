@@ -84,7 +84,11 @@ class _TestProcess:
                 env = {}
             cwd = "/"
             proc = await asyncio.create_subprocess_shell(
-                cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
 
             out, _ = await proc.communicate()
@@ -110,7 +114,11 @@ class _TestProcess:
                 env = {}
             cwd = pathlib.Path("/")
             proc = await asyncio.create_subprocess_shell(
-                cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
 
             out, _ = await proc.communicate()
@@ -177,7 +185,9 @@ class _TestProcess:
                 self.assertIs(type(ex.__cause__), ValueError)
                 self.assertEqual(ex.__cause__.args[0], "spam")
         else:
-            self.fail("exception in preexec_fn did not propagate to the parent")
+            self.fail(
+                "exception in preexec_fn did not propagate to the parent"
+            )
 
         if time.time() - started > 5:
             self.fail("exception in preexec_fn did not kill the child process")
@@ -468,7 +478,9 @@ print("OK")
             for i in range(n):
                 try:
                     p = await asyncio.create_subprocess_exec(
-                        "ls", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        "ls",
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
                 finally:
                     await p.wait()
@@ -690,7 +702,9 @@ class _AsyncioTests:
 
     def test_start_new_session(self):
         # start the new process in a new session
-        create = asyncio.create_subprocess_shell("exit 8", start_new_session=True)
+        create = asyncio.create_subprocess_shell(
+            "exit 8", start_new_session=True
+        )
         proc = self.loop.run_until_complete(create)
         exitcode = self.loop.run_until_complete(proc.wait())
         self.assertEqual(exitcode, 8)
@@ -870,7 +884,9 @@ class _AsyncioTests:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _stderr = await asyncio.wait_for(proc.communicate(stdin), 60.0)
+            stdout, _stderr = await asyncio.wait_for(
+                proc.communicate(stdin), 60.0
+            )
             return stdout
 
         stdin = b"x" * size
@@ -890,7 +906,7 @@ class _AsyncioTests:
         self._test_write_huge_stdin(219264)
 
     def _test_write_huge_stdin(self, buf_size):
-            code = """
+        code = """
     import sys
     n = 0
     while True:
@@ -902,30 +918,32 @@ class _AsyncioTests:
             break
         n+=1
     print(n)"""
-            num_lines = buf_size - len(b"END\n")
-            args = [sys.executable, b"-W", b"ignore", b"-c", code]
-    
-            async def test():
-                proc = await asyncio.create_subprocess_exec(
-                    *args, stdout=asyncio.subprocess.PIPE, stdin=asyncio.subprocess.PIPE
-                )
-                data = b"\n" * num_lines + b"END\n"
-                self.assertEqual(len(data), buf_size)
-                proc.stdin.write(data)
-                proc.stdin.write_eof()
-                await asyncio.wait_for(proc.stdin.drain(), timeout=5.0)
-                try:
-                    await asyncio.wait_for(proc.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    proc.stdin.close()
-                    await proc.wait()
-                    raise
-                out = await proc.stdout.read()
-                self.assertEqual(int(out), num_lines)
-    
-            self.loop.run_until_complete(test())
-    
+        num_lines = buf_size - len(b"END\n")
+        args = [sys.executable, b"-W", b"ignore", b"-c", code]
+
+        async def test():
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.PIPE,
+            )
+            data = b"\n" * num_lines + b"END\n"
+            self.assertEqual(len(data), buf_size)
+            proc.stdin.write(data)
+            proc.stdin.write_eof()
+            await asyncio.wait_for(proc.stdin.drain(), timeout=5.0)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                proc.kill()
+                proc.stdin.close()
+                await proc.wait()
+                raise
+            out = await proc.stdout.read()
+            self.assertEqual(int(out), num_lines)
+
+        self.loop.run_until_complete(test())
+
 
 @unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
@@ -1056,17 +1074,21 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
         """)
         subprocess.run([sys.executable, "-c", script], check=True)
 
+
 @unittest.skipIf(tb.is_windows, "TODO")
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
     pass
+
 
 @unittest.skipIf(tb.is_windows, "TODO")
 class TestAsyncio_UV_Process(_AsyncioTests, tb.UVTestCase):
     pass
 
+
 @unittest.skipIf(tb.is_windows, "TODO")
 class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
     pass
+
 
 @unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Process_Delayed(tb.UVTestCase):
@@ -1097,7 +1119,9 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
 
     async def run_sub(self, **kwargs):
         return await self.loop.subprocess_shell(
-            lambda: self.TestProto(self.loop.create_future()), "echo 1", **kwargs
+            lambda: self.TestProto(self.loop.create_future()),
+            "echo 1",
+            **kwargs,
         )
 
     def test_process_delayed_stdio__paused__stdin_pipe(self):
@@ -1149,13 +1173,16 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
 
     def test_process_delayed_stdio__not_paused__no_stdin(self):
         if (
-            os.environ.get("TRAVIS_OS_NAME") or os.environ.get("GITHUB_WORKFLOW")
+            os.environ.get("TRAVIS_OS_NAME")
+            or os.environ.get("GITHUB_WORKFLOW")
         ) and sys.platform == "darwin":
             # Randomly crashes on Travis, can't reproduce locally.
             raise unittest.SkipTest()
 
         transport, proto = self.loop.run_until_complete(
-            self.run_sub(stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.run_sub(
+                stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
         )
         self.loop.run_until_complete(transport._wait())
         self.assertEqual(transport.get_returncode(), 0)

@@ -6,7 +6,6 @@ from uvloop import _testbase as tb
 
 
 class TestDealloc(tb.UVTestCase):
-
     def test_dealloc_1(self):
         # Somewhere between Cython 0.25.2 and 0.26.0 uvloop programs
         # started to trigger the following output:
@@ -28,7 +27,7 @@ class TestDealloc(tb.UVTestCase):
         # any unwanted output.
 
         async def test():
-            prog = '''\
+            prog = """\
 import uvloop
 
 async def foo():
@@ -42,13 +41,18 @@ def main():
 
 if __name__ == '__main__':
     main()
-            '''
+            """
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
-                cmd, b'-W', b'ignore', b'-c', prog,
+                cmd,
+                b"-W",
+                b"ignore",
+                b"-c",
+                prog,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                stderr=subprocess.PIPE,
+            )
 
             await proc.wait()
             out = await proc.stdout.read()
@@ -57,5 +61,5 @@ if __name__ == '__main__':
             return out, err
 
         out, err = self.loop.run_until_complete(test())
-        self.assertEqual(out, b'', 'stdout is not empty')
-        self.assertEqual(err, b'', 'stderr is not empty')
+        self.assertEqual(out, b"", "stdout is not empty")
+        self.assertEqual(err, b"", "stderr is not empty")
