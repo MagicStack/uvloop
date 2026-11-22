@@ -23,7 +23,7 @@ class MyBaseProto(asyncio.Protocol):
     connected = None
     done = None
 
-    def __init__(self, loop=None):
+    def __init__(self, loop=None):  # noqa: D107
         self.transport = None
         self.state = "INITIAL"
         self.nbytes = 0
@@ -207,7 +207,7 @@ class _TestTCP:
             self.loop.run_until_complete(self.loop.create_server(object))
 
     def test_create_server_3(self):
-        """check ephemeral port can be used"""
+        """Check ephemeral port can be used."""
 
         async def start_server_ephemeral_ports():
 
@@ -252,11 +252,21 @@ class _TestTCP:
         with sock:
             addr = sock.getsockname()
 
+            # Winloop comment: different asyncio error message on Windows
+            # "[Errno 10048] error while attempting to bind on address
+            #  ('127.0.0.1', 31098): only one usage of each socket address
+            #  (protocol/network address/port) is normally permitted"
+            # NB: Python 3.12.5+ adds "[winerror 10048] " before "only one ..."
             with self.assertRaisesRegex(
                 OSError,
                 r"error while attempting.*\('127.*:"
-                r"( \[errno \d+\])? address"
-                r"( already)? in use",
+                + (
+                    r"( \[errno \d+\])? address"
+                    r"( already)? in use"
+                    if not tb.is_windows
+                    else r"( \[winerror \d+\])? "
+                    r"only one usage of each"
+                ),
             ):
                 self.loop.run_until_complete(
                     self.loop.create_server(object, *addr)
@@ -562,7 +572,12 @@ class _TestTCP:
             await self.wait_closed(writer)
 
         async def runner():
-            with self.assertRaisesRegex(OSError, "Bad file"):
+            # Winloop comment: different asyncio error message on Windows
+            # "[WinError 10038] An operation was attempted on something
+            #  that is not a socket"
+            with self.assertRaisesRegex(
+                OSError, ("not a socket" if tb.is_windows else "Bad file")
+            ):
                 await client()
 
         self.loop.run_until_complete(runner())
@@ -701,6 +716,10 @@ class _TestTCP:
         self.assertIsNone(self.loop.run_until_complete(connection_lost_called))
 
     def test_resume_writing_write_different_transport(self):
+        if tb.is_windows:
+            raise unittest.SkipTest(
+                "[Errno 9] Bad file descriptor (Test works on winloop)"
+            )
         loop = self.loop
 
         class P1(asyncio.Protocol):
@@ -785,6 +804,16 @@ class _TestTCP:
             self.loop.run_until_complete(client(srv.addr))
 
     def test_create_connection_sock_cancel_fd_leak(self):
+        if tb.is_windows:
+            if isinstance(self, Test_AIO_TCP):
+                raise unittest.SkipTest(
+                    "does not work on standard windows asyncio"
+                )
+            else:
+                raise unittest.SkipTest(
+                    "regression test works on winloop but not here"
+                )
+
         # Regression test for https://github.com/MagicStack/uvloop/issues/645
         # and https://github.com/aio-libs/aiohttp/issues/10506
         #
@@ -1426,7 +1455,12 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
 
 class Test_AIO_TCP(_TestTCP, tb.AIOTestCase):
-    pass
+    # Winloop comment: issue proactor loop with
+    # test_resume_writing_write_different_transport.
+    if sys.platform == "win32":
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()
 
 
 class _TestSSL(tb.SSLTestCase):
@@ -2521,7 +2555,10 @@ class _TestSSL(tb.SSLTestCase):
     def test_shutdown_timeout(self):
         if self.implementation == "asyncio":
             raise unittest.SkipTest()
-
+        elif tb.is_windows:
+            raise unittest.SkipTest(
+                "Bad file descriptor: (test works on winloop)"
+            )
         CNT = 0  # number of clients that were successful
         TOTAL_CNT = 25  # total number of clients that test will create
         TIMEOUT = 10.0  # timeout for this test
@@ -2981,7 +3018,7 @@ class _TestSSL(tb.SSLTestCase):
             except AssertionError as e:
                 self.assertEqual(str(e), "ResourceWarning not triggered")
             else:
-                self.fail("Unexpected ResourceWarning: {}".format(cm.warning))
+                self.fail(f"Unexpected ResourceWarning: {cm.warning}")
 
     def test_handshake_timeout_handler_leak(self):
         if self.implementation == "asyncio":

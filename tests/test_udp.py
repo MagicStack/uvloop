@@ -12,7 +12,7 @@ from uvloop import _testbase as tb
 class MyDatagramProto(asyncio.DatagramProtocol):
     done = None
 
-    def __init__(self, loop=None):
+    def __init__(self, loop=None):  # noqa: D107
         self.state = "INITIAL"
         self.nbytes = 0
         if loop is not None:
@@ -140,6 +140,12 @@ class _TestUDP:
         self._test_create_datagram_endpoint_addrs(socket.AF_INET6, ("::1", 0))
 
     def test_create_datagram_endpoint_ipv6_family(self):
+        if isinstance(self, Test_AIO_UDP) and tb.is_windows:
+            raise unittest.SkipTest(
+                "AssertionError: unexpected calls to " \
+                "loop.call_exception_handler()"
+            )
+
         class TestMyDatagramProto(MyDatagramProto):
             def __init__(inner_self):
                 super().__init__(loop=self.loop)
@@ -187,6 +193,7 @@ class _TestUDP:
             tr.close()
             self.loop.run_until_complete(pr.done)
 
+    @unittest.skipIf(tb.is_windows, "no Unix sockets on Windows")
     def test_create_datagram_endpoint_sock_unix_domain(self):
 
         class Proto(asyncio.DatagramProtocol):
@@ -282,6 +289,7 @@ class _TestUDP:
 
         self.loop.run_until_complete(run())
 
+    @unittest.skipIf(tb.is_windows, "no Unix sockets on Windows")
     def test_socketpair(self):
         peername = asyncio.Future(loop=self.loop)
 
@@ -323,9 +331,11 @@ class _TestUDP:
             self.loop.run_until_complete(pr.done)
 
     def _skip_create_datagram_endpoint_reuse_addr(self):
-        if self.implementation == "asyncio":
-            if sys.version_info[:2] >= (3, 11):
-                raise unittest.SkipTest()
+        if self.implementation == "asyncio" and sys.version_info[:2] >= (
+            3,
+            11,
+        ):
+            raise unittest.SkipTest()
 
     def test_create_datagram_endpoint_reuse_address_error(self):
         # bpo-37228: Ensure that explicit passing of `reuse_address=True`
@@ -400,7 +410,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
         try:
             s_transport.sendto(b"aaaa", ("<broadcast>", 80))
         except ValueError as exc:
-            raise AssertionError("sendto raises {}.".format(exc))
+            raise AssertionError(f"sendto raises {exc}.")
 
         s_transport.close()
         self.loop.run_until_complete(asyncio.sleep(0.01))
@@ -428,3 +438,14 @@ class Test_AIO_UDP(_TestUDP, tb.AIOTestCase):
     @unittest.skipUnless(tb.has_IPv6, "no IPv6")
     def test_create_datagram_endpoint_addrs_ipv6(self):
         self._test_create_datagram_endpoint_addrs_ipv6()
+
+    # Winloop comment: switching to selector loop (instead of proactor)
+    # to make test_create_datagram_endpoint_ipv6_family() pass.
+    # The proactor failure is due to a recvfrom() call on an
+    # unbound socket when using local_addr=None. Pending this newly
+    # created issue https://github.com/python/cpython/issues/119711
+    # The other tests also pass with the proactor loop.
+    if tb.is_windows:
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()

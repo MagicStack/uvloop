@@ -94,7 +94,7 @@ class _TestAioHTTP:
         async def client():
             async with aiohttp.ClientSession() as client:
                 async with client.ws_connect(
-                    "http://127.0.0.1:{}".format(port)
+                    f"http://127.0.0.1:{port}"
                 ) as ws:
                     await ws.send_str("hello")
                     async for msg in ws:
@@ -123,4 +123,9 @@ class Test_UV_AioHTTP(_TestAioHTTP, tb.UVTestCase):
 
 @unittest.skipIf(skip_tests, "no aiohttp module")
 class Test_AIO_AioHTTP(_TestAioHTTP, tb.AIOTestCase):
-    pass
+    # Winloop comment: switching to selector loop (instead of proactor),
+    # see https://github.com/saghul/aiodns/issues/86
+    if sys.platform == "win32":
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()

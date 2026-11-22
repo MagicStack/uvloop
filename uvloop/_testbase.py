@@ -167,7 +167,7 @@ class BaseTestCase(unittest.TestCase, metaclass=BaseTestCaseMeta):
                    max_clients=10):
 
         if addr is None:
-            if family == socket.AF_UNIX:
+            if not is_windows and family == socket.AF_UNIX:
                 with tempfile.NamedTemporaryFile() as tmp:
                     addr = tmp.name
             else:

@@ -40,18 +40,28 @@ class _RedirectFD(contextlib.AbstractContextManager):
 
 class _TestProcess:
     def get_num_fds(self):
-        return psutil.Process(os.getpid()).num_fds()
+        # Winloop comment: use num_handles() as a meaningful
+        # substitute for num_fds() on Windows.
+        if sys.platform == "win32":
+            # psutil.Process().num_handles only available on Windows
+            return psutil.Process(os.getpid()).num_handles()
+        else:
+            # psutil.Process().num_fds only available on Unix
+            return psutil.Process(os.getpid()).num_fds()
 
     def test_process_env_1(self):
         async def test():
-            cmd = "echo $FOO$BAR"
+            if not tb.is_windows:
+                cmd = "echo $FOO$BAR"
+            else:
+                cmd = "echo %FOO%%BAR%"
             env = {"FOO": "sp", "BAR": "am"}
             proc = await asyncio.create_subprocess_shell(
                 cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
 
             out, _ = await proc.communicate()
-            self.assertEqual(out, b"span" + NL)
+            self.assertEqual(out, b"spam" + NL)
             self.assertEqual(proc.returncode, 0)
 
         self.loop.run_until_complete(test())
@@ -205,7 +215,7 @@ class _TestProcess:
             )
 
             out, err = await proc.communicate()
-            self.assertEqual(out, b"spam\n")
+            self.assertEqual(out, b"spam" + NL)
 
         self.loop.run_until_complete(test())
 
@@ -221,17 +231,17 @@ class _TestProcess:
             )
 
             out, err = await proc.communicate()
-            self.assertEqual(out, b"spam\n")
+            self.assertEqual(out, b"spam" + NL)
 
         self.loop.run_until_complete(test())
 
+    @unittest.skipIf(tb.is_windows, "PID shows a different number.")
     def test_process_pid_1(self):
         async def test():
             prog = """\
 import os
 print(os.getpid())
-            """
-
+                """
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
                 cmd,
@@ -244,29 +254,36 @@ print(os.getpid())
             )
 
             pid = proc.pid
-            expected_result = "{}\n".format(pid).encode()
+            expected_result = f"{pid}".encode() + NL
 
             out, err = await proc.communicate()
             self.assertEqual(out, expected_result)
 
         self.loop.run_until_complete(test())
 
+    @unittest.skipIf(
+        tb.is_windows,
+        "WriteUnixTransport closes a little too soon, " \
+        "seems to have changed vs. winloop.",
+    )
     def test_process_send_signal_1(self):
         async def test():
             prog = """\
-import signal
+    import signal
+    import sys
 
-def handler(signum, frame):
-    if signum == signal.SIGUSR1:
-        print('WORLD')
+    def handler(signum, frame):
+        if signum == signal.SIGUSR1:
+            print('WORLD')
 
-signal.signal(signal.SIGUSR1, handler)
-a = input()
-print(a)
-a = input()
-print(a)
-exit(11)
-            """
+    if sys.platform != 'win32':
+        signal.signal(signal.SIGUSR1, handler)
+    a = input()
+    print(a)
+    a = input()
+    print(a)
+    exit(11)
+                """
 
             cmd = sys.executable
             proc = await asyncio.create_subprocess_exec(
@@ -283,22 +300,28 @@ exit(11)
             proc.stdin.write(b"HELLO\n")
             await proc.stdin.drain()
 
-            self.assertEqual(await proc.stdout.readline(), b"HELLO\n")
+            self.assertEqual(await proc.stdout.readline(), b"HELLO" + NL)
 
-            proc.send_signal(signal.SIGUSR1)
+            if sys.platform != "win32":
+                proc.send_signal(signal.SIGUSR1)
 
             proc.stdin.write(b"!\n")
             await proc.stdin.drain()
 
-            self.assertEqual(await proc.stdout.readline(), b"WORLD\n")
-            self.assertEqual(await proc.stdout.readline(), b"!\n")
+            if sys.platform != "win32":
+                self.assertEqual(await proc.stdout.readline(), b"WORLD\n")
+            self.assertEqual(await proc.stdout.readline(), b"!" + NL)
             self.assertEqual(await proc.wait(), 11)
 
         self.loop.run_until_complete(test())
 
+    @unittest.skipIf(
+        tb.is_windows,
+        "WriteUnixTransport closes a little too soon, seems to " \
+        "have changed vs. winloop.",
+    )
     def test_process_streams_basic_1(self):
         async def test():
-
             prog = """\
 import sys
 while True:
@@ -337,12 +360,12 @@ while True:
             proc.stdin.write(b"foobar\n")
             await proc.stdin.drain()
             out = await proc.stdout.readline()
-            self.assertEqual(out, b">foobar<\n")
+            self.assertEqual(out, b">foobar<" + NL)
 
             proc.stdin.write(b"stderr\n")
             await proc.stdin.drain()
             out = await proc.stderr.readline()
-            self.assertEqual(out, b"OUCH\n")
+            self.assertEqual(out, b"OUCH" + NL)
 
             proc.stdin.write(b"stop\n")
             await proc.stdin.drain()
@@ -474,11 +497,20 @@ print("OK")
 
     @unittest.skipIf(SKIP_PSUTIL, "We don't have PSUTIL")
     def test_subprocess_fd_leak_2(self):
+        # Vizonex Comment: Numbers can vary from 207 -> 208 on windows.
+        # This is not normal behavior and needs further investigation.
+        # I would mark this as an XFail if that is the case.
+        if tb.is_windows and isinstance(self, Test_AIO_Process):
+            raise unittest.SkipTest(
+                "FD numbers are various, on uvloop windows this is " \
+                "not a problem."
+            )
+
         async def main(n):
             for i in range(n):
                 try:
                     p = await asyncio.create_subprocess_exec(
-                        "ls",
+                        "ls" if not tb.is_windows else "help",
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
@@ -490,7 +522,6 @@ print("OK")
         num_fd_1 = self.get_num_fds()
         self.loop.run_until_complete(main(10))
         num_fd_2 = self.get_num_fds()
-
         self.assertEqual(num_fd_1, num_fd_2)
 
     def test_subprocess_invalid_stdin(self):
@@ -525,9 +556,9 @@ print("OK")
     def test_process_streams_redirect(self):
         async def test():
             prog = Rb"""
-    import sys
-    print('out', flush=True)
-    print('err', file=sys.stderr, flush=True)
+import sys
+print('out', flush=True)
+print('err', file=sys.stderr, flush=True)
                 """
 
             proc = await asyncio.create_subprocess_exec(
@@ -568,7 +599,7 @@ print("OK")
 
 class _AsyncioTests:
     # Program blocking
-    PROGRAM_BLOCKED = [
+    PROGRAM_BLOCKED = [  # noqa: RUF012
         sys.executable,
         b"-W",
         b"ignore",
@@ -577,7 +608,7 @@ class _AsyncioTests:
     ]
 
     # Program copying input to output
-    PROGRAM_CAT = [
+    PROGRAM_CAT = [  # noqa: RUF012
         sys.executable,
         b"-c",
         b";".join(
@@ -589,7 +620,7 @@ class _AsyncioTests:
         ),
     ]
 
-    PROGRAM_ERROR = [sys.executable, b"-W", b"ignore", b"-c", b"1/0"]
+    PROGRAM_ERROR = [sys.executable, b"-W", b"ignore", b"-c", b"1/0"]  # noqa: RUF012
 
     def test_stdin_not_inheritable(self):
         # asyncio issue #209: stdin must not be inheritable, otherwise
@@ -873,7 +904,8 @@ class _AsyncioTests:
         async def copy_stdin_to_stdout(stdin):
             # See https://github.com/MagicStack/uvloop/issues/363
             # A program that copies stdin to stdout character by character
-            code = "import sys, shutil; shutil.copyfileobj(sys.stdin, sys.stdout, 1)"
+            code = "import sys, shutil; shutil.copyfileobj(" \
+            "sys.stdin, sys.stdout, 1)"
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
                 b"-W",
@@ -945,8 +977,10 @@ class _AsyncioTests:
         self.loop.run_until_complete(test())
 
 
-@unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
+    # Contributed from (winloop) users
+    # had wanted playwright support really badly and
+    # I don't blame them. - Vizonex
     @unittest.skipUnless(tb.is_windows, "Windows startupinfo")
     def test_process_startupinfo_unsupported_flags(self):
         async def test():
@@ -976,7 +1010,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(not tb.is_windows, "problem is windows related only")
+    @unittest.skipUnless(tb.is_windows, "problem is windows related only")
     def test_windows_issue_153(self):
         """Winloop issue 153 is related to bringing back the shlex parser
         which because there is a different system involved from regular
@@ -984,7 +1018,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
         from doing something worse and needing to change up more code.
 
         SEE: https://github.com/Vizonex/Winloop/issues/153
-        """
+        """  # noqa: D205
 
         async def test():
             CMD = "python -c \"import sys; print('hi')\""
@@ -1001,12 +1035,13 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(not tb.is_windows, "problem is windows related only")
+    @unittest.skipUnless(tb.is_windows, "problem is windows related only")
     def test_windows_issue_153_bytes(self):
         """Winloop issue 153 is related to bringing back the shlex parser
         which because there is a different system involved from regular
         python subprocess's system to prevent the libuv library
-        from doing something worse and needing to change up more code."""
+        from doing something worse and needing to change up more code.
+        """  # noqa: D205
 
         async def test():
             CMD = b"python -c \"import sys; print('hi')\""
@@ -1075,12 +1110,12 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
         subprocess.run([sys.executable, "-c", script], check=True)
 
 
-@unittest.skipIf(tb.is_windows, "TODO")
+# @unittest.skipIf(tb.is_windows, "TODO")
 class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
     pass
 
 
-@unittest.skipIf(tb.is_windows, "TODO")
+@unittest.skipIf(tb.is_windows, "handler closes problem.")
 class TestAsyncio_UV_Process(_AsyncioTests, tb.UVTestCase):
     pass
 

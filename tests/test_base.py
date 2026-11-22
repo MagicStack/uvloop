@@ -99,7 +99,7 @@ class _TestBase:
             self.loop.set_exception_handler(handler)
 
             def cb():
-                1 / 0
+                1 / 0  # noqa: B018
 
             meth(cb)
             self.assertIsNone(context)

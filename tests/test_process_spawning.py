@@ -11,8 +11,9 @@ from uvloop import _testbase as tb
 
 class ProcessSpawningTestCollection(TestCase):
     def test_spawning_external_process(self):
-        """Test spawning external process (using `popen` system call) that
-        cause loop freeze."""
+        """Test spawning external process (using `popen` system call)
+        that cause loop freeze.
+        """  # noqa: D205
 
         async def run(loop):
             event = asyncio.Event()
@@ -78,7 +79,6 @@ class ProcessSpawningTestCollection(TestCase):
 
         def spawn_process():
             """Spawn external process via `popen` system call."""
-
             # WINLOOP comment: use 'msvcrt' instead of 'c', and
             # attrbs '_popen' and '_plocse' instead of 'popen' and 'pclose'.
             # NB: this test turns out to take close to 10x longer on Windows?!

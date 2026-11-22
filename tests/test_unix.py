@@ -14,6 +14,7 @@ from uvloop import _testbase as tb
 SSL_HANDSHAKE_TIMEOUT = 15.0
 
 
+@unittest.skipIf(tb.is_windows, "no Unix socket tests on Windows")
 class _TestUnix:
     def test_create_unix_server_1(self):
         CNT = 0  # number of clients that were successful
@@ -179,11 +180,11 @@ class _TestUnix:
     def test_create_unix_server_2(self):
         with tempfile.TemporaryDirectory() as td:
             sock_name = os.path.join(td, "sock")
-            with open(sock_name, "wt") as f:
+            with open(sock_name, "w") as f:
                 f.write("x")
 
             with self.assertRaisesRegex(
-                OSError, "Address '{}' is already in use".format(sock_name)
+                OSError, f"Address '{sock_name}' is already in use"
             ):
                 self.loop.run_until_complete(
                     self.loop.create_unix_server(object, sock_name)
@@ -762,7 +763,7 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             with tempfile.TemporaryDirectory() as td:
                 sock_name = os.path.join(td, "sock")
@@ -900,9 +901,11 @@ class _TestSSL(tb.SSLTestCase):
         self.loop.run_until_complete(test())
 
 
+@unittest.skipIf(tb.is_windows, "no Unix socket tests on Windows")
 class Test_UV_UnixSSL(_TestSSL, tb.UVTestCase):
     pass
 
 
+@unittest.skipIf(tb.is_windows, "no Unix socket tests on Windows")
 class Test_AIO_UnixSSL(_TestSSL, tb.AIOTestCase):
     pass

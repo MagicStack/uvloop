@@ -16,7 +16,7 @@ class EchoServerProtocol(asyncio.Protocol):
 
 
 class EchoClientProtocol(asyncio.Protocol):
-    def __init__(self, loop):
+    def __init__(self, loop):  # noqa: D107
         self.loop = loop
 
     def connection_made(self, transport):

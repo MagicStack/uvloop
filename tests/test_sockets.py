@@ -8,7 +8,6 @@ import unittest
 
 from uvloop import _testbase as tb
 
-
 _SIZE = 1024 * 1024
 
 
@@ -103,6 +102,9 @@ class _TestSockets:
             self.loop.run_until_complete(run())
 
     def test_socket_blocking_error(self):
+        if isinstance(self, TestAIOSockets) and tb.is_windows:
+            raise unittest.SkipTest("WinError 10057 on standard asyncio")
+
         self.loop.set_debug(True)
         sock = socket.socket()
 
@@ -122,6 +124,11 @@ class _TestSockets:
                 )
 
     def test_socket_fileno(self):
+        if isinstance(self, TestAIOSockets) and tb.is_windows:
+            raise unittest.SkipTest(
+                "NotImplemented on standard windows asyncio."
+            )
+
         rsock, wsock = socket.socketpair()
         f = asyncio.Future(loop=self.loop)
 
@@ -141,6 +148,11 @@ class _TestSockets:
             self.loop.run_until_complete(f)
 
     def test_socket_sync_remove_and_immediately_close(self):
+        if isinstance(self, TestAIOSockets) and tb.is_windows:
+            raise unittest.SkipTest(
+                "NotImplemented on standard windows asyncio."
+            )
+
         # Test that it's OK to close the socket right after calling
         # `remove_reader`.
         sock = socket.socket()
@@ -210,6 +222,8 @@ class _TestSockets:
         self.loop.run_until_complete(server())
 
     def test_sock_send_before_cancel(self):
+        if isinstance(self, TestAIOSockets) and tb.is_windows:
+            raise unittest.SkipTest("std asyncio on windows freezes")
         srv_sock_conn = None
 
         async def server():
@@ -325,6 +339,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             rsock.close()
             wsock.close()
 
+    @unittest.skipIf(tb.is_windows, "no Unix socket on Windows")
     def test_pseudosocket(self):
         def assert_raises():
             return self.assertRaisesRegex(
@@ -439,14 +454,20 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 r = self.loop.run_until_complete(client(sock, srv.addr))
                 self.assertEqual(r, "ok")
 
+    @unittest.skipIf(
+        tb.is_windows, "Sendall is having problems on all windows versions"
+    )
     def test_socket_recv_and_close(self):
         def srv_gen(sock):
             time.sleep(1.2)
             sock.send(b"helo")
 
-        async def kill(sock):
-            await asyncio.sleep(0.2)
-            sock.close()
+        async def kill(fut):
+            # Winloop comment: shorter sleep needed on Windows
+            # to pass test. Otherwise, fut is done too early.
+            C = 2 if tb.is_windows else 1
+            await asyncio.sleep(0.2 / C)
+            fut.cancel()
 
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
@@ -675,6 +696,9 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 self.loop.run_until_complete(w)
 
     def test_socket_cancel_sock_sendall(self):
+        if tb.is_windows and isinstance(self, TestUVSockets):
+            raise unittest.SkipTest("works on winloop but not on uvloop.")
+
         def srv_gen(sock):
             time.sleep(1.2)
             sock.recv_all(4)
@@ -751,4 +775,20 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
 
 class TestAIOSockets(_TestSockets, tb.AIOTestCase):
-    pass
+    # Vizonex comment: Proactor EventLoops don't have a
+    # add_reader/add_writer system however it is possible
+    # for CPython to add this in in the future as demonstrated
+    # in wepoll's sourcecode:
+    # https://github.com/piscisaureus/wepoll/blob/dist/wepoll.c
+    # afd_create_device_handle clearly hints an IOCP handle is in use.
+
+    def is_aio(self):
+        return True
+
+    def is_uv(self):
+        return False
+
+    if tb.is_windows:
+
+        def new_policy(self):
+            return asyncio.WindowsSelectorEventLoopPolicy()
