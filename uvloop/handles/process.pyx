@@ -112,8 +112,6 @@ cdef class UVProcess(UVHandle):
 
             loop.active_process_handler = None
 
-            PyOS_AfterFork_Parent()
-
             if err < 0:
                 self._close_process_handle()
                 self._abort_init()
