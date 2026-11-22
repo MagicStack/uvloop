@@ -21,6 +21,7 @@ import unittest
 
 import uvloop
 
+
 is_windows = sys.platform.startswith("win")
 
 class MockPattern(str):
