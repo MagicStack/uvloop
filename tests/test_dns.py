@@ -44,10 +44,10 @@ class BaseTestDNS:
                 self.assertEqual(ex.args, err.args)
             else:
                 ex.__context__ = err
-                raise ex
+                raise
         except OSError as ex:
             ex.__context__ = err
-            raise ex
+            raise
         else:
             if err is not None:
                 raise err

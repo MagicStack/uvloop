@@ -214,7 +214,7 @@ class _TestProcess:
                 stdout=subprocess.PIPE,
             )
 
-            out, err = await proc.communicate()
+            out, _err = await proc.communicate()
             self.assertEqual(out, b"spam" + NL)
 
         self.loop.run_until_complete(test())
@@ -230,7 +230,7 @@ class _TestProcess:
                 stdout=subprocess.PIPE,
             )
 
-            out, err = await proc.communicate()
+            out, _err = await proc.communicate()
             self.assertEqual(out, b"spam" + NL)
 
         self.loop.run_until_complete(test())
@@ -256,14 +256,14 @@ print(os.getpid())
             pid = proc.pid
             expected_result = f"{pid}".encode() + NL
 
-            out, err = await proc.communicate()
+            out, _err = await proc.communicate()
             self.assertEqual(out, expected_result)
 
         self.loop.run_until_complete(test())
 
     @unittest.skipIf(
         tb.is_windows,
-        "WriteUnixTransport closes a little too soon, " \
+        "WriteUnixTransport closes a little too soon, "
         "seems to have changed vs. winloop.",
     )
     def test_process_send_signal_1(self):
@@ -317,7 +317,7 @@ print(os.getpid())
 
     @unittest.skipIf(
         tb.is_windows,
-        "WriteUnixTransport closes a little too soon, seems to " \
+        "WriteUnixTransport closes a little too soon, seems to "
         "have changed vs. winloop.",
     )
     def test_process_streams_basic_1(self):
@@ -502,7 +502,7 @@ print("OK")
         # I would mark this as an XFail if that is the case.
         if tb.is_windows and isinstance(self, Test_AIO_Process):
             raise unittest.SkipTest(
-                "FD numbers are various, on uvloop windows this is " \
+                "FD numbers are various, on uvloop windows this is "
                 "not a problem."
             )
 
@@ -620,7 +620,7 @@ class _AsyncioTests:
         ),
     ]
 
-    PROGRAM_ERROR = [sys.executable, b"-W", b"ignore", b"-c", b"1/0"]  # noqa: RUF012
+    PROGRAM_ERROR = [sys.executable, b"-W", b"ignore", b"-c", b"1/0"]
 
     def test_stdin_not_inheritable(self):
         # asyncio issue #209: stdin must not be inheritable, otherwise
@@ -638,7 +638,7 @@ class _AsyncioTests:
                 stderr=asyncio.subprocess.PIPE,
                 close_fds=False,
             )
-            stdout, stderr = await proc.communicate(message)
+            stdout, _stderr = await proc.communicate(message)
             exitcode = await proc.wait()
             return (stdout, exitcode)
 
@@ -722,7 +722,7 @@ class _AsyncioTests:
             proc = await asyncio.create_subprocess_exec(
                 *args, stdin=subprocess.PIPE, stdout=subprocess.PIPE
             )
-            stdout, stderr = await proc.communicate(data)
+            stdout, _stderr = await proc.communicate(data)
             return proc.returncode, stdout
 
         task = run(b"some data")
@@ -904,8 +904,10 @@ class _AsyncioTests:
         async def copy_stdin_to_stdout(stdin):
             # See https://github.com/MagicStack/uvloop/issues/363
             # A program that copies stdin to stdout character by character
-            code = "import sys, shutil; shutil.copyfileobj(" \
-            "sys.stdin, sys.stdout, 1)"
+            code = (
+                "import sys, shutil; shutil.copyfileobj("
+                "sys.stdin, sys.stdout, 1)"
+            )
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
                 b"-W",
@@ -939,17 +941,17 @@ class _AsyncioTests:
 
     def _test_write_huge_stdin(self, buf_size):
         code = """
-    import sys
-    n = 0
-    while True:
-        line = sys.stdin.readline()
-        if not line:
-            print("unexpected EOF", file=sys.stderr)
-            break
-        if line == "END\\n":
-            break
-        n+=1
-    print(n)"""
+import sys
+n = 0
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        print("unexpected EOF", file=sys.stderr)
+        break
+    if line == "END\\n":
+        break
+    n+=1
+print(n)"""
         num_lines = buf_size - len(b"END\n")
         args = [sys.executable, b"-W", b"ignore", b"-c", code]
 
@@ -1018,7 +1020,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
         from doing something worse and needing to change up more code.
 
         SEE: https://github.com/Vizonex/Winloop/issues/153
-        """  # noqa: D205
+        """
 
         async def test():
             CMD = "python -c \"import sys; print('hi')\""
@@ -1041,7 +1043,7 @@ class Test_UV_Process(_TestProcess, tb.UVTestCase):
         which because there is a different system involved from regular
         python subprocess's system to prevent the libuv library
         from doing something worse and needing to change up more code.
-        """  # noqa: D205
+        """
 
         async def test():
             CMD = b"python -c \"import sys; print('hi')\""

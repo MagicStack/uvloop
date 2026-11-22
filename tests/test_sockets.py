@@ -301,7 +301,7 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
             )
 
         async def runner():
-            tr, pr = await self.loop.create_connection(
+            tr, _pr = await self.loop.create_connection(
                 lambda: asyncio.Protocol(), sock=rsock
             )
 
@@ -413,12 +413,11 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 with duped:
                     test_pseudo(duped, pseudo_sock, is_dup=True)
 
-            with self.assertRaises(TypeError):
-                with pseudo_sock:
-                    pass
+            with self.assertRaises(TypeError), pseudo_sock:
+                pass
 
         async def runner():
-            tr, pr = await self.loop.create_connection(
+            tr, _pr = await self.loop.create_connection(
                 lambda: asyncio.Protocol(), sock=rsock
             )
 

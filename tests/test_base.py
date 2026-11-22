@@ -227,9 +227,9 @@ class _TestBase:
 
         for i in range(8):
             self.loop.call_later(0.06 + 0.01, cb)  # 0.06999999999999999
-            started = int(round(self.loop.time() * 1000))
+            started = round(self.loop.time() * 1000)
             self.loop.run_forever()
-            finished = int(round(self.loop.time() * 1000))
+            finished = round(self.loop.time() * 1000)
             self.assertGreaterEqual(finished - started, 69)
 
     def test_call_at(self):
@@ -662,7 +662,7 @@ class _TestBase:
         self.loop.run_until_complete(main())
 
     def test_shutdown_asyncgens_01(self):
-        finalized = list()
+        finalized = []
 
         if not hasattr(self.loop, "shutdown_asyncgens"):
             raise unittest.SkipTest()
@@ -881,7 +881,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         fut.cancel()
 
     def test_loop_call_soon_handle_cancelled(self):
-        cb = lambda: False  # NoQA
+        cb = lambda: False
         handle = self.loop.call_soon(cb)
         self.assertFalse(handle.cancelled())
         handle.cancel()
@@ -893,7 +893,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertFalse(handle.cancelled())
 
     def test_loop_call_later_handle_cancelled(self):
-        cb = lambda: False  # NoQA
+        cb = lambda: False
         handle = self.loop.call_later(0.01, cb)
         self.assertFalse(handle.cancelled())
         handle.cancel()
@@ -907,7 +907,7 @@ class TestBaseUV(_TestBase, UVTestCase):
     @unittest.skipIf(skip_test_fcntl, "no fcntl module")
     def test_loop_std_files_cloexec(self):
         # See https://github.com/MagicStack/uvloop/issues/40 for details.
-        for fd in {0, 1, 2}:
+        for fd in (0, 1, 2):
             flags = fcntl.fcntl(fd, fcntl.F_GETFD)
             self.assertFalse(flags & fcntl.FD_CLOEXEC)
 
@@ -998,7 +998,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.assertEqual(NOT_OK, 0)
 
     def test_loop_call_later_handle_when(self):
-        cb = lambda: False  # NoQA
+        cb = lambda: False
         delay = 1.0
         loop_t = self.loop.time()
         handle = self.loop.call_later(delay, cb)

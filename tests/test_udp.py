@@ -12,7 +12,7 @@ from uvloop import _testbase as tb
 class MyDatagramProto(asyncio.DatagramProtocol):
     done = None
 
-    def __init__(self, loop=None):  # noqa: D107
+    def __init__(self, loop=None):
         self.state = "INITIAL"
         self.nbytes = 0
         if loop is not None:
@@ -142,7 +142,7 @@ class _TestUDP:
     def test_create_datagram_endpoint_ipv6_family(self):
         if isinstance(self, Test_AIO_UDP) and tb.is_windows:
             raise unittest.SkipTest(
-                "AssertionError: unexpected calls to " \
+                "AssertionError: unexpected calls to "
                 "loop.call_exception_handler()"
             )
 
@@ -159,7 +159,7 @@ class _TestUDP:
         )
         s_transport = None
         try:
-            s_transport, server = self.loop.run_until_complete(coro)
+            s_transport, _server = self.loop.run_until_complete(coro)
         finally:
             if s_transport:
                 s_transport.close()
@@ -246,7 +246,7 @@ class _TestUDP:
                 f2 = self.loop.create_datagram_endpoint(
                     asyncio.DatagramProtocol, sock=sock2
                 )
-                tr2, pr2 = self.loop.run_until_complete(f2)
+                tr2, _pr2 = self.loop.run_until_complete(f2)
 
                 tr2.sendto(b"STOP", tmp_file)
 
@@ -267,14 +267,14 @@ class _TestUDP:
         async def run():
             (
                 server_transport,
-                client_protocol,
+                _client_protocol,
             ) = await self.loop.create_datagram_endpoint(
                 asyncio.DatagramProtocol, local_addr=server_addr
             )
 
             (
                 client_transport,
-                client_conn,
+                _client_conn,
             ) = await self.loop.create_datagram_endpoint(
                 asyncio.DatagramProtocol,
                 remote_addr=server_addr,
@@ -387,7 +387,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
             family=socket.AF_INET,
         )
 
-        s_transport, server = self.loop.run_until_complete(coro)
+        s_transport, _server = self.loop.run_until_complete(coro)
 
         with self.assertRaisesRegex(ValueError, "DNS lookup"):
             s_transport.sendto(b"aaaa", ("example.com", 80))
@@ -405,7 +405,7 @@ class Test_UV_UDP(_TestUDP, tb.UVTestCase):
             family=socket.AF_INET,
         )
 
-        s_transport, server = self.loop.run_until_complete(coro)
+        s_transport, _server = self.loop.run_until_complete(coro)
 
         try:
             s_transport.sendto(b"aaaa", ("<broadcast>", 80))

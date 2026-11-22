@@ -5,7 +5,6 @@ import subprocess
 import sys
 import time
 import unittest
-from textwrap import dedent
 
 from uvloop import _testbase as tb
 
@@ -176,7 +175,7 @@ finally:
                 proc.send_signal(signal.SIGTERM)  # alt: proc.terminate()
             else:
                 proc.send_signal(signal.SIGINT)
-            out, err = await proc.communicate()
+            _out, err = await proc.communicate()
             if tb.is_windows:
                 self.assertEqual(err, b"")
             else:
@@ -231,7 +230,7 @@ finally:
             await proc.stdout.readline()
             time.sleep(DELAY)
             proc.send_signal(signal.SIGINT)
-            out, err = await proc.communicate()
+            _out, err = await proc.communicate()
             self.assertIn(b"KeyboardInterrupt", err)
 
         self.loop.run_until_complete(runner())
@@ -403,6 +402,7 @@ finally:
                 self.loop.add_signal_handler(signal.SIGHUP, coro)
 
     if tb.is_windows:
+
         def test_signals_wakeup_fd_unchanged(self):
             async def runner():
                 PROG = (
@@ -444,11 +444,14 @@ print(fd0 == fd1, flush=True)"""
                 out, err = await proc.communicate()
                 self.assertEqual(err, b"")
                 self.assertIn(b"True", out)
+
             self.loop.run_until_complete(runner())
     else:
+
         def test_signals_wakeup_fd_unchanged(self):
             async def runner():
-                PROG = R"""\
+                PROG = (
+                    R"""\
 import uvloop
 import signal
 import asyncio
@@ -462,7 +465,9 @@ def get_wakeup_fd():
 async def f(): pass
 
 fd0 = get_wakeup_fd()
-loop = """ + self.NEW_LOOP + """
+loop = """
+                    + self.NEW_LOOP
+                    + """
 try:
     asyncio.set_event_loop(loop)
     loop.run_until_complete(f())
@@ -473,17 +478,23 @@ finally:
 print(fd0 == fd1, flush=True)
 
 """
+                )
 
                 proc = await asyncio.create_subprocess_exec(
-                sys.executable, b'-W', b'ignore', b'-c', PROG,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                    sys.executable,
+                    b"-W",
+                    b"ignore",
+                    b"-c",
+                    PROG,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
 
                 out, err = await proc.communicate()
-                self.assertEqual(err, b'')
-                self.assertIn(b'True', out)
-            self.loop.run_until_complete(runner())
+                self.assertEqual(err, b"")
+                self.assertIn(b"True", out)
 
+            self.loop.run_until_complete(runner())
 
     def test_signals_fork_in_thread(self):
         if tb.is_windows:

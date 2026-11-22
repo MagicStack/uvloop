@@ -92,13 +92,13 @@ class _TestAioHTTP:
         port = site._server.sockets[0].getsockname()[1]
 
         async def client():
-            async with aiohttp.ClientSession() as client:
-                async with client.ws_connect(
-                    f"http://127.0.0.1:{port}"
-                ) as ws:
-                    await ws.send_str("hello")
-                    async for msg in ws:
-                        assert msg.data == "hello"
+            async with (
+                aiohttp.ClientSession() as client,
+                client.ws_connect(f"http://127.0.0.1:{port}") as ws,
+            ):
+                await ws.send_str("hello")
+                async for msg in ws:
+                    assert msg.data == "hello"
 
         client_task = asyncio.ensure_future(client())
 

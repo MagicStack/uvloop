@@ -1,12 +1,11 @@
 import asyncio
-import queue
 import multiprocessing
+import queue
 import signal
 import threading
 import unittest
 
 import uvloop
-
 from uvloop import _testbase as tb
 
 
@@ -16,7 +15,7 @@ class EchoServerProtocol(asyncio.Protocol):
 
 
 class EchoClientProtocol(asyncio.Protocol):
-    def __init__(self, loop):  # noqa: D107
+    def __init__(self, loop):
         self.loop = loop
 
     def connection_made(self, transport):

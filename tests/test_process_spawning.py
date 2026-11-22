@@ -13,7 +13,7 @@ class ProcessSpawningTestCollection(TestCase):
     def test_spawning_external_process(self):
         """Test spawning external process (using `popen` system call)
         that cause loop freeze.
-        """  # noqa: D205
+        """
 
         async def run(loop):
             event = asyncio.Event()
@@ -22,7 +22,7 @@ class ProcessSpawningTestCollection(TestCase):
                 simulate_loop_activity(loop, event) for _ in range(5)
             ]
             spawn_worker = spawn_external_process(loop, event)
-            done, pending = await asyncio.wait(
+            done, _pending = await asyncio.wait(
                 [
                     asyncio.ensure_future(fut)
                     for fut in ([spawn_worker] + dummy_workers)
@@ -45,7 +45,7 @@ class ProcessSpawningTestCollection(TestCase):
                     pass
 
                 if done_event.is_set():
-                    return None
+                    return
 
         async def spawn_external_process(loop, event):
             executor = ThreadPoolExecutor()

@@ -3,13 +3,12 @@ import os
 import pathlib
 import select
 import socket
+import sys
 import tempfile
 import time
 import unittest
-import sys
 
 from uvloop import _testbase as tb
-
 
 SSL_HANDSHAKE_TIMEOUT = 15.0
 
@@ -307,7 +306,7 @@ class _TestUnix:
             path = tmp.name
 
         async def client():
-            reader, writer = await asyncio.open_unix_connection(path)
+            _reader, writer = await asyncio.open_unix_connection(path)
             writer.close()
             await self.wait_closed(writer)
 
@@ -365,7 +364,7 @@ class _TestUnix:
         sock.close()
 
         async def client():
-            reader, writer = await asyncio.open_unix_connection(sock=sock)
+            _reader, writer = await asyncio.open_unix_connection(sock=sock)
             writer.close()
             await self.wait_closed(writer)
 
@@ -822,7 +821,7 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             reader, writer = await asyncio.open_unix_connection(
                 addr, ssl=client_sslctx, server_hostname="", **extras

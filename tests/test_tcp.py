@@ -4,17 +4,17 @@ import gc
 import os
 import select
 import socket
-import unittest.mock
 import ssl
 import struct
 import sys
 import threading
 import time
+import unittest.mock
 import weakref
 
 from OpenSSL import SSL as openssl_ssl
-from uvloop import _testbase as tb
 
+from uvloop import _testbase as tb
 
 SSL_HANDSHAKE_TIMEOUT = 15.0
 
@@ -23,7 +23,7 @@ class MyBaseProto(asyncio.Protocol):
     connected = None
     done = None
 
-    def __init__(self, loop=None):  # noqa: D107
+    def __init__(self, loop=None):
         self.transport = None
         self.state = "INITIAL"
         self.nbytes = 0
@@ -223,7 +223,7 @@ class _TestTCP:
                 self.assertTrue(srv_socks)
                 self.assertTrue(srv.is_serving())
 
-                host, port = srv_socks[0].getsockname()
+                _host, port = srv_socks[0].getsockname()
                 self.assertNotEqual(0, port)
 
                 self.loop.call_soon(srv.close)
@@ -512,7 +512,7 @@ class _TestTCP:
             addr = sock.getsockname()
 
         async def client():
-            reader, writer = await asyncio.open_connection(*addr)
+            _reader, writer = await asyncio.open_connection(*addr)
             writer.close()
             await self.wait_closed(writer)
 
@@ -567,7 +567,7 @@ class _TestTCP:
         sock.close()
 
         async def client():
-            reader, writer = await asyncio.open_connection(sock=sock)
+            _reader, writer = await asyncio.open_connection(sock=sock)
             writer.close()
             await self.wait_closed(writer)
 
@@ -699,7 +699,7 @@ class _TestTCP:
         )
 
         async def runner():
-            tr, pr = await asyncio.wait_for(
+            tr, _pr = await asyncio.wait_for(
                 self.loop.create_connection(
                     Proto, *srv.sockets[0].getsockname()
                 ),
@@ -1228,7 +1228,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
             )
 
             addr = srv.sockets[0].getsockname()
-            r, w = await asyncio.open_connection(*addr)
+            _r, w = await asyncio.open_connection(*addr)
 
             DATA = b"x" * 102400
 
@@ -1282,7 +1282,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         )
 
         async def runner():
-            tr, pr = await asyncio.wait_for(
+            tr, _pr = await asyncio.wait_for(
                 self.loop.create_connection(
                     Proto, *srv.sockets[0].getsockname()
                 ),
@@ -1301,17 +1301,19 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
         self.loop.run_until_complete(srv.wait_closed())
 
     def test_connect_accepted_socket_ssl_args(self):
-        with self.assertRaisesRegex(
-            ValueError, "ssl_handshake_timeout is only meaningful"
+        with (
+            self.assertRaisesRegex(
+                ValueError, "ssl_handshake_timeout is only meaningful"
+            ),
+            socket.socket() as s,
         ):
-            with socket.socket() as s:
-                self.loop.run_until_complete(
-                    self.loop.connect_accepted_socket(
-                        (lambda: None),
-                        s,
-                        ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT,
-                    )
+            self.loop.run_until_complete(
+                self.loop.connect_accepted_socket(
+                    (lambda: None),
+                    s,
+                    ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT,
                 )
+            )
 
     def test_connect_accepted_socket(self, server_ssl=None, client_ssl=None):
         loop = self.loop
@@ -1359,7 +1361,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
 
         extras = {}
         if server_ssl:
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
         f = loop.create_task(
             loop.connect_accepted_socket(
@@ -1431,7 +1433,7 @@ class Test_UV_TCP(_TestTCP, tb.UVTestCase):
                     nonlocal paused
                     paused = False
 
-            t, p = await self.loop.create_connection(Protocol, *addr)
+            t, _p = await self.loop.create_connection(Protocol, *addr)
 
             t.write(b"q" * 512)
             t.set_write_buffer_limits(low=16385)
@@ -1529,7 +1531,7 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             srv = await asyncio.start_server(
                 handle_client,
@@ -1592,7 +1594,7 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             reader, writer = await asyncio.open_connection(
                 *addr, ssl=client_sslctx, server_hostname="", **extras
@@ -1669,7 +1671,7 @@ class _TestSSL(tb.SSLTestCase):
                 sock.close()
 
         async def client(addr):
-            reader, writer = await asyncio.open_connection(
+            _reader, writer = await asyncio.open_connection(
                 *addr,
                 ssl=client_sslctx,
                 server_hostname="",
@@ -1704,7 +1706,7 @@ class _TestSSL(tb.SSLTestCase):
                 sock.close()
 
         async def client(addr):
-            reader, writer = await asyncio.open_connection(
+            _reader, writer = await asyncio.open_connection(
                 *addr,
                 ssl=client_sslctx,
                 server_hostname="",
@@ -2009,7 +2011,7 @@ class _TestSSL(tb.SSLTestCase):
             on_data = self.loop.create_future()
             on_eof = self.loop.create_future()
 
-            tr, proto = await self.loop.create_connection(
+            tr, _proto = await self.loop.create_connection(
                 lambda: ClientProto(on_data, on_eof), *addr, ssl=client_context
             )
 
@@ -2402,7 +2404,7 @@ class _TestSSL(tb.SSLTestCase):
             await fut
 
         async def start_server():
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             srv = await self.loop.create_server(
                 server_protocol_factory,
@@ -2493,7 +2495,7 @@ class _TestSSL(tb.SSLTestCase):
             conn.shutdown()
 
         async def client(addr):
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             reader, writer = await asyncio.open_connection(
                 *addr, ssl=client_sslctx, server_hostname="", **extras
@@ -2678,7 +2680,7 @@ class _TestSSL(tb.SSLTestCase):
             sock.close()
 
         async def client(addr):
-            extras = dict(ssl_handshake_timeout=SSL_HANDSHAKE_TIMEOUT)
+            extras = {"ssl_handshake_timeout": SSL_HANDSHAKE_TIMEOUT}
 
             reader, writer = await asyncio.open_connection(
                 *addr, ssl=client_sslctx, server_hostname="", **extras
@@ -2737,7 +2739,7 @@ class _TestSSL(tb.SSLTestCase):
                     # close notify"
                     if ex.reason == "APPLICATION_DATA_AFTER_CLOSE_NOTIFY":
                         break
-                    raise ex
+                    raise
                 except OSError as ex:
                     # OpenSSL < 1.1.1
                     if ex.errno != 0:
