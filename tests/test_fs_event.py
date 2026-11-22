@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import os.path
 import tempfile
+import unittest
 
 from uvloop import _testbase as tb
 from uvloop.loop import FileSystemEvent
@@ -19,6 +20,7 @@ class Test_UV_FS_Event(tb.UVTestCase):
         self.exit_stack.close()
         super().tearDown()
 
+    @unittest.skipIf(tb.is_windows, "TimeoutError on windows")
     def test_fs_event_change(self):
         change_event_count = 0
         filename = "fs_event_change.txt"

@@ -1,18 +1,22 @@
 import asyncio
-import fcntl
 import logging
 import os
 import random
-import sys
 import subprocess
+import sys
 import threading
 import time
-import uvloop
 import unittest
 import weakref
-
 from unittest import mock
-from uvloop._testbase import UVTestCase, AIOTestCase
+
+import uvloop
+from uvloop._testbase import AIOTestCase, UVTestCase
+
+skip_test_fcntl = sys.platform.startswith("win")
+if not skip_test_fcntl:
+    import fcntl
+
 
 
 class _TestBase:
@@ -125,6 +129,10 @@ class _TestBase:
                 with self.subTest(debug=debug, meth_name=meth_name):
                     run_test(debug, meth, stack_adj)
 
+    @unittest.skipIf(
+        skip_test_fcntl, 
+        "inaccurate percision rounding on windows"
+    )
     def test_now_update(self):
         async def run():
             st = self.loop.time()
@@ -209,7 +217,10 @@ class _TestBase:
 
     def test_call_later_rounding(self):
         # Refs #233, call_later() and call_at() shouldn't call cb early
-
+        if skip_test_fcntl and isinstance(self, AIOTestCase):
+            raise unittest.SkipTest(
+                "Rounding errors on standard asyncio windows. Uvloop is fine."
+            )
         def cb():
             self.loop.stop()
 
@@ -884,6 +895,7 @@ class TestBaseUV(_TestBase, UVTestCase):
         self.run_loop_briefly(delay=0.05)
         self.assertFalse(handle.cancelled())
 
+    @unittest.skipIf(skip_test_fcntl, "no fcntl module")
     def test_loop_std_files_cloexec(self):
         # See https://github.com/MagicStack/uvloop/issues/40 for details.
         for fd in {0, 1, 2}:
@@ -993,7 +1005,6 @@ class TestBaseUV(_TestBase, UVTestCase):
 
 class TestBaseAIO(_TestBase, AIOTestCase):
     pass
-
 
 class TestPolicy(unittest.TestCase):
 

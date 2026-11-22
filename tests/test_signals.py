@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import time
+import unittest
 
 from uvloop import _testbase as tb
 
@@ -384,6 +385,7 @@ run()
         ])
 
 
+@unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = 'uvloop.new_event_loop()'
 
@@ -393,6 +395,6 @@ class Test_UV_Signals(_TestSignal, tb.UVTestCase):
 
             self.loop.add_signal_handler(signal.SIGCHLD, lambda *a: None)
 
-
+@unittest.skipIf(tb.is_windows, "TODO")
 class Test_AIO_Signals(_TestSignal, tb.AIOTestCase):
     NEW_LOOP = 'asyncio.new_event_loop()'

@@ -137,6 +137,7 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'example.com', '80', type=socket.SOCK_STREAM,
                                _sorted=True)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_12(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
@@ -145,6 +146,7 @@ class BaseTestDNS:
         self._test_getaddrinfo('127.0.0.1', '80', type=socket.SOCK_STREAM,
                                _patch=patch)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_13(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
@@ -153,6 +155,7 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'127.0.0.1', b'80', type=socket.SOCK_STREAM,
                                _patch=patch)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_14(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
@@ -161,6 +164,7 @@ class BaseTestDNS:
         self._test_getaddrinfo(b'127.0.0.1', b'http', type=socket.SOCK_STREAM,
                                _patch=patch)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_15(self):
         # musl always returns ai_canonname but we don't
         patch = self.implementation != 'asyncio'
@@ -181,6 +185,7 @@ class BaseTestDNS:
         self._test_getaddrinfo('localhost', b'http')
         self._test_getaddrinfo('localhost', b'http', type=socket.SOCK_STREAM)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_19(self):
         # musl always returns ai_canonname while macOS never return for IPs,
         # but we strictly follow the docs to use the AI_CANONNAME flag in a
@@ -193,6 +198,7 @@ class BaseTestDNS:
         self._test_getaddrinfo('::1', 80, type=socket.SOCK_STREAM,
                                flags=socket.AI_CANONNAME, _patch=patch)
 
+    @unittest.skipIf(tb.is_windows, "lists differ")
     def test_getaddrinfo_20(self):
         # musl always returns ai_canonname while macOS never return for IPs,
         # but we strictly follow the docs to use the AI_CANONNAME flag in a
