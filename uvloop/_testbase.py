@@ -22,8 +22,6 @@ import unittest
 import uvloop
 
 
-is_windows = sys.platform.startswith("win")
-
 class MockPattern(str):
     def __eq__(self, other):
         return bool(re.search(str(self), other, re.S))
@@ -553,3 +551,6 @@ def disable_logger():
         yield
     finally:
         asyncio.log.logger.setLevel(old_level)
+
+
+is_windows = sys.platform.startswith("win")
