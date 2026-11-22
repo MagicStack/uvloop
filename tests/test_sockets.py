@@ -453,20 +453,15 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 r = self.loop.run_until_complete(client(sock, srv.addr))
                 self.assertEqual(r, "ok")
 
-    @unittest.skipIf(
-        tb.is_windows, "Sendall is having problems on all windows versions"
-    )
+
     def test_socket_recv_and_close(self):
         def srv_gen(sock):
             time.sleep(1.2)
             sock.send(b"helo")
 
-        async def kill(fut):
-            # Winloop comment: shorter sleep needed on Windows
-            # to pass test. Otherwise, fut is done too early.
-            C = 2 if tb.is_windows else 1
-            await asyncio.sleep(0.2 / C)
-            fut.cancel()
+        async def kill(sock):
+            await asyncio.sleep(0.2)
+            sock.close()
 
         async def client(sock, addr):
             await self.loop.sock_connect(sock, addr)
