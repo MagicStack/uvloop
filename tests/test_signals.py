@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import unittest
+from textwrap import dedent
 
 from uvloop import _testbase as tb
 
@@ -401,16 +402,11 @@ finally:
             else:
                 self.loop.add_signal_handler(signal.SIGHUP, coro)
 
-    def test_signals_wakeup_fd_unchanged(self):
-        # NOTE: Changed from winloop comment to Isocloe Comment
-        # because it is Isocloe's work.
-
-        # Isocloe comment: below, the assignments to fd0 and loop are swapped
-        # to pass this test on Windows; also works with Linux,
-        # but need to double check this.
-        async def runner():
-            PROG = (
-                R"""\
+    if tb.is_windows:
+        def test_signals_wakeup_fd_unchanged(self):
+            async def runner():
+                PROG = (
+                    R"""\
 import uvloop
 import signal
 import asyncio
@@ -424,9 +420,49 @@ def get_wakeup_fd():
 async def f(): pass
 
 loop = """
-                + self.NEW_LOOP
-                + """
+                    + self.NEW_LOOP
+                    + """
 fd0 = get_wakeup_fd()
+try:
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(f())
+    fd1 = get_wakeup_fd()
+finally:
+    loop.close()
+print(fd0 == fd1, flush=True)"""
+                )
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    b"-W",
+                    b"ignore",
+                    b"-c",
+                    PROG,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                out, err = await proc.communicate()
+                self.assertEqual(err, b"")
+                self.assertIn(b"True", out)
+            self.loop.run_until_complete(runner())
+    else:
+        def test_signals_wakeup_fd_unchanged(self):
+            async def runner():
+                PROG = R"""\
+import uvloop
+import signal
+import asyncio
+
+
+def get_wakeup_fd():
+    fd = signal.set_wakeup_fd(-1)
+    signal.set_wakeup_fd(fd)
+    return fd
+
+async def f(): pass
+
+fd0 = get_wakeup_fd()
+loop = """ + self.NEW_LOOP + """
 try:
     asyncio.set_event_loop(loop)
     loop.run_until_complete(f())
@@ -437,23 +473,17 @@ finally:
 print(fd0 == fd1, flush=True)
 
 """
-            )
 
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable,
-                b"-W",
-                b"ignore",
-                b"-c",
-                PROG,
+                proc = await asyncio.create_subprocess_exec(
+                sys.executable, b'-W', b'ignore', b'-c', PROG,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+                stderr=subprocess.PIPE)
 
-            out, err = await proc.communicate()
-            self.assertEqual(err, b"")
-            self.assertIn(b"True", out)
+                out, err = await proc.communicate()
+                self.assertEqual(err, b'')
+                self.assertIn(b'True', out)
+            self.loop.run_until_complete(runner())
 
-        self.loop.run_until_complete(runner())
 
     def test_signals_fork_in_thread(self):
         if tb.is_windows:
