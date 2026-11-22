@@ -676,6 +676,14 @@ cdef class UVStream(UVBaseTransport):
     cpdef write(self, object buf):
         self._ensure_alive()
 
+        if system.PLATFORM_IS_WINDOWS:
+            # Windows gets itself into trouble if this is
+            # is not checked immediately, otherwise extra writes can be sent 
+            # even after closure.
+            # SEE: https://github.com/Vizonex/Winloop/issues/84
+            if self._closing:
+                raise RuntimeError("Cannot call write() when UVStream is closing")
+
         if self._eof:
             raise RuntimeError('Cannot call write() after write_eof()')
         if not buf:

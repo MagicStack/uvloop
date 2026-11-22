@@ -28,6 +28,7 @@ from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
 from libc cimport errno
 
+from cpython.pystate cimport PyGILState_Ensure, PyGILState_Release
 from cpython cimport PyObject
 from cpython cimport PyErr_CheckSignals, PyErr_Occurred
 from cpython cimport PyThread_get_thread_ident
@@ -114,6 +115,16 @@ cdef inline run_in_context2(context, method, arg1, arg2):
         Context_Exit(context)
 
 
+# Mostly windows related, this adds bytes support to
+# the subprocess on windows, this is something that normally
+# isn't allowed on normal asyncio on windows but was added 
+# in for cross compatability with unix systems by winloop's creator.
+cdef list split_windows_shell_command(object cmd):
+    if isinstance(cmd, bytes):
+        cmd = cmd.decode("utf-8", "surrogateescape")
+    return shlex_split(cmd)
+
+
 # Used for deprecation and removal of `loop.create_datagram_endpoint()`'s
 # *reuse_address* parameter
 _unset = object()
@@ -127,8 +138,9 @@ cdef class Loop:
         # Install PyMem* memory allocators if they aren't installed yet.
         __install_pymem()
 
-        # Install pthread_atfork handlers
-        __install_atfork()
+        if not system.PLATFORM_IS_WINDOWS:
+            # Install pthread_atfork handlers
+            __install_atfork()
 
         self.uvloop = <uv.uv_loop_t*>PyMem_RawMalloc(sizeof(uv.uv_loop_t))
         if self.uvloop is NULL:
@@ -1774,8 +1786,14 @@ cdef class Loop:
 
                         if reuse_address:
                             sock.setsockopt(uv.SOL_SOCKET, uv.SO_REUSEADDR, 1)
+                        
                         if reuse_port:
-                            sock.setsockopt(uv.SOL_SOCKET, SO_REUSEPORT, 1)
+                            if system.PLATFORM_IS_WINDOWS:
+                                # replaced uv.SO_REUSEPORT with uv.SO_BROADCAST because it's the equivalent on windows systems...
+                                sock.setsockopt(uv.SOL_SOCKET, uv.SO_BROADCAST, 1)
+                            else:
+                                sock.setsockopt(uv.SOL_SOCKET, SO_REUSEPORT, 1)
+                    
                         # Disable IPv4/IPv6 dual stack support (enabled by
                         # default on Linux) which makes a single socket
                         # listen on both address families.
@@ -2787,8 +2805,7 @@ cdef class Loop:
             raise ValueError("universal_newlines must be False")
         if bufsize != 0:
             raise ValueError("bufsize must be 0")
-        if startupinfo is not None:
-            raise ValueError('startupinfo is not supported')
+
         if creationflags != 0:
             raise ValueError('creationflags is not supported')
 
@@ -2810,7 +2827,8 @@ cdef class Loop:
                                       waiter,
                                       debug_flags,
                                       preexec_fn,
-                                      restore_signals)
+                                      restore_signals,
+                                      startupinfo)
 
         try:
             await waiter
@@ -2827,12 +2845,40 @@ cdef class Loop:
                                shell=True,
                                **kwargs):
 
+        cdef list args
         if not shell:
             raise ValueError("shell must be True")
 
-        args = [cmd]
-        if shell:
-            args = [b'/bin/sh', b'-c'] + args
+        if not system.PLATFORM_IS_WINDOWS:
+            args = [cmd]
+            if shell:
+                args = [b'/bin/sh', b'-c'] + args
+        else:
+            # SEE: https://github.com/libuv/libuv/pull/2627
+
+            # See subprocess.py for the mirror of this code.
+            comspec = os_environ.get("ComSpec")
+            if not comspec:
+                system_root = os_environ.get("SystemRoot", '')
+                comspec = os_path_join(system_root, 'System32', 'cmd.exe')
+                if not os_path_isabs(comspec):
+                    raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+
+            args = [comspec, b'/c']
+
+            # Should be mentioned that libuv does a bad job at 
+            # parsing windows shell arguments so we needed the shlex 
+            # parser to workaround chinease, unicode, emojis and 
+            # other unicode problems that may arise.
+
+            # XXX: We don't want to change more code than what is
+            # currently required and supporting bytes is better
+            # than windows stdlib (subprocesses.Popen disallows bytes)
+            # so a small workaround with the shlex parser was needed.
+            # Originally it was removed but brought back.
+            # SEE: https://github.com/Vizonex/Winloop/issues/153
+
+            args.extend(split_windows_shell_command(cmd))
 
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
@@ -2922,7 +2968,7 @@ cdef class Loop:
             raise TypeError(
                 "coroutines cannot be used with add_signal_handler()")
 
-        if sig == uv.SIGCHLD:
+        if not system.PLATFORM_IS_WINDOWS and sig == uv.SIGCHLD:
             if (hasattr(callback, '__self__') and
                     isinstance(callback.__self__, aio_AbstractChildWatcher)):
 
@@ -2954,10 +3000,16 @@ cdef class Loop:
         try:
             # Register a dummy signal handler to ask Python to write the signal
             # number in the wakeup file descriptor.
-            signal_signal(sig, self.__sighandler)
+            if not system.PLATFORM_IS_WINDOWS:
+                signal_signal(sig, self.__sighandler)
 
-            # Set SA_RESTART to limit EINTR occurrences.
-            signal_siginterrupt(sig, False)
+                # Set SA_RESTART to limit EINTR occurrences.
+                signal_siginterrupt(sig, False)
+            else:
+                # Windows doesn't have sig_interrupt function.
+                # Something else must be attempted instead.
+                signal_signal(signal_SIGINT, self.__sighandler)
+
         except OSError as exc:
             del self._signal_handlers[sig]
             if not self._signal_handlers:
