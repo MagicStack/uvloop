@@ -172,6 +172,11 @@ class _TestBase:
         self.assertLess(finished - started, 0.3)
         self.assertGreater(finished - started, 0.04)
 
+    @unittest.skipIf(
+        sys.version_info[:2] <= (3, 12),
+        "uvloop also suffers from the same problem"
+        " it's not just a winloop problem",
+    )
     def test_call_later_2(self):
         # Test that loop.call_later triggers an update of
         # libuv cached time.

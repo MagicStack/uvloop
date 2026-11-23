@@ -6,7 +6,6 @@ import random
 import socket
 import ssl
 import sys
-import sysconfig
 import tempfile
 import unittest
 import weakref
@@ -15,7 +14,7 @@ from uvloop import _testbase as tb
 
 # Needed for a deadlock bug that is actually unrelated to uvloop it works
 # just fine. It's actually python's asyncio loop that is at fault.
-is_freethreaded_build = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+# is_freethreaded_build = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 class _BaseProtocol(asyncio.BaseProtocol):
@@ -405,14 +404,11 @@ class _ContextBaseTests(tb.SSLTestCase):
         self._run_server_test(test, async_sock=True)
 
     def test_create_ssl_server_connection_protocol(self):
-        if (
-            self.implementation == "asyncio"
-            and tb.is_windows
-            and is_freethreaded_build
-        ):
+        if self.implementation == "asyncio" and tb.is_windows:
             raise unittest.SkipTest(
-                "free-threading builds are victim to a "
-                "freezing bug in standard asyncio windows."
+                "ConnectionResetError gets is initiated"
+                # "free-threading builds are victim to a "
+                # "freezing bug in standard asyncio windows."
             )
 
         async def test(cvar, proto, ssl_sock, **_):

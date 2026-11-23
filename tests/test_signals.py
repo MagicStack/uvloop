@@ -446,6 +446,7 @@ print(fd0 == fd1, flush=True)"""
                 self.assertIn(b"True", out)
 
             self.loop.run_until_complete(runner())
+
     else:
 
         def test_signals_wakeup_fd_unchanged(self):

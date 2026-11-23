@@ -261,11 +261,9 @@ class _TestTCP:
                 OSError,
                 r"error while attempting.*\('127.*:"
                 + (
-                    r"( \[errno \d+\])? address"
-                    r"( already)? in use"
+                    r"( \[errno \d+\])? address" r"( already)? in use"
                     if not tb.is_windows
-                    else r"( \[winerror \d+\])? "
-                    r"only one usage of each"
+                    else r"( \[winerror \d+\])? " r"only one usage of each"
                 ),
             ):
                 self.loop.run_until_complete(

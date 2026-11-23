@@ -453,7 +453,6 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
                 r = self.loop.run_until_complete(client(sock, srv.addr))
                 self.assertEqual(r, "ok")
 
-
     def test_socket_recv_and_close(self):
         def srv_gen(sock):
             time.sleep(1.2)

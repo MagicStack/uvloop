@@ -8,6 +8,9 @@ on:
   pull_request:
     branches:
       - master
+      # temporarly this should not effect
+      # uvloop until windows support is added.
+      - win
 
 jobs:
   test:
