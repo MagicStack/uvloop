@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import socket
 import unittest
 
@@ -237,6 +238,47 @@ class BaseTestDNS:
 
     def test_getnameinfo_5(self):
         self._test_getnameinfo(('localhost', 8080), 0)
+
+    def test_create_connection_cancel_during_getaddrinfo(self):
+        # Regression test for https://github.com/MagicStack/uvloop/pull/590
+        #
+        # When create_connection() is cancelled (e.g. by a wait_for()
+        # timeout) while its DNS lookup is still in flight, the lookup
+        # must be cancelled as well.  Otherwise, once the lookup fails,
+        # nobody retrieves its exception and the loop logs
+        # "Future exception was never retrieved".
+
+        host = 'no-such-host.invalid'  # reserved TLD, see RFC 2606
+
+        messages = []
+        self.loop.set_exception_handler(
+            lambda loop, ctx: messages.append(ctx))
+
+        async def run():
+            task = self.loop.create_task(
+                self.loop.create_connection(asyncio.Protocol, host, 80))
+            # Let create_connection() start the DNS lookup, then cancel
+            # it before the lookup result is delivered to the loop.
+            await asyncio.sleep(0)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            del task
+
+            # Wait for the lookup to fail.  The resolver answers requests
+            # roughly in order, so a second lookup of the same host is a
+            # good proxy for the first one being done.
+            try:
+                await self.loop.getaddrinfo(host, 80)
+            except socket.gaierror:
+                pass
+            else:
+                raise unittest.SkipTest(f'{host!r} unexpectedly resolves')
+            await asyncio.sleep(0.1)
+            gc.collect()
+
+        self.loop.run_until_complete(run())
+        self.assertEqual(messages, [])
 
 
 class Test_UV_DNS(BaseTestDNS, tb.UVTestCase):
