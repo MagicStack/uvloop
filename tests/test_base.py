@@ -773,6 +773,98 @@ class _TestBase:
         thread.join()
         self.assertEqual(counter[0], ITERATIONS)
 
+    def _poll_error_pipe(self):
+        # A pipe whose read end is closed: on Linux, epoll reports
+        # EPOLLERR for the write end.
+        r, w = os.pipe()
+        os.set_blocking(w, False)
+        self.addCleanup(os.close, w)
+        return r, w
+
+    def _run_briefly_for(self, delay):
+        self.loop.call_later(delay, self.loop.stop)
+        self.loop.run_forever()
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux only')
+    def test_add_writer_keeps_watching_after_error(self):
+        # https://github.com/MagicStack/uvloop/issues/787
+        errors = []
+        self.loop.set_exception_handler(lambda loop, ctx: errors.append(ctx))
+        r, w = self._poll_error_pipe()
+        calls = 0
+
+        def writer():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                os.close(r)
+            elif calls == 100:
+                self.loop.remove_writer(w)
+
+        self.loop.add_writer(w, writer)
+        self._run_briefly_for(0.2)
+
+        self.assertEqual(calls, 100)
+        self.assertEqual(errors, [])
+
+    def _test_add_writer_after_error(self, remove_first):
+        errors = []
+        self.loop.set_exception_handler(lambda loop, ctx: errors.append(ctx))
+        r, w = self._poll_error_pipe()
+        calls = []
+
+        def writer():
+            calls.append('call')
+            if len(calls) == 1:
+                os.close(r)
+
+        def rearm():
+            calls.append('rearm')
+            if remove_first:
+                self.loop.remove_writer(w)
+            self.loop.add_writer(w, writer)
+
+        self.loop.add_writer(w, writer)
+        self.loop.call_later(0.1, rearm)
+        self._run_briefly_for(0.2)
+        self.loop.remove_writer(w)
+
+        i = calls.index('rearm')
+        self.assertGreater(i, 3)
+        self.assertGreater(len(calls) - i - 1, 3)
+        self.assertEqual(errors, [])
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux only')
+    def test_add_writer_after_error(self):
+        self._test_add_writer_after_error(remove_first=False)
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux only')
+    def test_remove_and_add_writer_after_error(self):
+        self._test_add_writer_after_error(remove_first=True)
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux only')
+    def test_add_writer_rearm_in_callback_after_error(self):
+        errors = []
+        self.loop.set_exception_handler(lambda loop, ctx: errors.append(ctx))
+        r, w = self._poll_error_pipe()
+        calls = 0
+
+        def writer():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                os.close(r)
+            elif calls == 2:
+                self.loop.add_writer(w, writer)
+            elif calls == 100:
+                self.loop.remove_writer(w)
+
+        self.loop.add_writer(w, writer)
+        self._run_briefly_for(0.2)
+
+        self.assertEqual(calls, 100)
+        self.assertEqual(errors, [])
+
     def test_freethreading(self):
         if not hasattr(sys, "_is_gil_enabled"):
             raise unittest.SkipTest("No sys._is_gil_enabled()")
