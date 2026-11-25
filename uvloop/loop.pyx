@@ -1417,10 +1417,14 @@ cdef class Loop:
         """
         self._check_closed()
         if PY313:
+            kwargs = {}
+            if eager_start is not None:
+                kwargs['eager_start'] = eager_start
             if self._task_factory is None:
-                task = aio_Task(coro, loop=self, context=context, eager_start=eager_start)
+                task = aio_Task(coro, loop=self, context=context, **kwargs)
             else:
-                task = self._task_factory(self, coro, context=context, eager_start=eager_start)
+                task = self._task_factory(
+                    self, coro, context=context, **kwargs)
         elif PY311:
             if self._task_factory is None:
                 task = aio_Task(coro, loop=self, context=context)
