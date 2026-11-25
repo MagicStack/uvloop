@@ -244,7 +244,6 @@ class uvloop_build_ext(build_ext):
             self.compiler.add_library("ole32")
             self.compiler.add_library("dbghelp")
             self.compiler.add_library("synchronization")
-            self.extensions[-1].define_macros += [("WIN32_LEAN_AND_MEAN", "1"), ("_WIN32_WINNT", "0x0602")]
 
         if not sys.platform.startswith("win"):
             self.compiler.add_library('pthread')
@@ -282,7 +281,8 @@ setup(
             sources=[
                 "uvloop/loop.pyx",
             ],
-            extra_compile_args=MODULES_CFLAGS
+            extra_compile_args=MODULES_CFLAGS,
+            define_macros=[("WIN32_LEAN_AND_MEAN", "1"), ("_WIN32_WINNT", "0x0602")] if sys.platform == "win32" else []
         ),
     ],
     # setup_requires=setup_requires,

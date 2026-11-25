@@ -231,6 +231,7 @@ cdef class UVProcess(UVHandle):
             bytes el
 
             char **ret
+        
 
         ret = <char **>PyMem_RawMalloc((arr_len + 1) * sizeof(char *))
         if ret is NULL:
@@ -238,6 +239,7 @@ cdef class UVProcess(UVHandle):
 
         for i in range(arr_len):
             el = arr[i]
+
             # NB: PyBytes_AsString doesn't copy the data;
             # we have to be careful when the "arr" is GCed,
             # and it shouldn't be ever mutated.

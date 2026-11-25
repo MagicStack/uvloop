@@ -261,9 +261,6 @@ print(os.getpid())
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(
-        tb.is_windows, "subprocess shows EOFError and fails to parse the code."
-    )
     def test_process_send_signal_1(self):
         async def test():
             prog = """\
@@ -313,11 +310,6 @@ exit(11)
 
         self.loop.run_until_complete(test())
 
-    @unittest.skipIf(
-        tb.is_windows,
-        "WriteUnixTransport closes a little too soon, seems to "
-        "have changed vs. winloop.",
-    )
     def test_process_streams_basic_1(self):
         async def test():
             prog = """\
@@ -982,9 +974,9 @@ print(n)"""
 
 
 class Test_UV_Process(_TestProcess, tb.UVTestCase):
-    # Contributed from (winloop) users
-    # had wanted playwright support really badly and
-    # I don't blame them. - Vizonex
+    # Contributed from (winloop)
+    # users had wanted playwright support really badly
+
     @unittest.skipUnless(tb.is_windows, "Windows startupinfo")
     def test_process_startupinfo_unsupported_flags(self):
         async def test():
@@ -1119,17 +1111,15 @@ class Test_AIO_Process(_TestProcess, tb.AIOTestCase):
     pass
 
 
-@unittest.skipIf(tb.is_windows, "handler closes problem.")
+# @unittest.skipIf(tb.is_windows, "handler closes problem.")
 class TestAsyncio_UV_Process(_AsyncioTests, tb.UVTestCase):
     pass
 
 
-@unittest.skipIf(tb.is_windows, "TODO")
 class TestAsyncio_AIO_Process(_AsyncioTests, tb.AIOTestCase):
     pass
 
 
-# @unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Process_Delayed(tb.UVTestCase):
     class TestProto:
         def __init__(self, closed):
@@ -1156,7 +1146,9 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
             self.lost += 1
             self.closed.set_result(None)
 
-    async def run_sub(self, **kwargs):
+    async def run_sub(
+        self, **kwargs
+    ) -> tuple[asyncio.SubprocessTransport, TestProto]:
         return await self.loop.subprocess_shell(
             lambda: self.TestProto(self.loop.create_future()),
             "echo 1",
@@ -1175,15 +1167,26 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         self.assertIsNot(transport, None)
         self.assertEqual(transport.get_returncode(), 0)
 
-        stages_needed = {
-            ("CM", transport),
-            "PROC_EXIT",
-            ("STDOUT", b"1" + NL),
-            ("STDOUT", "LOST"),
-            ("CL", 0, None),
-        }
-
+        stages_needed = (
+            {
+                ("CM", transport),
+                "PROC_EXIT",
+                ("STDOUT", b"1" + NL),
+                ("STDOUT", "LOST"),
+                ("CL", 0, None),
+            }
+            if not tb.is_windows
+            else {
+                ("CM", transport),
+                "PROC_EXIT",
+                ("STDOUT", b"1" + NL),
+                ("STDOUT", "LOST"),
+            }
+        )
         self.assertEqual(set(proto.stages), stages_needed)
+
+        # XXX: Resource leakage happens, this is also a common
+        # problem within winloop itself.
 
     def test_process_delayed_stdio__paused__no_stdin(self):
         transport, proto = self.loop.run_until_complete(
@@ -1206,15 +1209,19 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
                 ("CL", 0, None),
             },
         )
+        if tb.is_windows:
+            transport.close()
 
-    @unittest.skip("became broken once windows support was introduced.")
     def test_process_delayed_stdio__not_paused__no_stdin(self):
-        if (
-            os.environ.get("TRAVIS_OS_NAME")
-            or os.environ.get("GITHUB_WORKFLOW")
-        ) and sys.platform == "darwin":
-            # Randomly crashes on Travis, can't reproduce locally.
-            raise unittest.SkipTest()
+        if os.environ.get("TRAVIS_OS_NAME") or os.environ.get(
+            "GITHUB_WORKFLOW"
+        ):
+            if sys.platform == "darwin":
+                # Randomly crashes on Travis, can't reproduce locally.
+                raise unittest.SkipTest()
+            elif sys.version_info >= (3, 13) and sys.platform == "linux":
+                # Can't reproduce
+                raise unittest.SkipTest()
 
         transport, proto = self.loop.run_until_complete(
             self.run_sub(

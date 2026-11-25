@@ -690,7 +690,12 @@ class TestUVSockets(_TestSockets, tb.UVTestCase):
 
     def test_socket_cancel_sock_sendall(self):
         if tb.is_windows and isinstance(self, TestUVSockets):
-            raise unittest.SkipTest("works on winloop but not on uvloop.")
+            raise unittest.SkipTest(
+                "This will require some speedups "
+                "from cdef extenions such as Future objects. "
+                "This speedup plans to be added in a later Pull request "
+                "unrelated to windows support"
+            )
 
         def srv_gen(sock):
             time.sleep(1.2)

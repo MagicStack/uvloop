@@ -714,10 +714,8 @@ class _TestTCP:
         self.assertIsNone(self.loop.run_until_complete(connection_lost_called))
 
     def test_resume_writing_write_different_transport(self):
-        if tb.is_windows:
-            raise unittest.SkipTest(
-                "[Errno 9] Bad file descriptor (Test works on winloop)"
-            )
+        if tb.is_windows and self.implementation == "asyncio":
+            raise unittest.SkipTest("Freezes")
         loop = self.loop
 
         class P1(asyncio.Protocol):
@@ -2553,12 +2551,8 @@ class _TestSSL(tb.SSLTestCase):
             run(client_sock)
 
     def test_shutdown_timeout(self):
-        if self.implementation == "asyncio":
+        if self.implementation == "asyncio" or tb.is_windows:
             raise unittest.SkipTest()
-        elif tb.is_windows:
-            raise unittest.SkipTest(
-                "Bad file descriptor: (test works on winloop)"
-            )
         CNT = 0  # number of clients that were successful
         TOTAL_CNT = 25  # total number of clients that test will create
         TIMEOUT = 10.0  # timeout for this test

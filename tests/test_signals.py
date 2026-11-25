@@ -573,7 +573,6 @@ run()
             os.remove("tempfiletstsig.py")
 
 
-# @unittest.skipIf(tb.is_windows, "TODO")
 class Test_UV_Signals(_TestSignal, tb.UVTestCase):
     NEW_LOOP = "uvloop.new_event_loop()"
 

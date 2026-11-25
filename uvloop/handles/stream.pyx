@@ -355,6 +355,15 @@ cdef class UVStream(UVBaseTransport):
             Py_ssize_t blen
             int saved_errno
             int fd
+        
+        if system.PLATFORM_IS_WINDOWS:
+            # Winloop comment: WSASend below does not work with pipes.
+            # For pipes, using Writefile() from Windows fileapi.h would
+            # be an option, but the corresponding files have been created
+            # FILE_FLAG_OVERLAPPED set, but we don't want to go that way here.
+            # We detect pipes on Windows as pseudosockets.
+            if self._get_socket().family == uv.AF_UNIX:
+                return 0 # use zero instead of an error as this is not a problem.
 
         if (<uv.uv_stream_t*>self._handle).write_queue_size != 0:
             raise RuntimeError(
@@ -383,16 +392,17 @@ cdef class UVStream(UVBaseTransport):
         # uv_try_write -- less layers of code.  The error
         # checking logic is copied from libuv.
         written = system.write(fd, buf, blen)
-        while written == -1 and (
-                errno.errno == errno.EINTR or
-                (system.PLATFORM_IS_APPLE and
-                    errno.errno == errno.EPROTOTYPE)):
-            # From libuv code (unix/stream.c):
-            #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
-            #   EPROTOTYPE can be returned while trying to write to a socket
-            #   that is shutting down. If we retry the write, we should get
-            #   the expected EPIPE instead.
-            written = system.write(fd, buf, blen)
+        if not system.PLATFORM_IS_WINDOWS:
+            while written == -1 and (
+                    errno.errno == errno.EINTR or
+                    (system.PLATFORM_IS_APPLE and
+                        errno.errno == errno.EPROTOTYPE)):
+                # From libuv code (unix/stream.c):
+                #   Due to a possible kernel bug at least in OS X 10.10 "Yosemite",
+                #   EPROTOTYPE can be returned while trying to write to a socket
+                #   that is shutting down. If we retry the write, we should get
+                #   the expected EPIPE instead.
+                written = system.write(fd, buf, blen)
         saved_errno = errno.errno
 
         if used_buf:
@@ -401,6 +411,13 @@ cdef class UVStream(UVBaseTransport):
         if written < 0:
             if saved_errno in (errno.EAGAIN, system.EWOULDBLOCK):
                 return 0
+            elif system.PLATFORM_IS_WINDOWS:
+                # Winloop comment: use uv_translate_sys_error for
+                # correct results on all platforms as -saved_errno
+                # only works for POSIX.
+                exc = convert_error(uv.uv_translate_sys_error(saved_errno))
+                self._fatal_error(exc, True)
+                return -1
             else:
                 exc = convert_error(-saved_errno)
                 self._fatal_error(exc, True)
@@ -814,7 +831,14 @@ cdef inline bint __uv_stream_on_read_common(
         if sc.__read_error_close:
             # Used for getting notified when a pipe is closed.
             # See WriteUnixTransport for the explanation.
-            sc._on_eof()
+            # Winloop comment: 0-reads on pipes used, e.g., for stdin
+            # ("write only") give ERROR_ACCESS_DENIED, and in this case
+            # we should keep the transport open for further writes.
+            if (system.PLATFORM_IS_WINDOWS and nread == uv.UV_EPERM
+                and uv.uv_is_writable(<uv.uv_stream_t*> sc._handle)):
+                sc._stop_reading()
+            else:
+                sc._on_eof()
             return True
 
         exc = convert_error(nread)
