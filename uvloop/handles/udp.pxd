@@ -13,6 +13,8 @@ cdef class UDPTransport(UVBaseTransport):
     cdef open(self, int family, int sockfd)
     cdef _set_broadcast(self, bint on)
 
+    cdef _close(self)
+
     cdef inline __receiving_started(self)
     cdef inline __receiving_stopped(self)
 
