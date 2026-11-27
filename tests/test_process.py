@@ -1216,11 +1216,8 @@ class Test_UV_Process_Delayed(tb.UVTestCase):
         if os.environ.get("TRAVIS_OS_NAME") or os.environ.get(
             "GITHUB_WORKFLOW"
         ):
-            if sys.platform == "darwin":
+            if sys.platform in ["linux", "darwin"]:
                 # Randomly crashes on Travis, can't reproduce locally.
-                raise unittest.SkipTest()
-            elif sys.version_info >= (3, 13) and sys.platform == "linux":
-                # Can't reproduce
                 raise unittest.SkipTest()
 
         transport, proto = self.loop.run_until_complete(

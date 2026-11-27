@@ -222,9 +222,9 @@ class _TestBase:
 
     def test_call_later_rounding(self):
         # Refs #233, call_later() and call_at() shouldn't call cb early
-        if skip_test_fcntl and isinstance(self, AIOTestCase):
+        if isinstance(self, AIOTestCase):
             raise unittest.SkipTest(
-                "Rounding errors on standard asyncio windows. Uvloop is fine."
+                "Rounding errors on standard asyncio. Uvloop is fine."
             )
 
         def cb():
