@@ -1,14 +1,21 @@
+
+
 cdef str __strerr(int errno):
     return strerror(errno).decode()
 
-
+# TODO: This Function would be a possible Candidate for moving into C.
 cdef __convert_python_error(int uverr):
-    # XXX Won't work for Windows:
-    # From libuv docs:
-    #      Implementation detail: on Unix error codes are the
-    #      negated errno (or -errno), while on Windows they
-    #      are defined by libuv to arbitrary negative numbers.
-    cdef int oserr = -uverr
+    cdef int oserr
+    cdef object err
+
+    if system.PLATFORM_IS_WINDOWS:
+        # This has been debunked during winloop's beginnings when it was
+        # still a seperate library.
+        err = getattr(win_errno, uv.uv_err_name(uverr).decode(), uverr)
+        return OSError(err, uv.uv_strerror(uverr).decode())
+
+    oserr = -uverr
+
 
     exc = OSError
 
@@ -107,7 +114,17 @@ cdef convert_error(int uverr):
 
     sock_err = __convert_socket_error(uverr)
     if sock_err:
-        msg = system.gai_strerror(sock_err).decode('utf-8')
+        # Let's keep special unicode characters from being a threat.
+        # SEE: https://github.com/Vizonex/Winloop/issues/32
+        msg = system.gai_strerror(sock_err).decode('utf-8', "surrogateescape")
+        # Winloop comment: on Windows, cPython has a simpler error
+        # message than uvlib (via winsock probably) in these two cases:
+        # EAI_FAMILY [ErrNo 10047] "An address incompatible with the requested protocol was used. "
+        # EAI_NONAME [ErrNo 10001] "No such host is known. "
+        # We replace these messages with "getaddrinfo failed"
+        if system.PLATFORM_IS_WINDOWS:
+            if sock_err in (socket_EAI_FAMILY, socket_EAI_NONAME):
+                msg = 'getaddrinfo failed'
         return socket_gaierror(sock_err, msg)
 
     return __convert_python_error(uverr)

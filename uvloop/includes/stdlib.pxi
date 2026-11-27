@@ -18,6 +18,7 @@ import subprocess
 import ssl
 import stat
 import sys
+import shlex
 import threading
 import traceback
 import time
@@ -55,6 +56,7 @@ cdef col_OrderedDict = collections.OrderedDict
 cdef cc_ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor
 cdef cc_Future = concurrent.futures.Future
 
+cdef win_errno = errno
 cdef errno_EBADF = errno.EBADF
 cdef errno_EINVAL = errno.EINVAL
 
@@ -98,8 +100,11 @@ cdef int socket_EAI_PROTOCOL   = getattr(socket, 'EAI_PROTOCOL', -1)
 cdef int socket_EAI_SERVICE    = getattr(socket, 'EAI_SERVICE', -1)
 cdef int socket_EAI_SOCKTYPE   = getattr(socket, 'EAI_SOCKTYPE', -1)
 
+cdef shlex_split = shlex.split
 
 cdef str os_name = os.name
+cdef os_path_isabs = os.path.isabs
+cdef os_path_join = os.path.join
 cdef os_environ = os.environ
 cdef os_dup = os.dup
 cdef os_set_inheritable = os.set_inheritable
@@ -122,7 +127,7 @@ cdef sys_dev_mode = sys.flags.dev_mode
 cdef sys_exc_info = sys.exc_info
 cdef sys_set_coroutine_wrapper = getattr(sys, 'set_coroutine_wrapper', None)
 cdef sys_get_coroutine_wrapper = getattr(sys, 'get_coroutine_wrapper', None)
-cdef sys_getframe = sys._getframe
+cdef sys_getframe = sys._getframe # TODO: C Function of this function runs better.
 cdef sys_version_info = sys.version_info
 cdef sys_getfilesystemencoding = sys.getfilesystemencoding
 cdef str sys_platform = sys.platform
@@ -144,11 +149,14 @@ cdef threading_main_thread = threading.main_thread
 cdef int subprocess_PIPE = subprocess.PIPE
 cdef int subprocess_STDOUT = subprocess.STDOUT
 cdef int subprocess_DEVNULL = subprocess.DEVNULL
+cdef int subprocess_STARTF_USESHOWWINDOW = getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+cdef int subprocess_SW_HIDE = getattr(subprocess, "SW_HIDE", 0)
 cdef subprocess_SubprocessError = subprocess.SubprocessError
 
 cdef int signal_NSIG = signal.NSIG
+cdef int signal_SIGINT = signal.SIGINT
 cdef signal_signal = signal.signal
-cdef signal_siginterrupt = signal.siginterrupt
+cdef signal_siginterrupt = getattr(signal, "siginterrupt", None)
 cdef signal_set_wakeup_fd = signal.set_wakeup_fd
 cdef signal_default_int_handler = signal.default_int_handler
 cdef signal_SIG_DFL = signal.SIG_DFL
@@ -174,3 +182,4 @@ del asyncio, concurrent, collections, errno
 del functools, inspect, itertools, socket, os, threading
 del signal, subprocess, ssl
 del time, traceback, warnings, weakref
+del shlex

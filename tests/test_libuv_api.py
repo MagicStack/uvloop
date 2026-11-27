@@ -1,6 +1,6 @@
 from uvloop import _testbase as tb
-from uvloop.loop import libuv_get_loop_t_ptr, libuv_get_version
 from uvloop.loop import _testhelper_unwrap_capsuled_pointer as unwrap
+from uvloop.loop import libuv_get_loop_t_ptr, libuv_get_version
 
 
 class Test_UV_libuv(tb.UVTestCase):

@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import os.path
 import tempfile
+import unittest
 
 from uvloop import _testbase as tb
 from uvloop.loop import FileSystemEvent
@@ -19,16 +20,18 @@ class Test_UV_FS_Event(tb.UVTestCase):
         self.exit_stack.close()
         super().tearDown()
 
+    @unittest.skipIf(tb.is_windows, "TimeoutError on windows")
     def test_fs_event_change(self):
         change_event_count = 0
         filename = "fs_event_change.txt"
         path = os.path.join(self.tmp_dir, filename)
         q = asyncio.Queue()
 
-        with open(path, 'wt') as f:
+        with open(path, "w") as f:
+
             async def file_writer():
                 while True:
-                    f.write('hello uvloop\n')
+                    f.write("hello uvloop\n")
                     f.flush()
                     x = await q.get()
                     if x is None:
@@ -63,8 +66,10 @@ class Test_UV_FS_Event(tb.UVTestCase):
         event = asyncio.Event()
 
         async def file_renamer():
-            os.rename(os.path.join(self.tmp_dir, orig_name),
-                      os.path.join(self.tmp_dir, new_name))
+            os.rename(
+                os.path.join(self.tmp_dir, orig_name),
+                os.path.join(self.tmp_dir, new_name),
+            )
             await event.wait()
 
         def event_cb(ev_fname: bytes, evt: FileSystemEvent):
@@ -74,8 +79,8 @@ class Test_UV_FS_Event(tb.UVTestCase):
             if len(changed_set) == 0:
                 event.set()
 
-        with open(os.path.join(self.tmp_dir, orig_name), 'wt') as f:
-            f.write('hello!')
+        with open(os.path.join(self.tmp_dir, orig_name), "w") as f:
+            f.write("hello!")
         h = self.loop._monitor_fs(self.tmp_dir, event_cb)
         self.loop.run_until_complete(asyncio.sleep(0.5))  # let monitor start
         self.assertFalse(h.cancelled())

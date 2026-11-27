@@ -10,7 +10,10 @@ cdef class UVPoll(UVHandle):
             self._abort_init()
             raise MemoryError()
 
-        err = uv.uv_poll_init(self._loop.uvloop,
+        # NOTE: uv_poll_init_socket is important because
+        # on windows it works correctly and on unix.
+        # it falls back to uv_poll_init the same way.
+        err = uv.uv_poll_init_socket(self._loop.uvloop,
                               <uv.uv_poll_t *>self._handle, fd)
         if err < 0:
             self._abort_init()

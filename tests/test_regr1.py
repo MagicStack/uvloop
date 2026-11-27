@@ -1,23 +1,20 @@
 import asyncio
-import queue
 import multiprocessing
+import queue
 import signal
 import threading
 import unittest
 
 import uvloop
-
 from uvloop import _testbase as tb
 
 
 class EchoServerProtocol(asyncio.Protocol):
-
     def connection_made(self, transport):
-        transport.write(b'z')
+        transport.write(b"z")
 
 
 class EchoClientProtocol(asyncio.Protocol):
-
     def __init__(self, loop):
         self.loop = loop
 
@@ -42,7 +39,7 @@ def run_server(quin, qout):
         nonlocal server_loop
         loop = server_loop = uvloop.new_event_loop()
         asyncio.set_event_loop(loop)
-        coro = loop.create_server(EchoServerProtocol, '127.0.0.1', 0)
+        coro = loop.create_server(EchoServerProtocol, "127.0.0.1", 0)
         server = loop.run_until_complete(coro)
         addr = server.sockets[0].getsockname()
         qout.put(addr)
@@ -53,7 +50,7 @@ def run_server(quin, qout):
             loop.close()
         except Exception as exc:
             print(exc)
-        qout.put('stopped')
+        qout.put("stopped")
 
     thread = threading.Thread(target=server_thread, daemon=True)
     thread.start()
@@ -79,16 +76,14 @@ class TestIssue39Regr(tb.UVTestCase):
                 if threaded:
                     qin, qout = queue.Queue(), queue.Queue()
                     threading.Thread(
-                        target=run_server,
-                        args=(qin, qout),
-                        daemon=True).start()
+                        target=run_server, args=(qin, qout), daemon=True
+                    ).start()
                 else:
                     qin = multiprocessing.Queue()
                     qout = multiprocessing.Queue()
                     multiprocessing.Process(
-                        target=run_server,
-                        args=(qin, qout),
-                        daemon=True).start()
+                        target=run_server, args=(qin, qout), daemon=True
+                    ).start()
 
                 addr = qout.get()
                 loop = self.new_loop()
@@ -96,15 +91,19 @@ class TestIssue39Regr(tb.UVTestCase):
                 loop.create_task(
                     loop.create_connection(
                         lambda: EchoClientProtocol(loop),
-                        host=addr[0], port=addr[1]))
+                        host=addr[0],
+                        port=addr[1],
+                    )
+                )
                 loop.run_forever()
                 loop.close()
-                qin.put('stop')
+                qin.put("stop")
                 qout.get()
 
     @unittest.skipIf(
-        multiprocessing.get_start_method(False) == 'spawn',
-        'no need to test on macOS where spawn is used instead of fork')
+        multiprocessing.get_start_method(False) == "spawn",
+        "no need to test on macOS where spawn is used instead of fork",
+    )
     def test_issue39_regression(self):
         signal.signal(signal.SIGALRM, self.on_alarm)
         signal.alarm(5)
@@ -113,7 +112,7 @@ class TestIssue39Regr(tb.UVTestCase):
             self.running = True
             self.run_test()
         except FailedTestError:
-            self.fail('deadlocked in libuv')
+            self.fail("deadlocked in libuv")
         finally:
             self.running = False
             signal.signal(signal.SIGALRM, signal.SIG_IGN)

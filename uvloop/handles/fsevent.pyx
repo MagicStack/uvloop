@@ -1,6 +1,5 @@
 import enum
 
-
 class FileSystemEvent(enum.IntEnum):
     RENAME = uv.UV_RENAME
     CHANGE = uv.UV_CHANGE

@@ -1,3 +1,4 @@
+import multiprocessing
 import os.path
 import sys
 import unittest
@@ -10,7 +11,9 @@ def suite():
     return test_suite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    if sys.platform == "win32":
+        multiprocessing.freeze_support()
     runner = unittest.runner.TextTestRunner()
     result = runner.run(suite())
     sys.exit(not result.wasSuccessful())

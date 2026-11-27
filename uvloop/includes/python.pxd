@@ -29,3 +29,6 @@ cdef extern from "includes/compat.h":
     void PyOS_AfterFork_Child()
 
     void _Py_RestoreSignals()
+
+    # object Sys_GetFrame(int depth) # TODO
+

@@ -25,11 +25,12 @@ cdef class UVProcess(UVHandle):
     cdef _init(self, Loop loop, list args, dict env,
                cwd, start_new_session,
                _stdin, _stdout, _stderr,  # std* can be defined as macros in C
-               pass_fds, debug_flags, preexec_fn, restore_signals):
+               pass_fds, debug_flags, preexec_fn, restore_signals, startupinfo):
 
         global __forking
-        global __forking_loop
-        global __forkHandler
+        if not system.PLATFORM_IS_WINDOWS:
+            global __forking_loop
+            global __forkHandler
 
         cdef int err
 
@@ -53,7 +54,7 @@ cdef class UVProcess(UVHandle):
 
         try:
             self._init_options(args, env, cwd, start_new_session,
-                               _stdin, _stdout, _stderr, force_fork)
+                               _stdin, _stdout, _stderr, force_fork, startupinfo)
 
             restore_inheritable = set()
             if pass_fds:
@@ -86,22 +87,30 @@ cdef class UVProcess(UVHandle):
             self._restore_signals = restore_signals
 
             loop.active_process_handler = self
-            __forking = 1
-            __forking_loop = loop
-            system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 1
+                __forking_loop = loop
+                system.setForkHandler(<system.OnForkHandler>&__get_fork_handler)
 
-            PyOS_BeforeFork()
+                PyOS_BeforeFork()
+            
+            else:
+                py_gil_state = PyGILState_Ensure()
 
             err = uv.uv_spawn(loop.uvloop,
-                              <uv.uv_process_t*>self._handle,
-                              &self.options)
+                          <uv.uv_process_t*>self._handle,
+                          &self.options)
 
-            __forking = 0
-            __forking_loop = None
-            system.resetForkHandler()
+
+            if not system.PLATFORM_IS_WINDOWS:
+                __forking = 0
+                __forking_loop = None
+                system.resetForkHandler()
+                PyOS_AfterFork_Parent()
+            else:
+                PyGILState_Release(py_gil_state)
+
             loop.active_process_handler = None
-
-            PyOS_AfterFork_Parent()
 
             if err < 0:
                 self._close_process_handle()
@@ -175,11 +184,12 @@ cdef class UVProcess(UVHandle):
         if self._restore_signals:
             _Py_RestoreSignals()
 
-        PyOS_AfterFork_Child()
+        if not system.PLATFORM_IS_WINDOWS:
+            PyOS_AfterFork_Child()
 
-        err = uv.uv_loop_fork(self._loop.uvloop)
-        if err < 0:
-            raise convert_error(err)
+            err = uv.uv_loop_fork(self._loop.uvloop)
+            if err < 0:
+                raise convert_error(err)
 
         if self._preexec_fn is not None:
             try:
@@ -221,6 +231,7 @@ cdef class UVProcess(UVHandle):
             bytes el
 
             char **ret
+        
 
         ret = <char **>PyMem_RawMalloc((arr_len + 1) * sizeof(char *))
         if ret is NULL:
@@ -228,6 +239,7 @@ cdef class UVProcess(UVHandle):
 
         for i in range(arr_len):
             el = arr[i]
+
             # NB: PyBytes_AsString doesn't copy the data;
             # we have to be careful when the "arr" is GCed,
             # and it shouldn't be ever mutated.
@@ -237,10 +249,11 @@ cdef class UVProcess(UVHandle):
         return ret
 
     cdef _init_options(self, list args, dict env, cwd, start_new_session,
-                       _stdin, _stdout, _stderr, bint force_fork):
+                       _stdin, _stdout, _stderr, bint force_fork, startupinfo):
 
         memset(&self.options, 0, sizeof(uv.uv_process_options_t))
 
+        self._init_startupinfo(startupinfo)
         self._init_env(env)
         self.options.env = self.uv_opt_env
 
@@ -281,6 +294,32 @@ cdef class UVProcess(UVHandle):
         self.options.exit_cb = &__uvprocess_on_exit_callback
 
         self._init_files(_stdin, _stdout, _stderr)
+
+    # Winloop needs startupinfo in order to work with playwright
+    # SEE: https://github.com/Vizonex/Winloop/issues/34
+    cdef _init_startupinfo(self, startupinfo):
+        if startupinfo is None:
+            return
+        if not system.PLATFORM_IS_WINDOWS:
+            raise ValueError('startupinfo is not supported')
+        if startupinfo.dwFlags & ~subprocess_STARTF_USESHOWWINDOW:
+            raise ValueError(
+                'startupinfo.dwFlags only supports STARTF_USESHOWWINDOW')
+        attribute_list = startupinfo.lpAttributeList
+        if attribute_list and (
+            attribute_list.get('handle_list')
+            or set(attribute_list) != {'handle_list'}
+        ):
+            raise ValueError(
+                'non-empty startupinfo.lpAttributeList is not supported')
+        if startupinfo.dwFlags & subprocess_STARTF_USESHOWWINDOW:
+            if startupinfo.wShowWindow != subprocess_SW_HIDE:
+                raise ValueError(
+                    'startupinfo.wShowWindow only supports SW_HIDE')
+            # Match STARTF_USESHOWWINDOW with SW_HIDE, without changing
+            # whether the child has a console.
+            self.options.flags |= uv.UV_PROCESS_WINDOWS_HIDE_GUI
+
 
     cdef _init_args(self, list args):
         cdef:
@@ -466,6 +505,15 @@ cdef class UVProcessTransport(UVProcess):
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 io[0] = self._file_redirect_stdio(_stdin)
+
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDIN_BAD:
+            # When a stdio is in a gui-like state without a console,
+            # using a standard redirect is not a good idea. This at least
+            # is a better workaround that is a bit cleaner than doing what the
+            # python standard library subprocess does with the _get_handles function
+            # on windows. SEE: https://github.com/Vizonex/Winloop/issues/126
+            io[0] = self._file_devnull()
+
         else:
             io[0] = self._file_redirect_stdio(0)
 
@@ -494,6 +542,8 @@ cdef class UVProcessTransport(UVProcess):
                     'subprocess.STDOUT is supported only by stderr parameter')
             else:
                 io[1] = self._file_redirect_stdio(_stdout)
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDOUT_BAD:
+            io[1] = self._file_devnull()
         else:
             io[1] = self._file_redirect_stdio(1)
 
@@ -519,6 +569,9 @@ cdef class UVProcessTransport(UVProcess):
                 io[2] = self._file_devnull()
             else:
                 io[2] = self._file_redirect_stdio(_stderr)
+
+        elif system.PLATFORM_IS_WINDOWS and system.__UVLOOP_STDOUT_BAD:
+            io[2] = self._file_devnull()
         else:
             io[2] = self._file_redirect_stdio(2)
 
@@ -601,7 +654,8 @@ cdef class UVProcessTransport(UVProcess):
                                 waiter,
                                 debug_flags,
                                 preexec_fn,
-                                restore_signals):
+                                restore_signals, 
+                                startupinfo):
 
         cdef UVProcessTransport handle
         handle = UVProcessTransport.__new__(UVProcessTransport)
@@ -613,7 +667,8 @@ cdef class UVProcessTransport(UVProcess):
                      pass_fds,
                      debug_flags,
                      preexec_fn,
-                     restore_signals)
+                     restore_signals,
+                     startupinfo)
 
         if handle._init_futs:
             handle._stdio_ready = 0
@@ -773,7 +828,15 @@ cdef __socketpair():
         int fds[2]
         int err
 
-    err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
+    # Winloop comment: no Unix sockets on Windows, using uv.uv_pipe()
+    # instead of system.socketpair(). Also, see changes to
+    # libuv/src/win/pipe.c to deal with UV_EPERM = -4048 errors
+    # for stdin pipe.
+    if system.PLATFORM_IS_WINDOWS:
+        # NB: uv.uv_file is int type on Windows
+        err = uv.uv_pipe(fds, uv.UV_NONBLOCK_PIPE, uv.UV_NONBLOCK_PIPE)
+    else:
+        err = system.socketpair(uv.AF_UNIX, uv.SOCK_STREAM, 0, fds)
     if err:
         exc = convert_error(-err)
         raise exc
@@ -782,6 +845,7 @@ cdef __socketpair():
     os_set_inheritable(fds[1], False)
 
     return fds[0], fds[1]
+
 
 
 cdef void __uv_close_process_handle_cb(
