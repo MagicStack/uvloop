@@ -66,6 +66,7 @@ cdef class SSLProtocol:
 
         bint _ssl_writing_paused
         bint _app_reading_paused
+        bint _tcp_eof_received
 
         size_t _incoming_high_water
         size_t _incoming_low_water
@@ -121,7 +122,7 @@ cdef class SSLProtocol:
     # Incoming flow
 
     cdef inline _do_read(self)
-    cdef inline _do_read__buffered(self)
+    cdef inline bint _do_read__buffered(self) except -1
     cdef inline _do_read__copied(self)
     cdef inline _call_eof_received(self, object context=*)
 

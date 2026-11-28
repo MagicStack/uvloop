@@ -1598,6 +1598,52 @@ class _TestSSL(tb.SSLTestCase):
         with self._silence_eof_received_warning():
             run(client_sock)
 
+    def test_ssl_tcp_eof_while_reading_paused(self):
+        loop = self.loop
+        sslctx = self._create_server_ssl_context(self.ONLYCERT, self.ONLYKEY)
+        client_sslctx = self._create_client_ssl_context()
+        data = b'hello' * 4096
+
+        def server(sock):
+            sock.starttls(sslctx, server_side=True)
+            self.assertEqual(sock.recv_all(2), b'go')
+            sock.sendall(data)
+            sock.close()
+
+        class Client(MyBaseProto):
+            def connection_made(self, transport):
+                super().connection_made(transport)
+                transport.pause_reading()
+                transport.write(b'go')
+                self.resume = loop.call_later(0.1, transport.resume_reading)
+
+        class BufferedClient(Client, asyncio.BufferedProtocol):
+            def get_buffer(self, sizehint):
+                self.buffer = bytearray(4096)
+                return self.buffer
+
+            def buffer_updated(self, nbytes):
+                self.data_received(self.buffer[:nbytes])
+
+        async def client(addr, protocol_factory):
+            transport, protocol = await loop.create_connection(
+                lambda: protocol_factory(loop), *addr, ssl=client_sslctx)
+            try:
+                await asyncio.wait_for(protocol.done, 5)
+                self.assertEqual(protocol.nbytes, len(data))
+            finally:
+                protocol.resume.cancel()
+                transport.abort()
+
+        protocols = [Client]
+        if self.implementation == 'uvloop':
+            protocols.append(BufferedClient)
+
+        for protocol in protocols:
+            with self.subTest(protocol=protocol.__name__):
+                with self.tcp_server(server, max_clients=1) as srv:
+                    loop.run_until_complete(client(srv.addr, protocol))
+
     def test_create_connection_ssl_slow_handshake(self):
         if self.implementation == 'asyncio':
             raise unittest.SkipTest()
@@ -3045,8 +3091,9 @@ class _TestSSL(tb.SSLTestCase):
             sock.send(b'extra bytes')
             # sending EOF here
             sock.shutdown(socket.SHUT_WR)
-            # make sure we have enough time to reproduce the issue
-            self.assertEqual(sock.recv(1024), b'')
+            # Drain the client's close_notify and wait for TCP EOF.
+            while sock.recv(1024):
+                pass
             sock.close()
 
         class Protocol(asyncio.Protocol):
@@ -3062,6 +3109,7 @@ class _TestSSL(tb.SSLTestCase):
                     self.transport.write(b'world')
                     # pause reading would make incoming data stay in the sslobj
                     self.transport.pause_reading()
+                    self.transport.close()
                 else:
                     nonlocal extra
                     extra = data
@@ -3072,14 +3120,10 @@ class _TestSSL(tb.SSLTestCase):
                 else:
                     self.fut.set_exception(exc)
 
-            def eof_received(self):
-                self.transport.resume_reading()
-
         async def client(addr):
             ctx = self._create_client_ssl_context()
-            tr, pr = await loop.create_connection(Protocol, *addr, ssl=ctx)
+            _, pr = await loop.create_connection(Protocol, *addr, ssl=ctx)
             await pr.fut
-            tr.close()
             # extra data received after transport.close() should be ignored
             self.assertIsNone(extra)
 
