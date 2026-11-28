@@ -411,12 +411,14 @@ cdef class SSLProtocol:
             if self._state == DO_HANDSHAKE:
                 self._on_handshake_complete(ConnectionResetError)
 
-            elif self._state == WRAPPED or self._state == FLUSHING:
-                # We treat a low-level EOF as a critical situation similar to a
-                # broken connection - just send whatever is in the buffer and
-                # close. No application level eof_received() is called -
-                # because we don't want the user to think that this is a
-                # graceful shutdown triggered by SSL "close_notify".
+            elif self._state == WRAPPED:
+                # Drain buffered data before closing, respecting read flow
+                # control. A TCP EOF is not an SSL close_notify.
+                self._tcp_eof_received = True
+                self._do_read()
+                return self._state == WRAPPED
+
+            elif self._state == FLUSHING:
                 self._set_state(SHUTDOWN)
                 self._on_shutdown_complete(None)
 
@@ -578,6 +580,10 @@ cdef class SSLProtocol:
             self._abort(None)
         else:
             self._set_state(FLUSHING)
+            if self._tcp_eof_received:
+                self._set_state(SHUTDOWN)
+                self._on_shutdown_complete(None)
+                return
             self._shutdown_timeout_handle = \
                 self._loop.call_later(self._ssl_shutdown_timeout,
                                       lambda: self._check_shutdown_timeout())
@@ -714,23 +720,32 @@ cdef class SSLProtocol:
     # Incoming flow
 
     cdef _do_read(self):
+        cdef bint read_scheduled = False
+
         if self._state != WRAPPED:
             return
         try:
             if not self._app_reading_paused:
                 if self._app_protocol_is_buffer:
-                    self._do_read__buffered()
+                    read_scheduled = self._do_read__buffered()
                 else:
                     self._do_read__copied()
                 if self._write_backlog:
                     self._do_write()
                 self._process_outgoing()
                 self._control_app_writing()
+            if (self._tcp_eof_received and self._state == WRAPPED
+                    and not read_scheduled
+                    and (not self._app_reading_paused
+                         or not (self._incoming.pending
+                                 or self._sslobj_pending()))):
+                self._set_state(SHUTDOWN)
+                self._on_shutdown_complete(None)
             self._control_ssl_reading()
         except Exception as ex:
             self._fatal_error(ex, 'Fatal error on SSL protocol')
 
-    cdef _do_read__buffered(self):
+    cdef bint _do_read__buffered(self) except -1:
         cdef:
             Py_ssize_t total_pending = (<Py_ssize_t>self._incoming.pending
                                         + <Py_ssize_t>self._sslobj_pending())
@@ -741,13 +756,14 @@ cdef class SSLProtocol:
             Py_ssize_t app_buffer_size = len(app_buffer)
 
         if app_buffer_size == 0:
-            return
+            return False
 
         cdef:
             Py_ssize_t last_bytes_read = -1
             Py_ssize_t total_bytes_read = 0
             Py_buffer pybuf
             bint pybuf_initialized = False
+            bint read_scheduled = False
 
         try:
             # SSLObject.read may not return all available data in one go.
@@ -801,6 +817,7 @@ cdef class SSLProtocol:
                                          <method_t> self._do_read,
                                          None,  # current context is good
                                          self))
+                    read_scheduled = True
                     break
 
                 total_pending = (<Py_ssize_t>self._incoming.pending +
@@ -820,6 +837,7 @@ cdef class SSLProtocol:
             # close_notify
             self._call_eof_received()
             self._start_shutdown()
+        return read_scheduled
 
     cdef _do_read__copied(self):
         cdef:
@@ -946,6 +964,8 @@ cdef class SSLProtocol:
     # Flow control for reads from SSL socket
 
     cdef _control_ssl_reading(self):
+        if self._tcp_eof_received:
+            return
         cdef size_t size = self._get_read_buffer_size()
         if size >= self._incoming_high_water and not self._ssl_reading_paused:
             self._ssl_reading_paused = True
